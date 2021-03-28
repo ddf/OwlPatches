@@ -1,6 +1,7 @@
   
 #include "Patch.h"
 #include "VoltsPerOctave.h"
+#include "RampOscillator.h"
 
 class KnoscillatorLichPatch : public Patch 
 {
@@ -15,6 +16,9 @@ private:
   float phaseR;
   float phaseS;
   float phaseM;
+
+  RampOscillator* rotX;
+  RampOscillator* rotY;
 
   const float TWO_PI;
   const float oneOverSampleRate;
@@ -41,11 +45,16 @@ public:
     setParameterValue(inKnotP, 0.2f);
     setParameterValue(inKnotQ, 0.2f);
 
+    rotX = RampOscillator::create(getSampleRate());
+    rotY = RampOscillator::create(getSampleRate());
+
     semitone.delta = 0.5f;
   }
 
   ~KnoscillatorLichPatch()
   {
+    RampOscillator::destroy(rotX);
+    RampOscillator::destroy(rotY);
   }
 
   float sample(float* buffer, size_t bufferSize, float normIdx)
@@ -69,13 +78,20 @@ public:
     float morphTarget = getParameterValue(inMorph)*M_PI;
     float morphStep = (morphTarget - phaseM) / getBlockSize();
 
-    float pTarget = round(1 + getParameterValue(inKnotP) * 16);
-    float pStep = (pTarget - knotP) / getBlockSize();
-    float qTarget = round(1 + getParameterValue(inKnotQ) * 16);
-    float qStep = (qTarget - knotQ) / getBlockSize();
+    float pRaw = 1 + getParameterValue(inKnotP) * 16;
+    float pTarget = round(pRaw);
+    float pDelta = pTarget - knotP;
+    float pStep = pDelta / getBlockSize();
+    float qRaw = 1 + getParameterValue(inKnotQ) * 16;
+    float qTarget = round(qRaw);
+    float qDelta = qTarget - knotQ;
+    float qStep = qDelta / getBlockSize();
 
     float p = knotP;
     float q = knotQ;
+
+    rotX->setFrequency(pRaw - knotP);
+    rotY->setFrequency(qRaw - knotQ);
 
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
@@ -86,8 +102,9 @@ public:
       float qt = phaseQ * TWO_PI;
       float rt = phaseR * TWO_PI;
 
-      // stubs for rotation, not sure we'll use these
-      float xp = 0, yp = 0, zp = 0;
+      float xp = rotX->getNextSample()*TWO_PI;
+      float yp = rotY->getNextSample()*TWO_PI;
+      float zp = 0;
 
       // trefoil knot
       x[0] = sin(qt + xp) + 2 * sin(pt + xp);
