@@ -7,6 +7,8 @@ class KnoscillatorLichPatch : public Patch
 private:
   StiffFloat semitone;
   VoltsPerOctave hz;
+  int knotP;
+  int knotQ;
 
   float phaseP;
   float phaseQ;
@@ -24,7 +26,7 @@ private:
 
 public:
   KnoscillatorLichPatch()
-    : hz(true),
+    : hz(true), knotP(1), knotQ(1),
     phaseP(0), phaseQ(0), phaseR(0), phaseS(0), phaseM(0),
     inSemitones(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate())
@@ -62,14 +64,18 @@ public:
 
     semitone = getParameterValue(inSemitones) * 56 - 56;
     float freq = round(semitone) / 12;
-    
-    float p = round(1 + getParameterValue(inKnotP)*16);
-    float q = round(1 + getParameterValue(inKnotQ)*16);
-
     hz.setTune(freq);
 
     float morphTarget = getParameterValue(inMorph)*M_PI;
     float morphStep = (morphTarget - phaseM) / getBlockSize();
+
+    float pTarget = round(1 + getParameterValue(inKnotP) * 16);
+    float pStep = (pTarget - knotP) / getBlockSize();
+    float qTarget = round(1 + getParameterValue(inKnotQ) * 16);
+    float qStep = (qTarget - knotQ) / getBlockSize();
+
+    float p = knotP;
+    float q = knotQ;
 
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
@@ -119,6 +125,12 @@ public:
 
       phaseP += step * p;
       if (phaseP > 1) phaseP -= 1;
+
+      p += pStep;
+      q += qStep;
     }
+
+    knotP = (int)pTarget;
+    knotQ = (int)qTarget;
   }
 };
