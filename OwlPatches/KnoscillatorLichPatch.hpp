@@ -90,8 +90,8 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    rotX->setFrequency(pRaw - knotP);
-    rotY->setFrequency(qRaw - knotQ);
+    rotX->setFrequency(pRaw - pTarget);
+    rotY->setFrequency(qRaw - qTarget);
 
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
@@ -102,8 +102,8 @@ public:
       float qt = phaseQ * TWO_PI;
       float rt = phaseR * TWO_PI;
 
-      float xp = rotX->getNextSample()*TWO_PI;
-      float yp = rotY->getNextSample()*TWO_PI;
+      float xp = (rotX->getNextSample() + 1)*M_PI;
+      float yp = (rotY->getNextSample() + 1)*M_PI;
       float zp = 0;
 
       // trefoil knot
