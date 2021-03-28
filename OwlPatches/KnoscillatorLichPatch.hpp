@@ -71,8 +71,6 @@ public:
     q = 1 + getParameterValue(inKnotQ)*16;
 
     hz.setTune(freq);
-    freq = hz.getFrequency(left[0]);
-    float step = freq * oneOverSampleRate;
 
     float morphTarget = getParameterValue(inMorph)*M_PI;
     float morphStep = (morphTarget - phaseM) / getBlockSize();
@@ -80,6 +78,8 @@ public:
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
     {
+      freq = hz.getFrequency(left[s]);
+
       float pt = phaseP * TWO_PI;
       float qt = phaseQ * TWO_PI;
       float rt = phaseR * TWO_PI;
@@ -114,6 +114,7 @@ public:
       left[s] = ox * oz;
       right[s] = oy * oz;
 
+      float step = freq * oneOverSampleRate;
       phaseR += step;
       if (phaseR > 1) phaseR -= 1;
 
