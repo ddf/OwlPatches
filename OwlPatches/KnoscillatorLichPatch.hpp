@@ -42,8 +42,8 @@ public:
     setParameterValue(inKnotQ, 0.2f);
 
     semitone.delta = 0.5f;
-    p.delta = 0.1f;
-    q.delta = 0.1f;
+    p.delta = 0.01f;
+    q.delta = 0.01f;
   }
 
   ~KnoscillatorLichPatch()
