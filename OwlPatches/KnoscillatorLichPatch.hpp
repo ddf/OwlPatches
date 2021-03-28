@@ -92,7 +92,7 @@ public:
     float q = knotQ;
 
     rotX->setFrequency(0);
-    rotY->setFrequency(1);
+    rotY->setFrequency(10);
 
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
