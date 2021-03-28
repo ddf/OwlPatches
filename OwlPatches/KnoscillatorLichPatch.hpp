@@ -6,8 +6,6 @@ class KnoscillatorLichPatch : public Patch
 {
 private:
   StiffFloat semitone;
-  StiffFloat p;
-  StiffFloat q;
   VoltsPerOctave hz;
 
   float phaseP;
@@ -42,8 +40,6 @@ public:
     setParameterValue(inKnotQ, 0.2f);
 
     semitone.delta = 0.5f;
-    p.delta = 1.0f;
-    q.delta = 1.0f;
   }
 
   ~KnoscillatorLichPatch()
@@ -67,8 +63,8 @@ public:
     semitone = getParameterValue(inSemitones) * 56 - 56;
     float freq = round(semitone) / 12;
     
-    p = 1 + getParameterValue(inKnotP)*16;
-    q = 1 + getParameterValue(inKnotQ)*16;
+    float p = round(1 + getParameterValue(inKnotP)*16);
+    float q = round(1 + getParameterValue(inKnotQ)*16);
 
     hz.setTune(freq);
 
@@ -118,7 +114,7 @@ public:
       phaseR += step;
       if (phaseR > 1) phaseR -= 1;
 
-      phaseQ += step * q;
+      phaseQ += step * q + step;
       if (phaseQ > 1) phaseQ -= 1;
 
       phaseP += step * p;
