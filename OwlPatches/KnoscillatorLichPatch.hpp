@@ -135,10 +135,10 @@ public:
       phaseP += step * p;
       if (phaseP > 1) phaseP -= 1;
 
-      phaseX += oneOverSampleRate*0.1f*p;
+      phaseX += oneOverSampleRate*0.01f*p*freq;
       if (phaseX > 1) phaseX -= 1;
 
-      phaseY += oneOverSampleRate*0.1f*q;
+      phaseY += oneOverSampleRate*0.01f*q*freq;
       if (phaseY > 1) phaseY -= 1;
 
       p += pStep;
