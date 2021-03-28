@@ -138,8 +138,8 @@ public:
       phaseX += oneOverSampleRate;
       if (phaseX > 1) phaseX -= 1;
 
-      //phaseY += step;
-      //if (phaseY > 1) phaseY -= 1;
+      phaseY += oneOverSampleRate;
+      if (phaseY > 1) phaseY -= 1;
 
       p += pStep;
       q += qStep;
