@@ -21,6 +21,7 @@ private:
 
   const float TWO_PI;
   const float oneOverSampleRate;
+  const float rotateBaseFreq = 1.0f / 128.0f;
 
   const PatchParameterId inSemitones;
   const PatchParameterId inMorph;
@@ -135,10 +136,10 @@ public:
       phaseP += step * p;
       if (phaseP > 1) phaseP -= 1;
 
-      phaseX += oneOverSampleRate*0.01f*pRaw*freq;
+      phaseX += oneOverSampleRate*rotateBaseFreq*pRaw*freq;
       if (phaseX > 1) phaseX -= 1;
 
-      phaseY += oneOverSampleRate*0.01f*qRaw*freq;
+      phaseY += oneOverSampleRate*rotateBaseFreq*qRaw*freq;
       if (phaseY > 1) phaseY -= 1;
 
       p += pStep;
