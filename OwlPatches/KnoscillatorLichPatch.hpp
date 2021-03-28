@@ -91,8 +91,8 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    rotX->setFrequency(1);
-    rotY->setFrequency(0);
+    rotX->setFrequency(0);
+    rotY->setFrequency(1);
 
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
