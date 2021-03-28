@@ -35,6 +35,11 @@ public:
     registerParameter(inKnotP, "P");
     registerParameter(inKnotQ, "Q");
 
+    setParameterValue(inSemitones, 0);
+    setParameterValue(inMorph, 0);
+    setParameterValue(inKnotP, 0.2f);
+    setParameterValue(inKnotQ, 0.2f);
+
     semitone.delta = 0.5f;
     p.delta = 1.0f;
     q.delta = 1.0f;
@@ -55,21 +60,24 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+    FloatArray left = audio.getSamples(LEFT_CHANNEL);
+    FloatArray right = audio.getSamples(RIGHT_CHANNEL);
+
     semitone = getParameterValue(inSemitones) * 56 - 56;
     float freq = round(semitone) / 12;
     
     p = 1 + getParameterValue(inKnotP)*16;
     q = 1 + getParameterValue(inKnotQ)*16;
 
-    FloatArray left = audio.getSamples(LEFT_CHANNEL);
-    FloatArray right = audio.getSamples(RIGHT_CHANNEL);
-
     hz.setTune(freq);
     freq = hz.getFrequency(left[0]);
     float step = freq * oneOverSampleRate;
 
+    float mt = getParameterValue(inMorph)*M_PI;
+    float mi = -0.5f*cos(mt) + 0.5f;
+
     float x[4], y[4], z[4];
-    for(int s = 0; s < getBlockSize(); ++s)
+    for(int s = 0; s < left.getSize(); ++s)
     {
       float pt = phaseP * TWO_PI;
       float qt = phaseQ * TWO_PI;
@@ -95,8 +103,6 @@ public:
       y[3] = -y[0];
       z[3] = z[0];
 
-      float mt = getParameterValue(inMorph)*M_PI;
-      float mi = -0.5f*cos(mt) + 0.5f;
       float ox = sample(x, 4, mi);
       float oy = sample(y, 4, mi);
       float oz = sample(z, 4, mi);
