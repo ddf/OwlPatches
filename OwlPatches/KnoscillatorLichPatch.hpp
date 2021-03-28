@@ -14,6 +14,7 @@ private:
   float phaseQ;
   float phaseR;
   float phaseS;
+  float phaseM;
 
   const float TWO_PI;
   const float oneOverSampleRate;
@@ -26,7 +27,7 @@ private:
 public:
   KnoscillatorLichPatch()
     : hz(true),
-    phaseP(0), phaseQ(0), phaseR(0), phaseS(0),
+    phaseP(0), phaseQ(0), phaseR(0), phaseS(0), phaseM(0),
     inSemitones(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate())
   {
@@ -73,8 +74,8 @@ public:
     freq = hz.getFrequency(left[0]);
     float step = freq * oneOverSampleRate;
 
-    float mt = getParameterValue(inMorph)*M_PI;
-    float mi = -0.5f*cos(mt) + 0.5f;
+    float morphTarget = getParameterValue(inMorph)*M_PI;
+    float morphStep = (morphTarget - phaseM) / getBlockSize();
 
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
@@ -102,6 +103,9 @@ public:
       x[3] = -x[0];
       y[3] = -y[0];
       z[3] = z[0];
+
+      phaseM += morphStep;
+      float mi = -0.5f*cos(phaseM) + 0.5f;
 
       float ox = sample(x, 4, mi);
       float oy = sample(y, 4, mi);
