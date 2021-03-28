@@ -118,7 +118,7 @@ public:
       phaseR += step;
       if (phaseR > 1) phaseR -= 1;
 
-      phaseQ += step * q;
+      phaseQ += step * q + step;
       if (phaseQ > 1) phaseQ -= 1;
 
       phaseP += step * p;
