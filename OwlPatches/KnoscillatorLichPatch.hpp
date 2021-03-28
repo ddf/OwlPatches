@@ -16,9 +16,8 @@ private:
   float phaseR;
   float phaseS;
   float phaseM;
-
-  RampOscillator* rotX;
-  RampOscillator* rotY;
+  float phaseX;
+  float phaseY;
 
   const float TWO_PI;
   const float oneOverSampleRate;
@@ -31,7 +30,7 @@ private:
 public:
   KnoscillatorLichPatch()
     : hz(true), knotP(1), knotQ(1),
-    phaseP(0), phaseQ(0), phaseR(0), phaseS(0), phaseM(0),
+    phaseP(0), phaseQ(0), phaseR(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0),
     inSemitones(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate())
   {
@@ -45,16 +44,11 @@ public:
     setParameterValue(inKnotP, 0.2f);
     setParameterValue(inKnotQ, 0.2f);
 
-    rotX = RampOscillator::create(getSampleRate());
-    rotY = RampOscillator::create(getSampleRate());
-
     semitone.delta = 0.5f;
   }
 
   ~KnoscillatorLichPatch()
   {
-    RampOscillator::destroy(rotX);
-    RampOscillator::destroy(rotY);
   }
 
   float sample(float* buffer, size_t bufferSize, float normIdx)
@@ -91,9 +85,6 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    rotX->setFrequency(0);
-    rotY->setFrequency(10);
-
     float x[4], y[4], z[4];
     for(int s = 0; s < left.getSize(); ++s)
     {
@@ -103,8 +94,8 @@ public:
       float qt = phaseQ * TWO_PI;
       float rt = phaseR * TWO_PI;
 
-      float xp = (rotX->getNextSample() + 1)*M_PI;
-      float yp = (rotY->getNextSample() + 1)*M_PI;
+      float xp = phaseX * TWO_PI;
+      float yp = phaseY * TWO_PI;
       float zp = 0;
 
       // trefoil knot
@@ -143,6 +134,12 @@ public:
 
       phaseP += step * p;
       if (phaseP > 1) phaseP -= 1;
+
+      phaseX += oneOverSampleRate;
+      if (phaseX > 1) phaseX -= 1;
+
+      phaseY += oneOverSampleRate;
+      if (phaseY > 1) phaseY -= 1;
 
       p += pStep;
       q += qStep;
