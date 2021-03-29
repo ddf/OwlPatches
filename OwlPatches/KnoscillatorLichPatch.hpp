@@ -1,12 +1,14 @@
   
 #include "Patch.h"
 #include "VoltsPerOctave.h"
-#include "RampOscillator.h"
+#include "SineOscillator.h"
 
 class KnoscillatorLichPatch : public Patch 
 {
 private:
   VoltsPerOctave hz;
+  SineOscillator* kpm;
+
   int knotP;
   int knotQ;
 
@@ -43,10 +45,14 @@ public:
     setParameterValue(inMorph, 0);
     setParameterValue(inKnotP, 0.2f);
     setParameterValue(inKnotQ, 0.2f);
+
+    kpm = SineOscillator::create(getSampleRate());
+    kpm->setFrequency(1.02f);
   }
 
   ~KnoscillatorLichPatch()
   {
+    SineOscillator::destroy(kpm);
   }
 
   float sample(float* buffer, size_t bufferSize, float normIdx)
@@ -63,8 +69,8 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    float freq = (getParameterValue(inPitch)*64 - 64) / 12.0f;
-    hz.setTune(freq);
+    float tune = (getParameterValue(inPitch)*64 - 64) / 12.0f;
+    hz.setTune(tune);
 
     float morphTarget = getParameterValue(inMorph)*M_PI;
     float morphStep = (morphTarget - phaseM) / getBlockSize();
@@ -85,10 +91,13 @@ public:
     float x[4], y[4], z[4];
     for(int s = 0; s < getBlockSize(); ++s)
     {
-      freq = hz.getFrequency(left[s]);
+      float freq = hz.getFrequency(left[s]);
+      // phase modulate in sync with the current frequency
+      kpm->setFrequency(freq*1.02f);
+      float pm   = kpm->getNextSample()*right[s];
 
-      float pt = phaseP * TWO_PI;
-      float qt = phaseQ * TWO_PI;
+      float pt = (phaseP+pm) * TWO_PI;
+      float qt = (phaseQ+pm) * TWO_PI;
       float rt = phaseR * TWO_PI;
 
       float xp = phaseX * TWO_PI;
