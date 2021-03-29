@@ -38,8 +38,8 @@ public:
   {
     registerParameter(inPitch, "Pitch");
     registerParameter(inMorph, "Morph");
-    registerParameter(inKnotP, "P");
-    registerParameter(inKnotQ, "Q");
+    registerParameter(inKnotP, "Knot P");
+    registerParameter(inKnotQ, "Knot Q");
 
     setParameterValue(inPitch, 0);
     setParameterValue(inMorph, 0);
