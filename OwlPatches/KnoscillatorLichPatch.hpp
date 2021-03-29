@@ -63,7 +63,7 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    float freq = getParameterValue(inPitch)*64 - 64;
+    float freq = (getParameterValue(inPitch)*64 - 64) / 12.0f;
     hz.setTune(freq);
 
     float morphTarget = getParameterValue(inMorph)*M_PI;
