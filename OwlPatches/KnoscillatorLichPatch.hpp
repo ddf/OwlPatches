@@ -6,7 +6,6 @@
 class KnoscillatorLichPatch : public Patch 
 {
 private:
-  StiffFloat semitone;
   VoltsPerOctave hz;
   int knotP;
   int knotQ;
@@ -23,7 +22,7 @@ private:
   const float oneOverSampleRate;
   const float rotateBaseFreq = 1.0f / 128.0f;
 
-  const PatchParameterId inSemitones;
+  const PatchParameterId inPitch;
   const PatchParameterId inMorph;
   const PatchParameterId inKnotP;
   const PatchParameterId inKnotQ;
@@ -32,20 +31,18 @@ public:
   KnoscillatorLichPatch()
     : hz(true), knotP(1), knotQ(1),
     phaseP(0), phaseQ(0), phaseR(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0),
-    inSemitones(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
+    inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate())
   {
-    registerParameter(inSemitones, "Semitone");
+    registerParameter(inPitch, "Pitch");
     registerParameter(inMorph, "Morph");
     registerParameter(inKnotP, "P");
     registerParameter(inKnotQ, "Q");
 
-    setParameterValue(inSemitones, 0);
+    setParameterValue(inPitch, 0);
     setParameterValue(inMorph, 0);
     setParameterValue(inKnotP, 0.2f);
     setParameterValue(inKnotQ, 0.2f);
-
-    semitone.delta = 0.5f;
   }
 
   ~KnoscillatorLichPatch()
@@ -66,19 +63,18 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    semitone = getParameterValue(inSemitones) * 56 - 56;
-    float freq = round(semitone) / 12;
+    float freq = getParameterValue(inPitch);
     hz.setTune(freq);
 
     float morphTarget = getParameterValue(inMorph)*M_PI;
     float morphStep = (morphTarget - phaseM) / getBlockSize();
 
-    float pRaw = getParameterValue(inKnotP) * 24;
+    float pRaw = getParameterValue(inKnotP) * 16;
     float pTarget = floor(pRaw);
     float pDelta = pTarget - knotP;
     float pStep = pDelta / getBlockSize();
 
-    float qRaw = getParameterValue(inKnotQ) * 24;
+    float qRaw = getParameterValue(inKnotQ) * 16;
     float qTarget = floor(qRaw);
     float qDelta = qTarget - knotQ;
     float qStep = qDelta / getBlockSize();
@@ -87,7 +83,7 @@ public:
     float q = knotQ;
 
     float x[4], y[4], z[4];
-    for(int s = 0; s < left.getSize(); ++s)
+    for(int s = 0; s < getBlockSize(); ++s)
     {
       freq = hz.getFrequency(left[s]);
 
