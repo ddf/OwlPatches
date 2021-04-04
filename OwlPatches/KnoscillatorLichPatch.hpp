@@ -2,7 +2,6 @@
 #include "Patch.h"
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
-#include "TapTempo.h"
 
 class KnoscillatorLichPatch : public Patch 
 {
