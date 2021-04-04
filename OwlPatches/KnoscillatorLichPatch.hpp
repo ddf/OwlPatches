@@ -149,16 +149,10 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    bool freezeP = false;
-    if (isButtonPressed(BUTTON_A))
-    {
-      phaseP = 0;
-    }
-    bool freezeQ = false;
-    if (isButtonPressed(BUTTON_B))
-    {
-      phaseQ = 0;
-    }
+    bool freezeP = isButtonPressed(BUTTON_A);
+    if (freezeP) phaseP = 0;
+    bool freezeQ = isButtonPressed(BUTTON_B);
+    if (freezeQ) phaseQ = 0;
 
     for(int s = 0; s < getBlockSize(); ++s)
     {
