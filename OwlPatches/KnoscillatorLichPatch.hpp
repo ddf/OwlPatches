@@ -2,6 +2,7 @@
 #include "Patch.h"
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
+#include "TapTempo.h"
 
 class KnoscillatorLichPatch : public Patch 
 {
@@ -150,9 +151,7 @@ public:
     float q = knotQ;
 
     bool freezeP = isButtonPressed(BUTTON_A);
-    if (freezeP) phaseP = 0;
     bool freezeQ = isButtonPressed(BUTTON_B);
-    if (freezeQ) phaseQ = 0;
 
     for(int s = 0; s < getBlockSize(); ++s)
     {
