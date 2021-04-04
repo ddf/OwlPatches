@@ -217,7 +217,7 @@ public:
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
     
-    setParameterValue(outRotateX, phaseX);
-    setParameterValue(outRotateY, phaseY);
+    setParameterValue(outRotateX, sin(phaseX*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateY, cos(phaseY*TWO_PI)*0.5f + 0.5f);
   }
 };
