@@ -149,8 +149,8 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    bool freezeX = isButtonPressed(BUTTON_A);
-    bool freezeY = isButtonPressed(BUTTON_B);
+    bool freezeP = isButtonPressed(BUTTON_A);
+    bool freezeQ = isButtonPressed(BUTTON_B);
 
     for(int s = 0; s < getBlockSize(); ++s)
     {
@@ -194,11 +194,17 @@ public:
       phaseZ += step;
       if (phaseZ > 1) phaseZ -= 1;
 
-      phaseQ += step * q;
-      if (phaseQ > 1) phaseQ -= 1;
+      if (!freezeQ)
+      {
+        phaseQ += step * q;
+        if (phaseQ > 1) phaseQ -= 1;
+      }
 
-      phaseP += step * p;
-      if (phaseP > 1) phaseP -= 1;
+      if (!freezeP)
+      {
+        phaseP += step * p;
+        if (phaseP > 1) phaseP -= 1;
+      }
 
       // #TODO squiggle
       //phaseSq += stepSize * 8 * (p.getLastValue() + q.getLastValue()) * (1 + srt.getLastValue());
@@ -207,17 +213,11 @@ public:
       //  phaseSq -= 1;
       //}
 
-      if (!freezeX)
-      {
-        phaseX += oneOverSampleRate * rotateBaseFreq*(pRaw - 1)*freq;
-        if (phaseX > 1) phaseX -= 1;
-      }
+      phaseX += oneOverSampleRate * rotateBaseFreq*(pRaw - 1)*freq;
+      if (phaseX > 1) phaseX -= 1;
 
-      if (!freezeY)
-      {
-        phaseY += oneOverSampleRate * rotateBaseFreq*qRaw*freq;
-        if (phaseY > 1) phaseY -= 1;
-      }
+      phaseY += oneOverSampleRate * rotateBaseFreq*qRaw*freq;
+      if (phaseY > 1) phaseY -= 1;
 
       p += pStep;
       q += qStep;
