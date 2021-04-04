@@ -35,7 +35,7 @@ private:
 
   const float TWO_PI;
   const float oneOverSampleRate;
-  const float rotateBaseFreq = 1.0f / 32.0f;
+  const float rotateBaseFreq = 1.0f / 16.0f;
 
   const PatchParameterId inPitch;
   const PatchParameterId inMorph;
@@ -213,10 +213,10 @@ public:
       //  phaseSq -= 1;
       //}
 
-      phaseX += oneOverSampleRate * rotateBaseFreq * (pRaw - 1);
+      phaseX += oneOverSampleRate * rotateBaseFreq * pRaw;
       if (phaseX > 1) phaseX -= 1;
 
-      phaseY += oneOverSampleRate * rotateBaseFreq * (qRaw - 1);
+      phaseY += oneOverSampleRate * rotateBaseFreq * qRaw;
       if (phaseY > 1) phaseY -= 1;
 
       p += pStep;
