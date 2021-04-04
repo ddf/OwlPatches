@@ -149,6 +149,9 @@ public:
     float p = knotP;
     float q = knotQ;
 
+    bool freezeX = isButtonPressed(BUTTON_A);
+    bool freezeY = isButtonPressed(BUTTON_B);
+
     for(int s = 0; s < getBlockSize(); ++s)
     {
       float freq = hz.getFrequency(left[s]);
@@ -204,11 +207,17 @@ public:
       //  phaseSq -= 1;
       //}
 
-      phaseX += oneOverSampleRate*rotateBaseFreq*(pRaw-1)*freq;
-      if (phaseX > 1) phaseX -= 1;
+      if (!freezeX)
+      {
+        phaseX += oneOverSampleRate * rotateBaseFreq*(pRaw - 1)*freq;
+        if (phaseX > 1) phaseX -= 1;
+      }
 
-      phaseY += oneOverSampleRate*rotateBaseFreq*qRaw*freq;
-      if (phaseY > 1) phaseY -= 1;
+      if (!freezeY)
+      {
+        phaseY += oneOverSampleRate * rotateBaseFreq*qRaw*freq;
+        if (phaseY > 1) phaseY -= 1;
+      }
 
       p += pStep;
       q += qStep;
