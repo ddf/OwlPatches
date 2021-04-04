@@ -182,7 +182,7 @@ public:
       //ox += sqa * cos(sqp);
       //oy += sqa * sin(sqp);
 
-      const float camDist = 4.5f;
+      const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
       left[s]  = ox * projection;
       right[s] = oy * projection;
