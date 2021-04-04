@@ -129,7 +129,7 @@ public:
     float morphTarget = getParameterValue(inMorph)*M_PI;
     float morphStep = (morphTarget - phaseM) / getBlockSize();
 
-    float pRaw = 1 + getParameterValue(inKnotP) * 16;
+    float pRaw = getParameterValue(inKnotP) * 16;
     float pTarget = floor(pRaw);
     float pDelta = pTarget - knotP;
     float pStep = pDelta / getBlockSize();
@@ -184,7 +184,7 @@ public:
       phaseZ += step;
       if (phaseZ > 1) phaseZ -= 1;
 
-      phaseQ += step * q + step;
+      phaseQ += step * q;
       if (phaseQ > 1) phaseQ -= 1;
 
       phaseP += step * p;
