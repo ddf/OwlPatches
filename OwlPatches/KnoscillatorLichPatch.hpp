@@ -41,23 +41,30 @@ private:
   const PatchParameterId inMorph;
   const PatchParameterId inKnotP;
   const PatchParameterId inKnotQ;
+  const PatchParameterId outRotateX;
+  const PatchParameterId outRotateY;
 
 public:
   KnoscillatorLichPatch()
     : hz(true), knotP(1), knotQ(1),
     phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
+    outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate())
   {
     registerParameter(inPitch, "Pitch");
     registerParameter(inMorph, "Morph");
     registerParameter(inKnotP, "Knot P");
     registerParameter(inKnotQ, "Knot Q");
+    registerParameter(outRotateX, "X-Rotation>");
+    registerParameter(outRotateY, "Y-Rotation>");
 
     setParameterValue(inPitch, 0);
     setParameterValue(inMorph, 0);
-    setParameterValue(inKnotP, 0.2f);
-    setParameterValue(inKnotQ, 0.2f);
+    setParameterValue(inKnotP, 2.0f / 16);
+    setParameterValue(inKnotQ, 1.0f / 16);
+    setParameterValue(outRotateX, 0);
+    setParameterValue(outRotateY, 0);
 
     x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
     y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
@@ -209,5 +216,8 @@ public:
 
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
+    
+    setParameterValue(outRotateX, phaseX);
+    setParameterValue(outRotateY, phaseY);
   }
 };
