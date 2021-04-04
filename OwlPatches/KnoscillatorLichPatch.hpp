@@ -35,7 +35,7 @@ private:
 
   const float TWO_PI;
   const float oneOverSampleRate;
-  const float rotateBaseFreq = 1.0f / 128.0f;
+  const float rotateBaseFreq = 1.0f / 32.0f;
 
   const PatchParameterId inPitch;
   const PatchParameterId inMorph;
