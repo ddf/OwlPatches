@@ -214,10 +214,10 @@ public:
       //  phaseSq -= 1;
       //}
 
-      phaseX += oneOverSampleRate * rotateBaseFreq*(pRaw - 1)*freq;
+      phaseX += oneOverSampleRate * rotateBaseFreq * (pRaw - 1);
       if (phaseX > 1) phaseX -= 1;
 
-      phaseY += oneOverSampleRate * rotateBaseFreq*qRaw*freq;
+      phaseY += oneOverSampleRate * rotateBaseFreq * (qRaw - 1);
       if (phaseY > 1) phaseY -= 1;
 
       p += pStep;
