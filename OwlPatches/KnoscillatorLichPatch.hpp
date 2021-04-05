@@ -50,7 +50,7 @@ private:
 public:
   KnoscillatorLichPatch()
     : hz(true), knotP(1), knotQ(1),
-    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0), gateHigh(0)
+    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0), gateHigh(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
