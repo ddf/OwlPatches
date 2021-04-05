@@ -40,6 +40,7 @@ private:
   const float rotateBaseFreq = 1.0f / 16.0f;
   const int   gateHighSampleLength;
 
+  // hardware inputs and outputs
   const PatchParameterId inPitch;
   const PatchParameterId inMorph;
   const PatchParameterId inKnotP;
@@ -47,12 +48,17 @@ private:
   const PatchParameterId outRotateX;
   const PatchParameterId outRotateY;
 
+  // MIDI inputs
+  const PatchParameterId inSquiggleVol;
+  const PatchParameterId inSquiggleFM;
+
 public:
   KnoscillatorLichPatch()
     : hz(true), knotP(1), knotQ(1),
     phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0), gateHigh(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
+    inSquiggleVol(PARAMETER_AA), inSquiggleFM(PARAMETER_AB),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
   {
     registerParameter(inPitch, "Pitch");
@@ -68,6 +74,12 @@ public:
     setParameterValue(inKnotQ, 1.0f / 16);
     setParameterValue(outRotateX, 0);
     setParameterValue(outRotateY, 0);
+
+    registerParameter(inSquiggleVol, "Squiggle Volume");
+    registerParameter(inSquiggleFM, "Squiggle FM Amount");
+
+    setParameterValue(inSquiggleVol, 0);
+    setParameterValue(inSquiggleFM, 0);
 
     x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
     y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
@@ -128,6 +140,18 @@ public:
     z = Azx * ix + Azy * iy + Azz * iz;
   }
 
+  void processMidi(MidiMessage msg)
+  {
+    if (msg.isControlChange())
+    {
+      auto cnum = msg.getControllerNumber();
+      if (cnum >= inSquiggleVol && cnum <= inSquiggleFM)
+      {
+        setParameterValue(cnum, msg.getControllerValue() / 127.0f);
+      }
+    }
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
@@ -152,6 +176,9 @@ public:
     float p = knotP;
     float q = knotQ;
 
+    float sVol = 0.01f * (getParameterValue(inSquiggleVol) - 1);
+    float sFM = getParameterValue(inSquiggleFM);
+
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
 
@@ -160,10 +187,13 @@ public:
       float freq = hz.getFrequency(left[s]);
       // phase modulate in sync with the current frequency
       kpm->setFrequency(freq*2);
-      float pm   = kpm->getNextSample()*right[s];
+      float pm  = kpm->getNextSample();
+      float ppm = pm*right[s];
+      float qpm = ppm;
+      float spm = pm * sFM;
 
-      float pt = (phaseP+pm) * TWO_PI;
-      float qt = (phaseQ+pm) * TWO_PI;
+      float pt = (phaseP+ppm) * TWO_PI;
+      float qt = (phaseQ+qpm) * TWO_PI;
       float zt = phaseZ * TWO_PI;
 
       float xp = phaseX * TWO_PI;
@@ -182,11 +212,9 @@ public:
 
       rotate(ox, oy, oz, phaseX*TWO_PI, phaseY*TWO_PI, 0);
 
-      // #TODO squiggle
-      //float sqp = (phaseSq + spm.getLastValue())*TWO_PI;
-      //float sqa = 0.01f * (s.getLastValue() - 1);
-      //ox += sqa * cos(sqp);
-      //oy += sqa * sin(sqp);
+      float st = (phaseS + spm)*TWO_PI;
+      ox += cos(st)*sVol;
+      oy += sin(st)*sVol;
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
@@ -209,12 +237,9 @@ public:
         if (phaseP > 1) phaseP -= 1;
       }
 
-      // #TODO squiggle
-      //phaseSq += stepSize * 8 * (p.getLastValue() + q.getLastValue()) * (1 + srt.getLastValue());
-      //if (phaseSq > 1)
-      //{
-      //  phaseSq -= 1;
-      //}
+      // #TODO squiggle detune
+      phaseS += step * 8 * (p + q); // *(1 + srt.getLastValue());
+      if (phaseS > 1) phaseS -= 1;
 
       if (gateHigh > 0)
       {
