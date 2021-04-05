@@ -176,7 +176,7 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    float sVol = 0.5f * getParameterValue(inSquiggleVol);
+    float sVol = 0.1f * getParameterValue(inSquiggleVol);
     float sFM = getParameterValue(inSquiggleFM);
 
     bool freezeP = isButtonPressed(BUTTON_A);
@@ -238,7 +238,7 @@ public:
       }
 
       // #TODO squiggle detune
-      phaseS += step / 8 * (p * q); // *(1 + srt.getLastValue());
+      phaseS += step * 4 * (p + q); // *(1 + srt.getLastValue());
       if (phaseS > 1) phaseS -= 1;
 
       if (gateHigh > 0)
