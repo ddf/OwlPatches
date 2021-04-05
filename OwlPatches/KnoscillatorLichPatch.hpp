@@ -176,7 +176,7 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    float sVol = 0.15f * getParameterValue(inSquiggleVol);
+    float sVol = 0.5f * getParameterValue(inSquiggleVol);
     float sFM = getParameterValue(inSquiggleFM);
 
     bool freezeP = isButtonPressed(BUTTON_A);
