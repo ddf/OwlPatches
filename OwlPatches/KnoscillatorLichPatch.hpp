@@ -33,9 +33,12 @@ private:
   float phaseX;
   float phaseY;
 
+  int gateHigh;
+
   const float TWO_PI;
   const float oneOverSampleRate;
   const float rotateBaseFreq = 1.0f / 16.0f;
+  const int   gateHighSampleLength;
 
   const PatchParameterId inPitch;
   const PatchParameterId inMorph;
@@ -47,10 +50,10 @@ private:
 public:
   KnoscillatorLichPatch()
     : hz(true), knotP(1), knotQ(1),
-    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0),
+    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0), gateHigh(0)
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
-    TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate())
+    TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
   {
     registerParameter(inPitch, "Pitch");
     registerParameter(inMorph, "Morph");
@@ -151,7 +154,6 @@ public:
 
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
-    bool gateOut = false;
 
     for(int s = 0; s < getBlockSize(); ++s)
     {
@@ -214,19 +216,24 @@ public:
       //  phaseSq -= 1;
       //}
 
+      if (gateHigh > 0)
+      {
+        --gateHigh;
+      }
+
       phaseX += oneOverSampleRate * rotateBaseFreq * pRaw;
       if (phaseX > 1)
       {
         phaseX -= 1;
+        gateHigh = gateHighSampleLength;
       }
 
       phaseY += oneOverSampleRate * rotateBaseFreq * qRaw;
       if (phaseY > 1)
       {
         phaseY -= 1;
+        gateHigh = gateHighSampleLength;
       }
-
-      gateOut |= phaseX < 0.1f || phaseY < 0.1f;
 
       p += pStep;
       q += qStep;
@@ -237,6 +244,6 @@ public:
     
     setParameterValue(outRotateX, sin(phaseX*TWO_PI)*0.5f + 0.5f);
     setParameterValue(outRotateY, cos(phaseY*TWO_PI)*0.5f + 0.5f);
-    setButton(PUSHBUTTON, gateOut);
+    setButton(PUSHBUTTON, gateHigh != 0);
   }
 };
