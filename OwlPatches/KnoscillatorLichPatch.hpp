@@ -218,15 +218,15 @@ public:
       if (phaseX > 1)
       {
         phaseX -= 1;
-        gateOut = true;
       }
 
       phaseY += oneOverSampleRate * rotateBaseFreq * qRaw;
       if (phaseY > 1)
       {
         phaseY -= 1;
-        gateOut = true;
       }
+
+      gateOut |= phaseX < 0.1f || phaseY < 0.1f;
 
       p += pStep;
       q += qStep;
