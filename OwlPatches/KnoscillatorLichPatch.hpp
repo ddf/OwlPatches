@@ -238,7 +238,7 @@ public:
       }
 
       // #TODO squiggle detune
-      phaseS += step * 2 * (p * q); // *(1 + srt.getLastValue());
+      phaseS += step * 0.25f * (p * q); // *(1 + srt.getLastValue());
       if (phaseS > 1) phaseS -= 1;
 
       if (gateHigh > 0)
