@@ -151,7 +151,6 @@ public:
 
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
-    bool gateOut = false;
 
     for(int s = 0; s < getBlockSize(); ++s)
     {
@@ -218,14 +217,12 @@ public:
       if (phaseX > 1)
       {
         phaseX -= 1;
-        gateOut = true;
       }
 
       phaseY += oneOverSampleRate * rotateBaseFreq * qRaw;
       if (phaseY > 1)
       {
         phaseY -= 1;
-        gateOut = true;
       }
 
       p += pStep;
@@ -237,6 +234,6 @@ public:
     
     setParameterValue(outRotateX, sin(phaseX*TWO_PI)*0.5f + 0.5f);
     setParameterValue(outRotateY, cos(phaseY*TWO_PI)*0.5f + 0.5f);
-    setButton(PUSHBUTTON, gateOut);
+    setButton(PUSHBUTTON, phaseX < 0.1f || phaseY < 0.1f);
   }
 };
