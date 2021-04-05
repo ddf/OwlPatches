@@ -144,7 +144,7 @@ public:
   {
     if (msg.isControlChange())
     {
-      auto cnum = msg.getControllerNumber();
+      PatchParameterId cnum = static_cast<PatchParameterId>(msg.getControllerNumber());
       if (cnum >= inSquiggleVol && cnum <= inSquiggleFM)
       {
         setParameterValue(cnum, msg.getControllerValue() / 127.0f);
