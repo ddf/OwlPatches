@@ -228,5 +228,6 @@ public:
     
     setParameterValue(outRotateX, sin(phaseX*TWO_PI)*0.5f + 0.5f);
     setParameterValue(outRotateY, cos(phaseY*TWO_PI)*0.5f + 0.5f);
+    setButton(PUSHBUTTON, phaseX < 0.25f || phaseY < 0.25f);
   }
 };
