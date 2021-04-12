@@ -280,8 +280,8 @@ public:
       rotate(ox, oy, oz, rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
 
       float st = phaseS + spm;
-      float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
-      float ny = nVol * perlin2d(0, fabs(oy), q, 4);
+      //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
+      //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
       ox += cos(st)*sVol; // +nx;
       oy += sin(st)*sVol; // +ny;
 
