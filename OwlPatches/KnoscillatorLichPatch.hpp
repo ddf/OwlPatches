@@ -1,5 +1,6 @@
   
 #include "Patch.h"
+#include "MidiMessage.h"
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
 
@@ -50,8 +51,8 @@ private:
   const PatchParameterId outRotateY;
 
   // MIDI inputs
-  const PatchParameterId inSquiggleVol;
-  const PatchParameterId inSquiggleFM;
+  static const PatchParameterId inSquiggleVol = PARAMETER_AA;
+  static const PatchParameterId inSquiggleFM = PARAMETER_AB;
 
 public:
   KnoscillatorLichPatch()
@@ -59,7 +60,6 @@ public:
     phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), rotateX(0), rotateY(0), rotateZ(0), gateHigh(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
-    inSquiggleVol(PARAMETER_AA), inSquiggleFM(PARAMETER_AB),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
   {
     registerParameter(inPitch, "Pitch");
@@ -145,10 +145,13 @@ public:
   {
     if (msg.isControlChange())
     {
-      PatchParameterId cnum = static_cast<PatchParameterId>(msg.getControllerNumber());
-      if (cnum >= inSquiggleVol && cnum <= inSquiggleFM)
+      const auto id = msg.getControllerNumber() - PATCH_PARAMETER_AA;
+      const PatchParameterId pid = PatchParameterId(PARAMETER_AA + id);
+      const float pval = msg.getControllerValue() / 127.0f;
+      switch (pid)
       {
-        setParameterValue(cnum, msg.getControllerValue() / 127.0f);
+        case inSquiggleVol: setParameterValue(inSquiggleVol, pval); break;
+        case inSquiggleFM: setParameterValue(inSquiggleFM, pval); break;
       }
     }
   }
