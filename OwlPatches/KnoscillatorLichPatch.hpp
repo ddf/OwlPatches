@@ -44,7 +44,7 @@ private:
   const float TWO_PI;
   const float oneOverSampleRate;
   const float rotateBaseFreq = 1.0f / 16.0f;
-  const float rotateOffLamda = 0.99f;
+  const float rotateOffLamda = 0.9999f;
   const int   gateHighSampleLength;
 
   // hardware inputs and outputs
