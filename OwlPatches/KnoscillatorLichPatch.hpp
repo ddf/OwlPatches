@@ -276,8 +276,8 @@ public:
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
-      left[s]  = ox * projection;
-      right[s] = oy * projection;
+      left[s] = nx; // ox * projection;
+      right[s] = ny; // oy * projection;
 
       float step = freq * oneOverSampleRate;
       phaseZ += step;
