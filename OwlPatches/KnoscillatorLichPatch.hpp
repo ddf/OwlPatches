@@ -225,10 +225,6 @@ public:
     float rzt = getParameterValue(inRotateZ);
     float rzf = rzt == 0 ? sRaw : 0;
 
-    rotateOffX += (rxt - rotateOffX) * oneOverSampleRate;
-    rotateOffY += (ryt - rotateOffY) * oneOverSampleRate;
-    rotateOffZ += (rzt - rotateOffZ) * oneOverSampleRate;
-
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
 
@@ -311,6 +307,10 @@ public:
         rotateZ -= 1;
         gateHigh = gateHighSampleLength;
       }
+
+      rotateOffX += (rxt - rotateOffX) * oneOverSampleRate;
+      rotateOffY += (ryt - rotateOffY) * oneOverSampleRate;
+      rotateOffZ += (rzt - rotateOffZ) * oneOverSampleRate;
 
       p += pStep;
       q += qStep;
