@@ -261,11 +261,12 @@ public:
       float pm  = kpm->getNextSample()*TWO_PI;
       float ppm = pm*right[s];
       float qpm = ppm;
+      float zpm = ppm;
       float spm = pm * sFM;
 
       float pt = phaseP+ppm;
       float qt = phaseQ+qpm;
-      float zt = phaseZ;
+      float zt = phaseZ+zpm;
 
       x2[TORUS] = sin(qt);
       y3[TORUS] = cos(qt);
