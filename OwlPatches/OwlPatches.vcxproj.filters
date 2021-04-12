@@ -18,5 +18,8 @@
     <ClInclude Include="KnoscillatorLichPatch.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Noise.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
