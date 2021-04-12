@@ -53,6 +53,9 @@ private:
   // MIDI inputs
   static const PatchParameterId inSquiggleVol = PARAMETER_AA;
   static const PatchParameterId inSquiggleFM = PARAMETER_AB;
+  static const PatchParameterId inDetuneP = PARAMETER_AC;
+  static const PatchParameterId inDetuneQ = PARAMETER_AD;
+  static const PatchParameterId inDetuneS = PARAMETER_AE;
 
 public:
   KnoscillatorLichPatch()
@@ -78,9 +81,15 @@ public:
 
     registerParameter(inSquiggleVol, "Squiggle Volume");
     registerParameter(inSquiggleFM, "Squiggle FM Amount");
+    registerParameter(inDetuneP, "Detune P");
+    registerParameter(inDetuneQ, "Detune Q");
+    registerParameter(inDetuneS, "Detune S");
 
     setParameterValue(inSquiggleVol, 0);
     setParameterValue(inSquiggleFM, 0);
+    setParameterValue(inDetuneP, 0);
+    setParameterValue(inDetuneQ, 0);
+    setParameterValue(inDetuneS, 0);
 
     x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
     y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
@@ -184,6 +193,10 @@ public:
     float sVol = sRaw / 100.f;
     float sFM = getParameterValue(inSquiggleFM);
 
+    float dtp = getParameterValue(inDetuneP);
+    float dtq = getParameterValue(inDetuneQ);
+    float dts = getParameterValue(inDetuneS);
+
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
 
@@ -228,18 +241,17 @@ public:
 
       if (!freezeQ)
       {
-        phaseQ += step * q;
+        phaseQ += step * (q + dtq);
         if (phaseQ > 1) phaseQ -= 1;
       }
 
       if (!freezeP)
       {
-        phaseP += step * p;
+        phaseP += step * (p + dtp);
         if (phaseP > 1) phaseP -= 1;
       }
 
-      // #TODO squiggle detune
-      phaseS += step * 4 * (p + q); // *(1 + srt.getLastValue());
+      phaseS += step * 4 * (p + q + dts);
       if (phaseS > 1) phaseS -= 1;
 
       if (gateHigh > 0)
