@@ -3,6 +3,7 @@
 #include "MidiMessage.h"
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
+#include "SmoothValue.h"
 
 class KnoscillatorLichPatch : public Patch 
 {
@@ -34,6 +35,9 @@ private:
   float rotateX;
   float rotateY;
   float rotateZ;
+  SmoothFloat rotateOffX;
+  SmoothFloat rotateOffY;
+  SmoothFloat rotateOffZ;
 
   int gateHigh;
 
@@ -62,8 +66,10 @@ private:
 
 public:
   KnoscillatorLichPatch()
-    : hz(true), knotP(1), knotQ(1),
-    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), rotateX(0), rotateY(0), rotateZ(0), gateHigh(0),
+    : hz(true), knotP(1), knotQ(1), gateHigh(0),
+    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), 
+    rotateX(0), rotateY(0), rotateZ(0), 
+    rotateOffX(0.9f, 0), rotateOffY(0.9f, 0), rotateOffZ(0.9f, 0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
@@ -212,12 +218,12 @@ public:
     float dtq = getParameterValue(inDetuneQ);
     float dts = getParameterValue(inDetuneS);
 
-    float rxo = getParameterValue(inRotateX);
-    float rxf = rxo == 0 ? pRaw : 0;
-    float ryo = getParameterValue(inRotateY);
-    float ryf = ryo == 0 ? qRaw : 0;
-    float rzo = getParameterValue(inRotateZ);
-    float rzf = rzo == 0 ? sRaw : 0;
+    float rxt = getParameterValue(inRotateX);
+    float rxf = rxt == 0 ? pRaw : 0;
+    float ryt = getParameterValue(inRotateY);
+    float ryf = ryt == 0 ? qRaw : 0;
+    float rzt = getParameterValue(inRotateZ);
+    float rzf = rzt == 0 ? sRaw : 0;
 
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
@@ -246,7 +252,7 @@ public:
       float oy = interp(y1, KNUM, m)*cos(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cos(pt);
       float oz = interp(z1, KNUM, m)*sin(3 * zt)                   + interp(z2, KNUM, m)*sin(pt);
 
-      rotate(ox, oy, oz, (rotateX+rxo)*TWO_PI, (rotateY+ryo)*TWO_PI, (rotateZ+rzo)*TWO_PI);
+      rotate(ox, oy, oz, (rotateX+rotateOffX)*TWO_PI, (rotateY+rotateOffY)*TWO_PI, (rotateZ+rotateOffZ)*TWO_PI);
 
       float st = (phaseS + spm)*TWO_PI;
       ox += cos(st)*sVol;
@@ -302,6 +308,10 @@ public:
         gateHigh = gateHighSampleLength;
       }
 
+      rotateOffX.update(rxt);
+      rotateOffY.update(rxt);
+      rotateOffZ.update(rxt);
+
       p += pStep;
       q += qStep;
     }
@@ -309,8 +319,8 @@ public:
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
     
-    setParameterValue(outRotateX, sin((rotateX+rxo)*TWO_PI)*0.5f + 0.5f);
-    setParameterValue(outRotateY, cos((rotateY+ryo)*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateX, sin((rotateX+rotateOffX)*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateY, cos((rotateY+rotateOffY)*TWO_PI)*0.5f + 0.5f);
     setButton(PUSHBUTTON, gateHigh != 0);
   }
 };
