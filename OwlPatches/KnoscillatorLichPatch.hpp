@@ -44,6 +44,7 @@ private:
   const float TWO_PI;
   const float oneOverSampleRate;
   const float rotateBaseFreq = 1.0f / 16.0f;
+  const float rotateOffSmooth;
   const int   gateHighSampleLength;
 
   // hardware inputs and outputs
@@ -72,7 +73,8 @@ public:
     rotateOffX(0), rotateOffY(0), rotateOffZ(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
-    TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
+    TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000),
+    rotateOffSmooth(4.0f / getSampleRate())
   {
     registerParameter(inPitch, "Pitch");
     registerParameter(inMorph, "Morph");
@@ -308,9 +310,9 @@ public:
         gateHigh = gateHighSampleLength;
       }
 
-      rotateOffX += (rxt - rotateOffX) * oneOverSampleRate;
-      rotateOffY += (ryt - rotateOffY) * oneOverSampleRate;
-      rotateOffZ += (rzt - rotateOffZ) * oneOverSampleRate;
+      rotateOffX += (rxt - rotateOffX) * rotateOffSmooth;
+      rotateOffY += (ryt - rotateOffY) * rotateOffSmooth;
+      rotateOffZ += (rzt - rotateOffZ) * rotateOffSmooth;
 
       p += pStep;
       q += qStep;
