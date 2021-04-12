@@ -269,8 +269,10 @@ public:
       rotate(ox, oy, oz, (rotateX+rotateOffX)*TWO_PI, (rotateY+rotateOffY)*TWO_PI, (rotateZ+rotateOffZ)*TWO_PI);
 
       float st = (phaseS + spm)*TWO_PI;
-      ox += cos(st)*sVol; // +nVol * perlin2d(fabs(ox), 0, p, 4);
-      oy += sin(st)*sVol; // +nVol * perlin2d(0, fabs(oy), q, 4);
+      float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
+      float ny = nVol * perlin2d(0, fabs(oy), q, 4);
+      ox += cos(st)*sVol; // + nx;
+      oy += sin(st)*sVol; // + ny;
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
