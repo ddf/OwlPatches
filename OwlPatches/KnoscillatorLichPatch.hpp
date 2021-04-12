@@ -35,16 +35,15 @@ private:
   float rotateX;
   float rotateY;
   float rotateZ;
-  SmoothFloat rotateOffX;
-  SmoothFloat rotateOffY;
-  SmoothFloat rotateOffZ;
+  float rotateOffX;
+  float rotateOffY;
+  float rotateOffZ;
 
   int gateHigh;
 
   const float TWO_PI;
   const float oneOverSampleRate;
   const float rotateBaseFreq = 1.0f / 16.0f;
-  const float rotateOffLamda = 0.9999f;
   const int   gateHighSampleLength;
 
   // hardware inputs and outputs
@@ -70,7 +69,7 @@ public:
     : hz(true), knotP(1), knotQ(1), gateHigh(0),
     phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), 
     rotateX(0), rotateY(0), rotateZ(0), 
-    rotateOffX(rotateOffLamda, 0), rotateOffY(rotateOffLamda, 0), rotateOffZ(rotateOffLamda, 0),
+    rotateOffX(0), rotateOffY(0), rotateOffZ(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
     TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
@@ -226,9 +225,9 @@ public:
     float rzt = getParameterValue(inRotateZ);
     float rzf = rzt == 0 ? sRaw : 0;
 
-    rotateOffX.update(rxt);
-    rotateOffY.update(ryt);
-    rotateOffZ.update(rzt);
+    rotateOffX += (rxt - rotateOffX) * oneOverSampleRate;
+    rotateOffY += (ryt - rotateOffY) * oneOverSampleRate;
+    rotateOffZ += (rzt - rotateOffZ) * oneOverSampleRate;
 
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
