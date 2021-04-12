@@ -271,13 +271,13 @@ public:
       float st = (phaseS + spm)*TWO_PI;
       float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      ox += cos(st)*sVol + nx;
-      oy += sin(st)*sVol + ny;
+      ox += cos(st)*sVol; // +nx;
+      oy += sin(st)*sVol; // +ny;
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
-      left[s] = nx; // ox * projection;
-      right[s] = ny; // oy * projection;
+      left[s]  = ox * projection;
+      right[s] = oy * projection;
 
       float step = freq * oneOverSampleRate;
       phaseZ += step;
