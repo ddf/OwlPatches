@@ -226,6 +226,10 @@ public:
     float rzt = getParameterValue(inRotateZ);
     float rzf = rzt == 0 ? sRaw : 0;
 
+    rotateOffX.update(rxt);
+    rotateOffY.update(ryt);
+    rotateOffZ.update(rzt);
+
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
 
@@ -308,10 +312,6 @@ public:
         rotateZ -= 1;
         gateHigh = gateHighSampleLength;
       }
-
-      rotateOffX.update(rxt);
-      rotateOffY.update(ryt);
-      rotateOffZ.update(rzt);
 
       p += pStep;
       q += qStep;
