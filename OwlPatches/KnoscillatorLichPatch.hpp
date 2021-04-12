@@ -11,6 +11,7 @@ private:
   VoltsPerOctave hz;
   SineOscillator* kpm;
 
+  int midinote;
   int knotP;
   int knotQ;
 
@@ -67,7 +68,7 @@ private:
 
 public:
   KnoscillatorLichPatch()
-    : hz(true), knotP(1), knotQ(1), gateHigh(0),
+    : hz(true), midinote(0), knotP(1), knotQ(1), gateHigh(0),
     phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), 
     rotateX(0), rotateY(0), rotateZ(0), 
     rotateOffX(0), rotateOffY(0), rotateOffZ(0),
@@ -186,6 +187,10 @@ public:
         case inRotateZ: setParameterValue(inRotateZ, pval); break;
       }
     }
+    else if (msg.isNoteOn())
+    {
+      midinote = msg.getNote() - 60;
+    }
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -193,7 +198,7 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    float tune = (getParameterValue(inPitch)*64 - 64) / 12.0f;
+    float tune = (midinote + getParameterValue(inPitch)*64 - 64) / 12.0f;
     hz.setTune(tune);
 
     float morphTarget = getParameterValue(inMorph)*M_PI;
