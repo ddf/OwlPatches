@@ -4,6 +4,7 @@
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
 #include "SmoothValue.h"
+#include "Noise.hpp"
 
 class KnoscillatorLichPatch : public Patch 
 {
@@ -65,6 +66,7 @@ private:
   static const PatchParameterId inRotateX = PARAMETER_AF;
   static const PatchParameterId inRotateY = PARAMETER_AG;
   static const PatchParameterId inRotateZ = PARAMETER_AH;
+  static const PatchParameterId inNoiseAmp = PARAMETER_BA;
 
 public:
   KnoscillatorLichPatch()
@@ -99,6 +101,7 @@ public:
     registerParameter(inRotateX, "X-Rotation");
     registerParameter(inRotateY, "Y-Rotation");
     registerParameter(inRotateZ, "Z-Rotation");
+    registerParameter(inNoiseAmp, "Noise");
 
     setParameterValue(inSquiggleVol, 0);
     setParameterValue(inSquiggleFM, 0);
@@ -108,6 +111,7 @@ public:
     setParameterValue(inRotateX, 0);
     setParameterValue(inRotateY, 0);
     setParameterValue(inRotateZ, 0);
+    setParameterValue(inNoiseAmp, 0);
 
     x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
     y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
@@ -185,6 +189,7 @@ public:
         case inRotateX: setParameterValue(inRotateX, pval); break;
         case inRotateY: setParameterValue(inRotateY, pval); break;
         case inRotateZ: setParameterValue(inRotateZ, pval); break;
+        case inNoiseAmp: setParameterValue(inNoiseAmp, pval); break;
       }
     }
     else if (msg.isNoteOn())
@@ -262,8 +267,8 @@ public:
       rotate(ox, oy, oz, (rotateX+rotateOffX)*TWO_PI, (rotateY+rotateOffY)*TWO_PI, (rotateZ+rotateOffZ)*TWO_PI);
 
       float st = (phaseS + spm)*TWO_PI;
-      ox += cos(st)*sVol;
-      oy += sin(st)*sVol;
+      ox += cos(st)*sVol + perlin2d(fabs(ox), 0, p, 4);
+      oy += sin(st)*sVol + perlin2d(0, fabs(oy), q, 4);
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
