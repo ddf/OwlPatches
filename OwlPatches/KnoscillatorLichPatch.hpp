@@ -309,8 +309,8 @@ public:
       }
 
       rotateOffX.update(rxt);
-      rotateOffY.update(rxt);
-      rotateOffZ.update(rxt);
+      rotateOffY.update(ryt);
+      rotateOffZ.update(rzt);
 
       p += pStep;
       q += qStep;
