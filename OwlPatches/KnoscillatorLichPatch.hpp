@@ -204,12 +204,12 @@ public:
     float morphTarget = getParameterValue(inMorph)*M_PI;
     float morphStep = (morphTarget - phaseM) / getBlockSize();
 
-    float pRaw = 1 + getParameterValue(inKnotP) * 15;
+    float pRaw = 1 + getParameterValue(inKnotP) * 16;
     float pTarget = floor(pRaw);
     float pDelta = pTarget - knotP;
     float pStep = pDelta / getBlockSize();
 
-    float qRaw = 1 + getParameterValue(inKnotQ) * 15;
+    float qRaw = 1 + getParameterValue(inKnotQ) * 16;
     float qTarget = floor(qRaw);
     float qDelta = qTarget - knotQ;
     float qStep = qDelta / getBlockSize();
