@@ -161,6 +161,9 @@ public:
       {
         case inSquiggleVol: setParameterValue(inSquiggleVol, pval); break;
         case inSquiggleFM: setParameterValue(inSquiggleFM, pval); break;
+        case inDetuneP: setParameterValue(inDetuneP, pval); break;
+        case inDetuneQ: setParameterValue(inDetuneQ, pval); break;
+        case inDetuneS: setParameterValue(inDetuneS, pval); break;
       }
     }
   }
