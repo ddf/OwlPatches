@@ -56,6 +56,9 @@ private:
   static const PatchParameterId inDetuneP = PARAMETER_AC;
   static const PatchParameterId inDetuneQ = PARAMETER_AD;
   static const PatchParameterId inDetuneS = PARAMETER_AE;
+  static const PatchParameterId inRotateX = PARAMETER_AF;
+  static const PatchParameterId inRotateY = PARAMETER_AG;
+  static const PatchParameterId inRotateZ = PARAMETER_AH;
 
 public:
   KnoscillatorLichPatch()
@@ -84,12 +87,18 @@ public:
     registerParameter(inDetuneP, "Detune P");
     registerParameter(inDetuneQ, "Detune Q");
     registerParameter(inDetuneS, "Detune S");
+    registerParameter(inRotateX, "X-Rotation");
+    registerParameter(inRotateY, "Y-Rotation");
+    registerParameter(inRotateZ, "Z-Rotation");
 
     setParameterValue(inSquiggleVol, 0);
     setParameterValue(inSquiggleFM, 0);
     setParameterValue(inDetuneP, 0);
     setParameterValue(inDetuneQ, 0);
     setParameterValue(inDetuneS, 0);
+    setParameterValue(inRotateX, 0);
+    setParameterValue(inRotateY, 0);
+    setParameterValue(inRotateZ, 0);
 
     x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
     y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
@@ -164,6 +173,9 @@ public:
         case inDetuneP: setParameterValue(inDetuneP, pval); break;
         case inDetuneQ: setParameterValue(inDetuneQ, pval); break;
         case inDetuneS: setParameterValue(inDetuneS, pval); break;
+        case inRotateX: setParameterValue(inRotateX, pval); break;
+        case inRotateY: setParameterValue(inRotateY, pval); break;
+        case inRotateZ: setParameterValue(inRotateZ, pval); break;
       }
     }
   }
@@ -200,6 +212,13 @@ public:
     float dtq = getParameterValue(inDetuneQ);
     float dts = getParameterValue(inDetuneS);
 
+    float rxo = getParameterValue(inRotateX);
+    float rxf = rxo == 0 ? pRaw : 0;
+    float ryo = getParameterValue(inRotateY);
+    float ryf = ryo == 0 ? qRaw : 0;
+    float rzo = getParameterValue(inRotateZ);
+    float rzf = rzo == 0 ? sRaw : 0;
+
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
 
@@ -227,7 +246,7 @@ public:
       float oy = interp(y1, KNUM, m)*cos(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cos(pt);
       float oz = interp(z1, KNUM, m)*sin(3 * zt)                   + interp(z2, KNUM, m)*sin(pt);
 
-      rotate(ox, oy, oz, rotateX*TWO_PI, rotateY*TWO_PI, rotateZ*TWO_PI);
+      rotate(ox, oy, oz, (rotateX+rxo)*TWO_PI, (rotateY+ryo)*TWO_PI, (rotateZ+rzo)*TWO_PI);
 
       float st = (phaseS + spm)*TWO_PI;
       ox += cos(st)*sVol;
@@ -262,21 +281,21 @@ public:
         --gateHigh;
       }
 
-      rotateX += oneOverSampleRate * rotateBaseFreq * pRaw;
+      rotateX += oneOverSampleRate * rotateBaseFreq * rxf;
       if (rotateX > 1)
       {
         rotateX -= 1;
         gateHigh = gateHighSampleLength;
       }
 
-      rotateY += oneOverSampleRate * rotateBaseFreq * qRaw;
+      rotateY += oneOverSampleRate * rotateBaseFreq * ryf;
       if (rotateY > 1)
       {
         rotateY -= 1;
         gateHigh = gateHighSampleLength;
       }
 
-      rotateZ += oneOverSampleRate * rotateBaseFreq * sRaw;
+      rotateZ += oneOverSampleRate * rotateBaseFreq * rzf;
       if (rotateZ > 1)
       {
         rotateZ -= 1;
@@ -290,8 +309,8 @@ public:
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
     
-    setParameterValue(outRotateX, sin(rotateX*TWO_PI)*0.5f + 0.5f);
-    setParameterValue(outRotateY, cos(rotateY*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateX, sin((rotateX+rxo)*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateY, cos((rotateY+ryo)*TWO_PI)*0.5f + 0.5f);
     setButton(PUSHBUTTON, gateHigh != 0);
   }
 };
