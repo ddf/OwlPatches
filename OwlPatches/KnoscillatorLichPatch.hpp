@@ -30,8 +30,9 @@ private:
   float phaseZ;
   float phaseS;
   float phaseM;
-  float phaseX;
-  float phaseY;
+  float rotateX;
+  float rotateY;
+  float rotateZ;
 
   int gateHigh;
 
@@ -55,7 +56,7 @@ private:
 public:
   KnoscillatorLichPatch()
     : hz(true), knotP(1), knotQ(1),
-    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), phaseX(0), phaseY(0), gateHigh(0),
+    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), rotateX(0), rotateY(0), rotateZ(0), gateHigh(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
     inSquiggleVol(PARAMETER_AA), inSquiggleFM(PARAMETER_AB),
@@ -176,7 +177,8 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    float sVol = 0.1f * getParameterValue(inSquiggleVol);
+    float sRaw = getParameterValue(inSquiggleVol) * 16;
+    float sVol = sRaw / 100.f;
     float sFM = getParameterValue(inSquiggleFM);
 
     bool freezeP = isButtonPressed(BUTTON_A);
@@ -196,10 +198,6 @@ public:
       float qt = (phaseQ+qpm) * TWO_PI;
       float zt = phaseZ * TWO_PI;
 
-      float xp = phaseX * TWO_PI;
-      float yp = phaseY * TWO_PI;
-      float zp = 0;
-
       x2[TORUS] = sin(qt);
       y3[TORUS] = cos(qt);
 
@@ -210,7 +208,7 @@ public:
       float oy = interp(y1, KNUM, m)*cos(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cos(pt);
       float oz = interp(z1, KNUM, m)*sin(3 * zt)                   + interp(z2, KNUM, m)*sin(pt);
 
-      rotate(ox, oy, oz, phaseX*TWO_PI, phaseY*TWO_PI, 0);
+      rotate(ox, oy, oz, rotateX*TWO_PI, rotateY*TWO_PI, rotateZ*TWO_PI);
 
       float st = (phaseS + spm)*TWO_PI;
       ox += cos(st)*sVol;
@@ -246,17 +244,24 @@ public:
         --gateHigh;
       }
 
-      phaseX += oneOverSampleRate * rotateBaseFreq * pRaw;
-      if (phaseX > 1)
+      rotateX += oneOverSampleRate * rotateBaseFreq * pRaw;
+      if (rotateX > 1)
       {
-        phaseX -= 1;
+        rotateX -= 1;
         gateHigh = gateHighSampleLength;
       }
 
-      phaseY += oneOverSampleRate * rotateBaseFreq * qRaw;
-      if (phaseY > 1)
+      rotateY += oneOverSampleRate * rotateBaseFreq * qRaw;
+      if (rotateY > 1)
       {
-        phaseY -= 1;
+        rotateY -= 1;
+        gateHigh = gateHighSampleLength;
+      }
+
+      rotateZ += oneOverSampleRate * rotateBaseFreq * sRaw;
+      if (rotateZ > 1)
+      {
+        rotateZ -= 1;
         gateHigh = gateHighSampleLength;
       }
 
@@ -267,8 +272,8 @@ public:
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
     
-    setParameterValue(outRotateX, sin(phaseX*TWO_PI)*0.5f + 0.5f);
-    setParameterValue(outRotateY, cos(phaseY*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateX, sin(rotateX*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateY, cos(rotateY*TWO_PI)*0.5f + 0.5f);
     setButton(PUSHBUTTON, gateHigh != 0);
   }
 };
