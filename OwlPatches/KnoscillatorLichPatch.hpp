@@ -44,7 +44,7 @@ private:
   int gateHigh;
 
   const float TWO_PI;
-  const float oneOverSampleRate;
+  const float stepRate;
   const float rotateBaseFreq = 1.0f / 16.0f;
   const float rotateOffSmooth;
   const int   gateHighSampleLength;
@@ -76,8 +76,8 @@ public:
     rotateOffX(0), rotateOffY(0), rotateOffZ(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
     outRotateX(PARAMETER_F), outRotateY(PARAMETER_G),
-    TWO_PI(M_PI*2), oneOverSampleRate(1.0f / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000),
-    rotateOffSmooth(4.0f / getSampleRate())
+    TWO_PI(M_PI*2), stepRate(TWO_PI / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000),
+    rotateOffSmooth(4.0f * M_PI * 2 / getSampleRate())
   {
     registerParameter(inPitch, "Pitch");
     registerParameter(inMorph, "Morph");
@@ -198,6 +198,17 @@ public:
     }
   }
 
+  bool stepPhase(float& phase, const float step)
+  {
+    phase += step;
+    if (phase > TWO_PI)
+    {
+      phase -= TWO_PI;
+      return true;
+    }
+    return false;
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
@@ -230,11 +241,11 @@ public:
     float dtq = getParameterValue(inDetuneQ);
     float dts = getParameterValue(inDetuneS);
 
-    float rxt = getParameterValue(inRotateX);
+    float rxt = getParameterValue(inRotateX)*TWO_PI;
     float rxf = rxt == 0 ? pRaw : 0;
-    float ryt = getParameterValue(inRotateY);
+    float ryt = getParameterValue(inRotateY)*TWO_PI;
     float ryf = ryt == 0 ? qRaw : 0;
-    float rzt = getParameterValue(inRotateZ);
+    float rzt = getParameterValue(inRotateZ)*TWO_PI;
     float rzf = rzt == 0 ? sRaw : 0;
 
     float nVol = getParameterValue(inNoiseAmp);
@@ -247,14 +258,14 @@ public:
       float freq = hz.getFrequency(left[s]);
       // phase modulate in sync with the current frequency
       kpm->setFrequency(freq*2);
-      float pm  = kpm->getNextSample();
+      float pm  = kpm->getNextSample()*TWO_PI;
       float ppm = pm*right[s];
       float qpm = ppm;
       float spm = pm * sFM;
 
-      float pt = (phaseP+ppm) * TWO_PI;
-      float qt = (phaseQ+qpm) * TWO_PI;
-      float zt = phaseZ * TWO_PI;
+      float pt = phaseP+ppm;
+      float qt = phaseQ+qpm;
+      float zt = phaseZ;
 
       x2[TORUS] = sin(qt);
       y3[TORUS] = cos(qt);
@@ -266,9 +277,9 @@ public:
       float oy = interp(y1, KNUM, m)*cos(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cos(pt);
       float oz = interp(z1, KNUM, m)*sin(3 * zt)                   + interp(z2, KNUM, m)*sin(pt);
 
-      rotate(ox, oy, oz, (rotateX+rotateOffX)*TWO_PI, (rotateY+rotateOffY)*TWO_PI, (rotateZ+rotateOffZ)*TWO_PI);
+      rotate(ox, oy, oz, rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
 
-      float st = (phaseS + spm)*TWO_PI;
+      float st = phaseS + spm;
       float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       float ny = nVol * perlin2d(0, fabs(oy), q, 4);
       ox += cos(st)*sVol; // +nx;
@@ -279,48 +290,38 @@ public:
       left[s]  = ox * projection;
       right[s] = oy * projection;
 
-      float step = freq * oneOverSampleRate;
-      phaseZ += step;
-      if (phaseZ > 1) phaseZ -= 1;
+      const float step = freq * stepRate;
+      stepPhase(phaseZ, step);
 
       if (!freezeQ)
       {
-        phaseQ += step * (q + dtq);
-        if (phaseQ > 1) phaseQ -= 1;
+        stepPhase(phaseQ, step * (q + dtq));
       }
 
       if (!freezeP)
       {
-        phaseP += step * (p + dtp);
-        if (phaseP > 1) phaseP -= 1;
+        stepPhase(phaseP, step * (p + dtp));
       }
 
-      phaseS += step * 4 * (p + q + dts);
-      if (phaseS > 1) phaseS -= 1;
+      stepPhase(phaseS, step * 4 * (p + q + dts));
 
       if (gateHigh > 0)
       {
         --gateHigh;
       }
 
-      rotateX += oneOverSampleRate * rotateBaseFreq * rxf;
-      if (rotateX > 1)
+      if (stepPhase(rotateX, stepRate * rotateBaseFreq * rxf))
       {
-        rotateX -= 1;
         gateHigh = gateHighSampleLength;
       }
 
-      rotateY += oneOverSampleRate * rotateBaseFreq * ryf;
-      if (rotateY > 1)
+      if (stepPhase(rotateY, stepRate * rotateBaseFreq * ryf))
       {
-        rotateY -= 1;
         gateHigh = gateHighSampleLength;
       }
 
-      rotateZ += oneOverSampleRate * rotateBaseFreq * rzf;
-      if (rotateZ > 1)
+      if (stepPhase(rotateZ, stepRate * rotateBaseFreq * rzf))
       {
-        rotateZ -= 1;
         gateHigh = gateHighSampleLength;
       }
 
@@ -335,8 +336,8 @@ public:
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
     
-    setParameterValue(outRotateX, sin((rotateX+rotateOffX)*TWO_PI)*0.5f + 0.5f);
-    setParameterValue(outRotateY, cos((rotateY+rotateOffY)*TWO_PI)*0.5f + 0.5f);
+    setParameterValue(outRotateX, sin(rotateX+rotateOffX)*0.5f + 0.5f);
+    setParameterValue(outRotateY, cos(rotateY+rotateOffY)*0.5f + 0.5f);
     setButton(PUSHBUTTON, gateHigh != 0);
   }
 };
