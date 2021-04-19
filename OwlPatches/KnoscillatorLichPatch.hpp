@@ -296,8 +296,8 @@ public:
       float st = phaseS + spm;
       //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      int nx = (int)fabs(ox) % noiseLen;
-      int ny = (int)fabs(oy) % noiseLen;
+      int nx = (int)(fabs(ox)*0.125f*noiseLen) % noiseLen;
+      int ny = (int)(fabs(oy)*0.125f*noiseLen) % noiseLen;
       ox += cosf(st)*sVol + nVol * noise[nx];
       oy += sinf(st)*sVol + nVol * noise[ny];
 
