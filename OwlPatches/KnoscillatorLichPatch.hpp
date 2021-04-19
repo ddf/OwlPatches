@@ -136,10 +136,10 @@ public:
 
   float interp(float* buffer, size_t bufferSize, float normIdx)
   {
-    float d;
-    const float lerp = modf((bufferSize - 1) * normIdx, &d);
-    const int i = (int)d;
+    const float fracIdx = (bufferSize - 1) * normIdx;
+    const int i = (int)fracIdx;
     const int j = (i + 1) % bufferSize;
+    const float lerp = fracIdx - i;
     return buffer[i] + lerp * (buffer[j] - buffer[i]);
   }
 
