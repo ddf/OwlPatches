@@ -145,14 +145,14 @@ public:
 
   void rotate(float& x, float& y, float &z, float pitch, float yaw, float roll)
   {
-    float cosa = cos(roll);
-    float sina = sin(roll);
+    float cosa = cosf(roll);
+    float sina = sinf(roll);
 
-    float cosb = cos(pitch);
-    float sinb = sin(pitch);
+    float cosb = cosf(pitch);
+    float sinb = sinf(pitch);
 
-    float cosc = cos(yaw);
-    float sinc = sin(yaw);
+    float cosc = cosf(yaw);
+    float sinc = sinf(yaw);
 
     float Axx = cosa * cosb;
     float Axy = cosa * sinb*sinc - sina * cosc;
@@ -268,23 +268,23 @@ public:
       float qt = phaseQ+qpm;
       float zt = phaseZ+zpm;
 
-      x2[TORUS] = sin(qt);
-      y3[TORUS] = cos(qt);
+      x2[TORUS] = sinf(qt);
+      y3[TORUS] = cosf(qt);
 
       phaseM += morphStep;
       float m = -0.5f*cos(phaseM) + 0.5f;
 
-      float ox = interp(x1, KNUM, m)*sin(qt)                       + interp(x2, KNUM, m)*cos(pt + interp(x3, KNUM, m));
-      float oy = interp(y1, KNUM, m)*cos(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cos(pt);
-      float oz = interp(z1, KNUM, m)*sin(3 * zt)                   + interp(z2, KNUM, m)*sin(pt);
+      float ox = interp(x1, KNUM, m)*sinf(qt)                       + interp(x2, KNUM, m)*cosf(pt + interp(x3, KNUM, m));
+      float oy = interp(y1, KNUM, m)*cosf(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cosf(pt);
+      float oz = interp(z1, KNUM, m)*sinf(3 * zt)                   + interp(z2, KNUM, m)*sinf(pt);
 
       rotate(ox, oy, oz, rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
 
       float st = phaseS + spm;
       //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      ox += cos(st)*sVol; // +nx;
-      oy += sin(st)*sVol; // +ny;
+      ox += cosf(st)*sVol; // +nx;
+      oy += sinf(st)*sVol; // +ny;
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
@@ -337,8 +337,8 @@ public:
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
     
-    setParameterValue(outRotateX, sin(rotateX+rotateOffX)*0.5f + 0.5f);
-    setParameterValue(outRotateY, cos(rotateY+rotateOffY)*0.5f + 0.5f);
+    setParameterValue(outRotateX, sinf(rotateX+rotateOffX)*0.5f + 0.5f);
+    setParameterValue(outRotateY, cosf(rotateY+rotateOffY)*0.5f + 0.5f);
     setButton(PUSHBUTTON, gateHigh != 0);
   }
 };
