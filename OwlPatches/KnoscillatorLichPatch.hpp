@@ -132,9 +132,10 @@ public:
     kpm->setFrequency(1.02f);
 
     noise = FloatArray::create(noiseLen);
-    for (int i = 0; i < noiseLen; ++i)
+    float s = 4.0f / noiseLen;
+    for (int i = 0, float x = 0; i < noiseLen; ++i, x += s)
     {
-      noise[i] = perlin2d(i, 0, 1, 4);
+      noise[i] = perlin2d(x, 0, 1, 4);
     }
   }
 
@@ -293,8 +294,8 @@ public:
       float st = phaseS + spm;
       //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      int nx = (int)(fabs(ox)*p) % noiseLen;
-      int ny = (int)(fabs(oy)*q) % noiseLen;
+      int nx = (int)fabs(ox) % noiseLen;
+      int ny = (int)fabs(oy) % noiseLen;
       ox += cosf(st)*sVol + nVol * noise[nx];
       oy += sinf(st)*sVol + nVol * noise[ny];
 
