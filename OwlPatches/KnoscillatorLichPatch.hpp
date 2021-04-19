@@ -132,10 +132,12 @@ public:
     kpm->setFrequency(1.02f);
 
     noise = FloatArray::create(noiseLen);
+    float x = 0;
     float s = 4.0f / noiseLen;
-    for (int i = 0, float x = 0; i < noiseLen; ++i, x += s)
+    for (int i = 0; i < noiseLen; ++i)
     {
       noise[i] = perlin2d(x, 0, 1, 4);
+      x += s;
     }
   }
 
