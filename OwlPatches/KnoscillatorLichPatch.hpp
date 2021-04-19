@@ -4,7 +4,6 @@
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
 #include "SmoothValue.h"
-#include "FloatMatrix.h"
 #include "Noise.hpp"
 
 class KnoscillatorLichPatch : public Patch 
@@ -43,10 +42,6 @@ private:
   float rotateOffZ;
 
   int gateHigh;
-
-  FloatMatrix knotSampled;
-  FloatMatrix knotRotated;
-  FloatMatrix rotationMatrix;
 
   const float TWO_PI;
   const float stepRate;
@@ -132,18 +127,11 @@ public:
 
     kpm = SineOscillator::create(getSampleRate());
     kpm->setFrequency(1.02f);
-
-    knotSampled = FloatMatrix::create(3, 1);
-    knotRotated = FloatMatrix::create(3, 1);
-    rotationMatrix = FloatMatrix::create(3, 3);
   }
 
   ~KnoscillatorLichPatch()
   {
     SineOscillator::destroy(kpm);
-    FloatMatrix::destroy(knotSampled);
-    FloatMatrix::destroy(knotRotated);
-    FloatMatrix::destroy(rotationMatrix);
   }
 
   float interp(float* buffer, size_t bufferSize, float normIdx)
@@ -182,33 +170,6 @@ public:
     x = Axx * ix + Axy * iy + Axz * iz;
     y = Ayx * ix + Ayy * iy + Ayz * iz;
     z = Azx * ix + Azy * iy + Azz * iz;
-  }
-
-  float* rotate(float pitch, float yaw, float roll)
-  {
-    float cosa = cos(roll);
-    float sina = sin(roll);
-
-    float cosb = cos(pitch);
-    float sinb = sin(pitch);
-
-    float cosc = cos(yaw);
-    float sinc = sin(yaw);
-
-    rotationMatrix.setElement(0, 0, cosa * cosb);
-    rotationMatrix.setElement(0, 1, cosa * sinb*sinc - sina * cosc);
-    rotationMatrix.setElement(0, 2, cosa * sinb*cosc + sina * sinc);
-
-    rotationMatrix.setElement(1, 0, sina * cosb);
-    rotationMatrix.setElement(1, 1, sina * sinb*sinc + cosa * cosc);
-    rotationMatrix.setElement(1, 2, sina * sinb*cosc - cosa * sinc);
-
-    rotationMatrix.setElement(2, 0, -sinb);
-    rotationMatrix.setElement(2, 1, cosb * sinc);
-    rotationMatrix.setElement(2, 2, cosb * cosc);
-
-    rotationMatrix.multiply(knotRotated, knotRotated);
-    return knotRotated.getData();
   }
 
   void processMidi(MidiMessage msg)
@@ -313,23 +274,22 @@ public:
       phaseM += morphStep;
       float m = -0.5f*cos(phaseM) + 0.5f;
 
-      float* xyz = knotSampled.getData();
-      xyz[0] = interp(x1, KNUM, m)*sin(qt)                       + interp(x2, KNUM, m)*cos(pt + interp(x3, KNUM, m));
-      xyz[1] = interp(y1, KNUM, m)*cos(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cos(pt);
-      xyz[2] = interp(z1, KNUM, m)*sin(3 * zt)                   + interp(z2, KNUM, m)*sin(pt);
+      float ox = interp(x1, KNUM, m)*sin(qt)                       + interp(x2, KNUM, m)*cos(pt + interp(x3, KNUM, m));
+      float oy = interp(y1, KNUM, m)*cos(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cos(pt);
+      float oz = interp(z1, KNUM, m)*sin(3 * zt)                   + interp(z2, KNUM, m)*sin(pt);
 
-      xyz = rotate(rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
+      rotate(ox, oy, oz, rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
 
       float st = phaseS + spm;
       //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      xyz[0] += cos(st)*sVol; // +nx;
-      xyz[1] += sin(st)*sVol; // +ny;
+      ox += cos(st)*sVol; // +nx;
+      oy += sin(st)*sVol; // +ny;
 
       const float camDist = 6.0f;
-      float projection = 1.0f / (xyz[2] + camDist);
-      left[s]  = xyz[0] * projection;
-      right[s] = xyz[1] * projection;
+      float projection = 1.0f / (oz + camDist);
+      left[s]  = ox * projection;
+      right[s] = oy * projection;
 
       const float step = freq * stepRate;
       stepPhase(phaseZ, step);
