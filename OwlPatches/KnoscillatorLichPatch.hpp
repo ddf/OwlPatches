@@ -4,7 +4,6 @@
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
 #include "SmoothValue.h"
-#include "FloatMatrix.h"
 #include "Noise.hpp"
 
 class KnoscillatorLichPatch : public Patch 
@@ -43,8 +42,6 @@ private:
   float rotateOffZ;
 
   int gateHigh;
-
-  FloatMatrix knotSamples;
 
   const float TWO_PI;
   const float stepRate;
@@ -130,8 +127,6 @@ public:
 
     kpm = SineOscillator::create(getSampleRate());
     kpm->setFrequency(1.02f);
-
-    knotSamples.clear();
   }
 
   ~KnoscillatorLichPatch()
