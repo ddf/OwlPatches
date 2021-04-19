@@ -4,6 +4,7 @@
 #include "VoltsPerOctave.h"
 #include "SineOscillator.h"
 #include "SmoothValue.h"
+#include "FloatMatrix.h"
 #include "Noise.hpp"
 
 class KnoscillatorLichPatch : public Patch 
