@@ -43,8 +43,9 @@ private:
 
   int gateHigh;
 
-  const int noiseLen = 1024;
-  FloatArray noise;
+  const int noiseDim = 32;
+  const float noiseStep = 4.0f / noiseDim;
+  FloatArray noiseTable;
 
   const float TWO_PI;
   const float stepRate;
@@ -131,20 +132,21 @@ public:
     kpm = SineOscillator::create(getSampleRate());
     kpm->setFrequency(1.02f);
 
-    noise = FloatArray::create(noiseLen);
-    float x = 0;
-    float s = 4.0f / noiseLen;
-    for (int i = 0; i < noiseLen; ++i)
+    noiseTable = FloatArray::create(noiseDim*noiseDim);
+    for (int x = 0; x < noiseDim; ++x)
     {
-      noise[i] = perlin2d(x, 0, 1, 4)*2 - 1;
-      x += s;
+      for (int y = 0; y < noiseDim; ++y)
+      {
+        int i = x * noiseDim + y;
+        noiseTable[i] = perlin2d(x*noiseStep, y*noiseStep, 1, 4) * 2 - 1;
+      }
     }
   }
 
   ~KnoscillatorLichPatch()
   {
     SineOscillator::destroy(kpm);
-    FloatArray::destroy(noise);
+    FloatArray::destroy(noiseTable);
   }
 
   float interp(float* buffer, size_t bufferSize, float normIdx)
@@ -154,6 +156,14 @@ public:
     const int j = (i + 1) % bufferSize;
     const float lerp = fracIdx - i;
     return buffer[i] + lerp * (buffer[j] - buffer[i]);
+  }
+
+  float noise(float x, float y)
+  {
+    int nx = (int)(fabs(x) / noiseStep) % noiseDim;
+    int ny = (int)(fabs(y) / noiseStep) % noiseDim;
+    int ni = nx * noiseDim + ny;
+    return noiseTable[ni];
   }
 
   void rotate(float& x, float& y, float &z, float pitch, float yaw, float roll)
@@ -261,7 +271,7 @@ public:
     float rzt = getParameterValue(inRotateZ)*TWO_PI;
     float rzf = rzt == 0 ? sRaw : 0;
 
-    float nVol = getParameterValue(inNoiseAmp)*2;
+    float nVol = getParameterValue(inNoiseAmp)*0.25f;
 
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
@@ -296,10 +306,10 @@ public:
       float st = phaseS + spm;
       //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      int nx = (int)(fabs(ox)*0.125f*noiseLen) % noiseLen;
-      int ny = (int)(fabs(oy)*0.125f*noiseLen) % noiseLen;
-      ox += cosf(st)*sVol + nVol * noise[nx];
-      oy += sinf(st)*sVol + nVol * noise[ny];
+      float nz = nVol * noise(ox, oy);
+      ox += cosf(st)*sVol + ox * nz;
+      oy += sinf(st)*sVol + oy * nz;
+      oz += oz * nz;
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
