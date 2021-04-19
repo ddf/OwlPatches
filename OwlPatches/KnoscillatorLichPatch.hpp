@@ -43,7 +43,7 @@ private:
 
   int gateHigh;
 
-  const int noiseDim = 32;
+  const int noiseDim = 128;
   const float noiseStep = 4.0f / noiseDim;
   FloatArray noiseTable;
 
