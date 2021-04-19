@@ -44,6 +44,8 @@ private:
 
   int gateHigh;
 
+  FloatMatrix knotSamples;
+
   const float TWO_PI;
   const float stepRate;
   const float rotateBaseFreq = 1.0f / 16.0f;
@@ -128,6 +130,8 @@ public:
 
     kpm = SineOscillator::create(getSampleRate());
     kpm->setFrequency(1.02f);
+
+    knotSamples.clear();
   }
 
   ~KnoscillatorLichPatch()
