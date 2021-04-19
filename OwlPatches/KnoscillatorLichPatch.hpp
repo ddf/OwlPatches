@@ -136,7 +136,7 @@ public:
     float s = 4.0f / noiseLen;
     for (int i = 0; i < noiseLen; ++i)
     {
-      noise[i] = perlin2d(x, 0, 1, 4);
+      noise[i] = perlin2d(x, 0, 1, 4)*2 - 1;
       x += s;
     }
   }
@@ -261,7 +261,7 @@ public:
     float rzt = getParameterValue(inRotateZ)*TWO_PI;
     float rzf = rzt == 0 ? sRaw : 0;
 
-    float nVol = getParameterValue(inNoiseAmp);
+    float nVol = getParameterValue(inNoiseAmp)*2;
 
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
