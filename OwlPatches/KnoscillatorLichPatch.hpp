@@ -43,6 +43,9 @@ private:
 
   int gateHigh;
 
+  const int noiseLen = 1024;
+  FloatArray noise;
+
   const float TWO_PI;
   const float stepRate;
   const float rotateBaseFreq = 1.0f / 16.0f;
@@ -127,11 +130,18 @@ public:
 
     kpm = SineOscillator::create(getSampleRate());
     kpm->setFrequency(1.02f);
+
+    noise = FloatArray::create(noiseLen);
+    for (int i = 0; i < noiseLen; ++i)
+    {
+      noise[i] = perlin2d(i, 0, 1, 4);
+    }
   }
 
   ~KnoscillatorLichPatch()
   {
     SineOscillator::destroy(kpm);
+    FloatArray::destroy(noise);
   }
 
   float interp(float* buffer, size_t bufferSize, float normIdx)
@@ -283,8 +293,10 @@ public:
       float st = phaseS + spm;
       //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
       //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      ox += cosf(st)*sVol; // +nx;
-      oy += sinf(st)*sVol; // +ny;
+      int nx = (int)(fabs(ox)*p) % noiseLen;
+      int ny = (int)(fabs(oy)*q) % noiseLen;
+      ox += cosf(st)*sVol + nVol * noise[nx];
+      oy += sinf(st)*sVol + nVol * noise[ny];
 
       const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
