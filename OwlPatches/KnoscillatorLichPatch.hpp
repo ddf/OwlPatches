@@ -271,7 +271,7 @@ public:
     float rzt = getParameterValue(inRotateZ)*TWO_PI;
     float rzf = rzt == 0 ? sRaw : 0;
 
-    float nVol = getParameterValue(inNoiseAmp)*0.25f;
+    float nVol = getParameterValue(inNoiseAmp)*0.5f;
 
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
