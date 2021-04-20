@@ -281,7 +281,7 @@ public:
       float freq = hz.getFrequency(left[s]);
       // phase modulate in sync with the current frequency
       kpm->setFrequency(freq*2);
-      float pm  = kpm->getNextSample()*TWO_PI;
+      float pm  = kpm->generate()*TWO_PI;
       float ppm = pm*right[s];
       float qpm = ppm;
       float zpm = ppm;
