@@ -27,6 +27,7 @@ DESCRIPTION:
     The Knot shape can be changed by adjusting the P and Q coefficients
     and it rotates around the X and Y axes at speeds relative to P and Q,
     which generates an ever-changing stereo field.
+
 */
 
 #include "Patch.h"
