@@ -1,0 +1,7 @@
+Set the fundamental pitch with parameter A and use the left audio input for 1v/oct CV control of the frequency. Pitch can also be set with MIDI Note On messages. Use the right audio input for CV control over the level of frequency-sync'd FM. Parameter B morphs between the three Knot equations.
+
+Parameters C and D set the P and Q coefficients to integers between 1 and 17, producing overtones from the harmonic series. Buttons A and B will mute the overtones introduced by the P and Q coefficients. An additional tone can be added by increasing S Volume with parameter AA (CC75). Paramter AB (CC76) controls FM Amount for S. Parameters AC (CC77), AD (CC78) and AE (CC79) "detune" P, Q, and S.
+
+Rotation speed around the X and Y axes is proportional to P and Q. Rotation around the Z axis is proportional to the volume of S. Output parameter F is the sine of the X rotation and output parameter G is the cosine of the Y rotation. Gate Out goes high for 10ms every time the Knot completes a rotation around any axis. Conrol rotation directly with parameters AF (CC80), AG (CC81), and AH (CC82). Return a parameter to zero to resume automatic rotation around that axis.
+
+Perlin noise can be added to the 3D points with parameter BA (CC83) for a distortion-like effect.
