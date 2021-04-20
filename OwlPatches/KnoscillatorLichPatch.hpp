@@ -202,11 +202,11 @@ public:
     float cosa = cosf(roll);
     float sina = sinf(roll);
 
-    float cosb = cosf(yaw);
-    float sinb = sinf(yaw);
+    float cosb = cosf(pitch);
+    float sinb = sinf(pitch);
 
-    float cosc = cosf(pitch);
-    float sinc = sinf(pitch);
+    float cosc = cosf(yaw);
+    float sinc = sinf(yaw);
 
     float Axx = cosa * cosb;
     float Axy = cosa * sinb*sinc - sina * cosc;
