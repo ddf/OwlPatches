@@ -26,7 +26,7 @@ DESCRIPTION:
     the audio on a scope in X-Y mode, you will be able to see the Knot generating the sound.
     The Knot shape can be changed by adjusting the P and Q coefficients
     and it rotates around the X and Y axes at speeds relative to P and Q,
-    which generates a ever-changing stereo field.
+    which generates an ever-changing stereo field.
 */
 
 #include "Patch.h"
