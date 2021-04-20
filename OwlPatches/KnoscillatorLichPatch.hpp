@@ -342,7 +342,7 @@ public:
       oy += sinf(st)*sVol + oy * nz;
       oz += oz * nz;
 
-      const float camDist = 5.0f;
+      const float camDist = 6.0f;
       float projection = 1.0f / (oz + camDist);
       left[s]  = ox * projection;
       right[s] = oy * projection;
