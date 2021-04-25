@@ -34,7 +34,7 @@ public:
   {
     noiseField->setOffsetX(getParameterValue(inOffsetX));
     noiseField->setOffsetY(getParameterValue(inOffsetY));
-    noiseField->setFrequency(getParameterValue(inNoiseFrequency) * 16 + 1);
+    noiseField->setFrequency(getParameterValue(inNoiseFrequency) * 16 + 8);
     noiseField->setDepth(getParameterValue(inNoiseDepth) * 8 + 1);
     noiseField->process(audio, audio);
   }
