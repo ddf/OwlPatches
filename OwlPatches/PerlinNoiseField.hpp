@@ -51,8 +51,7 @@ public:
   {
     FloatArray xin = input.getSamples(LEFT_CHANNEL);
     FloatArray yin = input.getChannels() >= 2 ? input.getSamples(RIGHT_CHANNEL) : xin;
-    FloatArray outL = output.getSamples(LEFT_CHANNEL);
-    FloatArray outR = output.getChannels() >= 2 ? output.getSamples(RIGHT_CHANNEL) : outL;
+    const int outChannels = output.getChannels();
     const int blockSize = min(input.getSize(), output.getSize());
     for (int i = 0; i < blockSize; ++i)
     {
@@ -60,9 +59,11 @@ public:
       float rightIn = yin[i];
       float x = leftIn * 0.5f + 0.5f;
       float y = rightIn * 0.5f + 0.5f;
-      float nz = perlin2d(x + offsetX, y + offsetY, frequency, octaves) * 2 - 1;
-      outL[i] = leftIn * nz;
-      outR[i] = rightIn * nz;
+      float nz = perlin2d(x + offsetX, y + offsetY, frequency, octaves);
+      for (int c = 0; c < outChannels; ++c)
+      {
+        output.getSamples(c)[i] = nz;
+      }
     }
   }
 
