@@ -61,8 +61,8 @@ public:
       float x = leftIn * 0.5f + 0.5f;
       float y = rightIn * 0.5f + 0.5f;
       float nz = perlin2d(x + offsetX, y + offsetY, frequency, depth) * 2 - 1;
-      outL[i] = leftIn + leftIn * nz;
-      outR[i] = rightIn + rightIn * nz;
+      outL[i] = nz; // leftIn + leftIn * nz;
+      outR[i] = nz; // rightIn + rightIn * nz;
     }
   }
 
