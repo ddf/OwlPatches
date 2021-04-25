@@ -7,11 +7,11 @@
 class PerlinNoiseField : public MultiSignalProcessor
 {
   float frequency;
-  unsigned int depth;
+  unsigned int octaves;
   float offsetX, offsetY;
 
   PerlinNoiseField()
-    : frequency(1), depth(1), offsetX(0), offsetY(0)
+    : frequency(1), octaves(1), offsetX(0), offsetY(0)
   {
 
   }
@@ -32,9 +32,9 @@ public:
     frequency = max(0, freq);
   }
 
-  void setDepth(int depth)
+  void setDepth(unsigned int depth)
   {
-    depth = max(1, depth);
+    octaves = max(1, depth);
   }
 
   void setOffsetX(float offset)
@@ -60,7 +60,7 @@ public:
       float rightIn = yin[i];
       float x = leftIn * 0.5f + 0.5f;
       float y = rightIn * 0.5f + 0.5f;
-      float nz = perlin2d(x + offsetX, y + offsetY, frequency, depth) * 2 - 1;
+      float nz = perlin2d(x + offsetX, y + offsetY, frequency, octaves) * 2 - 1;
       outL[i] = leftIn * nz;
       outR[i] = rightIn * nz;
     }
