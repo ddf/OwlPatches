@@ -40,19 +40,22 @@ public:
     noiseField->setFrequency(getParameterValue(inNoiseFrequency) * 16 + 1);
     noiseField->process(audio, *noiseBuffer);
 
+    FloatArray left = audio.getSamples(0);
+    FloatArray right = audio.getSamples(1);
     FloatArray noise = noiseBuffer->getSamples(0);
+
+    // shift noise to [-1,1]
     noise.multiply(2);
     noise.subtract(1);
 
-    FloatArray left = audio.getSamples(0);
-    FloatArray right = audio.getSamples(1);
-    float wetDry = getParameterValue(inWetDry);
-    for (int i = 0; i < getBlockSize(); ++i)
-    {
-      float nz = noise[i];
-      left[i] += wetDry * (nz - left[i]);
-      right[i] += wetDry * (nz - right[i]);
-    }
+    // do wet/dry mix with orignal signal
+    float wet = getParameterValue(inWetDry);
+    float dry = 1.0f - wet;
+    left.multiply(dry);
+    right.multiply(dry);
+    noise.multiply(wet);
+    left.add(noise);
+    right.add(noise);
   }
 
 };
