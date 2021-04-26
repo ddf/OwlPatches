@@ -39,12 +39,12 @@ public:
 
   void setOffsetX(float offset)
   {
-    offsetX = max(0, offset);
+    offsetX = max(0, offset)*256;
   }
 
   void setOffsetY(float offset)
   {
-    offsetY = max(0, offset);
+    offsetY = max(0, offset)*256;
   }
 
   void process(AudioBuffer& input, AudioBuffer& output) override
@@ -59,7 +59,7 @@ public:
       float rightIn = yin[i];
       float x = leftIn * 0.5f + 0.5f;
       float y = rightIn * 0.5f + 0.5f;
-      float nz = perlin2d(x + offsetX, y + offsetY, frequency, octaves);
+      float nz = perlin2d(x*frequency + offsetX, y*frequency + offsetY, 1, octaves);
       for (int c = 0; c < outChannels; ++c)
       {
         output.getSamples(c)[i] = nz;
