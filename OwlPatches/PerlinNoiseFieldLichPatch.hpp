@@ -6,6 +6,7 @@ class PerlinNoiseFieldLichPatch : public Patch
 {
   PerlinNoiseField* noiseField;
   AudioBuffer*      noiseBuffer;
+  FloatArray        fmArray;
 
   static const PatchParameterId inNoiseFrequency = PARAMETER_A;
   static const PatchParameterId inWetDry = PARAMETER_B;
@@ -17,6 +18,9 @@ public:
   {
     noiseField = PerlinNoiseField::create();
     noiseBuffer = AudioBuffer::create(1, getBlockSize());
+    fmArray = FloatArray::create(getBlockSize());
+    fmArray.clear();
+
     registerParameter(inNoiseFrequency, "Noise Frequency");
     registerParameter(inWetDry, "Wet / Dry");
     registerParameter(inOffsetX, "X Offset");
@@ -32,14 +36,17 @@ public:
   {
     PerlinNoiseField::destroy(noiseField);
     AudioBuffer::destroy(noiseBuffer);
+    FloatArray::destroy(fmArray);
   }
 
   void processAudio(AudioBuffer& audio) override
   {
+    float targetFreq = getParameterValue(inNoiseFrequency) * 16;
+    fmArray.ramp(fmArray[fmArray.getSize() - 1], targetFreq);
+
     noiseField->setOffsetX(getParameterValue(inOffsetX));
     noiseField->setOffsetY(getParameterValue(inOffsetY));
-    noiseField->setFrequency(getParameterValue(inNoiseFrequency) * 16 + 1);
-    noiseField->process(audio, *noiseBuffer);
+    noiseField->process(audio, *noiseBuffer, fmArray);
 
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
