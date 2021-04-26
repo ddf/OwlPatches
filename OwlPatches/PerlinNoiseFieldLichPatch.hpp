@@ -60,8 +60,8 @@ public:
     left.multiply(dry);
     right.multiply(dry);
     noise.multiply(wet);
-    //left.add(noise);
-    //right.add(noise);
+    left.add(noise);
+    right.add(noise);
   }
 
 };
