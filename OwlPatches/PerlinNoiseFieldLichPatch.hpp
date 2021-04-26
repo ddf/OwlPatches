@@ -1,8 +1,10 @@
 #include "Patch.h"
+#include "DcBlockingFilter.h"
 #include "PerlinNoiseField.hpp"
 
 class PerlinNoiseFieldLichPatch : public Patch
 {
+  StereoDcBlockingFilter* dcBlockingFilter;
   PerlinNoiseField* noiseField;
   AudioBuffer*      noiseBuffer;
 
@@ -14,6 +16,7 @@ class PerlinNoiseFieldLichPatch : public Patch
 public:
   PerlinNoiseFieldLichPatch()
   {
+    dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     noiseField = PerlinNoiseField::create();
     noiseBuffer = AudioBuffer::create(1, getBlockSize());
     registerParameter(inNoiseFrequency, "Noise Frequency");
@@ -29,12 +32,15 @@ public:
 
   ~PerlinNoiseFieldLichPatch()
   {
+    StereoDcBlockingFilter::destroy(dcBlockingFilter);
     PerlinNoiseField::destroy(noiseField);
     AudioBuffer::destroy(noiseBuffer);
   }
 
   void processAudio(AudioBuffer& audio) override
   {
+    dcBlockingFilter->process(audio, audio);
+
     noiseField->setOffsetX(getParameterValue(inOffsetX));
     noiseField->setOffsetY(getParameterValue(inOffsetY));
     noiseField->setFrequency(getParameterValue(inNoiseFrequency) * 16 + 1);
