@@ -38,7 +38,7 @@ public:
   {
     noiseField->setOffsetX(getParameterValue(inOffsetX));
     noiseField->setOffsetY(getParameterValue(inOffsetY));
-    noiseField->setFrequency(getParameterValue(inNoiseFrequency) * 16 + 4);
+    noiseField->setFrequency(getParameterValue(inNoiseFrequency) * 16 + 1);
     noiseField->process(audio, *noiseBuffer);
 
     FloatArray left = audio.getSamples(0);
