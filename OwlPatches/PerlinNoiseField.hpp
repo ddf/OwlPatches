@@ -29,7 +29,7 @@ public:
 
   void setFrequency(float freq)
   {
-    frequency = max(0, freq);
+    frequency = max(1, freq);
   }
 
   void setDepth(unsigned int depth)
@@ -39,12 +39,12 @@ public:
 
   void setOffsetX(float offset)
   {
-    offsetX = max(0, offset);
+    offsetX = max(0, offset) * 256;
   }
 
   void setOffsetY(float offset)
   {
-    offsetY = max(0, offset);
+    offsetY = max(0, offset) * 256;
   }
 
   void process(AudioBuffer& input, AudioBuffer& output) override
@@ -57,8 +57,8 @@ public:
     {
       float leftIn = xin[i];
       float rightIn = yin[i];
-      float x = leftIn * 0.5f + 0.5f;
-      float y = rightIn * 0.5f + 0.5f;
+      float x = leftIn * 128 + 128;
+      float y = rightIn * 128 + 128;
       float nz = perlin2d(x + offsetX, y + offsetY, frequency, octaves);
       for (int c = 0; c < outChannels; ++c)
       {
