@@ -1,5 +1,4 @@
 #include "Patch.h"
-#include "DcBlockingFilter.h"
 #include "PerlinNoiseField.hpp"
 
 class PerlinNoiseFieldLichPatch : public Patch
