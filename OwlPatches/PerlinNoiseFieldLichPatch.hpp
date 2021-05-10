@@ -1,3 +1,30 @@
+/**
+
+AUTHOR:
+    (c) 2021 Damien Quartz
+
+LICENSE:
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+DESCRIPTION:
+    Uses left and right audio inputs as X and Y lookups for 2d Perlin noise.
+    Parameter A controls noise frequency, Parameter B is dry/wet mix for the output.
+    Parameter C is a fixed offset for X and Parameter D is a fixed offset for Y.
+    Gate 1 and 2 can be used as triggers to sample and hold the noise at CV Outs 1 and 2.
+*/
+
 #include "Patch.h"
 #include "PerlinNoiseField.hpp"
 
