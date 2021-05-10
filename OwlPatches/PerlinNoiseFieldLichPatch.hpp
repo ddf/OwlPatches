@@ -7,8 +7,10 @@ class PerlinNoiseFieldLichPatch : public Patch
   PerlinNoiseField* noiseField;
   AudioBuffer*      noiseBuffer;
   FloatArray        fmArray;
-  uint16_t          sampleNoise1;
-  uint16_t          sampleNoise2;
+  bool              sampleNoise1;
+  float             sampledNoise1;
+  bool              sampleNoise2;
+  float             sampledNoise2;
 
   static const PatchParameterId inNoiseFrequency = PARAMETER_A;
   static const PatchParameterId inWetDry = PARAMETER_B;
@@ -19,7 +21,7 @@ class PerlinNoiseFieldLichPatch : public Patch
 
 public:
   PerlinNoiseFieldLichPatch()
-  : sampleNoise1(0), sampleNoise2(0)
+  : sampleNoise1(false), sampleNoise2(false)
   {
     noiseField = PerlinNoiseField::create();
     noiseBuffer = AudioBuffer::create(1, getBlockSize());
@@ -64,14 +66,14 @@ public:
 
     if (sampleNoise1)
     {
-      setParameterValue(outNoise1, noise[0]);
-      sampleNoise1 = 0;
+      sampledNoise1 = noise[0];
+      sampleNoise1 = false;
     }
 
     if (sampleNoise2)
     {
-      setParameterValue(outNoise2, noise[0]);
-      sampleNoise2 = 0;
+      sampledNoise2 = noise[0];
+      sampleNoise2 = false;
     }
 
     // shift noise to [-1,1]
@@ -86,19 +88,22 @@ public:
     noise.multiply(wet);
     left.add(noise);
     right.add(noise);
+
+    setParameterValue(outNoise1, sampledNoise1);
+    setParameterValue(outNoise2, sampledNoise2);
   }
 
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (bid == BUTTON_A)
+    if (bid == BUTTON_A && value)
     {
-      sampleNoise1 = value;
+      sampleNoise1 = true;
     }
 
-    if (bid == BUTTON_B)
+    if (bid == BUTTON_B && value)
     {
-      sampleNoise2 = value;
+      sampleNoise2 = true;
     }
   }
 
