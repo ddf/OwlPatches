@@ -41,7 +41,7 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    float targetFreq = getParameterValue(inNoiseFrequency) * 16;
+    float targetFreq = getParameterValue(inNoiseFrequency) * 32 + 1;
     fmArray.ramp(fmArray[fmArray.getSize() - 1], targetFreq);
 
     noiseField->setOffsetX(getParameterValue(inOffsetX));
