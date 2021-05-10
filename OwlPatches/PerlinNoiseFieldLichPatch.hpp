@@ -84,10 +84,10 @@ public:
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
     left.multiply(dry);
-    right.multiply(dry);
+    //right.multiply(dry);
     noise.multiply(wet);
     left.add(noise);
-    //right.add(noise);
+    right.add(noise);
 
     setParameterValue(outNoise1, sampledNoise1);
     setParameterValue(outNoise2, sampledNoise2);
