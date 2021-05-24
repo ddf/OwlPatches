@@ -15,8 +15,8 @@ class GlitchLichPatch : public Patch
   bool dropBlock;
 
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
-  const int dropBlockLengthMin = 2;
-  const int dropBlockLengthMax = 24;
+  const int dropBlockLengthMin = 8;
+  const int dropBlockLengthMax = 64;
   const PatchParameterId inSize = PARAMETER_A;
   const PatchParameterId inSpeed = PARAMETER_B;
   const PatchParameterId inDrop = PARAMETER_C;
