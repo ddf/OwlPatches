@@ -7,7 +7,7 @@ class GlitchLichPatch : public Patch
   CircularBuffer<float>* bufferL;
   CircularBuffer<float>* bufferR;
   int bufferLen;
-  RampOscillator* rampLfo;
+  int readLfo;
 
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
   const PatchParameterId inDuration = PARAMETER_A;
@@ -20,7 +20,7 @@ public:
     bufferL = CircularBuffer<float>::create(bufferLen);
     bufferR = CircularBuffer<float>::create(bufferLen);
 
-    rampLfo = RampOscillator::create(getSampleRate());
+    readLfo = 0;
 
     registerParameter(inDuration, "Duration");
     registerParameter(outRamp, "Ramp>");
@@ -30,7 +30,6 @@ public:
   {
     CircularBuffer<float>::destroy(bufferL);
     CircularBuffer<float>::destroy(bufferR);
-    RampOscillator::destroy(rampLfo);
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -42,9 +41,8 @@ public:
     int size = audio.getSize();
 
     float dur = 0.001f + getParameterValue(inDuration) * 0.999f;
-    float len = (bufferLen - 1)*dur;
-    //rampLfo->setFrequency(1.0f / (dur * BUFFER_SIZE_IN_SECONDS));
-    rampLfo->setFrequency(2);
+    int   len = bufferLen*dur;
+    readLfo %= len;
 
     if (freeze)
     {
@@ -57,8 +55,8 @@ public:
       for (int i = 0; i < size; ++i)
       {
         // we want a ramp that goes from 0 -> 1
-        float pos = 0.5f*rampLfo->generate() + 0.5f;
-        float readIdx = readStartIdx + pos * len;
+        float readIdx = readStartIdx + readLfo;
+        readLfo = (readLfo + 1) % len;
         left[i] = bufferL->interpolatedReadAt(readIdx);
         right[i] = bufferR->interpolatedReadAt(readIdx);
       }
@@ -67,13 +65,13 @@ public:
     {
       for (int i = 0; i < size; ++i)
       {
-        left[i] = rampLfo->generate();
+        readLfo = (readLfo + 1) % len;
         bufferL->write(left[i]);
         bufferR->write(right[i]);
       }
     }
 
-    setParameterValue(outRamp, rampLfo->getPhase() / (2*M_PI));
+    setParameterValue(outRamp, (float)readLfo / len);
   }
 
 };
