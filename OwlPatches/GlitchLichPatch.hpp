@@ -69,7 +69,7 @@ public:
   float crush(float samp, int range)
   {
     float val = floorf(samp * range);
-    return ((float)val / range) * 2 - 1;
+    return val / range;
   }
 
   void processAudio(AudioBuffer& audio) override
