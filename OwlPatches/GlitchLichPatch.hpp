@@ -67,11 +67,9 @@ public:
     {
       for (int i = 0; i < size; ++i)
       {
-        rampLfo->generate();
+        left[i] = rampLfo->generate();
         bufferL->write(left[i]);
         bufferR->write(right[i]);
-        left[i] = 0;
-        right[i] = 0;
       }
     }
 
