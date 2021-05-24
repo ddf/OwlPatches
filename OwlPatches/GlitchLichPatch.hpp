@@ -44,7 +44,7 @@ public:
     float dur = 0.001f + getParameterValue(inDuration) * 0.999f;
     float len = (bufferLen - 1)*dur;
     //rampLfo->setFrequency(1.0f / (dur * BUFFER_SIZE_IN_SECONDS));
-    rampLfo->setFrequency(60);
+    rampLfo->setFrequency(2);
 
     if (freeze)
     {
@@ -70,6 +70,8 @@ public:
         rampLfo->generate();
         bufferL->write(left[i]);
         bufferR->write(right[i]);
+        left[i] = 0;
+        right[i] = 0;
       }
     }
 
