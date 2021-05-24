@@ -13,6 +13,7 @@ class GlitchLichPatch : public Patch
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
   const PatchParameterId inSize = PARAMETER_A;
   const PatchParameterId inSpeed = PARAMETER_B;
+  const PatchParameterId inDrop = PARAMETER_C;
   const PatchParameterId outRamp = PARAMETER_F;
 
 public:
@@ -27,9 +28,11 @@ public:
 
     registerParameter(inSize,  "Size");
     registerParameter(inSpeed, "Speed");
+    registerParameter(inDrop, "Drop");
     registerParameter(outRamp, "Ramp>");
 
     setParameterValue(inSpeed, 0.5f);
+    setParameterValue(inDrop, 0);
   }
 
   ~GlitchLichPatch()
@@ -91,6 +94,12 @@ public:
         bufferL->write(left[i]);
         bufferR->write(right[i]);
       }
+    }
+
+    if (randf() < getParameterValue(inDrop))
+    {
+      left.clear();
+      right.clear();
     }
 
     float rampVal = (float)readLfo / len;
