@@ -2,7 +2,7 @@
 #include "CircularBuffer.h"
 #include "RampOscillator.h"
 
-class GlitchLichPath : public Patch
+class GlitchLichPatch : public Patch
 {
   CircularBuffer<float>* bufferL;
   CircularBuffer<float>* bufferR;
@@ -13,7 +13,7 @@ class GlitchLichPath : public Patch
   const PatchParameterId inDuration = PARAMETER_A;
 
 public:
-  GlitchLichPath()
+  GlitchLichPatch()
   {
     bufferLen = static_cast<int>(getSampleRate() * BUFFER_SIZE_IN_SECONDS);
     bufferL = CircularBuffer<float>::create(bufferLen);
@@ -24,7 +24,7 @@ public:
     registerParameter(inDuration, "Duration");
   }
 
-  ~GlitchLichPath()
+  ~GlitchLichPatch()
   {
     CircularBuffer<float>::destroy(bufferL);
     CircularBuffer<float>::destroy(bufferR);
