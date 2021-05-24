@@ -46,6 +46,10 @@ public:
     {
       readLfo -= len;
     }
+    else if (readLfo < 0)
+    {
+      readLfo + len;
+    }
     return readLfo;
   }
 
@@ -61,7 +65,7 @@ public:
     float dur = 0.001f + getParameterValue(inSize) * 0.999f;
     float len = bufferLen * dur;
 
-    readSpeed = 0.25f + getParameterValue(inSpeed) * 3.75f;
+    readSpeed = -4.f + getParameterValue(inSpeed) * 4.f;
 
     if (freeze)
     {
@@ -73,7 +77,7 @@ public:
       }
       for (int i = 0; i < size; ++i)
       {
-        float off = flip ? len - stepReadLFO(readSpeed, len) : stepReadLFO(readSpeed, len);
+        float off = stepReadLFO(readSpeed, len);
         float readIdx = readStartIdx + off;
         left[i] = bufferL->interpolatedReadAt(readIdx);
         right[i] = bufferR->interpolatedReadAt(readIdx);
