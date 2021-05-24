@@ -43,7 +43,8 @@ public:
 
     float dur = 0.001f + getParameterValue(inDuration) * 0.999f;
     float len = (bufferLen - 1)*dur;
-    rampLfo->setFrequency(1.0f / (dur * BUFFER_SIZE_IN_SECONDS));
+    //rampLfo->setFrequency(1.0f / (dur * BUFFER_SIZE_IN_SECONDS));
+    rampLfo->setFrequency(2);
 
     if (freeze)
     {
