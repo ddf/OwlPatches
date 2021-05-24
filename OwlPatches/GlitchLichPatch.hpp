@@ -7,10 +7,12 @@ class GlitchLichPatch : public Patch
   CircularBuffer<float>* bufferL;
   CircularBuffer<float>* bufferR;
   int bufferLen;
-  int readLfo;
+  float readLfo;
+  float readSpeed;
 
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
-  const PatchParameterId inDuration = PARAMETER_A;
+  const PatchParameterId inSize = PARAMETER_A;
+  const PatchParameterId inSpeed = PARAMETER_B;
   const PatchParameterId outRamp = PARAMETER_F;
 
 public:
@@ -21,15 +23,30 @@ public:
     bufferR = CircularBuffer<float>::create(bufferLen);
 
     readLfo = 0;
+    readSpeed = 1;
 
-    registerParameter(inDuration, "Duration");
+    registerParameter(inSize,  "Size");
+    registerParameter(inSpeed, "Speed");
     registerParameter(outRamp, "Ramp>");
+
+    setParameterValue(inSpeed, 0.5f);
   }
 
   ~GlitchLichPatch()
   {
     CircularBuffer<float>::destroy(bufferL);
     CircularBuffer<float>::destroy(bufferR);
+  }
+
+
+  float stepReadLFO(float speed, float len)
+  {
+    readLfo = readLfo + speed;
+    if (readLfo >= len)
+    {
+      readLfo -= len;
+    }
+    return readLfo;
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -40,9 +57,10 @@ public:
     bool freeze = isButtonPressed(BUTTON_1);
     int size = audio.getSize();
 
-    float dur = 0.001f + getParameterValue(inDuration) * 0.999f;
-    int   len = (int)(bufferLen*dur);
-    readLfo %= len;
+    float dur = 0.001f + getParameterValue(inSize) * 0.999f;
+    float len = bufferLen * dur;
+
+    readSpeed = 0.25f + getParameterValue(inSpeed) * 3.75f;
 
     if (freeze)
     {
@@ -54,9 +72,7 @@ public:
       }
       for (int i = 0; i < size; ++i)
       {
-        // we want a ramp that goes from 0 -> 1
-        float readIdx = readStartIdx + readLfo;
-        readLfo = (readLfo + 1) % len;
+        float readIdx = readStartIdx + stepReadLFO(readSpeed, len);
         left[i] = bufferL->interpolatedReadAt(readIdx);
         right[i] = bufferR->interpolatedReadAt(readIdx);
       }
@@ -65,15 +81,15 @@ public:
     {
       for (int i = 0; i < size; ++i)
       {
-        readLfo = (readLfo + 1) % len;
+        stepReadLFO(readSpeed, len);
         bufferL->write(left[i]);
         bufferR->write(right[i]);
-        left[i] = left[i] * dur;
-        right[i] = right[i] * dur;
       }
     }
 
-    setParameterValue(outRamp, (float)readLfo / len);
+    float rampVal = (float)readLfo / len;
+    setParameterValue(outRamp, rampVal);
+    setButton(PUSHBUTTON, rampVal < 0.5f);
   }
 
 };
