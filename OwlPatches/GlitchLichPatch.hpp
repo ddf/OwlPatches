@@ -20,6 +20,7 @@ class GlitchLichPatch : public Patch
   const PatchParameterId inSize = PARAMETER_A;
   const PatchParameterId inSpeed = PARAMETER_B;
   const PatchParameterId inDrop = PARAMETER_C;
+  const PatchParameterId inCrush = PARAMETER_D;
   const PatchParameterId outRamp = PARAMETER_F;
 
 public:
@@ -37,6 +38,7 @@ public:
     registerParameter(inSize,  "Size");
     registerParameter(inSpeed, "Speed");
     registerParameter(inDrop, "Drop");
+    registerParameter(inCrush, "Crush");
     registerParameter(outRamp, "Ramp>");
 
     setParameterValue(inSpeed, 0.5f);
@@ -64,6 +66,13 @@ public:
     return readLfo;
   }
 
+  float crush(float samp, int bits)
+  {
+    int range = (1 << bits) - 1;
+    int val = (int)((samp*0.5f + 0.5f) * range);
+    return ((float)val / range) * 2 - 1;
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
@@ -78,6 +87,8 @@ public:
 
     readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
 
+    int bits = 2 + getParameterValue(inCrush) * 22;
+
     if (freeze)
     {
       int writeIdx = bufferL->getWriteIndex();
@@ -90,8 +101,8 @@ public:
       {
         float off = stepReadLFO(readSpeed, len);
         float readIdx = readStartIdx + off;
-        left[i] = bufferL->interpolatedReadAt(readIdx);
-        right[i] = bufferR->interpolatedReadAt(readIdx);
+        left[i] = crush(bufferL->interpolatedReadAt(readIdx), bits);
+        right[i] = crush(bufferR->interpolatedReadAt(readIdx), bits);
       }
     }
     else
@@ -101,6 +112,8 @@ public:
         stepReadLFO(readSpeed, len);
         bufferL->write(left[i]);
         bufferR->write(right[i]);
+        left[i] = crush(left[i], bits);
+        right[i] = crush(right[i], bits);
       }
     }
 
