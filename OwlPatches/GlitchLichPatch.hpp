@@ -11,10 +11,12 @@ class GlitchLichPatch : public Patch
   float readSpeed;
 
   int dropBlockCount;
+  int dropBlockLength;
   bool dropBlock;
 
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
-  const int dropBlockLength = 4;
+  const int dropBlockLengthMin = 2;
+  const int dropBlockLengthMax = 24;
   const PatchParameterId inSize = PARAMETER_A;
   const PatchParameterId inSpeed = PARAMETER_B;
   const PatchParameterId inDrop = PARAMETER_C;
@@ -30,6 +32,7 @@ public:
     readLfo = 0;
     readSpeed = 1;
     dropBlockCount = 0;
+    dropBlockLength = dropBlockLengthMax;
 
     registerParameter(inSize,  "Size");
     registerParameter(inSpeed, "Speed");
@@ -101,7 +104,9 @@ public:
       }
     }
 
-    if (++dropBlockCount == dropBlockLength)
+    dropBlockLength = dropBlockLengthMax + getParameterValue(inDrop)*(dropBlockLengthMin - dropBlockLengthMax);
+
+    if (++dropBlockCount >= dropBlockLength)
     {
       dropBlockCount = 0;
       dropBlock = randf() < getParameterValue(inDrop);
