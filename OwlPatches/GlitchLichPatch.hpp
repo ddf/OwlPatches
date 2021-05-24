@@ -16,7 +16,7 @@ class GlitchLichPatch : public Patch
 public:
   GlitchLichPatch()
   {
-    bufferLen = static_cast<int>(getSampleRate() * BUFFER_SIZE_IN_SECONDS);
+    bufferLen = (int)(getSampleRate() * BUFFER_SIZE_IN_SECONDS);
     bufferL = CircularBuffer<float>::create(bufferLen);
     bufferR = CircularBuffer<float>::create(bufferLen);
 
@@ -41,7 +41,7 @@ public:
     int size = audio.getSize();
 
     float dur = 0.001f + getParameterValue(inDuration) * 0.999f;
-    int   len = bufferLen*dur;
+    int   len = (int)(bufferLen*dur);
     readLfo %= len;
 
     if (freeze)
@@ -68,6 +68,8 @@ public:
         readLfo = (readLfo + 1) % len;
         bufferL->write(left[i]);
         bufferR->write(right[i]);
+        left[i] = left[i] * dur;
+        right[i] = right[i] * dur;
       }
     }
 
