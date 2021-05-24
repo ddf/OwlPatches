@@ -66,7 +66,7 @@ public:
     return readLfo;
   }
 
-  float crush(float samp, int range)
+  float crush(float samp, float range)
   {
     float val = floorf(samp * range);
     return val / range;
@@ -86,7 +86,7 @@ public:
 
     readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
 
-    int bits = (1<<15) - getParameterValue(inCrush) * (1<<12);
+    float bits = (1<<15) - getParameterValue(inCrush) * (1<<12);
 
     if (freeze)
     {
