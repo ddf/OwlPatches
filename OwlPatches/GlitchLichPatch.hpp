@@ -48,7 +48,7 @@ public:
     }
     else if (readLfo < 0)
     {
-      readLfo + len;
+      readLfo += len;
     }
     return readLfo;
   }
@@ -65,7 +65,7 @@ public:
     float dur = 0.001f + getParameterValue(inSize) * 0.999f;
     float len = bufferLen * dur;
 
-    readSpeed = -4.f + getParameterValue(inSpeed) * 4.f;
+    readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
 
     if (freeze)
     {
