@@ -27,5 +27,8 @@
     <ClInclude Include="PerlinNoiseField.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GlitchLichPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

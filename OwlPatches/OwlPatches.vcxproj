@@ -134,6 +134,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="GlitchLichPatch.hpp" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
     <ClInclude Include="Noise.hpp" />
     <ClInclude Include="PerlinNoiseField.hpp" />
