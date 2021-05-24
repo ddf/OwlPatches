@@ -41,11 +41,12 @@ public:
     bool freeze = isButtonPressed(BUTTON_1);
     int size = audio.getSize();
 
+    float dur = 0.001f + getParameterValue(inDuration) * 0.999f;
+    float len = (bufferLen - 1)*dur;
+    rampLfo->setFrequency(1.0f / (dur * BUFFER_SIZE_IN_SECONDS));
+
     if (freeze)
     {
-      float dur = 0.001f + getParameterValue(inDuration) * 0.999f;
-      float len = (bufferLen - 1)*dur;
-      rampLfo->setFrequency(1.0f / (dur * BUFFER_SIZE_IN_SECONDS));
       int writeIdx = bufferL->getWriteIndex();
       float readStartIdx = writeIdx - len;
       if (readStartIdx < 0)
@@ -65,6 +66,7 @@ public:
     {
       for (int i = 0; i < size; ++i)
       {
+        rampLfo->generate();
         bufferL->write(left[i]);
         bufferR->write(right[i]);
       }
