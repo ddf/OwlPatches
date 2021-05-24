@@ -55,6 +55,7 @@ public:
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
     bool freeze = isButtonPressed(BUTTON_1);
+    bool flip = isButtonPressed(BUTTON_2);
     int size = audio.getSize();
 
     float dur = 0.001f + getParameterValue(inSize) * 0.999f;
@@ -72,7 +73,8 @@ public:
       }
       for (int i = 0; i < size; ++i)
       {
-        float readIdx = readStartIdx + stepReadLFO(readSpeed, len);
+        float off = flip ? len - stepReadLFO(readSpeed, len) : stepReadLFO(readSpeed, len);
+        float readIdx = readStartIdx + off;
         left[i] = bufferL->interpolatedReadAt(readIdx);
         right[i] = bufferR->interpolatedReadAt(readIdx);
       }
