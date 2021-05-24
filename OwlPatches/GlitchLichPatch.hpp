@@ -11,6 +11,7 @@ class GlitchLichPatch : public Patch
 
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
   const PatchParameterId inDuration = PARAMETER_A;
+  const PatchParameterId outRamp = PARAMETER_F;
 
 public:
   GlitchLichPatch()
@@ -22,6 +23,7 @@ public:
     rampLfo = RampOscillator::create(getSampleRate());
 
     registerParameter(inDuration, "Duration");
+    registerParameter(outRamp, "Ramp>");
   }
 
   ~GlitchLichPatch()
@@ -33,8 +35,8 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    FloatArray left = audio.getSamples(0);
-    FloatArray right = audio.getSamples(1);
+    FloatArray left = audio.getSamples(LEFT_CHANNEL);
+    FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
     bool freeze = isButtonPressed(BUTTON_1);
     int size = audio.getSize();
@@ -67,6 +69,8 @@ public:
         bufferR->write(right[i]);
       }
     }
+
+    setParameterValue(outRamp, rampLfo->getPhase() / (2*M_PI));
   }
 
 };
