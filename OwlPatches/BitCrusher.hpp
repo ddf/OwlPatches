@@ -5,8 +5,8 @@ class BitCrusher : public SignalProcessor
 {
   const float sampleRate;
   float bitRate;
-  int   bitDepth;
-  int   bitsVal;
+  float bitDepth;
+  float bitsVal;
   float sampleCount;
   float sample;
 
@@ -25,10 +25,10 @@ public:
     bitRate = max(1, rate) / sampleRate;
   }
 
-  void setBitDepth(int bits)
+  void setBitDepth(float bits)
   {
     bitDepth = min(max(2, bits), MAX_BITS);
-    bitsVal = (1 << bitDepth) - 1;
+    bitsVal = pow(2, bits) - 1;
   }
 
   float process(float input) override
@@ -41,9 +41,9 @@ public:
       sampleCount -= 1;
     }
 
-    int val = (sample*0.5f + 0.5f) * maxBitsVal;
-    val = val >> (MAX_BITS - bitDepth);
-    return ((float)val / bitsVal) * 2 - 1;
+    int val = (sample*0.5f + 0.5f) * bitsVal;
+    //val = val >> (MAX_BITS - bitDepth);
+    return ((float)val / maxBitsVal) * 2 - 1;
   }
 
   void process(FloatArray input, FloatArray output) override
