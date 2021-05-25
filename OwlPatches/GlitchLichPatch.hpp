@@ -1,11 +1,14 @@
 #include "Patch.h"
 #include "CircularBuffer.h"
 #include "RampOscillator.h"
+#include "BitCrusher.hpp"
 
 class GlitchLichPatch : public Patch
 {
   CircularBuffer<float>* bufferL;
   CircularBuffer<float>* bufferR;
+  BitCrusher<24>* crushL;
+  BitCrusher<24>* crushR;
   int bufferLen;
   float readLfo;
   float readSpeed;
@@ -29,6 +32,8 @@ public:
     bufferLen = (int)(getSampleRate() * BUFFER_SIZE_IN_SECONDS);
     bufferL = CircularBuffer<float>::create(bufferLen);
     bufferR = CircularBuffer<float>::create(bufferLen);
+    crushL = BitCrusher<24>::create(getSampleRate(), getSampleRate());
+    crushR = BitCrusher<24>::create(getSampleRate(), getSampleRate());
 
     readLfo = 0;
     readSpeed = 1;
@@ -49,6 +54,8 @@ public:
   {
     CircularBuffer<float>::destroy(bufferL);
     CircularBuffer<float>::destroy(bufferR);
+    BitCrusher<24>::destroy(crushL);
+    BitCrusher<24>::destroy(crushR);
   }
 
 
@@ -90,6 +97,11 @@ public:
     readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
 
     int bits = (int)(24 - getParameterValue(inCrush) * 22);
+    float rate = getSampleRate() - getParameterValue(inCrush)*(getSampleRate() - 10);
+    crushL->setBitDepth(bits);
+    crushL->setBitRate(rate);
+    crushR->setBitDepth(bits);
+    crushR->setBitRate(rate);
 
     if (freeze)
     {
@@ -103,8 +115,8 @@ public:
       {
         float off = stepReadLFO(readSpeed, len);
         float readIdx = readStartIdx + off;
-        left[i] = crush(bufferL->interpolatedReadAt(readIdx), bits);
-        right[i] = crush(bufferR->interpolatedReadAt(readIdx), bits);
+        left[i] =  bufferL->interpolatedReadAt(readIdx);
+        right[i] = bufferR->interpolatedReadAt(readIdx);
       }
     }
     else
@@ -114,10 +126,11 @@ public:
         stepReadLFO(readSpeed, len);
         bufferL->write(left[i]);
         bufferR->write(right[i]);
-        left[i] = crush(left[i], bits);
-        right[i] = crush(right[i], bits);
       }
     }
+
+    crushL->process(left, left);
+    crushR->process(right, right);
 
     dropBlockLength = dropBlockLengthMax + getParameterValue(inDrop)*(dropBlockLengthMin - dropBlockLengthMax);
 
