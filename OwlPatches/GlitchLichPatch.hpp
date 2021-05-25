@@ -89,12 +89,12 @@ public:
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
-    float bits = crush > 0.001f ? (8.f - crush * 7) : 24;
+    float bits = crush > 0.001f ? (8.f - crush * 6) : 24;
     float rate = crush > 0.001f ? sr*0.25f + getParameterValue(inCrush)*(100 - sr*0.25f) : sr;
     crushL->setBitDepth(bits);
-    //crushL->setBitRate(rate);
+    crushL->setBitRate(rate);
     crushR->setBitDepth(bits);
-    //crushR->setBitRate(rate);
+    crushR->setBitRate(rate);
 
     if (freeze)
     {

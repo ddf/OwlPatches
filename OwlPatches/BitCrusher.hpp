@@ -27,7 +27,7 @@ public:
 
   void setBitDepth(float bits)
   {
-    bitDepth = min(max(1, bits), MAX_BITS);
+    bitDepth = min(max(2, bits), MAX_BITS);
     bitsVal = powf(2, bitDepth) - 1;
   }
 
