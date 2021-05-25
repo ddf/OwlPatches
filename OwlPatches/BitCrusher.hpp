@@ -13,10 +13,10 @@ class BitCrusher : public SignalProcessor
   const int maxBitsVal = (1 << MAX_BITS) - 1;
 
 public:
-  BitCrusher(float sampleRate, float rate, int depth = MAX_BITS)
+  BitCrusher(float sr, float br, int depth = MAX_BITS)
     : sampleRate(sr), sampleCount(0)
   {
-    setBitRate(rate);
+    setBitRate(br);
     setBitDepth(depth);
   }
 
