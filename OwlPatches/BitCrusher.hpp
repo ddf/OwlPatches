@@ -10,12 +10,13 @@ class BitCrusher : public SignalProcessor
   float sampleCount;
   float sample;
   bool mangle;
+  float prev;
 
   const int maxBitsVal = (1 << MAX_BITS) - 1;
 
 public:
   BitCrusher(float sr, float br, int depth = MAX_BITS)
-    : sampleRate(sr), sampleCount(1), mangle(false)
+    : sampleRate(sr), sampleCount(1), mangle(false), prev(0)
   {
     setBitRate(br);
     setBitDepth(depth);
@@ -50,8 +51,9 @@ public:
     int val = sample * bitsVal;
     if (mangle)
     {
-      val ^= ~int(input * bitsVal);
+      val ^= int(prev * bitsVal);
     }
+    prev = input;
     return ((float)val / bitsVal);
   }
 
