@@ -4,17 +4,17 @@ template<int MAX_BITS>
 class BitCrusher : public SignalProcessor
 {
   const float sampleRate;
-  int bitRate;
-  int bitDepth;
-  int bitsVal;
-  int sampleCount;
+  float bitRate;
+  int   bitDepth;
+  int   bitsVal;
+  float sampleCount;
   float sample;
 
   const int maxBitsVal = (1 << MAX_BITS) - 1;
 
 public:
   BitCrusher(float sr, float br, int depth = MAX_BITS)
-    : sampleRate(sr), sampleCount(0)
+    : sampleRate(sr), sampleCount(1)
   {
     setBitRate(br);
     setBitDepth(depth);
@@ -22,7 +22,7 @@ public:
 
   void setBitRate(float rate)
   {
-    bitRate = (int)(sampleRate / max(1, rate));
+    bitRate = max(1, rate) / sampleRate;
   }
 
   void setBitDepth(int bits)
@@ -33,12 +33,13 @@ public:
 
   float process(float input) override
   {
-    if (sampleCount == 0)
+    sampleCount += bitRate;
+
+    if (sampleCount >= 1)
     {
       sample = input;
+      sampleCount -= 1;
     }
-
-    sampleCount = (sampleCount + 1) % bitRate;
 
     int val = (sample*0.5f + 0.5f) * maxBitsVal;
     val = val >> (MAX_BITS - bitDepth);
