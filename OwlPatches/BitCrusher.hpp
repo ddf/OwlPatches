@@ -50,7 +50,7 @@ public:
     int val = sample * bitsVal;
     if (mangle)
     {
-      val ^= (int)(input * bitsVal);
+      val ^= ~int(input * bitsVal);
     }
     return ((float)val / bitsVal);
   }
