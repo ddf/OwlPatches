@@ -28,7 +28,7 @@ public:
   void setBitDepth(float bits)
   {
     bitDepth = min(max(2, bits), MAX_BITS);
-    bitsVal = pow(2, bits) - 1;
+    bitsVal = powf(2, bitDepth) - 1;
   }
 
   float process(float input) override
@@ -43,7 +43,7 @@ public:
 
     int val = (sample*0.5f + 0.5f) * bitsVal;
     //val = val >> (MAX_BITS - bitDepth);
-    return ((float)val / maxBitsVal) * 2 - 1;
+    return ((float)val / bitsVal) * 2 - 1;
   }
 
   void process(FloatArray input, FloatArray output) override
