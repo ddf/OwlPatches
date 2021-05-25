@@ -73,15 +73,6 @@ public:
     return readLfo;
   }
 
-  float crush(float samp, int bits)
-  {
-    static const int maxBits = (1 << 24) - 1;
-    const int theseBits = (1 << bits) - 1;
-    int val = (samp*0.5f + 0.5f) * maxBits;
-    val = val >> (24 - bits);
-    return ((float)val / theseBits) * 2 - 1;
-  }
-
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
@@ -96,8 +87,10 @@ public:
 
     readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
 
-    int bits = (int)(24 - getParameterValue(inCrush) * 22);
-    float rate = getSampleRate() - getParameterValue(inCrush)*(getSampleRate() - 10);
+    float sr = getSampleRate();
+    float crush = getParameterValue(inCrush);
+    int bits = crush > 0.001f ? (int)(16 - crush * 14) : 24;
+    float rate = crush > 0.001f ? sr*0.5f + getParameterValue(inCrush)*(100 - sr*0.5f) : sr;
     crushL->setBitDepth(bits);
     crushL->setBitRate(rate);
     crushR->setBitDepth(bits);
