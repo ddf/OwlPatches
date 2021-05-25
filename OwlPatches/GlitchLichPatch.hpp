@@ -72,7 +72,7 @@ public:
     const int theseBits = (1 << bits) - 1;
     int val = (samp*0.5f + 0.5f) * maxBits;
     val = val >> (24 - bits);
-    return (val / ((1 << bits) - 1)) * 2 - 1;
+    return ((float)val / theseBits) * 2 - 1;
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -89,7 +89,7 @@ public:
 
     readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
 
-    float bits = (1<<15) - getParameterValue(inCrush) * (1<<12);
+    int bits = (int)(24 - getParameterValue(inCrush) * 2);
 
     if (freeze)
     {
