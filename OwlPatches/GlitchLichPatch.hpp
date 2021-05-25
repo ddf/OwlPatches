@@ -79,7 +79,7 @@ public:
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
     bool freeze = isButtonPressed(BUTTON_1);
-    bool flip = isButtonPressed(BUTTON_2);
+    bool mangle = isButtonPressed(BUTTON_2);
     int size = audio.getSize();
 
     float dur = 0.001f + getParameterValue(inSize) * 0.999f;
@@ -93,8 +93,10 @@ public:
     float rate = crush > 0.001f ? sr*0.25f + getParameterValue(inCrush)*(100 - sr*0.25f) : sr;
     crushL->setBitDepth(bits);
     crushL->setBitRate(rate);
+    crushL->setMangle(mangle);
     crushR->setBitDepth(bits);
     crushR->setBitRate(rate);
+    crushR->setMangle(mangle);
 
     if (freeze)
     {
