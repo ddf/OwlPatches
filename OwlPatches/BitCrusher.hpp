@@ -41,10 +41,9 @@ public:
       sampleCount -= 1;
     }
 
-    float sign = signbit(sample) ? -1 : 1;
-    int val = fabs(sample) * bitsVal;
+    int val = (sample*0.5f + 0.5f) * bitsVal;
     //val = val >> (MAX_BITS - bitDepth);
-    return ((float)val / bitsVal)*sign;
+    return ((float)val / bitsVal)*2 - 1;
   }
 
   void process(FloatArray input, FloatArray output) override
