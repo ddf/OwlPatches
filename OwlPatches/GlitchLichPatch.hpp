@@ -66,10 +66,13 @@ public:
     return readLfo;
   }
 
-  float crush(float samp, float range)
+  float crush(float samp, int bits)
   {
-    float val = floorf(samp * range);
-    return val / range;
+    static const int maxBits = (1 << 24) - 1;
+    const int theseBits = (1 << bits) - 1;
+    int val = (samp*0.5f + 0.5f) * maxBits;
+    val = val >> (24 - bits);
+    return (val / ((1 << bits) - 1)) * 2 - 1;
   }
 
   void processAudio(AudioBuffer& audio) override
