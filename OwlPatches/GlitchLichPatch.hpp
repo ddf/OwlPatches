@@ -89,7 +89,7 @@ public:
 
     readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
 
-    int bits = (int)(24 - getParameterValue(inCrush) * 2);
+    int bits = (int)(24 - getParameterValue(inCrush) * 22);
 
     if (freeze)
     {
