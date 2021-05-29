@@ -61,31 +61,31 @@ public:
   }
 
 
-  float stepReadLFO(float speed, float len)
+  float stepReadLFO(float speed)
   {
     readLfo = readLfo + speed;
-    if (readLfo >= len)
+    if (readLfo >= 1)
     {
-      readLfo -= len;
+      readLfo -= 1;
     }
     else if (readLfo < 0)
     {
-      readLfo += len;
+      readLfo += 1;
     }
     return readLfo;
   }
 
-  bool stepDropLFO(float speed, float len)
+  bool stepDropLFO(float speed)
   {
     dropLfo = dropLfo + speed;
-    if (dropLfo >= len)
+    if (dropLfo >= 1)
     {
-      dropLfo -= len;
+      dropLfo -= 1;
       return true;
     }
     else if (dropLfo < 0)
     {
-      dropLfo += len;
+      dropLfo += 1;
       return true;
     }
     return false;
@@ -103,7 +103,7 @@ public:
     float dur = 0.001f + getParameterValue(inSize) * 0.999f;
     float len = bufferLen * dur;
 
-    readSpeed = -4.f + getParameterValue(inSpeed) * 8.f;
+    readSpeed = (-4.f + getParameterValue(inSpeed) * 8.f) / len;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
@@ -126,7 +126,7 @@ public:
       }
       for (int i = 0; i < size; ++i)
       {
-        float off = stepReadLFO(readSpeed, len);
+        float off = stepReadLFO(readSpeed)*len;
         float readIdx = readStartIdx + off;
         left[i] =  bufferL->interpolatedReadAt(readIdx);
         right[i] = bufferR->interpolatedReadAt(readIdx);
@@ -136,7 +136,7 @@ public:
     {
       for (int i = 0; i < size; ++i)
       {
-        stepReadLFO(readSpeed, len);
+        stepReadLFO(readSpeed);
         bufferL->write(left[i]);
         bufferR->write(right[i]);
       }
@@ -151,7 +151,7 @@ public:
     float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9*dropParam;
     for (int i = 0; i < size; ++i)
     {
-      if (stepDropLFO(dropSpeed, len))
+      if (stepDropLFO(dropSpeed))
       {
         dropRand = randf();
         dropSamples = dropRand < dropProb;
