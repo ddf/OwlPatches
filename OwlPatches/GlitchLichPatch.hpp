@@ -17,15 +17,10 @@ class GlitchLichPatch : public Patch
   int bufferLen;
   float readLfo;
   float readSpeed;
-  float dropLfo;  
-
-  int dropBlockCount;
-  int dropBlockLength;
-  bool dropBlock;
+  float dropLfo;
+  bool dropSamples;
 
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
-  const int dropBlockLengthMin = 1;
-  const int dropBlockLengthMax = 128;
   const PatchParameterId inSize = PARAMETER_A;
   const PatchParameterId inSpeed = PARAMETER_B;
   const PatchParameterId inDrop = PARAMETER_C;
@@ -43,8 +38,6 @@ public:
 
     readLfo = 0;
     readSpeed = 1;
-    dropBlockCount = 0;
-    dropBlockLength = dropBlockLengthMax;
     dropLfo = 0;
 
     registerParameter(inSize,  "Size");
@@ -150,20 +143,6 @@ public:
     crushL->process(left, left);
     crushR->process(right, right);
 
-    //dropBlockLength = dropBlockLengthMax + getParameterValue(inDrop)*(dropBlockLengthMin - dropBlockLengthMax);
-
-    //if (++dropBlockCount >= dropBlockLength)
-    //{
-    //  dropBlockCount = 0;
-    //  dropBlock = randf() < getParameterValue(inDrop);
-    //}
-
-    //if (dropBlock)
-    //{
-    //  left.clear();
-    //  right.clear();
-    //}
-
     float dropParam = getParameterValue(inDrop);
     float dropMult = dropParam * glitchDropRateCount;
     float dropSpeed = readSpeed * glitchDropRates[(int)dropMult];
@@ -172,11 +151,10 @@ public:
     {
       if (stepDropLFO(dropSpeed, len))
       {
-        //dropBlock = randf() < dropMult - (int)dropMult;
-        dropBlock = randf() < dropProb;
+        dropSamples = randf() < dropProb;
       }
 
-      if (dropBlock)
+      if (dropSamples)
       {
         left[i] = 0;
         right[i] = 0;
