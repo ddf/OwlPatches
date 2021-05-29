@@ -164,14 +164,15 @@ public:
     //  right.clear();
     //}
 
-    float dropMult = getParameterValue(inDrop) * glitchDropRateCount;
+    float dropParam = getParameterValue(inDrop);
+    float dropMult = dropParam * glitchDropRateCount;
     float dropSpeed = readSpeed * glitchDropRates[(int)dropMult];
     for (int i = 0; i < size; ++i)
     {
       if (stepDropLFO(dropSpeed, len))
       {
         //dropBlock = randf() < dropMult - (int)dropMult;
-        dropBlock = !dropBlock;
+        dropBlock = randf() < dropParam;
       }
 
       if (dropBlock)
