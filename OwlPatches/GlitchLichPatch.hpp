@@ -3,6 +3,10 @@
 #include "RampOscillator.h"
 #include "BitCrusher.hpp"
 
+
+static const int glitchDropRates[] = { 1, 2, 3, 4, 6, 8 };
+static const int glitchDropRateCount = sizeof(glitchDropRates);
+
 class GlitchLichPatch : public Patch
 {
   CircularBuffer<float>* bufferL;
@@ -12,7 +16,7 @@ class GlitchLichPatch : public Patch
   int bufferLen;
   float readLfo;
   float readSpeed;
-  float dropLfo;
+  float dropLfo;  
 
   int dropBlockCount;
   int dropBlockLength;
@@ -159,13 +163,14 @@ public:
     //  right.clear();
     //}
 
-    float dropMult = 1 + getParameterValue(inDrop) * 8;
-    float dropSpeed = readSpeed * (int)dropMult;
+    float dropMult = getParameterValue(inDrop) * glitchDropRateCount;
+    float dropSpeed = readSpeed * glitchDropRates[(int)dropMult];
     for (int i = 0; i < size; ++i)
     {
       if (stepDropLFO(dropSpeed, len))
       {
-        dropBlock = randf() < dropMult - (int)dropMult;
+        //dropBlock = randf() < dropMult - (int)dropMult;
+        dropBlock = !dropBlock;
       }
 
       if (dropBlock)
