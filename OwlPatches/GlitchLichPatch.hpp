@@ -1,7 +1,7 @@
 #include "Patch.h"
+#include "SmoothValue.h"
 #include "CircularBuffer.h"
 #include "BitCrusher.hpp"
-
 
 static const int glitchDropRateCount = 8;
 static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 16 };
@@ -9,17 +9,6 @@ static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 
 
 class GlitchLichPatch : public Patch
 {
-  CircularBuffer<float>* bufferL;
-  CircularBuffer<float>* bufferR;
-  BitCrusher<24>* crushL;
-  BitCrusher<24>* crushR;
-  int bufferLen;
-  float readLfo;
-  float readSpeed;
-  float dropLfo;
-  bool dropSamples;
-  float dropRand;
-
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
   const PatchParameterId inSize = PARAMETER_A;
   const PatchParameterId inSpeed = PARAMETER_B;
@@ -28,12 +17,24 @@ class GlitchLichPatch : public Patch
   const PatchParameterId outRamp = PARAMETER_F;
   const PatchParameterId outRand = PARAMETER_G;
 
+  const int circularBufferLength;
+  CircularBuffer<float>* bufferL;
+  CircularBuffer<float>* bufferR;
+  BitCrusher<24>* crushL;
+  BitCrusher<24>* crushR;
+  SmoothFloat freezeLength;
+  float readLfo;
+  float readSpeed;
+  float dropLfo;
+  bool dropSamples;
+  float dropRand;
+
 public:
   GlitchLichPatch()
+    : circularBufferLength((int)(getSampleRate() * BUFFER_SIZE_IN_SECONDS))
   {
-    bufferLen = (int)(getSampleRate() * BUFFER_SIZE_IN_SECONDS);
-    bufferL = CircularBuffer<float>::create(bufferLen);
-    bufferR = CircularBuffer<float>::create(bufferLen);
+    bufferL = CircularBuffer<float>::create(circularBufferLength);
+    bufferR = CircularBuffer<float>::create(circularBufferLength);
     crushL = BitCrusher<24>::create(getSampleRate(), getSampleRate());
     crushR = BitCrusher<24>::create(getSampleRate(), getSampleRate());
 
@@ -101,9 +102,9 @@ public:
     int size = audio.getSize();
 
     float dur = 0.001f + getParameterValue(inSize) * 0.999f;
-    float len = bufferLen * dur;
+    freezeLength = circularBufferLength * dur;
 
-    readSpeed = (-4.f + getParameterValue(inSpeed) * 8.f) / len;
+    readSpeed = (-4.f + getParameterValue(inSpeed) * 8.f) / freezeLength;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
@@ -119,14 +120,14 @@ public:
     if (freeze)
     {
       int writeIdx = bufferL->getWriteIndex();
-      float readStartIdx = writeIdx - len;
+      float readStartIdx = writeIdx - freezeLength;
       if (readStartIdx < 0)
       {
-        readStartIdx += bufferLen;
+        readStartIdx += circularBufferLength;
       }
       for (int i = 0; i < size; ++i)
       {
-        float off = stepReadLFO(readSpeed)*len;
+        float off = stepReadLFO(readSpeed)*freezeLength;
         float readIdx = readStartIdx + off;
         left[i] =  bufferL->interpolatedReadAt(readIdx);
         right[i] = bufferR->interpolatedReadAt(readIdx);
