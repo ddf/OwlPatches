@@ -4,8 +4,8 @@
 #include "BitCrusher.hpp"
 
 
-static const int glitchDropRateCount = 6;
-static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8 };
+static const int glitchDropRateCount = 8;
+static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 16 };
 
 
 class GlitchLichPatch : public Patch
