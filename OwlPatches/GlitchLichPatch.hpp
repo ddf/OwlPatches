@@ -19,6 +19,7 @@ class GlitchLichPatch : public Patch
   float readSpeed;
   float dropLfo;
   bool dropSamples;
+  float dropRand;
 
   const float BUFFER_SIZE_IN_SECONDS = 0.5f;
   const PatchParameterId inSize = PARAMETER_A;
@@ -26,6 +27,7 @@ class GlitchLichPatch : public Patch
   const PatchParameterId inDrop = PARAMETER_C;
   const PatchParameterId inCrush = PARAMETER_D;
   const PatchParameterId outRamp = PARAMETER_F;
+  const PatchParameterId outRand = PARAMETER_G;
 
 public:
   GlitchLichPatch()
@@ -42,9 +44,10 @@ public:
 
     registerParameter(inSize,  "Size");
     registerParameter(inSpeed, "Speed");
-    registerParameter(inDrop, "Drop");
+    registerParameter(inDrop,  "Drop");
     registerParameter(inCrush, "Crush");
     registerParameter(outRamp, "Ramp>");
+    registerParameter(outRand, "Rand>");
 
     setParameterValue(inSpeed, 0.5f);
     setParameterValue(inDrop, 0);
@@ -151,7 +154,8 @@ public:
     {
       if (stepDropLFO(dropSpeed, len))
       {
-        dropSamples = randf() < dropProb;
+        dropRand = randf();
+        dropSamples = dropRand < dropProb;
       }
 
       if (dropSamples)
@@ -161,8 +165,9 @@ public:
       }
     }
 
-    float rampVal = (float)readLfo / len;
+    float rampVal = readLfo / len;
     setParameterValue(outRamp, rampVal);
+    setParameterValue(outRand, dropRand);
     setButton(PUSHBUTTON, rampVal < 0.5f);
   }
 
