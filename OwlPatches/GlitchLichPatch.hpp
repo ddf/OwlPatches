@@ -164,10 +164,9 @@ public:
       }
     }
 
-    float rampVal = readLfo / len;
-    setParameterValue(outRamp, rampVal);
+    setParameterValue(outRamp, readLfo);
     setParameterValue(outRand, dropRand);
-    setButton(PUSHBUTTON, rampVal < 0.5f);
+    setButton(PUSHBUTTON, readLfo < 0.5f);
   }
 
 };
