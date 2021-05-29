@@ -167,7 +167,7 @@ public:
     float dropParam = getParameterValue(inDrop);
     float dropMult = dropParam * glitchDropRateCount;
     float dropSpeed = readSpeed * glitchDropRates[(int)dropMult];
-    float dropProb = dropParam < 0.0001f ? 0 : 0.05f + dropParam;
+    float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9*dropParam;
     for (int i = 0; i < size; ++i)
     {
       if (stepDropLFO(dropSpeed, len))
