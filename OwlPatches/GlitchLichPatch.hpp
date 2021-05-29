@@ -1,6 +1,5 @@
 #include "Patch.h"
 #include "CircularBuffer.h"
-#include "RampOscillator.h"
 #include "BitCrusher.hpp"
 
 
