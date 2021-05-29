@@ -12,6 +12,7 @@ class GlitchLichPatch : public Patch
   int bufferLen;
   float readLfo;
   float readSpeed;
+  float dropLfo;
 
   int dropBlockCount;
   int dropBlockLength;
@@ -39,6 +40,7 @@ public:
     readSpeed = 1;
     dropBlockCount = 0;
     dropBlockLength = dropBlockLengthMax;
+    dropLfo = 0;
 
     registerParameter(inSize,  "Size");
     registerParameter(inSpeed, "Speed");
@@ -71,6 +73,22 @@ public:
       readLfo += len;
     }
     return readLfo;
+  }
+
+  bool stepDropLFO(float speed, float len)
+  {
+    dropLfo = dropLfo + speed;
+    if (dropLfo >= len)
+    {
+      dropLfo -= len;
+      return true;
+    }
+    else if (dropLfo < 0)
+    {
+      dropLfo += len;
+      return true;
+    }
+    return false;
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -127,18 +145,34 @@ public:
     crushL->process(left, left);
     crushR->process(right, right);
 
-    dropBlockLength = dropBlockLengthMax + getParameterValue(inDrop)*(dropBlockLengthMin - dropBlockLengthMax);
+    //dropBlockLength = dropBlockLengthMax + getParameterValue(inDrop)*(dropBlockLengthMin - dropBlockLengthMax);
 
-    if (++dropBlockCount >= dropBlockLength)
-    {
-      dropBlockCount = 0;
-      dropBlock = randf() < getParameterValue(inDrop);
-    }
+    //if (++dropBlockCount >= dropBlockLength)
+    //{
+    //  dropBlockCount = 0;
+    //  dropBlock = randf() < getParameterValue(inDrop);
+    //}
 
-    if (dropBlock)
+    //if (dropBlock)
+    //{
+    //  left.clear();
+    //  right.clear();
+    //}
+
+    float dropMult = 1 + getParameterValue(inDrop) * 8;
+    float dropSpeed = readSpeed * (int)dropMult;
+    for (int i = 0; i < size; ++i)
     {
-      left.clear();
-      right.clear();
+      if (stepDropLFO(dropSpeed, len))
+      {
+        dropBlock = randf() < dropMult - (int)dropMult;
+      }
+
+      if (dropBlock)
+      {
+        left[i] = 0;
+        right[i] = 0;
+      }
     }
 
     float rampVal = (float)readLfo / len;
