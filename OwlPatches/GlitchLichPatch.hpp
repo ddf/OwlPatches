@@ -92,6 +92,15 @@ public:
     return false;
   }
 
+  inline float interpolatedReadAt(CircularBuffer<float>* buffer, float index) 
+  {
+    size_t idx = (size_t)index;
+    float low = buffer->readAt(idx);
+    float high = buffer->readAt(idx + 1);
+    float frac = index - idx;
+    return high + frac * (low - high);
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
@@ -130,8 +139,8 @@ public:
       for (int i = 0; i < size; ++i)
       {
         float readIdx = stepReadLFO(readSpeed)*freezeLength;
-        left[i] =  bufferL->interpolatedReadAt(readIdx);
-        right[i] = bufferR->interpolatedReadAt(readIdx);
+        left[i] =  interpolatedReadAt(bufferL, readIdx);
+        right[i] = interpolatedReadAt(bufferR, readIdx);
       }
     }
     else
