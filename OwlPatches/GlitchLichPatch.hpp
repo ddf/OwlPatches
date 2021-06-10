@@ -119,16 +119,17 @@ public:
 
     if (freeze)
     {
-      int writeIdx = bufferL->getWriteIndex();
-      float readStartIdx = writeIdx - freezeLength;
-      if (readStartIdx < 0)
+      // while frozen, record into our buffers until they are full
+      int writeLen = min(size, bufferL->getWriteCapacity());
+      if (writeLen > 0)
       {
-        readStartIdx += circularBufferLength;
+        bufferL->write(left, writeLen);
+        bufferR->write(right, writeLen);
       }
+
       for (int i = 0; i < size; ++i)
       {
-        float off = stepReadLFO(readSpeed)*freezeLength;
-        float readIdx = readStartIdx + off;
+        float readIdx = stepReadLFO(readSpeed)*freezeLength;
         left[i] =  bufferL->interpolatedReadAt(readIdx);
         right[i] = bufferR->interpolatedReadAt(readIdx);
       }
@@ -138,8 +139,8 @@ public:
       for (int i = 0; i < size; ++i)
       {
         stepReadLFO(readSpeed);
-        bufferL->write(left[i]);
-        bufferR->write(right[i]);
+        //bufferL->write(left[i]);
+        //bufferR->write(right[i]);
       }
     }
 
@@ -168,6 +169,17 @@ public:
     setParameterValue(outRamp, readLfo);
     setParameterValue(outRand, dropRand);
     setButton(PUSHBUTTON, readLfo < 0.5f);
+  }
+
+
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
+  {
+    if (bid == BUTTON_1 && value == ON)
+    {
+      readLfo = 0;
+      bufferL->setWriteIndex(0);
+      bufferR->setWriteIndex(0);
+    }
   }
 
 };
