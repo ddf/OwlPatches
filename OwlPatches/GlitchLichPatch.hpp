@@ -23,6 +23,7 @@ class GlitchLichPatch : public Patch
   BitCrusher<24>* crushL;
   BitCrusher<24>* crushR;
   SmoothFloat freezeLength;
+  int recordLength;
   float readLfo;
   float readSpeed;
   float dropLfo;
@@ -129,11 +130,12 @@ public:
     if (freeze)
     {
       // while frozen, record into our buffers until they are full
-      int writeLen = min(size, bufferL->getWriteCapacity());
-      if (writeLen > 0)
+      if (recordLength > 0)
       {
+        int writeLen = min(size, recordLength);
         bufferL->write(left, writeLen);
         bufferR->write(right, writeLen);
+        recordLength -= writeLen;
       }
 
       for (int i = 0; i < size; ++i)
@@ -186,6 +188,7 @@ public:
     if (bid == BUTTON_1 && value == ON)
     {
       readLfo = 0;
+      recordLength = circularBufferLength;
       bufferL->setWriteIndex(0);
       bufferR->setWriteIndex(0);
     }
