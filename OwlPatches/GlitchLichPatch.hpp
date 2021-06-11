@@ -159,6 +159,8 @@ public:
     int freezeRatio = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
     int speedRatio = (int)(getParameterValue(inSpeed) * SPEED_RATIOS_COUNT);
 
+    tempo.clock(size);
+
     freezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
     readSpeed = 1.0f / freezeLength; // speedRatios[speedRatio] / freezeLength;
 
