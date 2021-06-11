@@ -9,20 +9,22 @@ static const int glitchDropRateCount = 8;
 static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 16 };
 static const int TRIGGER_LIMIT = (1 << 16);
 
-static const int FREEZE_RATIOS_COUNT = 9;
+static const int FREEZE_RATIOS_COUNT = 11;
 static const float freezeRatios[FREEZE_RATIOS_COUNT] = { 
+              1.0 / 8,
               1.0 / 4,
               1.0 / 3,
               1.0 / 2,
               3.0 / 4,
               1.0,
-              3.0 / 2,
+              1.5,
               2.0,
+              2.5,
               3.0,
               4.0 
 };
 
-static const int SPEED_RATIOS_COUNT = 19;
+static const int SPEED_RATIOS_COUNT = 18;
 static const float speedRatios[SPEED_RATIOS_COUNT] = { 
              -4.0,
              -3.0,
@@ -33,7 +35,6 @@ static const float speedRatios[SPEED_RATIOS_COUNT] = {
              -1.0 / 2,
              -1.0 / 3,
              -1.0 / 4,
-              0.0,
               1.0 / 4,
               1.0 / 3,
               1.0 / 2,
