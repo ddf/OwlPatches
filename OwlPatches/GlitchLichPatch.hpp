@@ -162,7 +162,7 @@ public:
     tempo.clock(size);
 
     freezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
-    readSpeed = 1.0f / freezeLength; // speedRatios[speedRatio] / freezeLength;
+    readSpeed = speedRatios[speedRatio] / freezeLength;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
