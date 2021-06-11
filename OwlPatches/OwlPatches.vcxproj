@@ -140,6 +140,7 @@
     <ClInclude Include="Noise.hpp" />
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
+    <ClInclude Include="TapTempo.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
