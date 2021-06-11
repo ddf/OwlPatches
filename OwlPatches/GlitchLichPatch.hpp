@@ -1,15 +1,52 @@
 #include "Patch.h"
 #include "SmoothValue.h"
 #include "CircularBuffer.h"
+
+#include "TapTempo.hpp"
 #include "BitCrusher.hpp"
 
 static const int glitchDropRateCount = 8;
 static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 16 };
+static const int TRIGGER_LIMIT = (1 << 16);
 
+static const int FREEZE_RATIOS_COUNT = 9;
+static const float freezeRatios[FREEZE_RATIOS_COUNT] = { 
+              1.0 / 4,
+              1.0 / 3,
+              1.0 / 2,
+              3.0 / 4,
+              1.0,
+              3.0 / 2,
+              2.0,
+              3.0,
+              4.0 
+};
+
+static const int SPEED_RATIOS_COUNT = 19;
+static const float speedRatios[SPEED_RATIOS_COUNT] = { 
+             -4.0,
+             -3.0,
+             -2.0,
+             -3.0 / 2,
+             -1.0,
+             -3.0 / 4,
+             -1.0 / 2,
+             -1.0 / 3,
+             -1.0 / 4,
+              0.0,
+              1.0 / 4,
+              1.0 / 3,
+              1.0 / 2,
+              3.0 / 4,
+              1.0,
+              3.0 / 2,
+              2.0,
+              3.0,
+              4.0 
+};
 
 class GlitchLichPatch : public Patch
 {
-  const float BUFFER_SIZE_IN_SECONDS = 0.5f;
   const PatchParameterId inSize = PARAMETER_A;
   const PatchParameterId inSpeed = PARAMETER_B;
   const PatchParameterId inDrop = PARAMETER_C;
@@ -17,11 +54,11 @@ class GlitchLichPatch : public Patch
   const PatchParameterId outRamp = PARAMETER_F;
   const PatchParameterId outRand = PARAMETER_G;
 
-  const int circularBufferLength;
   CircularBuffer<float>* bufferL;
   CircularBuffer<float>* bufferR;
   BitCrusher<24>* crushL;
   BitCrusher<24>* crushR;
+  TapTempo<TRIGGER_LIMIT> tempo;
   SmoothFloat freezeLength;
   int recordLength;
   float readLfo;
@@ -32,10 +69,10 @@ class GlitchLichPatch : public Patch
 
 public:
   GlitchLichPatch()
-    : circularBufferLength((int)(getSampleRate() * BUFFER_SIZE_IN_SECONDS))
+    : bufferL(0), bufferR(0), crushL(0), crushR(0), tempo(getSampleRate()*60/120)
   {
-    bufferL = CircularBuffer<float>::create(circularBufferLength);
-    bufferR = CircularBuffer<float>::create(circularBufferLength);
+    bufferL = CircularBuffer<float>::create(TRIGGER_LIMIT);
+    bufferR = CircularBuffer<float>::create(TRIGGER_LIMIT);
     crushL = BitCrusher<24>::create(getSampleRate(), getSampleRate());
     crushR = BitCrusher<24>::create(getSampleRate(), getSampleRate());
 
@@ -102,19 +139,28 @@ public:
     return high + frac * (low - high);
   }
 
+  float freezeDuration(int ratio)
+  {
+    float dur = tempo.getPeriod() * freezeRatios[ratio];
+    dur = max(0.0001, min(0.9999, dur));
+    return dur;
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
     bool freeze = isButtonPressed(BUTTON_1);
-    bool mangle = isButtonPressed(BUTTON_2);
+    // button 2 is for tap tempo now
+    bool mangle = false; // isButtonPressed(BUTTON_2);
+
     int size = audio.getSize();
+    int freezeRatio = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
+    int speedRatio = (int)(getParameterValue(inSpeed) * SPEED_RATIOS_COUNT);
 
-    float dur = 0.001f + getParameterValue(inSize) * 0.999f;
-    freezeLength = circularBufferLength * dur;
-
-    readSpeed = (-4.f + getParameterValue(inSpeed) * 8.f) / freezeLength;
+    freezeLength = TRIGGER_LIMIT * freezeDuration(freezeRatio);
+    readSpeed = speedRatios[speedRatio] / freezeLength;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
@@ -188,9 +234,15 @@ public:
     if (bid == BUTTON_1 && value == ON)
     {
       readLfo = 0;
-      recordLength = circularBufferLength;
+      recordLength = TRIGGER_LIMIT;
       bufferL->setWriteIndex(0);
       bufferR->setWriteIndex(0);
+    }
+
+    if (bid == BUTTON_2)
+    {
+      bool on = value == ON;
+      tempo.trigger(on, samples);
     }
   }
 
