@@ -62,6 +62,7 @@ class GlitchLichPatch : public Patch
   TapTempo<TRIGGER_LIMIT> tempo;
   SmoothFloat freezeLength;
   int recordLength;
+  int readStartIdx;
   float readLfo;
   float readSpeed;
   float dropLfo;
@@ -182,14 +183,17 @@ public:
       if (recordLength > 0)
       {
         int writeLen = min(size, recordLength);
-        bufferL->write(left, writeLen);
-        bufferR->write(right, writeLen);
+        for (int i = 0; i < writeLen; ++i)
+        {
+          bufferL->write(left[i]);
+          bufferR->write(right[i]);
+        }
         recordLength -= writeLen;
       }
 
       for (int i = 0; i < size; ++i)
       {
-        float readIdx = stepReadLFO(readSpeed)*freezeLength;
+        float readIdx = readStartIdx + stepReadLFO(readSpeed)*freezeLength;
         left[i] =  interpolatedReadAt(bufferL, readIdx);
         right[i] = interpolatedReadAt(bufferR, readIdx);
       }
@@ -199,8 +203,8 @@ public:
       for (int i = 0; i < size; ++i)
       {
         stepReadLFO(readSpeed);
-        //bufferL->write(left[i]);
-        //bufferR->write(right[i]);
+        bufferL->write(left[i]);
+        bufferR->write(right[i]);
       }
     }
 
@@ -236,10 +240,8 @@ public:
   {
     if (bid == BUTTON_1 && value == ON)
     {
-      readLfo = 0;
       recordLength = TRIGGER_LIMIT;
-      bufferL->setWriteIndex(0);
-      bufferR->setWriteIndex(0);
+      readStartIdx = bufferL->getWriteIndex() + samples;
     }
 
     if (bid == BUTTON_2)
