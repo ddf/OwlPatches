@@ -24,6 +24,20 @@ static const float freezeRatios[FREEZE_RATIOS_COUNT] = {
               4.0 
 };
 
+static const uint32_t counters[FREEZE_RATIOS_COUNT] = { 
+             1,
+             1,
+             1,
+             1,
+             1,
+             1,
+             3,
+             2,
+             3,
+             3,
+             4 
+};
+
 static const int SPEED_RATIOS_COUNT = 18;
 static const float speedRatios[SPEED_RATIOS_COUNT] = { 
              -4.0,
@@ -60,6 +74,7 @@ class GlitchLichPatch : public Patch
   BitCrusher<24>* crushL;
   BitCrusher<24>* crushR;
   TapTempo<TRIGGER_LIMIT> tempo;
+  int freezeRatio;
   SmoothFloat freezeLength;
   int recordLength;
   int readStartIdx;
@@ -158,7 +173,7 @@ public:
     bool mangle = false; // isButtonPressed(BUTTON_2);
 
     int size = audio.getSize();
-    int freezeRatio = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
+    freezeRatio = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
     int speedRatio = (int)(getParameterValue(inSpeed) * SPEED_RATIOS_COUNT);
 
     tempo.clock(size);
@@ -238,6 +253,8 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
+    static uint32_t counter = 0;
+
     if (bid == BUTTON_1 && value == ON)
     {
       recordLength = TRIGGER_LIMIT;
@@ -248,6 +265,12 @@ public:
     {
       bool on = value == ON;
       tempo.trigger(on, samples);
+      if (on && ++counter >= counters[freezeRatio]) 
+      {
+        readLfo = 0;
+        dropLfo = 0;
+        counter = 0;
+      }
     }
   }
 
