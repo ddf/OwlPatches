@@ -226,6 +226,10 @@ public:
 
     float dropParam = getParameterValue(inDrop);
     float dropMult = dropParam * glitchDropRateCount;
+    // on the one hand it's nice that this is sync'd with the read lfo
+    // because we can use it to self-patch and change the speed every cycle,
+    // but in terms of rhythmically dropping out audio based on the tempo,
+    // it might make more sense to keep it sync'd with the clock and only use the speed input for ratios.
     float dropSpeed = readSpeed * glitchDropRates[(int)dropMult];
     float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9*dropParam;
     for (int i = 0; i < size; ++i)
