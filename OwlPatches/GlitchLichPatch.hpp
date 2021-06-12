@@ -76,6 +76,7 @@ class GlitchLichPatch : public Patch
   TapTempo<TRIGGER_LIMIT> tempo;
   int freezeRatio;
   SmoothFloat freezeLength;
+  bool freeze;
   int freezeWriteCount;
   int readStartIdx;
   float readLfo;
@@ -86,7 +87,7 @@ class GlitchLichPatch : public Patch
 
 public:
   GlitchLichPatch()
-    : bufferL(0), bufferR(0), crushL(0), crushR(0), tempo(getSampleRate()*60/120)
+    : bufferL(0), bufferR(0), crushL(0), crushR(0), tempo(getSampleRate()*60/120), freeze(false)
   {
     bufferL = CircularBuffer<float>::create(TRIGGER_LIMIT);
     bufferR = CircularBuffer<float>::create(TRIGGER_LIMIT);
@@ -168,7 +169,6 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    bool freeze = isButtonPressed(BUTTON_1);
     // button 2 is for tap tempo now
     bool mangle = false; // isButtonPressed(BUTTON_2);
 
@@ -192,31 +192,29 @@ public:
     crushR->setBitRate(rate);
     crushR->setMangle(mangle);
 
-    if (freeze)
+    for (int i = 0; i < size; ++i)
     {
-      // while frozen, record into our buffers until they are full
-      for (int i = 0; i < size && freezeWriteCount < TRIGGER_LIMIT; ++i, ++freezeWriteCount)
-      {
-        bufferL->write(left[i]);
-        bufferR->write(right[i]);
-      }
+      if (freeze && freezeWriteCount == TRIGGER_LIMIT)
+        break;
 
-      for (int i = 0; i < size; ++i)
+      bufferL->write(left[i]);
+      bufferR->write(right[i]);
+
+      if (freeze)
+        ++freezeWriteCount;
+    }
+
+    for (int i = 0; i < size; ++i)
+    {
+      if (freeze)
       {
-        float readIdx = readStartIdx + stepReadLFO(readSpeed)*freezeLength;
-        left[i] =  interpolatedReadAt(bufferL, readIdx);
+        float readIdx = readStartIdx + readLfo * freezeLength;
+        left[i] = interpolatedReadAt(bufferL, readIdx);
         right[i] = interpolatedReadAt(bufferR, readIdx);
       }
+      stepReadLFO(readSpeed);
     }
-    else
-    {
-      for (int i = 0; i < size; ++i)
-      {
-        stepReadLFO(readSpeed);
-        bufferL->write(left[i]);
-        bufferR->write(right[i]);
-      }
-    }
+
 
     crushL->process(left, left);
     crushR->process(right, right);
@@ -250,10 +248,20 @@ public:
   {
     static uint32_t counter = 0;
 
-    if (bid == BUTTON_1 && value == ON)
+    if (bid == BUTTON_1)
     {
-      freezeWriteCount = 0;
-      readStartIdx = bufferL->getWriteIndex() + samples;
+      if (value == ON)
+      {
+        freeze = true;
+        freezeWriteCount = -samples;
+        readStartIdx = bufferL->getWriteIndex() + samples;
+        readLfo = (float)samples / TRIGGER_LIMIT;
+        dropLfo = (float)samples / TRIGGER_LIMIT;
+      }
+      else
+      {
+        freeze = false;
+      }
     }
 
     if (bid == BUTTON_2)
