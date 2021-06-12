@@ -76,7 +76,7 @@ class GlitchLichPatch : public Patch
   TapTempo<TRIGGER_LIMIT> tempo;
   int freezeRatio;
   SmoothFloat freezeLength;
-  int recordLength;
+  int freezeWriteCount;
   int readStartIdx;
   float readLfo;
   float readSpeed;
@@ -195,15 +195,10 @@ public:
     if (freeze)
     {
       // while frozen, record into our buffers until they are full
-      if (recordLength > 0)
+      for (int i = 0; i < size && freezeWriteCount < TRIGGER_LIMIT; ++i, ++freezeWriteCount)
       {
-        int writeLen = min(size, recordLength);
-        for (int i = 0; i < writeLen; ++i)
-        {
-          bufferL->write(left[i]);
-          bufferR->write(right[i]);
-        }
-        recordLength -= writeLen;
+        bufferL->write(left[i]);
+        bufferR->write(right[i]);
       }
 
       for (int i = 0; i < size; ++i)
@@ -257,7 +252,7 @@ public:
 
     if (bid == BUTTON_1 && value == ON)
     {
-      recordLength = TRIGGER_LIMIT;
+      freezeWriteCount = 0;
       readStartIdx = bufferL->getWriteIndex() + samples;
     }
 
