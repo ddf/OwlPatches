@@ -7,7 +7,7 @@
 
 static const int glitchDropRateCount = 8;
 static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 16 };
-static const int TRIGGER_LIMIT = (1 << 16);
+static const int TRIGGER_LIMIT = (1 << 17);
 
 static const int FREEZE_RATIOS_COUNT = 11;
 static const float freezeRatios[FREEZE_RATIOS_COUNT] = { 
@@ -179,12 +179,14 @@ public:
     tempo.clock(size);
 
     int newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
-    float newReadSpeed = speedRatios[speedRatio] / freezeLength;
+    float newReadSpeed  = speedRatios[speedRatio] / newFreezeLength;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
-    float bits = crush > 0.001f ? (8.f - crush * 6) : 24;
-    float rate = crush > 0.001f ? sr*0.25f + getParameterValue(inCrush)*(100 - sr*0.25f) : sr;
+    float bits = crush > 0.001f ? (8.f - crush * 6) 
+                                : 24;
+    float rate = crush > 0.001f ? sr*0.25f + getParameterValue(inCrush)*(100 - sr*0.25f) 
+                                : sr;
     crushL->setBitDepth(bits);
     crushL->setBitRate(rate);
     crushL->setMangle(mangle);
@@ -212,8 +214,10 @@ public:
       {
         float read0 = readStartIdx + readLfo * freezeLength;
         float read1 = readStartIdx + readLfo * newFreezeLength;
-        left[i] = interpolatedReadAt(bufferL, read0)*x0 + interpolatedReadAt(bufferL, read1)*x1;
-        right[i] = interpolatedReadAt(bufferR, read0)*x0 + interpolatedReadAt(bufferR, read1)*x1;
+        left[i]  = interpolatedReadAt(bufferL, read0)*x0 
+                 + interpolatedReadAt(bufferL, read1)*x1;
+        right[i] = interpolatedReadAt(bufferR, read0)*x0 
+                 + interpolatedReadAt(bufferR, read1)*x1;
       }
       stepReadLFO(readSpeed*x0 + newReadSpeed*x1);
     }
