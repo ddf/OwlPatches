@@ -272,6 +272,7 @@ public:
     {
       bool on = value == ON;
       tempo.trigger(on, samples);
+      // TODO: for this to work properly, we need to take into account both the freeze ratio and the speed ratio
       //if (on && ++counter >= counters[freezeRatio]) 
       //{
       //  readLfo = 0;
