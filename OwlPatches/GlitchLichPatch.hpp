@@ -253,10 +253,10 @@ public:
       if (value == ON)
       {
         freeze = true;
-        freezeWriteCount = -samples;
-        readStartIdx = bufferL->getWriteIndex() + samples;
-        readLfo = (float)samples / TRIGGER_LIMIT;
-        dropLfo = (float)samples / TRIGGER_LIMIT;
+        freezeWriteCount = 0;
+        readStartIdx = bufferL->getWriteIndex();
+        readLfo = 0;
+        dropLfo = 0;
       }
       else
       {
