@@ -272,12 +272,12 @@ public:
     {
       bool on = value == ON;
       tempo.trigger(on, samples);
-      if (on && ++counter >= counters[freezeRatio]) 
-      {
-        readLfo = 0;
-        dropLfo = 0;
-        counter = 0;
-      }
+      //if (on && ++counter >= counters[freezeRatio]) 
+      //{
+      //  readLfo = 0;
+      //  dropLfo = 0;
+      //  counter = 0;
+      //}
     }
   }
 
