@@ -75,7 +75,7 @@ class GlitchLichPatch : public Patch
   BitCrusher<24>* crushR;
   TapTempo<TRIGGER_LIMIT> tempo;
   int freezeRatio;
-  SmoothFloat freezeLength;
+  int freezeLength;
   bool freeze;
   int freezeWriteCount;
   int readStartIdx;
@@ -178,8 +178,8 @@ public:
 
     tempo.clock(size);
 
-    freezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
-    readSpeed = speedRatios[speedRatio] / freezeLength;
+    int newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
+    float newReadSpeed = speedRatios[speedRatio] / freezeLength;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
@@ -206,15 +206,20 @@ public:
 
     for (int i = 0; i < size; ++i)
     {
+      float x1 = (float)i / size;
+      float x0 = 1.0f - x1;
       if (freeze)
       {
-        float readIdx = readStartIdx + readLfo * freezeLength;
-        left[i] = interpolatedReadAt(bufferL, readIdx);
-        right[i] = interpolatedReadAt(bufferR, readIdx);
+        float read0 = readStartIdx + readLfo * freezeLength;
+        float read1 = readStartIdx + readLfo * newFreezeLength;
+        left[i] = interpolatedReadAt(bufferL, read0)*x0 + interpolatedReadAt(bufferL, read1)*x1;
+        right[i] = interpolatedReadAt(bufferR, read0)*x0 + interpolatedReadAt(bufferR, read1)*x1;
       }
-      stepReadLFO(readSpeed);
+      stepReadLFO(readSpeed*x0 + newReadSpeed*x1);
     }
 
+    freezeLength = newFreezeLength;
+    readSpeed = newReadSpeed;
 
     crushL->process(left, left);
     crushR->process(right, right);
