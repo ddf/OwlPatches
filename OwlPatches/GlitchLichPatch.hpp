@@ -75,7 +75,7 @@ class GlitchLichPatch : public Patch
   BitCrusher<24>* crushR;
   TapTempo<TRIGGER_LIMIT> tempo;
   int freezeRatio;
-  int freezeLength;
+  float freezeLength;
   bool freeze;
   int freezeWriteCount;
   int readStartIdx;
@@ -160,7 +160,7 @@ public:
   float freezeDuration(int ratio)
   {
     float dur = tempo.getPeriod() * freezeRatios[ratio];
-    dur = max(0.0001, min(0.9999, dur));
+    dur = max(0.0001f, min(0.9999f, dur));
     return dur;
   }
 
@@ -178,8 +178,8 @@ public:
 
     tempo.clock(size);
 
-    int newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
-    float newReadSpeed  = speedRatios[speedRatio] / newFreezeLength;
+    float newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
+    float newReadSpeed    = speedRatios[speedRatio] / newFreezeLength;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
