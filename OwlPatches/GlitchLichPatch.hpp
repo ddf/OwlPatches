@@ -9,6 +9,8 @@ static const int glitchDropRateCount = 8;
 static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 16 };
 static const int TRIGGER_LIMIT = (1 << 17);
 
+// these are expressed multiples of the clock
+// and used to determine how long the frozen section of audio should be.
 static const int FREEZE_RATIOS_COUNT = 11;
 static const float freezeRatios[FREEZE_RATIOS_COUNT] = { 
               1.0 / 8,
@@ -24,22 +26,10 @@ static const float freezeRatios[FREEZE_RATIOS_COUNT] = {
               4.0 
 };
 
-static const uint32_t counters[FREEZE_RATIOS_COUNT] = { 
-             1,
-             1,
-             1,
-             1,
-             1,
-             1,
-             3,
-             2,
-             3,
-             3,
-             4 
-};
-
-static const int SPEED_RATIOS_COUNT = 18;
-static const float speedRatios[SPEED_RATIOS_COUNT] = { 
+// these are the speeds at which the frozen audio should be played back.
+// negative numbers mean the frozen audio should be played in reverse.
+static const int PLAYBACK_SPEEDS_COUNT = 18;
+static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = { 
              -4.0,
              -3.0,
              -2.0,
@@ -60,6 +50,26 @@ static const float speedRatios[SPEED_RATIOS_COUNT] = {
               4.0 
 };
 
+// these are counters that indicate how many clock ticks should occur
+// before resetting the read LFO when not frozen, in order to keep it in sync with the clock.
+// it is a matrix because the period of the LFO, relative to the clock,
+// is the product of the freeze ratio and the playback speed.
+// the counter for each combination is the lowest common denominator of that product.
+static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
+// speed: -4  -3  -2  -3/2  -1  -3/4  -1/2  -1/3  -1/4  1/4  1/3  1/2  3/4  1  3/2  2  3  4  |     freeze ratio
+         { 2,  8,  4,  16,   8,  32,   16,   24,   32,  32,  24,  16,  32,  8, 16,  4, 8, 2  }, // 1/8
+         { 1,  4,  2,   8,   4,  16,    8,   12,   16,  16,  12,   8,  16,  4,  8,  2, 4, 1  }, // 1/4
+         { 3,  1,  3,   2,   3,   4,    6,    9,   12,  12,   9,   6,   4,  3,  2,  3, 1, 3  }, // 1/3
+         { 1,  2,  1,   4,   2,   8,    4,    6,    8,   8,   6,   4,   8,  2,  4,  1, 2, 1  }, // 1/2
+         { 1,  4,  2,   8,   4,  16,    8,    4,   16,  16,   4,   8,  16,  4,  8,  2, 4, 1  }, // 3/4
+         { 1,  1,  1,   2,   1,   4,    2,    3,    4,   4,   3,   2,   4,  1,  2,  1, 1, 1  }, // 1
+         { 1,  2,  1,   4,   2,   8,    4,    2,    4,   4,   2,   4,   8,  2,  4,  1, 2, 1  }, // 3/2
+         { 1,  1,  1,   1,   2,   2,    1,    3,    2,   2,   3,   1,   2,  2,  1,  1, 1, 1  }, // 2
+         { 1,  2,  1,   4,   2,   8,    4,    6,    8,   8,   6,   4,   8,  2,  4,  1, 2, 1  }, // 5/2
+         { 1,  1,  1,   2,   1,   4,    2,    1,    4,   4,   1,   2,   4,  1,  2,  1, 1, 1  }, // 3
+         { 1,  1,  1,   1,   1,   1,    1,    3,    1,   1,   3,   1,   1,  1,  1,  1, 1, 1  }, // 4
+};
+
 class GlitchLichPatch : public Patch
 {
   const PatchParameterId inSize = PARAMETER_A;
@@ -75,6 +85,7 @@ class GlitchLichPatch : public Patch
   BitCrusher<24>* crushR;
   TapTempo<TRIGGER_LIMIT> tempo;
   int freezeRatio;
+  int playbackSpeed;
   float freezeLength;
   bool freeze;
   int freezeWriteCount;
@@ -87,7 +98,9 @@ class GlitchLichPatch : public Patch
 
 public:
   GlitchLichPatch()
-    : bufferL(0), bufferR(0), crushL(0), crushR(0), tempo(getSampleRate()*60/120), freeze(false)
+    : bufferL(0), bufferR(0), crushL(0), crushR(0)
+    , tempo(getSampleRate()*60/120), freeze(false)
+    , freezeRatio(0), playbackSpeed(0)
   {
     bufferL = CircularBuffer<float>::create(TRIGGER_LIMIT);
     bufferR = CircularBuffer<float>::create(TRIGGER_LIMIT);
@@ -105,8 +118,10 @@ public:
     registerParameter(outRamp, "Ramp>");
     registerParameter(outRand, "Rand>");
 
-    setParameterValue(inSpeed, 0.5f);
+    setParameterValue(inSize, 0.5f);
+    setParameterValue(inSpeed, 0.75f);
     setParameterValue(inDrop, 0);
+    setParameterValue(inCrush, 0);
   }
 
   ~GlitchLichPatch()
@@ -173,13 +188,13 @@ public:
     bool mangle = false; // isButtonPressed(BUTTON_2);
 
     int size = audio.getSize();
-    freezeRatio = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
-    int speedRatio = (int)(getParameterValue(inSpeed) * SPEED_RATIOS_COUNT);
+    freezeRatio   = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
+    playbackSpeed = (int)(getParameterValue(inSpeed) * PLAYBACK_SPEEDS_COUNT);
 
     tempo.clock(size);
 
     float newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
-    float newReadSpeed    = speedRatios[speedRatio] / newFreezeLength;
+    float newReadSpeed    = playbackSpeeds[playbackSpeed] / newFreezeLength;
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
@@ -285,13 +300,12 @@ public:
     {
       bool on = value == ON;
       tempo.trigger(on, samples);
-      // TODO: for this to work properly, we need to take into account both the freeze ratio and the speed ratio
-      //if (on && ++counter >= counters[freezeRatio]) 
-      //{
-      //  readLfo = 0;
-      //  dropLfo = 0;
-      //  counter = 0;
-      //}
+      if (on && !freeze && ++counter >= counters[freezeRatio][playbackSpeed])
+      {
+        readLfo = 0;
+        dropLfo = 0;
+        counter = 0;
+      }
     }
   }
 
