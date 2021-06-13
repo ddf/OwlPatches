@@ -1,5 +1,5 @@
 #include "Patch.h"
-#include "SmoothValue.h"
+#include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
 
 #include "TapTempo.hpp"
@@ -101,6 +101,7 @@ class GlitchLichPatch : public Patch
   const PatchParameterId outRamp = PARAMETER_F;
   const PatchParameterId outRand = PARAMETER_G;
 
+  StereoDcBlockingFilter* dcFilter;
   CircularBuffer<float>* bufferL;
   CircularBuffer<float>* bufferR;
   BitCrusher<24>* crushL;
@@ -121,10 +122,11 @@ class GlitchLichPatch : public Patch
 
 public:
   GlitchLichPatch()
-    : bufferL(0), bufferR(0), crushL(0), crushR(0)
+    : dcFilter(0), bufferL(0), bufferR(0), crushL(0), crushR(0)
     , tempo(getSampleRate()*60/120), freeze(false)
     , freezeRatio(0), playbackSpeed(0), dropRatio(0)
   {
+    dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferL = CircularBuffer<float>::create(TRIGGER_LIMIT);
     bufferR = CircularBuffer<float>::create(TRIGGER_LIMIT);
     crushL = BitCrusher<24>::create(getSampleRate(), getSampleRate());
@@ -149,6 +151,7 @@ public:
 
   ~GlitchLichPatch()
   {
+    StereoDcBlockingFilter::destroy(dcFilter);
     CircularBuffer<float>::destroy(bufferL);
     CircularBuffer<float>::destroy(bufferR);
     BitCrusher<24>::destroy(crushL);
@@ -211,17 +214,15 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    FloatArray left = audio.getSamples(LEFT_CHANNEL);
-    FloatArray right = audio.getSamples(RIGHT_CHANNEL);
+    const int size = audio.getSize();
+
+    tempo.clock(size);
 
     // button 2 is for tap tempo now
     bool mangle = false; // isButtonPressed(BUTTON_2);
 
-    int size = audio.getSize();
     freezeRatio   = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
     playbackSpeed = (int)(getParameterValue(inSpeed) * PLAYBACK_SPEEDS_COUNT);
-
-    tempo.clock(size);
 
     float newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
     float newReadSpeed    = playbackSpeeds[playbackSpeed] / newFreezeLength;
@@ -238,6 +239,11 @@ public:
     crushR->setBitDepth(bits);
     crushR->setBitRate(rate);
     crushR->setMangle(mangle);
+
+    dcFilter->process(audio, audio);
+
+    FloatArray left = audio.getSamples(LEFT_CHANNEL);
+    FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
     for (int i = 0; i < size; ++i)
     {
