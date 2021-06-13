@@ -11,13 +11,12 @@ static const int TRIGGER_LIMIT = (1 << 17);
 
 // these are expressed multiples of the clock
 // and used to determine how long the frozen section of audio should be.
-static const int FREEZE_RATIOS_COUNT = 10;
+static const int FREEZE_RATIOS_COUNT = 9;
 static const float freezeRatios[FREEZE_RATIOS_COUNT] = { 
-              1.0 / 8,
               1.0 / 4,
               1.0 / 3,
               1.0 / 2,
-              3.0 / 4,
+              2.0 / 3,
               1.0,
               1.5,
               2.0,
@@ -55,11 +54,10 @@ static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = {
 // is the speed divided by the freeze ratio
 static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
 // speed: -4  -3  -2  -3/2  -1  -3/4  -1/2  -1/3  -1/4  1/4  1/3  1/2  3/4  1  3/2  2  3  4  |     freeze ratio
-         { 1,  1,  1,   1,   1,   1,    1,    3,    1,   1,   3,   1,   1,  1,  1,  1, 1, 1  }, // 1/8
          { 1,  1,  1,   1,   1,   1,    1,    3,    1,   1,   3,   1,   1,  1,  1,  1, 1, 1  }, // 1/4
          { 1,  1,  1,   2,   1,   4,    2,    1,    4,   4,   1,   2,   4,  1,  2,  1, 1, 1  }, // 1/3
          { 1,  1,  1,   1,   1,   2,    1,    3,    2,   2,   3,   1,   2,  1,  1,  1, 1, 1  }, // 1/2
-         { 3,  1,  3,   1,   3,   1,    3,    9,    3,   3,   9,   3,   1,  3,  1,  3, 1, 3  }, // 3/4
+         { 1,  2,  1,   4,   2,   8,    4,    2,    8,   8,   2,   4,   8,  2,  4,  1, 2, 1  }, // 2/3
          { 1,  1,  1,   2,   1,   4,    2,    3,    4,   4,   3,   2,   4,  1,  2,  1, 1, 1  }, // 1
          { 3,  1,  3,   1,   3,   2,    3,    9,    6,   6,   9,   3,   2,  3,  1,  3, 1, 3  }, // 3/2
          { 1,  2,  1,   4,   2,   8,    4,    6,    8,   8,   6,   4,   8,  2,  4,  1, 2, 1  }, // 2
