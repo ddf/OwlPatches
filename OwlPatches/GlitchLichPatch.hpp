@@ -64,7 +64,7 @@ static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
 };
 
 static const int DROP_RATIOS_COUNT = 8;
-static const int dropRatios[DROP_RATIOS_COUNT] = { 1, 1.0/2, 1.0/3, 1.0/4, 1.0/6, 1.0/8, 1.0/12, 1.0/16 };
+static const float dropRatios[DROP_RATIOS_COUNT] = { 1, 1.0/2, 1.0/3, 1.0/4, 1.0/6, 1.0/8, 1.0/12, 1.0/16 };
 
 class GlitchLichPatch : public Patch
 {
