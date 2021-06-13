@@ -50,7 +50,7 @@ static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = {
 // before resetting the read LFO when not frozen, in order to keep it in sync with the clock.
 // it is a matrix because the period of the LFO, relative to the clock,
 // is the speed divided by the freeze ratio
-static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
+static const uint32_t freezeCounters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
 // speed: -4  -3  -2  -3/2  -1  -2/3  -1/2  -1/3  -1/4  1/4  1/3  1/2  2/3  1  3/2  2  3  4  |     freeze ratio
          { 1,  1,  1,   1,   1,   3,    1,    3,    1,   1,   3,   1,   3,  1,  1,  1, 1, 1  }, // 1/4
          { 1,  1,  1,   2,   1,   1,    2,    1,    4,   4,   1,   2,   1,  1,  2,  1, 1, 1  }, // 1/3
@@ -63,8 +63,34 @@ static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
          { 1,  4,  2,   8,   4,   6,    8,   12,   16,  16,  12,   8,   6,  4,  8,  2, 4, 1  }, // 4
 };
 
-static const int DROP_RATIOS_COUNT = 8;
-static const float dropRatios[DROP_RATIOS_COUNT] = { 1, 1.0/2, 1.0/3, 1.0/4, 1.0/6, 1.0/8, 1.0/12, 1.0/16 };
+static const int DROP_RATIOS_COUNT = 11;
+static const float dropRatios[DROP_RATIOS_COUNT] = { 
+           8,
+           6,
+           4,
+           3,
+           2,
+           1, 
+           1.0/2, 
+           1.0/3, 
+           1.0/4, 
+           1.0/6, 
+           1.0/8
+};
+
+static const uint32_t dropCounters[DROP_RATIOS_COUNT] = {
+           8,
+           6,
+           4,
+           3,
+           2,
+           1,
+           1,
+           1,
+           1,
+           1,
+           1
+};
 
 class GlitchLichPatch : public Patch
 {
@@ -89,6 +115,7 @@ class GlitchLichPatch : public Patch
   float readLfo;
   float readSpeed;
   float dropLfo;
+  int dropRatio;
   bool dropSamples;
   float dropRand;
 
@@ -96,7 +123,7 @@ public:
   GlitchLichPatch()
     : bufferL(0), bufferR(0), crushL(0), crushR(0)
     , tempo(getSampleRate()*60/120), freeze(false)
-    , freezeRatio(0), playbackSpeed(0)
+    , freezeRatio(0), playbackSpeed(0), dropRatio(0)
   {
     bufferL = CircularBuffer<float>::create(TRIGGER_LIMIT);
     bufferR = CircularBuffer<float>::create(TRIGGER_LIMIT);
@@ -247,8 +274,8 @@ public:
     crushR->process(right, right);
 
     float dropParam = getParameterValue(inDrop);
-    float dropMult = dropParam * DROP_RATIOS_COUNT;
-    float dropSpeed = 1.0f / (dropDuration((int)dropMult) * (TRIGGER_LIMIT - 1));
+    dropRatio = (int)(dropParam * DROP_RATIOS_COUNT);
+    float dropSpeed = 1.0f / (dropDuration(dropRatio) * (TRIGGER_LIMIT - 1));
     float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9*dropParam;
     for (int i = 0; i < size; ++i)
     {
@@ -273,7 +300,8 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    static uint32_t counter = 0;
+    static uint32_t freezeCounter = 0;
+    static uint32_t dropCounter = 0;
 
     if (bid == BUTTON_1)
     {
@@ -298,17 +326,18 @@ public:
     {
       bool on = value == ON;
       tempo.trigger(on, samples);
-      if (on && !freeze && ++counter >= counters[freezeRatio][playbackSpeed])
+      if (on && !freeze && ++freezeCounter >= freezeCounters[freezeRatio][playbackSpeed])
       {
         readLfo = 0;
-        counter = 0;
+        freezeCounter = 0;
       }
       // dropLfo is never slower than the clock, so always reset it.
       // we use one instead of zero because our logic in process
       // is checking for the flip from 1 to 0 to generate a new random value.
-      if (on)
+      if (on && ++dropCounter >= dropCounters[dropRatio])
       {
         dropLfo = 1;
+        dropCounter = 0;
       }
     }
   }
