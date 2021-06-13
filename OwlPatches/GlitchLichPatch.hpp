@@ -5,8 +5,6 @@
 #include "TapTempo.hpp"
 #include "BitCrusher.hpp"
 
-static const int glitchDropRateCount = 8;
-static const int glitchDropRates[glitchDropRateCount] = { 1, 2, 3, 4, 6, 8, 12, 16 };
 static const int TRIGGER_LIMIT = (1 << 17);
 
 // these are expressed multiples of the clock
@@ -64,6 +62,9 @@ static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
          { 3,  1,  3,   2,   3,   9,    6,    9,   12,  12,   9,   6,   9,  3,  2,  3, 1, 3  }, // 3
          { 1,  4,  2,   8,   4,   6,    8,   12,   16,  16,  12,   8,   6,  4,  8,  2, 4, 1  }, // 4
 };
+
+static const int DROP_RATIOS_COUNT = 8;
+static const int dropRatios[DROP_RATIOS_COUNT] = { 1, 1.0/2, 1.0/3, 1.0/4, 1.0/6, 1.0/8, 1.0/12, 1.0/16 };
 
 class GlitchLichPatch : public Patch
 {
@@ -174,6 +175,13 @@ public:
     return dur;
   }
 
+  float dropDuration(int ratio)
+  {
+    float dur = tempo.getPeriod() * dropRatios[ratio];
+    dur = max(0.0001f, min(0.9999f, dur));
+    return dur;
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
@@ -239,12 +247,8 @@ public:
     crushR->process(right, right);
 
     float dropParam = getParameterValue(inDrop);
-    float dropMult = dropParam * glitchDropRateCount;
-    // on the one hand it's nice that this is sync'd with the read lfo
-    // because we can use it to self-patch and change the speed every cycle,
-    // but in terms of rhythmically dropping out audio based on the tempo,
-    // it might make more sense to keep it sync'd with the clock and only use the speed input for ratios.
-    float dropSpeed = readSpeed * glitchDropRates[(int)dropMult];
+    float dropMult = dropParam * DROP_RATIOS_COUNT;
+    float dropSpeed = 1.0f / (dropDuration((int)dropMult) * (TRIGGER_LIMIT - 1));
     float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9*dropParam;
     for (int i = 0; i < size; ++i)
     {
@@ -283,7 +287,6 @@ public:
           readStartIdx += TRIGGER_LIMIT;
         }
         readLfo = 0;
-        dropLfo = 0;
       }
       else
       {
@@ -298,8 +301,12 @@ public:
       if (on && !freeze && ++counter >= counters[freezeRatio][playbackSpeed])
       {
         readLfo = 0;
-        dropLfo = 0;
         counter = 0;
+      }
+      // dropLfo is never slower than the clock, so always reset it
+      if (on)
+      {
+        dropLfo = 0;
       }
     }
   }
