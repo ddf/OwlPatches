@@ -5,7 +5,7 @@
 #include "TapTempo.hpp"
 #include "BitCrusher.hpp"
 
-static const int TRIGGER_LIMIT = (1 << 17);
+static const uint32_t TRIGGER_LIMIT = (1 << 17);
 
 // these are expressed multiples of the clock
 // and used to determine how long the frozen section of audio should be.
@@ -107,6 +107,7 @@ class GlitchLichPatch : public Patch
   BitCrusher<24>* crushL;
   BitCrusher<24>* crushR;
   TapTempo<TRIGGER_LIMIT> tempo;
+  uint32_t samplesSinceLastTap;
   int freezeRatio;
   int playbackSpeed;
   float freezeLength;
@@ -123,8 +124,8 @@ class GlitchLichPatch : public Patch
 public:
   GlitchLichPatch()
     : dcFilter(0), bufferL(0), bufferR(0), crushL(0), crushR(0)
-    , tempo(getSampleRate()*60/120), freeze(false)
-    , freezeRatio(0), playbackSpeed(0), dropRatio(0)
+    , tempo(getSampleRate()*60/120), samplesSinceLastTap(TRIGGER_LIMIT)
+    , freeze(false) , freezeRatio(0), playbackSpeed(0), dropRatio(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferL = CircularBuffer<float>::create(TRIGGER_LIMIT);
@@ -221,11 +222,32 @@ public:
     // button 2 is for tap tempo now
     bool mangle = false; // isButtonPressed(BUTTON_2);
 
-    freezeRatio   = (int)(getParameterValue(inSize) * FREEZE_RATIOS_COUNT);
-    playbackSpeed = (int)(getParameterValue(inSpeed) * PLAYBACK_SPEEDS_COUNT);
+    float smoothSize = getParameterValue(inSize) * FREEZE_RATIOS_COUNT;
+    float smoothSpeed = getParameterValue(inSpeed) * PLAYBACK_SPEEDS_COUNT;
+    freezeRatio   = (int)(smoothSize);
+    playbackSpeed = (int)(smoothSpeed);
 
     float newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
     float newReadSpeed    = playbackSpeeds[playbackSpeed] / newFreezeLength;
+
+    // smooth size and speed changes when not clocked
+    bool clocked = samplesSinceLastTap < TRIGGER_LIMIT;
+    if (!clocked)
+    {
+      if (freezeRatio < FREEZE_RATIOS_COUNT - 1)
+      {
+        float x1 = smoothSize - freezeRatio;
+        float x0 = 1.0f - x1;
+        newFreezeLength = newFreezeLength * x0 + (freezeDuration(freezeRatio + 1)*(TRIGGER_LIMIT - 1))*x1;
+      }
+
+      if (playbackSpeed < PLAYBACK_SPEEDS_COUNT - 1)
+      {
+        float x1 = smoothSpeed - playbackSpeed;
+        float x0 = 1.0f - x1;
+        newReadSpeed = newReadSpeed * x0 + (playbackSpeeds[playbackSpeed + 1] / newFreezeLength)*x1;
+      }
+    }
 
     float sr = getSampleRate();
     float crush = getParameterValue(inCrush);
@@ -298,6 +320,11 @@ public:
       }
     }
 
+    if (samplesSinceLastTap < TRIGGER_LIMIT)
+    {
+      samplesSinceLastTap += size;
+    }
+
     setParameterValue(outRamp, readLfo);
     setParameterValue(outRand, dropRand);
     setButton(PUSHBUTTON, readLfo < 0.5f);
@@ -332,12 +359,19 @@ public:
     {
       bool on = value == ON;
       tempo.trigger(on, samples);
+
+      if (on)
+      {
+        samplesSinceLastTap = 0;
+      }
+
+      // reset readLfo based on the counter for our combined ratios
       if (on && !freeze && ++freezeCounter >= freezeCounters[freezeRatio][playbackSpeed])
       {
         readLfo = 0;
         freezeCounter = 0;
       }
-      // dropLfo is never slower than the clock, so always reset it.
+
       // we use one instead of zero because our logic in process
       // is checking for the flip from 1 to 0 to generate a new random value.
       if (on && ++dropCounter >= dropCounters[dropRatio])
