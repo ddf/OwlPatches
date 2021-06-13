@@ -53,8 +53,7 @@ static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = {
 // these are counters that indicate how many clock ticks should occur
 // before resetting the read LFO when not frozen, in order to keep it in sync with the clock.
 // it is a matrix because the period of the LFO, relative to the clock,
-// is the product of the freeze ratio and the playback speed.
-// the counter for each combination is the lowest common denominator of that product.
+// is the speed divided by the freeze ratio
 static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
 // speed: -4  -3  -2  -3/2  -1  -3/4  -1/2  -1/3  -1/4  1/4  1/3  1/2  3/4  1  3/2  2  3  4  |     freeze ratio
          { 2,  8,  4,  16,   8,  32,   16,   24,   32,  32,  24,  16,  32,  8, 16,  4, 8, 2  }, // 1/8
@@ -67,7 +66,7 @@ static const uint32_t counters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
          { 1,  1,  1,   1,   2,   2,    1,    3,    2,   2,   3,   1,   2,  2,  1,  1, 1, 1  }, // 2
          { 1,  2,  1,   4,   2,   8,    4,    6,    8,   8,   6,   4,   8,  2,  4,  1, 2, 1  }, // 5/2
          { 1,  1,  1,   2,   1,   4,    2,    1,    4,   4,   1,   2,   4,  1,  2,  1, 1, 1  }, // 3
-         { 1,  1,  1,   1,   1,   1,    1,    3,    1,   1,   3,   1,   1,  1,  1,  1, 1, 1  }, // 4
+         { 1,  4,  2,   8,   4,  16,    8,   12,   16,  16,  12,   8,  16,  4,  8,  2, 4, 1  }, // 4
 };
 
 class GlitchLichPatch : public Patch
