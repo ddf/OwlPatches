@@ -49,7 +49,7 @@ static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = {
 // these are counters that indicate how many clock ticks should occur
 // before resetting the read LFO when not frozen, in order to keep it in sync with the clock.
 // it is a matrix because the period of the LFO, relative to the clock,
-// is the speed divided by the freeze ratio
+// is the speed divided by the freeze ratio, where the counter is the lowest common denominator
 static const uint32_t freezeCounters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
 // speed: -4  -3  -2  -3/2  -1  -2/3  -1/2  -1/3  -1/4  1/4  1/3  1/2  2/3  1  3/2  2  3  4  |     freeze ratio
          { 1,  1,  1,   1,   1,   3,    1,    3,    1,   1,   3,   1,   3,  1,  1,  1, 1, 1  }, // 1/4
