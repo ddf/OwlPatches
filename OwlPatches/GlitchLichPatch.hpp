@@ -303,10 +303,12 @@ public:
         readLfo = 0;
         counter = 0;
       }
-      // dropLfo is never slower than the clock, so always reset it
+      // dropLfo is never slower than the clock, so always reset it.
+      // we use one instead of zero because our logic in process
+      // is checking for the flip from 1 to 0 to generate a new random value.
       if (on)
       {
-        dropLfo = 0;
+        dropLfo = 1;
       }
     }
   }
