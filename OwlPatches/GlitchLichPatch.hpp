@@ -1,3 +1,57 @@
+/**
+
+AUTHOR:
+    (c) 2021 Damien Quartz
+
+LICENSE:
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+DESCRIPTION:
+    A clockable freeze / stutter / bit crush effect.
+
+    Parameter A controls the length of the freeze buffer.
+    Parameter B controls the speed at which it is looped. 
+    At 12 o'clock, the freeze buffer length is one clock tick. 
+    Turning CCW divides down to 1/4 of a clock tick 
+    and CW increases to 4 clock ticks, using musical divisions. 
+    Speed works the same way with the right-hand side of the knob 
+    going from 1/4x to 4x and the left-hand side doing the same, 
+    but in reverse. When not externally clocked, buffer length 
+    and speed are not snapped to fixed ratios.
+
+    Knob C is a stutter effect inspired by Paratek's P3PB.
+    Fully CCW the effect is off and turning CW it will 
+    randomly drop out audio on musical divisions of the clock 
+    from /8 to 8x with a higher probably of drop out as the rate 
+    increases.  CV Out 2 is the random value used by stutter 
+    to test if drop out should occur.
+
+    Knob D is a bit crush effect that reduces both sample rate 
+    and bit depth as it is turned from fully CCW to CW.
+
+    The first button and Gate A enable freeze. 
+    The second button is for tap tempo and Gate B for external clock.
+    Gate Out is the internal clock for the freeze loop, 
+    which is influenced by both the A and B knobs, 
+    even when freeze is not activated. 
+    
+    CV Out 1 is a ramp that represents the read head for the freeze loop, 
+    which rises with forward playback and descends when reversed.
+
+*/
+
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
