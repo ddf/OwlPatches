@@ -31,7 +31,7 @@ public:
     bufferLeft = CircularFloatBuffer::create(getSampleRate());
     bufferRight = CircularFloatBuffer::create(getSampleRate());
     
-    for (int i = 0; i < MAX_GRAINS/2; i+=2)
+    for (int i = 0; i < MAX_GRAINS; i+=2)
     {
       grains[i] = Grain::create(bufferLeft->getData(), bufferLeft->getSize(), getSampleRate());
       grains[i + 1] = Grain::create(bufferRight->getData(), bufferRight->getSize(), getSampleRate());
@@ -46,7 +46,7 @@ public:
     CircularFloatBuffer::destroy(bufferLeft);
     CircularFloatBuffer::destroy(bufferRight);
 
-    for (int i = 0; i < MAX_GRAINS / 2; i+=2)
+    for (int i = 0; i < MAX_GRAINS; i+=2)
     {
       Grain::destroy(grains[i]);
       Grain::destroy(grains[i + 1]);
@@ -73,7 +73,7 @@ public:
       //left[i] = 0;
       //right[i] = 0;
 
-      for (int gi = 0; gi < MAX_GRAINS/2; gi+=2)
+      for (int gi = 0; gi < MAX_GRAINS; gi+=2)
       {
         left[i] += grains[gi]->generate();
         right[i] += grains[gi+1]->generate();
