@@ -46,7 +46,7 @@ public:
     CircularFloatBuffer::destroy(bufferLeft);
     CircularFloatBuffer::destroy(bufferRight);
 
-    for (int i = 0; i < MAX_GRAINS / 2; ++i)
+    for (int i = 0; i < MAX_GRAINS / 2; i+=2)
     {
       Grain::destroy(grains[i]);
       Grain::destroy(grains[i + 1]);
@@ -73,7 +73,7 @@ public:
       left[i] = 0;
       right[i] = 0;
 
-      for (int gi = 0; gi < MAX_GRAINS; gi+=2)
+      for (int gi = 0; gi < MAX_GRAINS/2; gi+=2)
       {
         left[i] += grains[gi]->generate();
         right[i] += grains[gi+1]->generate();
