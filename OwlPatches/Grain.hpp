@@ -11,10 +11,10 @@ class Grain : public SignalGenerator
   float size;
 
 public:
-  Grain(FloatArray inBuffer, int sr)
-    : buffer(inBuffer), sampleRate(sr)
+  Grain(float* inBuffer, int bufferSize, int sr)
+    : buffer(inBuffer, bufferSize), sampleRate(sr)
     , ramp(0), stepSize(0)
-    , start(-1), size(inBuffer.getSize()*0.1f)
+    , start(-1), size(bufferSize*0.1f)
   {
     setSpeed(1);
   }
@@ -57,7 +57,7 @@ private:
 public:
   static Grain* create(float* buffer, int size, int sampleRate)
   {
-    return new Grain(FloatArray(buffer, size), sampleRate);
+    return new Grain(buffer, size, sampleRate);
   }
 
   static void destroy(Grain* grain)

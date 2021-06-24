@@ -75,14 +75,12 @@ public:
       //left[i] = 0;
       //right[i] = 0;
 
-      for (int gi = 0; gi < MAX_GRAINS; gi+=2)
+      for (int gi = 0; gi < MAX_GRAINS; gi += 2)
       {
         left[i] += grains[gi]->generate();
-        right[i] += grains[gi+1]->generate();
+        right[i] += grains[gi + 1]->generate();
       }
     }
-
-
   }
 
 };
