@@ -70,8 +70,8 @@ public:
       bufferRight->write(right[i]);
 
       // for now, silence incoming audio
-      left[i] = 0;
-      right[i] = 0;
+      //left[i] = 0;
+      //right[i] = 0;
 
       for (int gi = 0; gi < MAX_GRAINS/2; gi+=2)
       {
