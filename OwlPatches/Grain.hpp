@@ -26,7 +26,7 @@ public:
 
   float generate() override
   {
-    float sample = start >= 0 ? interpolated(start + ramp * size) : 0;
+    float sample = start >= 0 ? interpolated(start + ramp * size) * sinf(ramp*M_PI)  : 0;
     ramp += stepSize;
     if (ramp >= 1)
     {
