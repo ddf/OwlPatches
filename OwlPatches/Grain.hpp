@@ -28,7 +28,7 @@ public:
   {
     float sample = start >= 0 ? interpolated(start + ramp * size) : 0;
     ramp += stepSize;
-    if (ramp >= stepSize)
+    if (ramp >= 1)
     {
       ramp -= 1;
       if (randf() < 0.5f)
