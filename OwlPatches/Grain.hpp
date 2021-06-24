@@ -5,7 +5,7 @@
 class Grain : public SignalGenerator
 {
   FloatArray buffer;
-  AntialiasedRampOscillator ramp;
+  RampOscillator<RAMP_SHAPE> ramp;
   float start;
   float size;
   float lastRead;
