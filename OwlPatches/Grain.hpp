@@ -11,20 +11,22 @@ class Grain : public SignalGenerator
   float density;
   float size;
   float speed;
+  float nextSize;
+  float nextSpeed;
 
 public:
   Grain(float* inBuffer, int bufferSize, int sr)
     : buffer(inBuffer, bufferSize), sampleRate(sr)
     , ramp(randf()), stepSize(0)
-    , start(-1), density(0.5f), size(bufferSize*0.1f)
+    , start(-1), density(0.5f), size(bufferSize*0.1f), speed(1)
+    , nextSize(size), nextSpeed(speed)
   {
-    setSpeed(1);
+    setStepSize();
   }
 
   void setSpeed(float speed)
   {
-    this->speed = speed;
-    setStepSize();
+    nextSpeed = speed;
   }
 
   void setDensity(float density)
@@ -34,9 +36,8 @@ public:
 
   void setSize(float grainSize)
   {
-    size = grainSize * buffer.getSize();
-    size = max(2, min(size, buffer.getSize()));
-    setStepSize();
+    nextSize = grainSize * buffer.getSize();
+    nextSize = max(2, min(nextSize, buffer.getSize()));
   }
 
   float generate() override
@@ -54,6 +55,7 @@ public:
       {
         start = -1;
       }
+      setStepSize();
     }
     return sample;
   }
@@ -61,6 +63,8 @@ private:
 
   void setStepSize()
   {
+    speed = nextSpeed;
+    size = nextSize;
     stepSize = speed / size;
   }
 
