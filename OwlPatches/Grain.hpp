@@ -15,7 +15,7 @@ class Grain : public SignalGenerator
 public:
   Grain(float* inBuffer, int bufferSize, int sr)
     : buffer(inBuffer, bufferSize), sampleRate(sr)
-    , ramp(0), stepSize(0)
+    , ramp(randf()), stepSize(0)
     , start(-1), density(0.5f), size(bufferSize*0.1f)
   {
     setSpeed(1);
