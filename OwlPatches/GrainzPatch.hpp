@@ -19,6 +19,10 @@ class GrainzPatch : public Patch
 
   Grain* grains[MAX_GRAINS];
 
+  SmoothFloat grainDensity;
+  SmoothFloat grainSize;
+  SmoothFloat grainSpeed;
+
 public:
   GrainzPatch()
     : bufferLeft(0), bufferRight(0)
@@ -60,9 +64,16 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    float density  = (0.001f + getParameterValue(inDensity)*0.1f);
-    float grainLen = (0.01f + getParameterValue(inSize)*0.99f);
-    float speed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
+    grainDensity  = (0.001f + getParameterValue(inDensity)*0.1f);
+    grainSize = (0.01f + getParameterValue(inSize)*0.99f);
+    grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
+
+    for (int g = 0; g < MAX_GRAINS; ++g)
+    {
+      grains[g]->setDensity(grainDensity);
+      grains[g]->setSize(grainSize);
+      grains[g]->setSpeed(grainSpeed);
+    }
 
     for (int i = 0; i < size; ++i)
     {
@@ -75,14 +86,7 @@ public:
 
       for (int gi = 0; gi < MAX_GRAINS; gi += 2)
       {
-        grains[gi]->setDensity(density);
-        grains[gi]->setSize(grainLen);
-        grains[gi]->setSpeed(speed);
         left[i] += grains[gi]->generate();
-
-        grains[gi + 1]->setDensity(density);
-        grains[gi + 1]->setSize(grainLen);
-        grains[gi + 1]->setSpeed(speed);
         right[i] += grains[gi + 1]->generate();
       }
     }

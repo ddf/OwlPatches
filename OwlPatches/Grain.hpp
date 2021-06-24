@@ -4,6 +4,7 @@
 class Grain : public SignalGenerator
 {
   FloatArray buffer;
+  int bufferSize;
   int sampleRate;
   float stepSize;
   float ramp;
@@ -15,8 +16,8 @@ class Grain : public SignalGenerator
   float nextSpeed;
 
 public:
-  Grain(float* inBuffer, int bufferSize, int sr)
-    : buffer(inBuffer, bufferSize), sampleRate(sr)
+  Grain(float* inBuffer, int bufferSz, int sr)
+    : buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
     , ramp(randf()), stepSize(0)
     , start(-1), density(0.5f), size(bufferSize*0.1f), speed(1)
     , nextSize(size), nextSpeed(speed)
@@ -36,20 +37,20 @@ public:
 
   void setSize(float grainSize)
   {
-    nextSize = grainSize * buffer.getSize();
-    nextSize = max(2, min(nextSize, buffer.getSize()));
+    nextSize = grainSize * bufferSize;
+    nextSize = max(2, min(nextSize, bufferSize));
   }
 
   float generate() override
   {
-    float sample = start >= 0 ? interpolated(start + ramp * size) * sinf(ramp*M_PI)  : 0;
+    float sample = start >= 0 ? interpolated(start + ramp * size) * sinf(ramp*M_PI) : 0;
     ramp += stepSize;
     if (ramp >= 1)
     {
       ramp -= 1;
       if (randf() < density)
       {
-        start = randf()*buffer.getSize();
+        start = randf()*bufferSize;
       }
       else
       {
@@ -72,8 +73,8 @@ private:
   {
     int i = (int)index;
     int j = (i + 1);
-    float low = buffer[i%buffer.getSize()];
-    float high = buffer[j%buffer.getSize()];
+    float low = buffer[i%bufferSize];
+    float high = buffer[j%bufferSize];
 
     float frac = index - i;
     return high + frac * (low - high);
