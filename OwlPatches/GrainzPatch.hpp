@@ -10,9 +10,7 @@ class GrainzPatch : public Patch
 {
   const PatchParameterId inDensity = PARAMETER_A;
   const PatchParameterId inSize = PARAMETER_B;
-
-  int densityMin, densityMax;
-  int sizeMin, sizeMax;
+  const PatchParameterId inSpeed = PARAMETER_C;
 
   StereoDcBlockingFilter* dcFilter;
 
@@ -23,9 +21,7 @@ class GrainzPatch : public Patch
 
 public:
   GrainzPatch()
-    : densityMin(getBlockSize()), densityMax(getSampleRate() / 2)
-    , sizeMin(getBlockSize()), sizeMax(sizeMin * 10)
-    , bufferLeft(0), bufferRight(0)
+    : bufferLeft(0), bufferRight(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(getSampleRate());
@@ -39,6 +35,7 @@ public:
 
     registerParameter(inDensity, "Density");
     registerParameter(inSize, "Grain Size");
+    registerParameter(inSpeed, "Speed");
   }
 
   ~GrainzPatch()
@@ -63,8 +60,9 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    int density  = (int)(densityMin + getParameterValue(inDensity)*densityMax);
-    int grainLen = (int)(sizeMin + getParameterValue(inSize)*sizeMax);
+    float density  = (0.01f + getParameterValue(inDensity)*0.09f);
+    float grainLen = (0.01f + getParameterValue(inSize)*0.09f);
+    float speed = (0.01f + getParameterValue(inSpeed)*1.09f);
 
     for (int i = 0; i < size; ++i)
     {
@@ -77,7 +75,14 @@ public:
 
       for (int gi = 0; gi < MAX_GRAINS; gi += 2)
       {
+        grains[gi]->setDensity(density);
+        grains[gi]->setSize(grainLen);
+        grains[gi]->setSpeed(speed);
         left[i] += grains[gi]->generate();
+
+        grains[gi + 1]->setDensity(density);
+        grains[gi + 1]->setSize(grainLen);
+        grains[gi + 1]->setSpeed(speed);
         right[i] += grains[gi + 1]->generate();
       }
     }
