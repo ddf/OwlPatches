@@ -61,7 +61,7 @@ public:
     const int size = audio.getSize();
 
     float density  = (0.01f + getParameterValue(inDensity)*0.09f);
-    float grainLen = (0.0001f + getParameterValue(inSize)*0.0009f);
+    float grainLen = (0.0001f + getParameterValue(inSize)*0.9999f);
     float speed = (0.125f + getParameterValue(inSpeed)*(8.0f - 0.125f));
 
     for (int i = 0; i < size; ++i)
