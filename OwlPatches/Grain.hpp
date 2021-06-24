@@ -43,19 +43,13 @@ public:
 
   float generate() override
   {
-    float sample = start >= 0 ? interpolated(start + ramp * size) * sinf(ramp*M_PI) : 0;
+    // TODO use an ADSR or window here instead of sinf
+    float sample = start == -1 ? 0 : interpolated(start + ramp * size) * sinf(ramp*M_PI);
     ramp += stepSize;
     if (ramp >= 1)
     {
       ramp -= 1;
-      if (randf() < density)
-      {
-        start = randf()*bufferSize;
-      }
-      else
-      {
-        start = -1;
-      }
+      start = randf() < density ? randf()*bufferSize : -1;
       setStepSize();
     }
     return sample;
