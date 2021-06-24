@@ -21,8 +21,6 @@ class GrainzPatch : public Patch
 
   Grain* grains[MAX_GRAINS];
 
-  Grain* testGrain;
-
 public:
   GrainzPatch()
     : densityMin(getBlockSize()), densityMax(getSampleRate() / 2)
@@ -33,13 +31,11 @@ public:
     bufferLeft = CircularFloatBuffer::create(getSampleRate());
     bufferRight = CircularFloatBuffer::create(getSampleRate());
     
-    //for (int i = 0; i < MAX_GRAINS; i+=2)
-    //{
-    //  grains[i] = Grain::create(bufferLeft->getData(), bufferLeft->getSize(), getSampleRate());
-    //  grains[i + 1] = Grain::create(bufferRight->getData(), bufferRight->getSize(), getSampleRate());
-    //}
-
-    testGrain = Grain::create(bufferLeft->getData(), bufferLeft->getSize(), getSampleRate());
+    for (int i = 0; i < MAX_GRAINS; i+=2)
+    {
+      grains[i] = Grain::create(bufferLeft->getData(), bufferLeft->getSize(), getSampleRate());
+      grains[i + 1] = Grain::create(bufferRight->getData(), bufferRight->getSize(), getSampleRate());
+    }
 
     registerParameter(inDensity, "Density");
     registerParameter(inSize, "Grain Size");
@@ -52,13 +48,11 @@ public:
     CircularFloatBuffer::destroy(bufferLeft);
     CircularFloatBuffer::destroy(bufferRight);
 
-    Grain::destroy(testGrain);
-
-    //for (int i = 0; i < MAX_GRAINS; i+=2)
-    //{
-    //  Grain::destroy(grains[i]);
-    //  Grain::destroy(grains[i + 1]);
-    //}
+    for (int i = 0; i < MAX_GRAINS; i+=2)
+    {
+      Grain::destroy(grains[i]);
+      Grain::destroy(grains[i + 1]);
+    }
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -81,13 +75,11 @@ public:
       left[i] = 0;
       right[i] = 0;
 
-      left[i] = testGrain->generate();
-
-      //for (int gi = 0; gi < MAX_GRAINS; gi += 2)
-      //{
-      //  left[i] += grains[gi]->generate();
-      //  right[i] += grains[gi + 1]->generate();
-      //}
+      for (int gi = 0; gi < MAX_GRAINS; gi += 2)
+      {
+        left[i] += grains[gi]->generate();
+        right[i] += grains[gi + 1]->generate();
+      }
     }
   }
 
