@@ -32,9 +32,10 @@ public:
     this->density = density;
   }
 
-  void setSize(float size)
+  void setSize(float grainSize)
   {
-    this->size = size;
+    size = grainSize * buffer.getSize();
+    size = max(2, min(size, buffer.getSize()));
     setStepSize();
   }
 
