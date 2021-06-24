@@ -136,6 +136,8 @@
   <ItemGroup>
     <ClInclude Include="BitCrusher.hpp" />
     <ClInclude Include="GlitchLichPatch.hpp" />
+    <ClInclude Include="Grain.hpp" />
+    <ClInclude Include="GrainzPatch.hpp" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
     <ClInclude Include="Noise.hpp" />
     <ClInclude Include="PerlinNoiseField.hpp" />

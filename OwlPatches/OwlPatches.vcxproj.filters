@@ -36,5 +36,11 @@
     <ClInclude Include="TapTempo.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GrainzPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Grain.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
