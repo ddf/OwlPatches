@@ -1,29 +1,36 @@
 #include "SignalGenerator.h"
-#include "RampOscillator.h"
 #include "basicmaths.h"
 
 class Grain : public SignalGenerator
 {
   FloatArray buffer;
-  RampOscillator<RAMP_SHAPE> ramp;
+  int sampleRate;
+  float stepSize;
+  float ramp;
   float start;
   float size;
-  float lastRead;
 
 public:
-  Grain(FloatArray inBuffer, int sampleRate)
-    : buffer(inBuffer), ramp(1, sampleRate)
-    , start(0), size(inBuffer.getSize()*0.1f)
-    , lastRead(1)
+  Grain(FloatArray inBuffer, int sr)
+    : buffer(inBuffer), sampleRate(sr)
+    , ramp(0), stepSize(0)
+    , start(-1), size(inBuffer.getSize()*0.1f)
   {
-    ramp.setFrequency(1.0f / size);
+    setSpeed(1);
+  }
+
+  void setSpeed(float speed)
+  {
+    stepSize = speed / size;
   }
 
   float generate() override
   {
-    float read = ramp.generate()*0.5f + 0.5f;
-    if (read < lastRead)
+    float sample = start >= 0 ? interpolated(start + ramp * size) : 0;
+    ramp += stepSize;
+    if (ramp >= stepSize)
     {
+      ramp -= 1;
       if (randf() < 0.5f)
       {
         start = randf()*buffer.getSize();
@@ -32,15 +39,6 @@ public:
       {
         start = -1;
       }
-    }
-    lastRead = read;
-    if (start >= 0)
-    {
-      return interpolated(start + read);
-    }
-    else
-    {
-      return 0;
     }
   }
 private:
