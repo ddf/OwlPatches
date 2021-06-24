@@ -60,9 +60,9 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    float density  = (0.01f + getParameterValue(inDensity)*0.09f);
-    float grainLen = (0.0001f + getParameterValue(inSize)*0.9999f);
-    float speed = (0.125f + getParameterValue(inSpeed)*(8.0f - 0.125f));
+    float density  = (0.001f + getParameterValue(inDensity)*0.999f);
+    float grainLen = (0.001f + getParameterValue(inSize)*0.999f);
+    float speed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
 
     for (int i = 0; i < size; ++i)
     {
