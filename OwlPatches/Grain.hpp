@@ -40,6 +40,7 @@ public:
         start = -1;
       }
     }
+    return sample;
   }
 private:
 
