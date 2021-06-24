@@ -4,7 +4,7 @@
 
 #include "Grain.hpp"
 
-static const int MAX_GRAINS = 18;
+static const int MAX_GRAINS = 24;
 
 class GrainzPatch : public Patch
 {
@@ -60,8 +60,8 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    float density  = (0.001f + getParameterValue(inDensity)*0.999f);
-    float grainLen = (0.001f + getParameterValue(inSize)*0.999f);
+    float density  = (0.001f + getParameterValue(inDensity)*0.1f);
+    float grainLen = (0.01f + getParameterValue(inSize)*0.99f);
     float speed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
 
     for (int i = 0; i < size; ++i)
