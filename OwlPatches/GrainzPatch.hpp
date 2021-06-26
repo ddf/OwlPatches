@@ -4,7 +4,7 @@
 
 #include "Grain.hpp"
 
-static const int MAX_GRAINS = 24;
+static const int MAX_GRAINS = 16;
 
 class GrainzPatch : public Patch
 {

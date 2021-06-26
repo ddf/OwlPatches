@@ -29,6 +29,7 @@ public:
   {
     envelope.setSustain(0);
     envelope.setRelease(0);
+    envelope.setLevel(0);
     setStepSize();
   }
 
