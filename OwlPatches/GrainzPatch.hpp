@@ -11,6 +11,7 @@ class GrainzPatch : public Patch
   const PatchParameterId inDensity = PARAMETER_A;
   const PatchParameterId inSize = PARAMETER_B;
   const PatchParameterId inSpeed = PARAMETER_C;
+  const PatchParameterId inEnvelope = PARAMETER_D;
 
   StereoDcBlockingFilter* dcFilter;
 
@@ -22,6 +23,7 @@ class GrainzPatch : public Patch
   SmoothFloat grainDensity;
   SmoothFloat grainSize;
   SmoothFloat grainSpeed;
+  SmoothFloat grainEnvelope;
 
 public:
   GrainzPatch()
@@ -40,6 +42,7 @@ public:
     registerParameter(inDensity, "Density");
     registerParameter(inSize, "Grain Size");
     registerParameter(inSpeed, "Speed");
+    registerParameter(inEnvelope, "Envelope");
   }
 
   ~GrainzPatch()
@@ -67,12 +70,14 @@ public:
     grainDensity  = (0.001f + getParameterValue(inDensity)*0.1f);
     grainSize = (0.01f + getParameterValue(inSize)*0.99f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
+    grainEnvelope = getParameterValue(inEnvelope);
 
     for (int g = 0; g < MAX_GRAINS; ++g)
     {
       grains[g]->setDensity(grainDensity);
       grains[g]->setSize(grainSize);
       grains[g]->setSpeed(grainSpeed);
+      grains[g]->setAttack(grainEnvelope);
     }
 
     for (int i = 0; i < size; ++i)

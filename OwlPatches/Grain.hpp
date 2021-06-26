@@ -1,8 +1,10 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
+#include "Envelope.h"
 
 class Grain : public SignalGenerator
 {
+  AdsrEnvelope envelope;
   FloatArray buffer;
   int bufferSize;
   int sampleRate;
@@ -14,14 +16,18 @@ class Grain : public SignalGenerator
   float speed;
   float nextSize;
   float nextSpeed;
+  float nextAttack;
+  float nextDecay;
 
 public:
   Grain(float* inBuffer, int bufferSz, int sr)
-    : buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
+    : envelope(sr), buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
     , ramp(randf()), stepSize(0)
     , start(-1), density(0.5f), size(bufferSize*0.1f), speed(1)
-    , nextSize(size), nextSpeed(speed)
+    , nextSize(size), nextSpeed(speed), nextAttack(0.5f), nextDecay(0.5f)
   {
+    envelope.setSustain(0);
+    envelope.setRelease(0);
     setStepSize();
   }
 
@@ -41,16 +47,23 @@ public:
     nextSize = max(2, min(nextSize, bufferSize));
   }
 
+  void setAttack(float dur)
+  {
+    nextAttack = max(0.01f, min(dur, 0.99));
+    nextDecay = 1.0f - nextAttack;
+  }
+
   float generate() override
   {
     // TODO use an ADSR or window here instead of sinf
-    float sample = start == -1 ? 0 : interpolated(start + ramp * size) * sinf(ramp*M_PI);
+    float sample = start == -1 ? 0 : interpolated(start + ramp * size) * envelope.generate();
     ramp += stepSize;
     if (ramp >= 1)
     {
       ramp -= 1;
       start = randf() < density ? randf()*bufferSize : -1;
       setStepSize();
+      envelope.trigger();
     }
     return sample;
   }
@@ -61,6 +74,9 @@ private:
     speed = nextSpeed;
     size = nextSize;
     stepSize = speed / size;
+    const float grainLengthInSeconds = (size / sampleRate) / speed;
+    envelope.setAttack(nextAttack * grainLengthInSeconds);
+    envelope.setDecay(nextDecay * grainLengthInSeconds);
   }
 
   float interpolated(float index)
