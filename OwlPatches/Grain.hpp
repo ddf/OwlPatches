@@ -61,21 +61,17 @@ public:
 
   float generate() override
   {
-    float sample = start == -1 ? 0 : interpolated(start + ramp * size) * envelope.generate();
+    float sample = interpolated(start + ramp * size) * envelope.generate();
     ramp += stepSize;
     if (ramp >= 1)
     {
       ramp -= 1;
-      setStepSize();
-      envelope.setLevel(0);
-      envelope.trigger();
       if (randf() < density)
       {
+        setStepSize();
+        envelope.setLevel(0);
+        envelope.trigger();
         start = size > phase ? phase - size + bufferSize : phase - size;
-      }
-      else
-      {
-        start = -1;
       }
     }
     return sample;
