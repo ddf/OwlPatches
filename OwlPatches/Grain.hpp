@@ -63,6 +63,7 @@ public:
       ramp -= 1;
       start = randf() < density ? randf()*bufferSize : -1;
       setStepSize();
+      envelope.setLevel(0);
       envelope.trigger();
     }
     return sample;
