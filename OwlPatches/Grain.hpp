@@ -49,7 +49,7 @@ public:
 
   void setAttack(float dur)
   {
-    nextAttack = max(0.01f, min(dur, 0.99));
+    nextAttack = max(0.01f, min(dur, 0.99f));
     nextDecay = 1.0f - nextAttack;
   }
 
