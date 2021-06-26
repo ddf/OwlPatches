@@ -55,7 +55,6 @@ public:
 
   float generate() override
   {
-    // TODO use an ADSR or window here instead of sinf
     float sample = start == -1 ? 0 : interpolated(start + ramp * size) * envelope.generate();
     ramp += stepSize;
     if (ramp >= 1)

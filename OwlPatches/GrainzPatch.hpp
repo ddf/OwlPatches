@@ -87,9 +87,8 @@ public:
     {
       for (int i = 0; i < size; ++i)
       {
-        int readIdx = bufferLeft->getWriteIndex();
-        bufferLeft->write(left[i]*0.5f + bufferLeft->readAt(readIdx)*0.5f);
-        bufferRight->write(right[i]*0.5f + bufferRight->readAt(readIdx)*0.5f);
+        bufferLeft->write(left[i]);
+        bufferRight->write(right[i]);
       }
     }
      
