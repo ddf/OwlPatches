@@ -69,19 +69,11 @@ public:
     const int size = audio.getSize();
 
     grainDensity  = (0.001f + getParameterValue(inDensity)*0.1f);
-    grainSize = (0.01f + getParameterValue(inSize)*0.99f);
+    grainSize = (0.01f + getParameterValue(inSize)*0.24f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
 
     bool freeze = isButtonPressed(inFreeze);
-
-    for (int g = 0; g < MAX_GRAINS; ++g)
-    {
-      grains[g]->setDensity(grainDensity);
-      grains[g]->setSize(grainSize);
-      grains[g]->setSpeed(grainSpeed);
-      grains[g]->setAttack(grainEnvelope);
-    }
 
     if (!freeze)
     {
@@ -95,6 +87,16 @@ public:
     // for now, silence incoming audio
     left.clear();
     right.clear();
+
+    float grainPhase = (float)bufferLeft->getWriteIndex() / bufferLeft->getSize();
+    for (int g = 0; g < MAX_GRAINS; ++g)
+    {
+      grains[g]->setPhase(grainPhase);
+      grains[g]->setDensity(grainDensity);
+      grains[g]->setSize(grainSize);
+      grains[g]->setSpeed(grainSpeed);
+      grains[g]->setAttack(grainEnvelope);
+    }
 
     for (int i = 0; i < size; ++i)
     {

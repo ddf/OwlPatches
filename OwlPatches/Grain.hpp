@@ -10,6 +10,7 @@ class Grain : public SignalGenerator
   int sampleRate;
   float stepSize;
   float ramp;
+  float phase;
   float start;
   float density;
   float size;
@@ -22,7 +23,7 @@ class Grain : public SignalGenerator
 public:
   Grain(float* inBuffer, int bufferSz, int sr)
     : envelope(sr), buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
-    , ramp(randf()), stepSize(0)
+    , ramp(randf()), stepSize(0), phase(0)
     , start(-1), density(0.5f), size(bufferSize*0.1f), speed(1)
     , nextSize(size), nextSpeed(speed), nextAttack(0.5f), nextDecay(0.5f)
   {
@@ -47,6 +48,11 @@ public:
     nextSize = max(2, min(nextSize, bufferSize));
   }
 
+  void setPhase(float grainPhase)
+  {
+    phase = grainPhase*bufferSize;
+  }
+
   void setAttack(float dur)
   {
     nextAttack = max(0.01f, min(dur, 0.99f));
@@ -60,13 +66,21 @@ public:
     if (ramp >= 1)
     {
       ramp -= 1;
-      start = randf() < density ? randf()*bufferSize : -1;
       setStepSize();
       envelope.setLevel(0);
       envelope.trigger();
+      if (randf() < density)
+      {
+        start = size > phase ? phase - size + bufferSize : phase - size;
+      }
+      else
+      {
+        start = -1;
+      }
     }
     return sample;
   }
+
 private:
 
   void setStepSize()
