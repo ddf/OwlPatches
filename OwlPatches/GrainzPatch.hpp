@@ -12,6 +12,7 @@ class GrainzPatch : public Patch
   const PatchParameterId inSize = PARAMETER_B;
   const PatchParameterId inSpeed = PARAMETER_C;
   const PatchParameterId inEnvelope = PARAMETER_D;
+  const PatchButtonId    inFreeze = BUTTON_1;
 
   StereoDcBlockingFilter* dcFilter;
 
@@ -72,6 +73,8 @@ public:
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
 
+    bool freeze = isButtonPressed(inFreeze);
+
     for (int g = 0; g < MAX_GRAINS; ++g)
     {
       grains[g]->setDensity(grainDensity);
@@ -82,8 +85,11 @@ public:
 
     for (int i = 0; i < size; ++i)
     {
-      bufferLeft->write(left[i]);
-      bufferRight->write(right[i]);
+      if (!freeze)
+      {
+        bufferLeft->write(left[i]);
+        bufferRight->write(right[i]);
+      }
 
       // for now, silence incoming audio
       left[i] = 0;
