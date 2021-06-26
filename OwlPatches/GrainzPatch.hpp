@@ -97,10 +97,13 @@ public:
     left.clear();
     right.clear();
 
-    for (int gi = 0; gi < MAX_GRAINS; gi += 2)
+    for (int i = 0; i < size; ++i)
     {
-      left[i] += grains[gi]->generate();
-      right[i] += grains[gi + 1]->generate();
+      for (int gi = 0; gi < MAX_GRAINS; gi += 2)
+      {
+        left[i] += grains[gi]->generate();
+        right[i] += grains[gi + 1]->generate();
+      }
     }
   }
 
