@@ -83,23 +83,24 @@ public:
       grains[g]->setAttack(grainEnvelope);
     }
 
-    for (int i = 0; i < size; ++i)
+    if (!freeze)
     {
-      if (!freeze)
+      for (int i = 0; i < size; ++i)
       {
-        bufferLeft->write(left[i]);
-        bufferRight->write(right[i]);
+        int readIdx = bufferLeft->getWriteIndex();
+        bufferLeft->write(left[i]*0.5f + bufferLeft->readAt(readIdx)*0.5f);
+        bufferRight->write(right[i]*0.5f + bufferRight->readAt(readIdx)*0.5f);
       }
+    }
+     
+    // for now, silence incoming audio
+    left.clear();
+    right.clear();
 
-      // for now, silence incoming audio
-      left[i] = 0;
-      right[i] = 0;
-
-      for (int gi = 0; gi < MAX_GRAINS; gi += 2)
-      {
-        left[i] += grains[gi]->generate();
-        right[i] += grains[gi + 1]->generate();
-      }
+    for (int gi = 0; gi < MAX_GRAINS; gi += 2)
+    {
+      left[i] += grains[gi]->generate();
+      right[i] += grains[gi + 1]->generate();
     }
   }
 
