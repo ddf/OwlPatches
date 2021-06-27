@@ -118,10 +118,7 @@ public:
       startGrain = grainChance < grainDensity || grainTriggered;
       samplesUntilNextGrain += (grainSpacing * grainSampleLength) / grainSpeed;
       grainTriggered = false;
-      if (startGrain)
-      {
-        lastGrain = nullptr;
-      }
+      lastGrain = nullptr;
     }
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
