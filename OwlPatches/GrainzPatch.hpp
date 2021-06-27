@@ -99,7 +99,7 @@ public:
       if (startGrain && g->isDone())
       {
         float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
-        g->startGrain(grainEndPos, grainSize, grainSpeed, grainEndPos);
+        g->startGrain(grainEndPos, grainSize, grainSpeed, grainEnvelope);
         startGrain = false;
         samplesUntilNextGrain += grainOverlap * (grainSize*bufferSize);
       }
