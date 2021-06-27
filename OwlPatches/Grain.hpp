@@ -29,6 +29,11 @@ public:
     return attackMult == 0 && decayMult == 0;
   }
 
+  float progress()
+  {
+    return ramp / size;
+  }
+
   // all arguments [0,1], relative to buffer size,
   // env describes a blend from:
   // short attack / long decay -> triangle -> long attack / short delay

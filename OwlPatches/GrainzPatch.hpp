@@ -14,6 +14,9 @@ class GrainzPatch : public Patch
   const PatchParameterId inEnvelope = PARAMETER_D;
   const PatchButtonId    inFreeze = BUTTON_1;
 
+  const PatchButtonId outGrainPlayed = PUSHBUTTON;
+  const PatchParameterId outGrainChance = PARAMETER_F;
+
   StereoDcBlockingFilter* dcFilter;
 
   const int bufferSize;
@@ -22,6 +25,9 @@ class GrainzPatch : public Patch
 
   Grain* grains[MAX_GRAINS];
   float samplesUntilNextGrain;
+  float grainChance;
+  // last grain that was started, could be null if we skipped it.
+  Grain* lastGrain;
 
   SmoothFloat grainSpacing;
   SmoothFloat grainSize;
@@ -31,7 +37,7 @@ class GrainzPatch : public Patch
 public:
   GrainzPatch()
     : bufferSize(getSampleRate()), bufferLeft(0), bufferRight(0)
-    , samplesUntilNextGrain(0)
+    , samplesUntilNextGrain(0), grainChance(0), lastGrain(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(bufferSize);
@@ -46,6 +52,7 @@ public:
     registerParameter(inSize, "Grain Size");
     registerParameter(inSpeed, "Speed");
     registerParameter(inEnvelope, "Envelope");
+    registerParameter(outGrainChance, "Random>");
   }
 
   ~GrainzPatch()
@@ -92,7 +99,15 @@ public:
 
     samplesUntilNextGrain -= getBlockSize() * grainSpeed;
 
-    bool startGrain = samplesUntilNextGrain <= 0 && randf() < grainDensity;
+    bool startGrain = false;
+    float grainSampleLength = (grainSize*bufferSize);
+    if (samplesUntilNextGrain <= 0)
+    {
+      lastGrain = nullptr;
+      grainChance = randf();
+      startGrain = grainChance < grainDensity;
+      samplesUntilNextGrain += grainSpacing * grainSampleLength;
+    }
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
@@ -103,16 +118,15 @@ public:
         float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
         g->startGrain(grainEndPos, grainSize, grainSpeed, grainEnvelope);
         startGrain = false;
+        lastGrain = g;
       }
 
       g->generate(audio);
     }
 
-    if (samplesUntilNextGrain <= 0)
-    {
-      float grainSampleLength = (grainSize*bufferSize);
-      samplesUntilNextGrain += grainSpacing * grainSampleLength;
-    }
+    uint16_t gate = lastGrain != nullptr && lastGrain->progress() < 0.25f;
+    setButton(outGrainPlayed, gate);
+    setParameterValue(outGrainChance, grainChance);
   }
 
 };
