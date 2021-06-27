@@ -90,7 +90,7 @@ private:
 
   float envelope()
   {
-    return ramp < decayStart ? ramp * attackMult : (1.0f - ramp) * decayMult;
+    return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
   }
 
   float interpolated(float index)
