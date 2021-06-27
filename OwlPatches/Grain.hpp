@@ -13,8 +13,9 @@ class Grain : public SignalGenerator
   float density;
   float size;
   float speed;
-  float attack;
-  float decay;
+  float decayStart;
+  float attackMult;
+  float decayMult;
   float nextSize;
   float nextSpeed;
   float nextAttack;
@@ -23,9 +24,9 @@ class Grain : public SignalGenerator
 public:
   Grain(float* inBuffer, int bufferSz, int sr)
     : buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
-    , ramp(randf()), phase(0), start(0)
-    , density(0.5f), size(bufferSize*0.1f), speed(1), attack(0.5f), decay(0.5f)
-    , nextSize(size), nextSpeed(speed), nextAttack(attack), nextDecay(decay)
+    , ramp(randf()), phase(0), start(0), decayStart(0)
+    , density(0.5f), size(bufferSize*0.1f), speed(1), attackMult(0), decayMult(0)
+    , nextSize(size), nextSpeed(speed), nextAttack(attackMult), nextDecay(decayMult)
   {
   }
 
@@ -68,6 +69,10 @@ public:
         startGrain();
         start = size > phase ? phase - size + bufferSize : phase - size;
       }
+      else
+      {
+        attackMult = decayMult = 0;
+      }
     }
     return sample;
   }
@@ -78,13 +83,14 @@ private:
   {
     speed = nextSpeed;
     size = nextSize;
-    attack = nextAttack*size;
-    decay = nextDecay*size;
+    decayStart = nextAttack * size;
+    attackMult = 1.0f / (nextAttack*size);
+    decayMult = 1.0f / (nextDecay*size);
   }
 
   float envelope()
   {
-    return ramp < attack ? ramp / attack : (1.0f - ramp) / decay;
+    return ramp < decayStart ? ramp * attackMult : (1.0f - ramp) * decayMult;
   }
 
   float interpolated(float index)
