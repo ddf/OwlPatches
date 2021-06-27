@@ -13,6 +13,7 @@ class GrainzPatch : public Patch
   const PatchParameterId inSpeed = PARAMETER_C;
   const PatchParameterId inEnvelope = PARAMETER_D;
   const PatchButtonId    inFreeze = BUTTON_1;
+  const PatchButtonId    inTrigger = BUTTON_2;
 
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
   const PatchParameterId outGrainChance = PARAMETER_F;
@@ -26,6 +27,7 @@ class GrainzPatch : public Patch
   Grain* grains[MAX_GRAINS];
   float samplesUntilNextGrain;
   float grainChance;
+  bool grainTriggered;
   // last grain that was started, could be null if we skipped it.
   Grain* lastGrain;
 
@@ -37,7 +39,7 @@ class GrainzPatch : public Patch
 public:
   GrainzPatch()
     : bufferSize(getSampleRate()), bufferLeft(0), bufferRight(0)
-    , samplesUntilNextGrain(0), grainChance(0), lastGrain(0)
+    , samplesUntilNextGrain(0), grainChance(0), grainTriggered(false), lastGrain(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(bufferSize);
@@ -69,6 +71,15 @@ public:
     }
   }
 
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
+  {
+    if (bid == inTrigger && value == ON)
+    {
+      samplesUntilNextGrain = samples;
+      grainTriggered = true;
+    }
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     dcFilter->process(audio, audio);
@@ -97,16 +108,20 @@ public:
     // for now, silence incoming audio
     audio.clear();
 
-    samplesUntilNextGrain -= getBlockSize() * grainSpeed;
+    samplesUntilNextGrain -= getBlockSize();
 
     bool startGrain = false;
     float grainSampleLength = (grainSize*bufferSize);
     if (samplesUntilNextGrain <= 0)
     {
-      lastGrain = nullptr;
       grainChance = randf();
-      startGrain = grainChance < grainDensity;
-      samplesUntilNextGrain += grainSpacing * grainSampleLength;
+      startGrain = grainChance < grainDensity || grainTriggered;
+      samplesUntilNextGrain += (grainSpacing * grainSampleLength) / grainSpeed;
+      grainTriggered = false;
+      if (startGrain)
+      {
+        lastGrain = nullptr;
+      }
     }
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
@@ -128,5 +143,4 @@ public:
     setButton(outGrainPlayed, gate);
     setParameterValue(outGrainChance, grainChance);
   }
-
 };
