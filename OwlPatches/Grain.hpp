@@ -4,7 +4,6 @@
 
 class Grain : public SignalGenerator
 {
-  AdsrEnvelope envelope;
   FloatArray buffer;
   int bufferSize;
   int sampleRate;
@@ -15,6 +14,8 @@ class Grain : public SignalGenerator
   float density;
   float size;
   float speed;
+  float attack;
+  float decay;
   float nextSize;
   float nextSpeed;
   float nextAttack;
@@ -22,14 +23,11 @@ class Grain : public SignalGenerator
 
 public:
   Grain(float* inBuffer, int bufferSz, int sr)
-    : envelope(sr), buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
-    , ramp(randf()), stepSize(0), phase(0)
-    , start(-1), density(0.5f), size(bufferSize*0.1f), speed(1)
-    , nextSize(size), nextSpeed(speed), nextAttack(0.5f), nextDecay(0.5f)
+    : buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
+    , ramp(randf()), stepSize(0), phase(0), start(-1)
+    , density(0.5f), size(bufferSize*0.1f), speed(1), attack(0.5f), decay(0.5f)
+    , nextSize(size), nextSpeed(speed), nextAttack(attack), nextDecay(decay)
   {
-    envelope.setSustain(0);
-    envelope.setRelease(0);
-    envelope.setLevel(0);
     setStepSize();
   }
 
@@ -62,7 +60,10 @@ public:
 
   float generate() override
   {
-    float sample = interpolated(start + ramp * size) * envelope.generate();
+    // TODO: using an ADSR I can only get 16 grains and still have CPU headroom for other features.
+    // Probably it would be faster to do our own AD envelope in this class.
+    // Could also run ramp from 0 to size to eliminate an multiply here.
+    float sample = interpolated(start + ramp * size) * envelope();
     ramp += stepSize;
     if (ramp >= 1)
     {
@@ -70,8 +71,6 @@ public:
       if (randf() < density)
       {
         setStepSize();
-        envelope.setLevel(0);
-        envelope.trigger();
         start = size > phase ? phase - size + bufferSize : phase - size;
       }
     }
@@ -84,10 +83,14 @@ private:
   {
     speed = nextSpeed;
     size = nextSize;
+    attack = nextAttack;
+    decay = nextDecay;
     stepSize = speed / size;
-    const float grainLengthInSeconds = (size / sampleRate) / speed;
-    envelope.setAttack(nextAttack * grainLengthInSeconds);
-    envelope.setDecay(nextDecay * grainLengthInSeconds);
+  }
+
+  float envelope()
+  {
+    return ramp < attack ? ramp / attack : (1.0f - ramp) / decay;
   }
 
   float interpolated(float index)
