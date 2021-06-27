@@ -16,6 +16,7 @@ class GrainzPatch : public Patch
 
   StereoDcBlockingFilter* dcFilter;
 
+  const int bufferSize;
   CircularFloatBuffer* bufferLeft;
   CircularFloatBuffer* bufferRight;
 
@@ -28,16 +29,15 @@ class GrainzPatch : public Patch
 
 public:
   GrainzPatch()
-    : bufferLeft(0), bufferRight(0)
+    : bufferSize(getSampleRate()), bufferLeft(0), bufferRight(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
-    bufferLeft = CircularFloatBuffer::create(getSampleRate());
-    bufferRight = CircularFloatBuffer::create(getSampleRate());
+    bufferLeft = CircularFloatBuffer::create(bufferSize);
+    bufferRight = CircularFloatBuffer::create(bufferSize);
     
-    for (int i = 0; i < MAX_GRAINS; i+=2)
+    for (int i = 0; i < MAX_GRAINS; ++i)
     {
-      grains[i] = Grain::create(bufferLeft->getData(), bufferLeft->getSize(), getSampleRate());
-      grains[i + 1] = Grain::create(bufferRight->getData(), bufferRight->getSize(), getSampleRate());
+      grains[i] = Grain::create(bufferLeft->getData(), bufferSize, getSampleRate());
     }
 
     registerParameter(inDensity, "Density");
@@ -86,9 +86,9 @@ public:
      
     // for now, silence incoming audio
     left.clear();
-    right.clear();
+    //right.clear();
 
-    float grainPhase = (float)bufferLeft->getWriteIndex() / bufferLeft->getSize();
+    float grainPhase = (float)bufferLeft->getWriteIndex() / bufferSize;
     for (int g = 0; g < MAX_GRAINS; ++g)
     {
       grains[g]->setPhase(grainPhase);
@@ -100,10 +100,9 @@ public:
 
     for (int i = 0; i < size; ++i)
     {
-      for (int gi = 0; gi < MAX_GRAINS; gi += 2)
+      for (int gi = 0; gi < MAX_GRAINS; ++gi)
       {
         left[i] += grains[gi]->generate();
-        right[i] += grains[gi + 1]->generate();
       }
     }
   }

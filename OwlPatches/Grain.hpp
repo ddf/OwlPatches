@@ -2,9 +2,10 @@
 #include "basicmaths.h"
 #include "Envelope.h"
 
-class Grain : public SignalGenerator
+class Grain : public SignalGenerator, MultiSignalGenerator
 {
-  FloatArray buffer;
+  FloatArray left;
+  FloatArray right;
   int bufferSize;
   int sampleRate;
   float ramp;
@@ -22,9 +23,9 @@ class Grain : public SignalGenerator
   float nextDecay;
 
 public:
-  Grain(float* inBuffer, int bufferSz, int sr)
-    : buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
-    , ramp(randf()), phase(0), start(0), decayStart(0)
+  Grain(float* inLeft, float* inRight, int bufferSz, int sr)
+    : left(inLeft, bufferSz), right(inRight, bufferSz), bufferSize(bufferSz)
+    , sampleRate(sr), ramp(randf()), phase(0), start(0), decayStart(0)
     , density(0.5f), size(bufferSize*0.1f), speed(1), attackMult(0), decayMult(0)
     , nextSize(size), nextSpeed(speed), nextAttack(attackMult), nextDecay(decayMult)
   {
@@ -59,22 +60,32 @@ public:
 
   float generate() override
   {
-    float sample = interpolated(start + ramp) * envelope();
+    float sample = interpolated(left, start + ramp) * envelope();
     ramp += speed;
     if (ramp >= size)
     {
-      ramp = 0;
-      if (randf() < density)
-      {
-        startGrain();
-        start = size > phase ? phase - size + bufferSize : phase - size;
-      }
-      else
-      {
-        attackMult = decayMult = 0;
-      }
+      startGrain();
     }
     return sample;
+  }
+
+
+  void generate(AudioBuffer& output) override
+  {
+    const int outLen = output.getSize();
+    float* outL = output.getSamples(0);
+    float* outR = outL + outLen;
+    for (int i = 0; i < outLen; ++i)
+    {
+      float env = envelope();
+      *outL++ = interpolated(left, start + ramp) * env;
+      *outR++ = interpolated(right, start + ramp) * env;
+      ramp += speed;
+      if (ramp >= size)
+      {
+        startGrain();
+      }
+    }
   }
 
 private:
@@ -86,6 +97,15 @@ private:
     decayStart = nextAttack * size;
     attackMult = 1.0f / (nextAttack*size);
     decayMult = 1.0f / (nextDecay*size);
+    ramp = 0;
+    if (randf() < density)
+    {
+      start = size > phase ? phase - size + bufferSize : phase - size;
+    }
+    else
+    {
+      attackMult = decayMult = 0;
+    }
   }
 
   float envelope()
@@ -93,7 +113,7 @@ private:
     return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
   }
 
-  float interpolated(float index)
+  float interpolated(float* buffer, float index)
   {
     int i = (int)index;
     int j = (i + 1);
@@ -107,7 +127,12 @@ private:
 public:
   static Grain* create(float* buffer, int size, int sampleRate)
   {
-    return new Grain(buffer, size, sampleRate);
+    return new Grain(buffer, buffer, size, sampleRate);
+  }
+
+  static Grain* create(float* left, float* right, int size, int sampleRate)
+  {
+    return new Grain(left, right, size, sampleRate);
   }
 
   static void destroy(Grain* grain)
