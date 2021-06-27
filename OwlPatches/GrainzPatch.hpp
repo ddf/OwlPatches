@@ -71,7 +71,7 @@ public:
     const int size = audio.getSize();
 
     float grainDensity = getParameterValue(inDensity);
-    grainSpacing = 8.0f + grainDensity*(0.1f - 8.0f);
+    grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
     grainSize = (0.01f + getParameterValue(inSize)*0.24f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
