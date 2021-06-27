@@ -60,7 +60,11 @@ public:
 
   float generate() override
   {
-    float sample = interpolated(left, start + ramp) * envelope();
+    float pos = start + ramp;
+    int i = (int)pos;
+    int j = i + 1;
+    float t = pos - i;
+    float sample = interpolated(left, i%bufferSize, j%bufferSize, t) * envelope();
     ramp += speed;
     if (ramp >= size)
     {
@@ -75,11 +79,17 @@ public:
     const int outLen = output.getSize();
     float* outL = output.getSamples(0);
     float* outR = output.getSamples(1);
-    for (int i = 0; i < outLen; ++i)
+    for (int s = 0; s < outLen; ++s)
     {
+      float pos = start + ramp;
+      float t   = pos - (int)pos;
+      int i     = ((int)pos) % bufferSize;
+      int j     = (i + 1) % bufferSize;
       float env = envelope();
-      *outL++ += interpolated(left, start + ramp) * env;
-      *outR++ += interpolated(right, start + ramp) * env;
+
+      *outL++ += interpolated(left, i, j, t) * env;
+      *outR++ += interpolated(right, i, j, t) * env;
+
       ramp += speed;
       if (ramp >= size)
       {
@@ -113,15 +123,11 @@ private:
     return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
   }
 
-  float interpolated(float* buffer, float index)
+  float interpolated(float* buffer, int i, int j, float t)
   {
-    int i = (int)index;
-    int j = (i + 1);
-    float low = buffer[i%bufferSize];
-    float high = buffer[j%bufferSize];
-
-    float frac = index - i;
-    return high + frac * (low - high);
+    float low = buffer[i];
+    float high = buffer[j];
+    return low + t * (high - low);
   }
 
 public:
