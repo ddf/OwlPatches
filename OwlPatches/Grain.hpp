@@ -9,53 +9,43 @@ class Grain : public SignalGenerator, MultiSignalGenerator
   int bufferSize;
   int sampleRate;
   float ramp;
-  float phase;
   float start;
-  float density;
   float size;
   float speed;
   float decayStart;
   float attackMult;
   float decayMult;
-  float nextSize;
-  float nextSpeed;
-  float nextAttack;
-  float nextDecay;
 
 public:
   Grain(float* inLeft, float* inRight, int bufferSz, int sr)
     : left(inLeft, bufferSz), right(inRight, bufferSz), bufferSize(bufferSz)
-    , sampleRate(sr), ramp(randf()*bufferSize), phase(0), start(0), decayStart(0)
-    , density(0.5f), size(bufferSize), speed(1), attackMult(0), decayMult(0)
-    , nextSize(size), nextSpeed(speed), nextAttack(0.5f), nextDecay(0.5f)
+    , sampleRate(sr), ramp(randf()*bufferSize)
+    , start(0), decayStart(0), size(bufferSize), speed(1), attackMult(0), decayMult(0)
   {
   }
 
-  void setSpeed(float speed)
+  bool isDone()
   {
-    nextSpeed = speed;
+    return attackMult == 0 && decayMult == 0;
   }
 
-  void setDensity(float density)
+  // all arguments [0,1], relative to buffer size,
+  // env describes a blend from:
+  // short attack / long decay -> triangle -> long attack / short delay
+  void startGrain(float end, float length, float rate, float env)
   {
-    this->density = density;
-  }
+    ramp = 0;
+    size = length * bufferSize;
+    // we always advance by buffer size
+    // so we don't have to worry about accessing negative indices
+    start = end * bufferSize - size + bufferSize;
+    speed = rate;
 
-  void setSize(float grainSize)
-  {
-    nextSize = grainSize * bufferSize;
-    nextSize = max(2, min(nextSize, bufferSize));
-  }
-
-  void setPhase(float grainPhase)
-  {
-    phase = grainPhase*bufferSize;
-  }
-
-  void setAttack(float dur)
-  {
-    nextAttack = max(0.01f, min(dur, 0.99f));
-    nextDecay = 1.0f - nextAttack;
+    float nextAttack = max(0.01f, min(env, 0.99f));
+    float nextDecay = 1.0f - nextAttack;
+    decayStart = nextAttack * size;
+    attackMult = 1.0f / (nextAttack*size);
+    decayMult = 1.0f / (nextDecay*size);
   }
 
   float generate() override
@@ -65,11 +55,14 @@ public:
     int j = i + 1;
     float t = pos - i;
     float sample = interpolated(left, i%bufferSize, j%bufferSize, t) * envelope();
-    ramp += speed;
-    if (ramp >= size)
+
+    // keep looping, but silently, mainly so we can keep track of grain performance
+    if ((ramp += speed) >= size)
     {
-      startGrain();
+      ramp -= size;
+      attackMult = decayMult = 0;
     }
+
     return sample;
   }
 
@@ -90,34 +83,16 @@ public:
       *outL++ += interpolated(left, i, j, t) * env;
       *outR++ += interpolated(right, i, j, t) * env;
 
-      ramp += speed;
-      if (ramp >= size)
+      // keep looping, but silently, mainly so we can keep track of grain performance
+      if ((ramp += speed) >= size)
       {
-        startGrain();
+        ramp -= size;
+        attackMult = decayMult = 0;
       }
     }
   }
 
 private:
-
-  void startGrain()
-  {
-    speed = nextSpeed;
-    size = nextSize;
-    decayStart = nextAttack * size;
-    attackMult = 1.0f / (nextAttack*size);
-    decayMult = 1.0f / (nextDecay*size);
-    ramp = 0;
-    if (randf() < density)
-    {
-      start = size > phase ? phase - size + bufferSize : phase - size;
-    }
-    else
-    {
-      attackMult = decayMult = 0;
-    }
-  }
-
   float envelope()
   {
     return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;

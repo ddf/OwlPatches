@@ -21,8 +21,9 @@ class GrainzPatch : public Patch
   CircularFloatBuffer* bufferRight;
 
   Grain* grains[MAX_GRAINS];
+  float samplesUntilNextGrain;
 
-  SmoothFloat grainDensity;
+  SmoothFloat grainOverlap;
   SmoothFloat grainSize;
   SmoothFloat grainSpeed;
   SmoothFloat grainEnvelope;
@@ -30,6 +31,7 @@ class GrainzPatch : public Patch
 public:
   GrainzPatch()
     : bufferSize(getSampleRate()), bufferLeft(0), bufferRight(0)
+    , samplesUntilNextGrain(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(bufferSize);
@@ -68,7 +70,7 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    grainDensity  = (0.001f + getParameterValue(inDensity)*0.999f);
+    grainOverlap = 2.0f + getParameterValue(inDensity)*(0.1f - 2.0f);
     grainSize = (0.01f + getParameterValue(inSize)*0.24f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
@@ -83,19 +85,24 @@ public:
         bufferRight->write(right[i]);
       }
     }
-     
+
     // for now, silence incoming audio
     audio.clear();
 
-    float grainPhase = (float)bufferLeft->getWriteIndex() / bufferSize;
+    samplesUntilNextGrain -= getBlockSize() * grainSpeed;
+
+    bool startGrain = samplesUntilNextGrain <= 0;
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
       auto g = grains[gi];
-      g->setPhase(grainPhase);
-      g->setDensity(grainDensity);
-      g->setSize(grainSize);
-      g->setSpeed(grainSpeed);
-      g->setAttack(grainEnvelope);
+
+      if (startGrain && g->isDone())
+      {
+        float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
+        g->startGrain(grainEndPos, grainSize, grainSpeed, grainEndPos);
+        startGrain = false;
+        samplesUntilNextGrain += grainOverlap * (grainSize*bufferSize);
+      }
 
       g->generate(audio);
     }
