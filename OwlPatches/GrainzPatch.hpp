@@ -70,7 +70,7 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    grainOverlap = 2.0f + getParameterValue(inDensity)*(0.1f - 2.0f);
+    grainOverlap = 4.0f + getParameterValue(inDensity)*(0.25f - 4.0f);
     grainSize = (0.01f + getParameterValue(inSize)*0.24f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
