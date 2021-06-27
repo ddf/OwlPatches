@@ -70,7 +70,8 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    grainSpacing = 8.0f + getParameterValue(inDensity)*(0.1f - 8.0f);
+    float grainDensity = getParameterValue(inDensity);
+    grainSpacing = 8.0f + grainDensity*(0.1f - 8.0f);
     grainSize = (0.01f + getParameterValue(inSize)*0.24f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
@@ -91,7 +92,8 @@ public:
 
     samplesUntilNextGrain -= getBlockSize() * grainSpeed;
 
-    bool startGrain = samplesUntilNextGrain <= 0;
+    bool startGrain = samplesUntilNextGrain <= 0 && randf() < grainDensity;
+
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
       auto g = grains[gi];
@@ -101,11 +103,15 @@ public:
         float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
         g->startGrain(grainEndPos, grainSize, grainSpeed, grainEnvelope);
         startGrain = false;
-        float grainSampleLength = (grainSize*bufferSize);
-        samplesUntilNextGrain += grainSpacing * grainSampleLength + grainSampleLength*8.0f*randf();
       }
 
       g->generate(audio);
+    }
+
+    if (samplesUntilNextGrain <= 0)
+    {
+      float grainSampleLength = (grainSize*bufferSize);
+      samplesUntilNextGrain += grainSpacing * grainSampleLength;
     }
   }
 
