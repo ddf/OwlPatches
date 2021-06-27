@@ -78,8 +78,8 @@ public:
     for (int i = 0; i < outLen; ++i)
     {
       float env = envelope();
-      *outL++ = interpolated(left, start + ramp) * env;
-      *outR++ = interpolated(right, start + ramp) * env;
+      *outL++ += interpolated(left, start + ramp) * env;
+      *outR++ += interpolated(right, start + ramp) * env;
       ramp += speed;
       if (ramp >= size)
       {

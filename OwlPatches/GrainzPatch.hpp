@@ -19,7 +19,6 @@ class GrainzPatch : public Patch
   const int bufferSize;
   CircularFloatBuffer* bufferLeft;
   CircularFloatBuffer* bufferRight;
-  AudioBuffer* grainsOut;
 
   Grain* grains[MAX_GRAINS];
 
@@ -35,7 +34,6 @@ public:
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(bufferSize);
     bufferRight = CircularFloatBuffer::create(bufferSize);
-    grainsOut = AudioBuffer::create(2, getBlockSize());
     
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
@@ -54,7 +52,6 @@ public:
 
     CircularFloatBuffer::destroy(bufferLeft);
     CircularFloatBuffer::destroy(bufferRight);
-    AudioBuffer::destroy(grainsOut);
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
@@ -102,8 +99,7 @@ public:
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
-      grains[gi]->generate(*grainsOut);
-      audio.add(*grainsOut);
+      grains[gi]->generate(audio);
     }
   }
 
