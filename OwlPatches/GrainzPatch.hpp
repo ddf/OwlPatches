@@ -88,18 +88,16 @@ public:
     audio.clear();
 
     float grainPhase = (float)bufferLeft->getWriteIndex() / bufferSize;
-    for (int g = 0; g < MAX_GRAINS; ++g)
-    {
-      grains[g]->setPhase(grainPhase);
-      grains[g]->setDensity(grainDensity);
-      grains[g]->setSize(grainSize);
-      grains[g]->setSpeed(grainSpeed);
-      grains[g]->setAttack(grainEnvelope);
-    }
-
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
-      grains[gi]->generate(audio);
+      auto g = grains[gi];
+      g->setPhase(grainPhase);
+      g->setDensity(grainDensity);
+      g->setSize(grainSize);
+      g->setSpeed(grainSpeed);
+      g->setAttack(grainEnvelope);
+
+      g->generate(audio);
     }
   }
 
