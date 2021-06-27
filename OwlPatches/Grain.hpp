@@ -7,7 +7,6 @@ class Grain : public SignalGenerator
   FloatArray buffer;
   int bufferSize;
   int sampleRate;
-  float stepSize;
   float ramp;
   float phase;
   float start;
@@ -24,11 +23,10 @@ class Grain : public SignalGenerator
 public:
   Grain(float* inBuffer, int bufferSz, int sr)
     : buffer(inBuffer, bufferSz), bufferSize(bufferSz), sampleRate(sr)
-    , ramp(randf()), stepSize(0), phase(0), start(-1)
+    , ramp(randf()), phase(0), start(0)
     , density(0.5f), size(bufferSize*0.1f), speed(1), attack(0.5f), decay(0.5f)
     , nextSize(size), nextSpeed(speed), nextAttack(attack), nextDecay(decay)
   {
-    setStepSize();
   }
 
   void setSpeed(float speed)
@@ -60,17 +58,14 @@ public:
 
   float generate() override
   {
-    // TODO: using an ADSR I can only get 16 grains and still have CPU headroom for other features.
-    // Probably it would be faster to do our own AD envelope in this class.
-    // Could also run ramp from 0 to size to eliminate an multiply here.
-    float sample = interpolated(start + ramp * size) * envelope();
-    ramp += stepSize;
-    if (ramp >= 1)
+    float sample = interpolated(start + ramp) * envelope();
+    ramp += speed;
+    if (ramp >= size)
     {
-      ramp -= 1;
+      ramp = 0;
       if (randf() < density)
       {
-        setStepSize();
+        startGrain();
         start = size > phase ? phase - size + bufferSize : phase - size;
       }
     }
@@ -79,13 +74,12 @@ public:
 
 private:
 
-  void setStepSize()
+  void startGrain()
   {
     speed = nextSpeed;
     size = nextSize;
-    attack = nextAttack;
-    decay = nextDecay;
-    stepSize = speed / size;
+    attack = nextAttack*size;
+    decay = nextDecay*size;
   }
 
   float envelope()
