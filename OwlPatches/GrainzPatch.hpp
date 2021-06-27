@@ -68,7 +68,7 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    grainDensity  = (0.001f + getParameterValue(inDensity)*0.25f);
+    grainDensity  = (0.001f + getParameterValue(inDensity)*0.999f);
     grainSize = (0.01f + getParameterValue(inSize)*0.24f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);

@@ -25,9 +25,9 @@ class Grain : public SignalGenerator, MultiSignalGenerator
 public:
   Grain(float* inLeft, float* inRight, int bufferSz, int sr)
     : left(inLeft, bufferSz), right(inRight, bufferSz), bufferSize(bufferSz)
-    , sampleRate(sr), ramp(randf()), phase(0), start(0), decayStart(0)
-    , density(0.5f), size(bufferSize*0.1f), speed(1), attackMult(0), decayMult(0)
-    , nextSize(size), nextSpeed(speed), nextAttack(attackMult), nextDecay(decayMult)
+    , sampleRate(sr), ramp(randf()*bufferSize), phase(0), start(0), decayStart(0)
+    , density(0.5f), size(bufferSize), speed(1), attackMult(0), decayMult(0)
+    , nextSize(size), nextSpeed(speed), nextAttack(0.5f), nextDecay(0.5f)
   {
   }
 
@@ -84,7 +84,7 @@ public:
       float pos = start + ramp;
       float t   = pos - (int)pos;
       int i     = ((int)pos) % bufferSize;
-      int j     = (i + 1) % bufferSize;
+      int j     = (i + 1) %bufferSize;
       float env = envelope();
 
       *outL++ += interpolated(left, i, j, t) * env;
