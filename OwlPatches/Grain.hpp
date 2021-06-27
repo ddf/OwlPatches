@@ -74,7 +74,7 @@ public:
   {
     const int outLen = output.getSize();
     float* outL = output.getSamples(0);
-    float* outR = outL + outLen;
+    float* outR = output.getSamples(1);
     for (int i = 0; i < outLen; ++i)
     {
       float env = envelope();
