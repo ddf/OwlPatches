@@ -23,7 +23,7 @@ class GrainzPatch : public Patch
   Grain* grains[MAX_GRAINS];
   float samplesUntilNextGrain;
 
-  SmoothFloat grainOverlap;
+  SmoothFloat grainSpacing;
   SmoothFloat grainSize;
   SmoothFloat grainSpeed;
   SmoothFloat grainEnvelope;
@@ -70,7 +70,7 @@ public:
     FloatArray right = audio.getSamples(1);
     const int size = audio.getSize();
 
-    grainOverlap = 8.0f + getParameterValue(inDensity)*(0.1f - 8.0f);
+    grainSpacing = 8.0f + getParameterValue(inDensity)*(0.1f - 8.0f);
     grainSize = (0.01f + getParameterValue(inSize)*0.24f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
@@ -102,7 +102,7 @@ public:
         g->startGrain(grainEndPos, grainSize, grainSpeed, grainEnvelope);
         startGrain = false;
         float grainSampleLength = (grainSize*bufferSize);
-        samplesUntilNextGrain += grainOverlap * grainSampleLength + grainSampleLength*randf();
+        samplesUntilNextGrain += grainSpacing * grainSampleLength + grainSampleLength*8.0f*randf();
       }
 
       g->generate(audio);
