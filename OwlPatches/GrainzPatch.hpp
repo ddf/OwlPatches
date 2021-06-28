@@ -117,10 +117,9 @@ public:
     if (samplesUntilNextGrain <= 0)
     {
       grainChance = randf();
-      startGrain = grainTriggered; // grainChance < grainDensity || grainTriggered;
+      startGrain = grainChance < grainDensity || grainTriggered;
       samplesUntilNextGrain += (grainSpacing * grainSampleLength) / grainSpeed;
       grainTriggered = false;
-      lastGrain = nullptr;
     }
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
@@ -139,7 +138,7 @@ public:
     }
 
     uint16_t gate = lastGrain != nullptr && !lastGrain->isDone() && lastGrain->progress() < 0.25f;
-    float env = lastGrain != nullptr ? lastGrain->envelope() : 0;
+    float env = lastGrain != nullptr && !lastGrain->isDone() ? lastGrain->envelope() : 0;
     setButton(outGrainPlayed, gate);
     setParameterValue(outGrainChance, grainChance);
     setParameterValue(outGrainEnvelope, env);
