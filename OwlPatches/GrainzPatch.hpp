@@ -17,6 +17,7 @@ class GrainzPatch : public Patch
 
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
   const PatchParameterId outGrainChance = PARAMETER_F;
+  const PatchParameterId outGrainEnvelope = PARAMETER_G;
 
   StereoDcBlockingFilter* dcFilter;
 
@@ -55,6 +56,7 @@ public:
     registerParameter(inSpeed, "Speed");
     registerParameter(inEnvelope, "Envelope");
     registerParameter(outGrainChance, "Random>");
+    registerParameter(outGrainEnvelope, "Envelope>");
   }
 
   ~GrainzPatch()
@@ -136,8 +138,10 @@ public:
       g->generate(audio);
     }
 
-    uint16_t gate = lastGrain != nullptr && lastGrain->progress() < 0.25f;
+    uint16_t gate = lastGrain != nullptr && !lastGrain->isDone() && lastGrain->progress() < 0.25f;
+    float env = lastGrain != nullptr ? lastGrain->envelope() : 0;
     setButton(outGrainPlayed, gate);
     setParameterValue(outGrainChance, grainChance);
+    setParameterValue(outGrainEnvelope, env);
   }
 };

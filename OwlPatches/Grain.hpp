@@ -37,6 +37,11 @@ public:
     return ramp / size;
   }
 
+  float envelope()
+  {
+    return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
+  }
+
   // all arguments [0,1], relative to buffer size,
   // env describes a blend from:
   // short attack / long decay -> triangle -> long attack / short delay
@@ -106,10 +111,6 @@ public:
   }
 
 private:
-  float envelope()
-  {
-    return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
-  }
 
   float interpolated(float* buffer, int i, int j, float t)
   {
