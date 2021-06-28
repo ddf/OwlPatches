@@ -27,17 +27,17 @@ public:
   {
   }
 
-  bool isDone()
+  inline bool isDone() const
   {
     return attackMult == 0 && decayMult == 0;
   }
 
-  float progress()
+  inline float progress() const
   {
     return ramp / size;
   }
 
-  float envelope()
+  inline float envelope() const
   {
     return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
   }
@@ -95,7 +95,7 @@ public:
       float pos = start + ramp;
       float t   = pos - (int)pos;
       int i     = ((int)pos) % bufferSize;
-      int j     = (i + 1) %bufferSize;
+      int j     = (i + 1) % bufferSize;
       float env = envelope();
 
       *outL++ += interpolated(left, i, j, t) * env * leftScale;
@@ -112,7 +112,7 @@ public:
 
 private:
 
-  float interpolated(float* buffer, int i, int j, float t)
+  float interpolated(float* buffer, int i, int j, float t) const
   {
     float low = buffer[i];
     float high = buffer[j];

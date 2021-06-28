@@ -4,6 +4,14 @@
 
 #include "Grain.hpp"
 
+// TODO
+// * add a position param on the panel
+// * move envelope to a midi parameter
+// * add spread midi param for random panning
+// * modify speed mapping so 1 is in the middle of the knob
+// * add dry/wet midi param (or maybe param E?)
+
+// TODO: want more than 16 grains, but not sure how
 static const int MAX_GRAINS = 16;
 
 class GrainzPatch : public Patch
