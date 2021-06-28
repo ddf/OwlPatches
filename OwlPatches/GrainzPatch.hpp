@@ -115,7 +115,7 @@ public:
     if (samplesUntilNextGrain <= 0)
     {
       grainChance = randf();
-      startGrain = grainChance < grainDensity || grainTriggered;
+      startGrain = grainTriggered; // grainChance < grainDensity || grainTriggered;
       samplesUntilNextGrain += (grainSpacing * grainSampleLength) / grainSpeed;
       grainTriggered = false;
       lastGrain = nullptr;
