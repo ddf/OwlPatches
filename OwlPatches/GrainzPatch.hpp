@@ -122,6 +122,8 @@ public:
       grainTriggered = false;
     }
 
+    float avgEnvelope = 0;
+    int activeGrains = 0;
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
       auto g = grains[gi];
@@ -134,13 +136,22 @@ public:
         lastGrain = g;
       }
 
+      if (!g->isDone())
+      {
+        avgEnvelope += g->envelope();
+        ++activeGrains;
+      }
+
       g->generate(audio);
+    }
+    if (activeGrains > 0)
+    {
+      avgEnvelope /= activeGrains;
     }
 
     uint16_t gate = lastGrain != nullptr && !lastGrain->isDone() && lastGrain->progress() < 0.25f;
-    float env = lastGrain != nullptr && !lastGrain->isDone() ? lastGrain->envelope() : 0;
     setButton(outGrainPlayed, gate);
     setParameterValue(outGrainChance, grainChance);
-    setParameterValue(outGrainEnvelope, env);
+    setParameterValue(outGrainEnvelope, avgEnvelope);
   }
 };
