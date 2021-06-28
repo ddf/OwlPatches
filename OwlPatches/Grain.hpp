@@ -15,12 +15,15 @@ class Grain : public SignalGenerator, MultiSignalGenerator
   float decayStart;
   float attackMult;
   float decayMult;
+  float leftScale;
+  float rightScale;
 
 public:
   Grain(float* inLeft, float* inRight, int bufferSz, int sr)
     : left(inLeft, bufferSz), right(inRight, bufferSz), bufferSize(bufferSz)
-    , sampleRate(sr), ramp(randf()*bufferSize)
-    , start(0), decayStart(0), size(bufferSize), speed(1), attackMult(0), decayMult(0)
+    , sampleRate(sr), ramp(randf()*bufferSize), start(0), decayStart(0)
+    , size(bufferSize), speed(1), attackMult(0), decayMult(0)
+    , leftScale(1), rightScale(1)
   {
   }
 
@@ -37,7 +40,8 @@ public:
   // all arguments [0,1], relative to buffer size,
   // env describes a blend from:
   // short attack / long decay -> triangle -> long attack / short delay
-  void startGrain(float end, float length, float rate, float env)
+  // balance is only left channel at 0, only right channel at 1
+  void trigger(float end, float length, float rate, float env, float balance)
   {
     ramp = 0;
     size = length * bufferSize;
@@ -45,6 +49,10 @@ public:
     // so we don't have to worry about accessing negative indices
     start = end * bufferSize - size + bufferSize;
     speed = rate;
+    // convert -1 to 1
+    balance = (balance * 2) - 1;
+    leftScale = balance < 0  ? 1 : 1.0f - balance;
+    rightScale = balance > 0 ? 1 : 1.0f + balance;
 
     float nextAttack = max(0.01f, min(env, 0.99f));
     float nextDecay = 1.0f - nextAttack;
@@ -85,8 +93,8 @@ public:
       int j     = (i + 1) %bufferSize;
       float env = envelope();
 
-      *outL++ += interpolated(left, i, j, t) * env;
-      *outR++ += interpolated(right, i, j, t) * env;
+      *outL++ += interpolated(left, i, j, t) * env * leftScale;
+      *outR++ += interpolated(right, i, j, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       if ((ramp += speed) >= size)
