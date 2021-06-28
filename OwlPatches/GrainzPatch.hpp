@@ -38,7 +38,7 @@ class GrainzPatch : public Patch
 
 public:
   GrainzPatch()
-    : bufferSize(getSampleRate()), bufferLeft(0), bufferRight(0)
+    : bufferSize(getSampleRate()*4), bufferLeft(0), bufferRight(0)
     , samplesUntilNextGrain(0), grainChance(0), grainTriggered(false), lastGrain(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
