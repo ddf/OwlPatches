@@ -128,7 +128,7 @@ public:
       if (startGrain && g->isDone())
       {
         float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
-        g->trigger(grainEndPos, grainSize, grainSpeed, grainEnvelope, randf());
+        g->trigger(grainEndPos, grainSize, grainSpeed, grainEnvelope, 0.5f);
         startGrain = false;
         lastGrain = g;
       }
