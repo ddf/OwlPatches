@@ -25,6 +25,7 @@ class GrainzPatch : public Patch
   const PatchParameterId inEnvelope = PARAMETER_AA;
   const PatchParameterId inSpread = PARAMETER_AB;
   const PatchParameterId inVelocity = PARAMETER_AC;
+  const PatchParameterId inDryWet = PARAMETER_AD;
 
   // outputs
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
@@ -39,6 +40,7 @@ class GrainzPatch : public Patch
   CircularFloatBuffer* bufferRight;
 
   Grain* grains[MAX_GRAINS];
+  AudioBuffer* grainBuffer;
   float samplesUntilNextGrain;
   float grainChance;
   bool grainTriggered;
@@ -52,10 +54,11 @@ class GrainzPatch : public Patch
   SmoothFloat grainEnvelope;
   SmoothFloat grainSpread;
   SmoothFloat grainVelocity;
+  SmoothFloat dryWet;
 
 public:
   GrainzPatch()
-    : bufferSize(getSampleRate()*8), bufferLeft(0), bufferRight(0)
+    : bufferSize(getSampleRate()*8), bufferLeft(0), bufferRight(0), grainBuffer(0)
     , samplesUntilNextGrain(0), grainChance(0), grainTriggered(false), lastGrain(0)
     , voct(-0.5f, 4)
   {
@@ -63,6 +66,8 @@ public:
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(bufferSize);
     bufferRight = CircularFloatBuffer::create(bufferSize);
+    grainBuffer = AudioBuffer::create(2, getBlockSize());
+    grainBuffer->clear();
     
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
@@ -76,6 +81,7 @@ public:
     registerParameter(inEnvelope, "Envelope");
     registerParameter(inSpread, "Spread");
     registerParameter(inVelocity, "Velocity Variation");
+    registerParameter(inDryWet, "Dry/Wet");
     registerParameter(outGrainChance, "Random>");
     registerParameter(outGrainEnvelope, "Envelope>");
 
@@ -83,6 +89,7 @@ public:
     setParameterValue(inEnvelope, 0.5f);
     setParameterValue(inSpread, 0);
     setParameterValue(inVelocity, 0);
+    setParameterValue(inDryWet, 1);
   }
 
   ~GrainzPatch()
@@ -91,6 +98,7 @@ public:
 
     CircularFloatBuffer::destroy(bufferLeft);
     CircularFloatBuffer::destroy(bufferRight);
+    AudioBuffer::destroy(grainBuffer);
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
@@ -124,6 +132,7 @@ public:
     grainEnvelope = getParameterValue(inEnvelope);
     grainSpread = getParameterValue(inSpread);
     grainVelocity = getParameterValue(inVelocity);
+    dryWet = getParameterValue(inDryWet);
 
     bool freeze = isButtonPressed(inFreeze);
 
@@ -136,8 +145,10 @@ public:
       }
     }
 
-    // for now, silence incoming audio
-    audio.clear();
+    const float wetAmt = dryWet;
+    const float dryAmt = 1.0f - wetAmt;
+    left.multiply(dryAmt);
+    right.multiply(dryAmt);
 
     samplesUntilNextGrain -= getBlockSize();
 
@@ -151,8 +162,10 @@ public:
       grainTriggered = false;
     }
 
+    grainBuffer->clear();
     float avgEnvelope = 0;
     int activeGrains = 0;
+    
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
       auto g = grains[gi];
@@ -173,8 +186,15 @@ public:
         ++activeGrains;
       }
 
-      g->generate(audio);
+      g->generate(*grainBuffer);
     }
+
+    grainBuffer->getSamples(0).multiply(wetAmt);
+    grainBuffer->getSamples(1).multiply(wetAmt);
+
+    left.add(grainBuffer->getSamples(0));
+    right.add(grainBuffer->getSamples(1));
+
     if (activeGrains > 0)
     {
       avgEnvelope /= activeGrains;
