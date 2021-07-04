@@ -121,7 +121,7 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     float grainDensity = getParameterValue(inDensity);
-    grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
+    grainSpacing = 1.0f + grainDensity*(0.5f - 1.0f);
     grainPosition = getParameterValue(inPosition)*0.25f;
     grainSize = (0.001f + getParameterValue(inSize)*0.124f);
     grainSpeed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
