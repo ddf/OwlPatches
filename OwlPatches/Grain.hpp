@@ -46,7 +46,7 @@ public:
   // env describes a blend from:
   // short attack / long decay -> triangle -> long attack / short delay
   // balance is only left channel at 0, only right channel at 1
-  void trigger(float end, float length, float rate, float env, float balance)
+  void trigger(float end, float length, float rate, float env, float balance, float velocity)
   {
     ramp = 0;
     size = length * bufferSize;
@@ -56,8 +56,8 @@ public:
     speed = rate;
     // convert -1 to 1
     balance = (balance * 2) - 1;
-    leftScale = balance < 0  ? 1 : 1.0f - balance;
-    rightScale = balance > 0 ? 1 : 1.0f + balance;
+    leftScale = (balance < 0  ? 1 : 1.0f - balance) * velocity;
+    rightScale = (balance > 0 ? 1 : 1.0f + balance) * velocity;
 
     float nextAttack = max(0.01f, min(env, 0.99f));
     float nextDecay = 1.0f - nextAttack;

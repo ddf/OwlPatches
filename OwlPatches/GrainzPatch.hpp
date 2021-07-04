@@ -24,6 +24,7 @@ class GrainzPatch : public Patch
   // midi controls
   const PatchParameterId inEnvelope = PARAMETER_AA;
   const PatchParameterId inSpread = PARAMETER_AB;
+  const PatchParameterId inVelocity = PARAMETER_AC;
 
   // outputs
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
@@ -50,6 +51,7 @@ class GrainzPatch : public Patch
   SmoothFloat grainSpeed;
   SmoothFloat grainEnvelope;
   SmoothFloat grainSpread;
+  SmoothFloat grainVelocity;
 
 public:
   GrainzPatch()
@@ -73,12 +75,14 @@ public:
     registerParameter(inDensity, "Density");
     registerParameter(inEnvelope, "Envelope");
     registerParameter(inSpread, "Spread");
+    registerParameter(inVelocity, "Velocity Variation");
     registerParameter(outGrainChance, "Random>");
     registerParameter(outGrainEnvelope, "Envelope>");
 
     // default to triangle window
     setParameterValue(inEnvelope, 0.5f);
     setParameterValue(inSpread, 0);
+    setParameterValue(inVelocity, 0);
   }
 
   ~GrainzPatch()
@@ -119,6 +123,7 @@ public:
     grainSpeed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     grainEnvelope = getParameterValue(inEnvelope);
     grainSpread = getParameterValue(inSpread);
+    grainVelocity = getParameterValue(inVelocity);
 
     bool freeze = isButtonPressed(inFreeze);
 
@@ -156,7 +161,8 @@ public:
       {
         float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
         float pan = 0.5f + (randf() - 0.5f)*grainSpread;
-        g->trigger(grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan);
+        float vel = 1.0f + (randf() * 2 - 1.0f)*grainVelocity;
+        g->trigger(grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan, vel);
         startGrain = false;
         lastGrain = g;
       }
