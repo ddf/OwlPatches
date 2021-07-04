@@ -16,13 +16,18 @@ static const int MAX_GRAINS = 16;
 
 class GrainzPatch : public Patch
 {
-  const PatchParameterId inDensity = PARAMETER_A;
+  // panel controls
+  const PatchParameterId inPosition = PARAMETER_A;
   const PatchParameterId inSize = PARAMETER_B;
   const PatchParameterId inSpeed = PARAMETER_C;
-  const PatchParameterId inEnvelope = PARAMETER_D;
+  const PatchParameterId inDensity = PARAMETER_D;
   const PatchButtonId    inFreeze = BUTTON_1;
   const PatchButtonId    inTrigger = BUTTON_2;
 
+  // midi controls
+  const PatchParameterId inEnvelope = PARAMETER_AA;
+
+  // outputs
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
   const PatchParameterId outGrainChance = PARAMETER_F;
   const PatchParameterId outGrainEnvelope = PARAMETER_G;
@@ -41,6 +46,7 @@ class GrainzPatch : public Patch
   Grain* lastGrain;
 
   SmoothFloat grainSpacing;
+  SmoothFloat grainPosition;
   SmoothFloat grainSize;
   SmoothFloat grainSpeed;
   SmoothFloat grainEnvelope;
@@ -100,7 +106,8 @@ public:
 
     float grainDensity = getParameterValue(inDensity);
     grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
-    grainSize = (0.01f + getParameterValue(inSize)*0.24f);
+    grainPosition = getParameterValue(inPosition)*0.25f;
+    grainSize = (0.001f + getParameterValue(inSize)*0.124f);
     grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
     grainEnvelope = getParameterValue(inEnvelope);
 
@@ -139,7 +146,7 @@ public:
       if (startGrain && g->isDone())
       {
         float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
-        g->trigger(grainEndPos, grainSize, grainSpeed, grainEnvelope, 0.5f);
+        g->trigger(grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, 0.5f);
         startGrain = false;
         lastGrain = g;
       }
