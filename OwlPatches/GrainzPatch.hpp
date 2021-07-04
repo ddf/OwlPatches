@@ -5,9 +5,6 @@
 
 #include "Grain.hpp"
 
-// TODO
-// * add dry/wet midi param (or maybe param E?)
-
 // TODO: want more than 16 grains, but not sure how
 static const int MAX_GRAINS = 16;
 
@@ -25,7 +22,8 @@ class GrainzPatch : public Patch
   const PatchParameterId inEnvelope = PARAMETER_AA;
   const PatchParameterId inSpread = PARAMETER_AB;
   const PatchParameterId inVelocity = PARAMETER_AC;
-  const PatchParameterId inDryWet = PARAMETER_AD;
+  const PatchParameterId inFeedback = PARAMETER_AD;
+  const PatchParameterId inDryWet = PARAMETER_AE;
 
   // outputs
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
@@ -35,9 +33,9 @@ class GrainzPatch : public Patch
   StereoDcBlockingFilter* dcFilter;
   VoltsPerOctave voct;
 
-  const int bufferSize;
-  CircularFloatBuffer* bufferLeft;
-  CircularFloatBuffer* bufferRight;
+  const int recordBufferSize;
+  CircularFloatBuffer* recordLeft;
+  CircularFloatBuffer* recordRight;
 
   Grain* grains[MAX_GRAINS];
   AudioBuffer* grainBuffer;
@@ -54,24 +52,25 @@ class GrainzPatch : public Patch
   SmoothFloat grainEnvelope;
   SmoothFloat grainSpread;
   SmoothFloat grainVelocity;
+  SmoothFloat feedback;
   SmoothFloat dryWet;
 
 public:
   GrainzPatch()
-    : bufferSize(getSampleRate()*8), bufferLeft(0), bufferRight(0), grainBuffer(0)
+    : recordBufferSize(getSampleRate()*8), recordLeft(0), recordRight(0), grainBuffer(0)
     , samplesUntilNextGrain(0), grainChance(0), grainTriggered(false), lastGrain(0)
     , voct(-0.5f, 4)
   {
     voct.setTune(-4);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
-    bufferLeft = CircularFloatBuffer::create(bufferSize);
-    bufferRight = CircularFloatBuffer::create(bufferSize);
+    recordLeft = CircularFloatBuffer::create(recordBufferSize);
+    recordRight = CircularFloatBuffer::create(recordBufferSize);
     grainBuffer = AudioBuffer::create(2, getBlockSize());
     grainBuffer->clear();
     
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
-      grains[i] = Grain::create(bufferLeft->getData(), bufferRight->getData(), bufferSize, getSampleRate());
+      grains[i] = Grain::create(recordLeft->getData(), recordRight->getData(), recordBufferSize, getSampleRate());
     }
 
     registerParameter(inPosition, "Position");
@@ -81,6 +80,7 @@ public:
     registerParameter(inEnvelope, "Envelope");
     registerParameter(inSpread, "Spread");
     registerParameter(inVelocity, "Velocity Variation");
+    registerParameter(inFeedback, "Feedback");
     registerParameter(inDryWet, "Dry/Wet");
     registerParameter(outGrainChance, "Random>");
     registerParameter(outGrainEnvelope, "Envelope>");
@@ -89,15 +89,17 @@ public:
     setParameterValue(inEnvelope, 0.5f);
     setParameterValue(inSpread, 0);
     setParameterValue(inVelocity, 0);
+    setParameterValue(inFeedback, 0);
     setParameterValue(inDryWet, 1);
+    setParameterValue(inFeedback, 0);
   }
 
   ~GrainzPatch()
   {
     StereoDcBlockingFilter::destroy(dcFilter);
 
-    CircularFloatBuffer::destroy(bufferLeft);
-    CircularFloatBuffer::destroy(bufferRight);
+    CircularFloatBuffer::destroy(recordLeft);
+    CircularFloatBuffer::destroy(recordRight);
     AudioBuffer::destroy(grainBuffer);
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
@@ -118,12 +120,6 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    dcFilter->process(audio, audio);
-
-    FloatArray left = audio.getSamples(0);
-    FloatArray right = audio.getSamples(1);
-    const int size = audio.getSize();
-
     float grainDensity = getParameterValue(inDensity);
     grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
     grainPosition = getParameterValue(inPosition)*0.25f;
@@ -132,28 +128,13 @@ public:
     grainEnvelope = getParameterValue(inEnvelope);
     grainSpread = getParameterValue(inSpread);
     grainVelocity = getParameterValue(inVelocity);
+    feedback = getParameterValue(inFeedback);
     dryWet = getParameterValue(inDryWet);
-
-    bool freeze = isButtonPressed(inFreeze);
-
-    if (!freeze)
-    {
-      for (int i = 0; i < size; ++i)
-      {
-        bufferLeft->write(left[i]);
-        bufferRight->write(right[i]);
-      }
-    }
-
-    const float wetAmt = dryWet;
-    const float dryAmt = 1.0f - wetAmt;
-    left.multiply(dryAmt);
-    right.multiply(dryAmt);
 
     samplesUntilNextGrain -= getBlockSize();
 
     bool startGrain = false;
-    float grainSampleLength = (grainSize*bufferSize);
+    float grainSampleLength = (grainSize*recordBufferSize);
     if (samplesUntilNextGrain <= 0)
     {
       grainChance = randf();
@@ -172,7 +153,7 @@ public:
 
       if (startGrain && g->isDone())
       {
-        float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
+        float grainEndPos = (float)recordLeft->getWriteIndex() / recordBufferSize;
         float pan = 0.5f + (randf() - 0.5f)*grainSpread;
         float vel = 1.0f + (randf() * 2 - 1.0f)*grainVelocity;
         g->trigger(grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan, vel);
@@ -189,16 +170,38 @@ public:
       g->generate(*grainBuffer);
     }
 
-    grainBuffer->getSamples(0).multiply(wetAmt);
-    grainBuffer->getSamples(1).multiply(wetAmt);
-
-    left.add(grainBuffer->getSamples(0));
-    right.add(grainBuffer->getSamples(1));
-
     if (activeGrains > 0)
     {
       avgEnvelope /= activeGrains;
     }
+
+    dcFilter->process(audio, audio);
+
+    const int size = audio.getSize();
+    FloatArray inOutLeft = audio.getSamples(0);
+    FloatArray inOutRight = audio.getSamples(1);
+    FloatArray grainLeft = grainBuffer->getSamples(0);
+    FloatArray grainRight = grainBuffer->getSamples(1);
+
+    if (!isButtonPressed(inFreeze))
+    {
+      for (int i = 0; i < size; ++i)
+      {
+        recordLeft->write(inOutLeft[i] + grainLeft[i]*feedback);
+        recordRight->write(inOutRight[i] + grainRight[i]*feedback);
+      }
+    }
+
+    const float wetAmt = dryWet;
+    const float dryAmt = 1.0f - wetAmt;
+    inOutLeft.multiply(dryAmt);
+    inOutRight.multiply(dryAmt);
+
+    grainLeft.multiply(wetAmt);
+    grainRight.multiply(wetAmt);
+
+    inOutLeft.add(grainLeft);
+    inOutRight.add(grainRight);
 
     uint16_t gate = lastGrain != nullptr && !lastGrain->isDone() && lastGrain->progress() < 0.25f;
     setButton(outGrainPlayed, gate);
