@@ -1,6 +1,7 @@
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
+#include "VoltsPerOctave.h"
 
 #include "Grain.hpp"
 
@@ -33,6 +34,7 @@ class GrainzPatch : public Patch
   const PatchParameterId outGrainEnvelope = PARAMETER_G;
 
   StereoDcBlockingFilter* dcFilter;
+  VoltsPerOctave voct;
 
   const int bufferSize;
   CircularFloatBuffer* bufferLeft;
@@ -55,6 +57,7 @@ public:
   GrainzPatch()
     : bufferSize(getSampleRate()*8), bufferLeft(0), bufferRight(0)
     , samplesUntilNextGrain(0), grainChance(0), grainTriggered(false), lastGrain(0)
+    , voct(-0.5f, 1)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(bufferSize);
@@ -112,7 +115,7 @@ public:
     grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
     grainPosition = getParameterValue(inPosition)*0.25f;
     grainSize = (0.001f + getParameterValue(inSize)*0.124f);
-    grainSpeed = (0.25f + getParameterValue(inSpeed)*(8.0f - 0.25f));
+    grainSpeed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     grainEnvelope = getParameterValue(inEnvelope);
 
     bool freeze = isButtonPressed(inFreeze);
