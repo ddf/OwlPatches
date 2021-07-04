@@ -65,12 +65,16 @@ public:
       grains[i] = Grain::create(bufferLeft->getData(), bufferRight->getData(), bufferSize, getSampleRate());
     }
 
-    registerParameter(inDensity, "Density");
-    registerParameter(inSize, "Grain Size");
+    registerParameter(inPosition, "Position");
+    registerParameter(inSize, "Size");
     registerParameter(inSpeed, "Speed");
+    registerParameter(inDensity, "Density");
     registerParameter(inEnvelope, "Envelope");
     registerParameter(outGrainChance, "Random>");
     registerParameter(outGrainEnvelope, "Envelope>");
+
+    // default to triangle window
+    setParameterValue(inEnvelope, 0.5f);
   }
 
   ~GrainzPatch()
