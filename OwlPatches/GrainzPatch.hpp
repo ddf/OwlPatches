@@ -36,6 +36,8 @@ class GrainzPatch : public Patch
   const int recordBufferSize;
   CircularFloatBuffer* recordLeft;
   CircularFloatBuffer* recordRight;
+  DcBlockingFilter* recordLeftFilter;
+  DcBlockingFilter* recordRightFilter;
 
   Grain* grains[MAX_GRAINS];
   AudioBuffer* grainBuffer;
@@ -63,6 +65,8 @@ public:
   {
     voct.setTune(-4);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
+    recordLeftFilter = DcBlockingFilter::create();
+    recordRightFilter = DcBlockingFilter::create();
     recordLeft = CircularFloatBuffer::create(recordBufferSize);
     recordRight = CircularFloatBuffer::create(recordBufferSize);
     grainBuffer = AudioBuffer::create(2, getBlockSize());
@@ -97,6 +101,8 @@ public:
   ~GrainzPatch()
   {
     StereoDcBlockingFilter::destroy(dcFilter);
+    DcBlockingFilter::destroy(recordLeftFilter);
+    DcBlockingFilter::destroy(recordRightFilter);
 
     CircularFloatBuffer::destroy(recordLeft);
     CircularFloatBuffer::destroy(recordRight);
@@ -190,6 +196,9 @@ public:
         recordLeft->write(inOutLeft[i] + grainLeft[i]*feedback);
         recordRight->write(inOutRight[i] + grainRight[i]*feedback);
       }
+
+      recordLeftFilter->process(recordLeft->getData(), recordBufferSize);
+      recordRightFilter->process(recordRight->getData(), recordBufferSize);
     }
 
     const float wetAmt = dryWet;
