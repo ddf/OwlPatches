@@ -6,10 +6,6 @@
 #include "Grain.hpp"
 
 // TODO
-// * add a position param on the panel
-// * move envelope to a midi parameter
-// * add spread midi param for random panning
-// * modify speed mapping so 1 is in the middle of the knob
 // * add dry/wet midi param (or maybe param E?)
 
 // TODO: want more than 16 grains, but not sure how
@@ -27,6 +23,7 @@ class GrainzPatch : public Patch
 
   // midi controls
   const PatchParameterId inEnvelope = PARAMETER_AA;
+  const PatchParameterId inSpread = PARAMETER_AB;
 
   // outputs
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
@@ -52,6 +49,7 @@ class GrainzPatch : public Patch
   SmoothFloat grainSize;
   SmoothFloat grainSpeed;
   SmoothFloat grainEnvelope;
+  SmoothFloat grainSpread;
 
 public:
   GrainzPatch()
@@ -74,11 +72,13 @@ public:
     registerParameter(inSpeed, "Speed");
     registerParameter(inDensity, "Density");
     registerParameter(inEnvelope, "Envelope");
+    registerParameter(inSpread, "Spread");
     registerParameter(outGrainChance, "Random>");
     registerParameter(outGrainEnvelope, "Envelope>");
 
     // default to triangle window
     setParameterValue(inEnvelope, 0.5f);
+    setParameterValue(inSpread, 0);
   }
 
   ~GrainzPatch()
@@ -118,6 +118,7 @@ public:
     grainSize = (0.001f + getParameterValue(inSize)*0.124f);
     grainSpeed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     grainEnvelope = getParameterValue(inEnvelope);
+    grainSpread = getParameterValue(inSpread);
 
     bool freeze = isButtonPressed(inFreeze);
 
@@ -154,7 +155,8 @@ public:
       if (startGrain && g->isDone())
       {
         float grainEndPos = (float)bufferLeft->getWriteIndex() / bufferSize;
-        g->trigger(grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, 0.5f);
+        float pan = 0.5f + (randf() - 0.5f)*grainSpread;
+        g->trigger(grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan);
         startGrain = false;
         lastGrain = g;
       }
