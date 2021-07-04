@@ -57,9 +57,9 @@ public:
   GrainzPatch()
     : bufferSize(getSampleRate()*8), bufferLeft(0), bufferRight(0)
     , samplesUntilNextGrain(0), grainChance(0), grainTriggered(false), lastGrain(0)
-    , voct(-0.5f, 4)
+    , voct(0, 10)
   {
-    voct.setTune(-4);
+    voct.setTune(-5);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferLeft = CircularFloatBuffer::create(bufferSize);
     bufferRight = CircularFloatBuffer::create(bufferSize);
