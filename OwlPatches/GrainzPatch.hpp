@@ -196,7 +196,7 @@ public:
       recordRight->setDelay(grainSampleLength);*/
       for (int i = 0; i < size; ++i)
       {
-        float x0 = i / (float)size, x1 = 1.0f - x0;
+        float x1 = i / (float)size, x0 = 1.0f - x1;
         float delay = lastGrainSampleLength * x0 + grainSampleLength * x1;
         int writeIdx = recordLeft->getWriteIndex() + recordBufferSize;
         float readIdx = writeIdx - delay;
