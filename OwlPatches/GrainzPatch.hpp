@@ -72,7 +72,7 @@ public:
     
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
-      grains[i] = Grain<RecordBuffer>::create(recordLeft->getData(), recordRight->getData(), recordBufferSize, getSampleRate());
+      grains[i] = Grain<RecordBuffer>::create(recordLeft, recordRight, recordBufferSize, getSampleRate());
     }
 
     registerParameter(inPosition, "Position");

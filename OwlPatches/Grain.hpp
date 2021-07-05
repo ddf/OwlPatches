@@ -115,19 +115,16 @@ private:
   //}
 
 public:
-  template<typename T>
   static Grain<T>* create(T* buffer, int size, int sampleRate)
   {
     return new Grain<T>(buffer, buffer, size, sampleRate);
   }
 
-  template<typename T>
   static Grain<T>* create(T* left, T* right, int size, int sampleRate)
   {
     return new Grain<T>(left, right, size, sampleRate);
   }
 
-  template<typename T>
   static void destroy(Grain<T>* grain)
   {
     delete grain;
