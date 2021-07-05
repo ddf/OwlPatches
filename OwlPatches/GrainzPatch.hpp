@@ -8,7 +8,7 @@
 typedef FractionalCircularFloatBuffer RecordBuffer;
 
 // TODO: want more than 16 grains, but not sure how
-static const int MAX_GRAINS = 20;
+static const int MAX_GRAINS = 16;
 
 class GrainzPatch : public Patch
 {
