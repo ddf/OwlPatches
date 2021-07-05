@@ -187,12 +187,18 @@ public:
 
     if (!isButtonPressed(inFreeze))
     {
-      recordLeft->setDelay(grainSampleLength);
-      recordRight->setDelay(grainSampleLength);
+      // TODO: should really lerp from previous length to new one
+      // but winds up being way more expensive than expected,
+      // probably due to use of fmodf in setReadIndex.
+      // but boy does it sound bad when size changes with high feedback.
+      /*recordLeft->setDelay(grainSampleLength);
+      recordRight->setDelay(grainSampleLength);*/
       for (int i = 0; i < size; ++i)
       {
-        float dleft = recordLeft->read();
-        float dright = recordRight->read();
+        int writeIdx = recordLeft->getWriteIndex() + recordBufferSize;
+        float readIdx = writeIdx - grainSampleLength;
+        float dleft = recordLeft->readAt(readIdx);
+        float dright = recordRight->readAt(readIdx);
         recordLeft->write(inOutLeft[i] + dleft*feedback);
         recordRight->write(inOutRight[i] + dright*feedback);
       }
