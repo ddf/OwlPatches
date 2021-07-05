@@ -39,13 +39,13 @@ class GrainzPatch : public Patch
   RecordBuffer* recordLeft;
   RecordBuffer* recordRight;
 
-  Grain* grains[MAX_GRAINS];
+  Grain<RecordBuffer>* grains[MAX_GRAINS];
   AudioBuffer* grainBuffer;
   float samplesUntilNextGrain;
   float grainChance;
   bool grainTriggered;
   // last grain that was started, could be null if we skipped it.
-  Grain* lastGrain;
+  Grain<RecordBuffer>* lastGrain;
 
   SmoothFloat grainSpacing;
   SmoothFloat grainPosition;
@@ -72,7 +72,7 @@ public:
     
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
-      grains[i] = Grain::create(recordLeft->getData(), recordRight->getData(), recordBufferSize, getSampleRate());
+      grains[i] = Grain<RecordBuffer>::create(recordLeft->getData(), recordRight->getData(), recordBufferSize, getSampleRate());
     }
 
     registerParameter(inPosition, "Position");
@@ -106,8 +106,8 @@ public:
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
-      Grain::destroy(grains[i]);
-      Grain::destroy(grains[i + 1]);
+      Grain<RecordBuffer>::destroy(grains[i]);
+      Grain<RecordBuffer>::destroy(grains[i + 1]);
     }
   }
 

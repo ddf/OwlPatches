@@ -2,10 +2,11 @@
 #include "basicmaths.h"
 #include "Envelope.h"
 
+template<typename T>
 class Grain : public SignalGenerator, MultiSignalGenerator
 {
-  FloatArray left;
-  FloatArray right;
+  T* left;
+  T* right;
   int bufferSize;
   int sampleRate;
   float ramp;
@@ -19,7 +20,7 @@ class Grain : public SignalGenerator, MultiSignalGenerator
   float rightScale;
 
 public:
-  Grain(float* inLeft, float* inRight, int bufferSz, int sr)
+  Grain(T* inLeft, T* inRight, int bufferSz, int sr)
     : left(inLeft, bufferSz), right(inRight, bufferSz), bufferSize(bufferSz)
     , sampleRate(sr), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
@@ -69,10 +70,7 @@ public:
   float generate() override
   {
     float pos = start + ramp;
-    int i = (int)pos;
-    int j = i + 1;
-    float t = pos - i;
-    float sample = interpolated(left, i%bufferSize, j%bufferSize, t) * envelope();
+    float sample = left->readAt(pos) * envelope();
 
     // keep looping, but silently, mainly so we can keep track of grain performance
     if ((ramp += speed) >= size)
@@ -93,13 +91,10 @@ public:
     for (int s = 0; s < outLen; ++s)
     {
       float pos = start + ramp;
-      float t   = pos - (int)pos;
-      int i     = ((int)pos) % bufferSize;
-      int j     = (i + 1) % bufferSize;
       float env = envelope();
 
-      *outL++ += interpolated(left, i, j, t) * env * leftScale;
-      *outR++ += interpolated(right, i, j, t) * env * rightScale;
+      *outL++ += left->readAt(pos) * env * leftScale;
+      *outR++ += right->readAt(pos) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       if ((ramp += speed) >= size)
@@ -112,25 +107,28 @@ public:
 
 private:
 
-  float interpolated(float* buffer, int i, int j, float t) const
-  {
-    float low = buffer[i];
-    float high = buffer[j];
-    return low + t * (high - low);
-  }
+  //float interpolated(float* buffer, int i, int j, float t) const
+  //{
+  //  float low = buffer[i];
+  //  float high = buffer[j];
+  //  return low + t * (high - low);
+  //}
 
 public:
-  static Grain* create(float* buffer, int size, int sampleRate)
+  template<typename T>
+  static Grain<T>* create(T* buffer, int size, int sampleRate)
   {
-    return new Grain(buffer, buffer, size, sampleRate);
+    return new Grain<T>(buffer, buffer, size, sampleRate);
   }
 
-  static Grain* create(float* left, float* right, int size, int sampleRate)
+  template<typename T>
+  static Grain<T>* create(T* left, T* right, int size, int sampleRate)
   {
-    return new Grain(left, right, size, sampleRate);
+    return new Grain<T>(left, right, size, sampleRate);
   }
 
-  static void destroy(Grain* grain)
+  template<typename T>
+  static void destroy(Grain<T>* grain)
   {
     delete grain;
   }
