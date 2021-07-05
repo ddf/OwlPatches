@@ -201,9 +201,6 @@ public:
       }
     }
 
-    // just seeing if readAt compiles on web
-    grainSampleLength = recordLeft->readAt(10.5f);
-
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     inOutLeft.multiply(dryAmt);
