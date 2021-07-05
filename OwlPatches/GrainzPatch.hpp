@@ -188,12 +188,6 @@ public:
 
     if (!isButtonPressed(inFreeze))
     {
-      // TODO: should really lerp from previous length to new one
-      // but winds up being way more expensive than expected,
-      // probably due to use of fmodf in setReadIndex.
-      // but boy does it sound bad when size changes with high feedback.
-      /*recordLeft->setDelay(grainSampleLength);
-      recordRight->setDelay(grainSampleLength);*/
       for (int i = 0; i < size; ++i)
       {
         float x1 = i / (float)size, x0 = 1.0f - x1;
