@@ -122,6 +122,7 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+    float lastGrainSampleLength = grainSize * recordBufferSize;
     float grainDensity = getParameterValue(inDensity);
     grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
     grainPosition = getParameterValue(inPosition)*0.25f;
@@ -195,8 +196,10 @@ public:
       recordRight->setDelay(grainSampleLength);*/
       for (int i = 0; i < size; ++i)
       {
+        float x0 = i / (float)size, x1 = 1.0f - x0;
+        float delay = lastGrainSampleLength * x0 + grainSampleLength * x1;
         int writeIdx = recordLeft->getWriteIndex() + recordBufferSize;
-        float readIdx = writeIdx - grainSampleLength;
+        float readIdx = writeIdx - delay;
         float dleft = recordLeft->readAt(readIdx);
         float dright = recordRight->readAt(readIdx);
         recordLeft->write(inOutLeft[i] + dleft*feedback);
