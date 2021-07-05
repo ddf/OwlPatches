@@ -1,9 +1,11 @@
 #include "Patch.h"
 #include "DcBlockingFilter.h"
-#include "CircularBuffer.h"
+#include "FractionalCircularBuffer.h"
 #include "VoltsPerOctave.h"
 
 #include "Grain.hpp"
+
+typedef FractionalCircularFloatBuffer RecordBuffer;
 
 // TODO: want more than 16 grains, but not sure how
 static const int MAX_GRAINS = 16;
@@ -34,8 +36,8 @@ class GrainzPatch : public Patch
   VoltsPerOctave voct;
 
   const int recordBufferSize;
-  CircularFloatBuffer* recordLeft;
-  CircularFloatBuffer* recordRight;
+  RecordBuffer* recordLeft;
+  RecordBuffer* recordRight;
 
   Grain* grains[MAX_GRAINS];
   AudioBuffer* grainBuffer;
@@ -63,8 +65,8 @@ public:
   {
     voct.setTune(-4);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
-    recordLeft = CircularFloatBuffer::create(recordBufferSize);
-    recordRight = CircularFloatBuffer::create(recordBufferSize);
+    recordLeft = RecordBuffer::create(recordBufferSize);
+    recordRight = RecordBuffer::create(recordBufferSize);
     grainBuffer = AudioBuffer::create(2, getBlockSize());
     grainBuffer->clear();
     
@@ -98,8 +100,8 @@ public:
   {
     StereoDcBlockingFilter::destroy(dcFilter);
 
-    CircularFloatBuffer::destroy(recordLeft);
-    CircularFloatBuffer::destroy(recordRight);
+    RecordBuffer::destroy(recordLeft);
+    RecordBuffer::destroy(recordRight);
     AudioBuffer::destroy(grainBuffer);
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
@@ -195,6 +197,9 @@ public:
         recordRight->write(inOutRight[i] + dright*feedback);
       }
     }
+
+    // just seeing if readAt compiles on web
+    grainSampleLength = recordLeft->readAt(10.5f);
 
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
