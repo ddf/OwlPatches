@@ -128,7 +128,7 @@ public:
     grainEnvelope = getParameterValue(inEnvelope);
     grainSpread = getParameterValue(inSpread);
     grainVelocity = getParameterValue(inVelocity);
-    feedback = getParameterValue(inFeedback);
+    feedback = getParameterValue(inFeedback)*0.5f;
     dryWet = getParameterValue(inDryWet);
 
     samplesUntilNextGrain -= getBlockSize();
