@@ -185,10 +185,14 @@ public:
 
     if (!isButtonPressed(inFreeze))
     {
+      recordLeft->setDelay(grainSampleLength);
+      recordRight->setDelay(grainSampleLength);
       for (int i = 0; i < size; ++i)
       {
-        recordLeft->write(inOutLeft[i] + grainLeft[i]*feedback);
-        recordRight->write(inOutRight[i] + grainRight[i]*feedback);
+        float dleft = recordLeft->read();
+        float dright = recordRight->read();
+        recordLeft->write(inOutLeft[i] + dleft*feedback);
+        recordRight->write(inOutRight[i] + dright*feedback);
       }
     }
 
