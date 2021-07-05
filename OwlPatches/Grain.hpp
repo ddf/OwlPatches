@@ -21,7 +21,7 @@ class Grain : public SignalGenerator, MultiSignalGenerator
 
 public:
   Grain(T* inLeft, T* inRight, int bufferSz, int sr)
-    : left(inLeft, bufferSz), right(inRight, bufferSz), bufferSize(bufferSz)
+    : left(inLeft), right(inRight), bufferSize(bufferSz)
     , sampleRate(sr), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
     , leftScale(1), rightScale(1)
