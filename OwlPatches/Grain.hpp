@@ -114,8 +114,8 @@ private:
 
   float interpolated(float* buffer, int i, int j, float t) const
   {
-    float low = buffer[i];
-    float high = buffer[j];
+    const float low = buffer[i];
+    const float high = buffer[j];
     return low + t * (high - low);
   }
 
