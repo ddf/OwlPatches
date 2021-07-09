@@ -39,7 +39,8 @@ public:
 
   inline float envelope() const
   {
-    return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
+    const float attack = static_cast<float>(ramp < decayStart);
+    return attack * ramp * attackMult + (1.0f - attack) * (size - ramp) * decayMult;
   }
 
   // all arguments [0,1], relative to buffer size,
