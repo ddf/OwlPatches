@@ -2,8 +2,12 @@
 #include "DcBlockingFilter.h"
 #include "FractionalCircularBuffer.h"
 #include "VoltsPerOctave.h"
+#include "BiquadFilter.h"
+#include "custom_dsp.h"
 
 #include "Grain.hpp"
+
+using namespace daisysp;
 
 typedef FractionalCircularFloatBuffer RecordBuffer;
 
@@ -47,6 +51,9 @@ class GrainzPatch : public Patch
   // last grain that was started, could be null if we skipped it.
   Grain* lastGrain;
 
+  AudioBuffer* feedbackBuffer;
+  StereoBiquadFilter* feedbackFilter;
+
   SmoothFloat grainSpacing;
   SmoothFloat grainPosition;
   SmoothFloat grainSize;
@@ -65,10 +72,12 @@ public:
   {
     voct.setTune(-4);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
+    feedbackFilter = StereoBiquadFilter::create(getSampleRate());
+
     recordLeft = RecordBuffer::create(recordBufferSize);
     recordRight = RecordBuffer::create(recordBufferSize);
     grainBuffer = AudioBuffer::create(2, getBlockSize());
-    grainBuffer->clear();
+    feedbackBuffer = AudioBuffer::create(2, getBlockSize());
     
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
@@ -99,10 +108,12 @@ public:
   ~GrainzPatch()
   {
     StereoDcBlockingFilter::destroy(dcFilter);
+    StereoBiquadFilter::destroy(feedbackFilter);
 
     RecordBuffer::destroy(recordLeft);
     RecordBuffer::destroy(recordRight);
     AudioBuffer::destroy(grainBuffer);
+    AudioBuffer::destroy(feedbackBuffer);
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
@@ -122,6 +133,14 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+    const int size = audio.getSize();
+    FloatArray inOutLeft = audio.getSamples(0);
+    FloatArray inOutRight = audio.getSamples(1);
+    FloatArray grainLeft = grainBuffer->getSamples(0);
+    FloatArray grainRight = grainBuffer->getSamples(1);
+    FloatArray feedLeft = feedbackBuffer->getSamples(0);
+    FloatArray feedRight = feedbackBuffer->getSamples(1);
+
     float lastGrainSampleLength = grainSize * recordBufferSize;
     float grainDensity = getParameterValue(inDensity);
     grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
@@ -133,6 +152,21 @@ public:
     grainVelocity = getParameterValue(inVelocity);
     feedback = getParameterValue(inFeedback);
     dryWet = getParameterValue(inDryWet);
+
+    dcFilter->process(audio, audio);
+
+    if (!isButtonPressed(inFreeze))
+    {
+      // Note: the way feedback is applied is based on how Clouds does it
+      float cutoff = (20.0f + 100.0f * feedback * feedback);
+      feedbackFilter->setHighPass(cutoff, 1);
+      feedbackFilter->process(*feedbackBuffer, *feedbackBuffer);
+      for (int i = 0; i < size; ++i)
+      {
+        recordLeft->write(inOutLeft[i] + feedback * (SoftLimit(feedback * 1.4f * feedLeft[i] + inOutLeft[i]) - inOutLeft[i]));
+        recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * feedRight[i] + inOutRight[i]) - inOutRight[i]));
+      }
+    }
 
     samplesUntilNextGrain -= getBlockSize();
 
@@ -178,28 +212,9 @@ public:
       avgEnvelope /= activeGrains;
     }
 
-    dcFilter->process(audio, audio);
-
-    const int size = audio.getSize();
-    FloatArray inOutLeft = audio.getSamples(0);
-    FloatArray inOutRight = audio.getSamples(1);
-    FloatArray grainLeft = grainBuffer->getSamples(0);
-    FloatArray grainRight = grainBuffer->getSamples(1);
-
-    if (!isButtonPressed(inFreeze))
-    {
-      for (int i = 0; i < size; ++i)
-      {
-        float x1 = i / (float)size, x0 = 1.0f - x1;
-        float delay = lastGrainSampleLength * x0 + grainSampleLength * x1;
-        int writeIdx = recordLeft->getWriteIndex() + recordBufferSize;
-        float readIdx = writeIdx - delay;
-        float dleft = recordLeft->readAt(readIdx);
-        float dright = recordRight->readAt(readIdx);
-        recordLeft->write(inOutLeft[i] + dleft*feedback);
-        recordRight->write(inOutRight[i] + dright*feedback);
-      }
-    }
+    // feedback wet signal
+    grainLeft.copyTo(feedLeft);
+    grainRight.copyTo(feedRight);
 
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
