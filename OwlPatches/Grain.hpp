@@ -1,5 +1,5 @@
 #include "SignalGenerator.h"
-#include "basicmaths.h"
+#include "custom_dsp.h"
 #include "Envelope.h"
 
 class Grain : public SignalGenerator, MultiSignalGenerator
@@ -59,7 +59,7 @@ public:
     leftScale = (balance < 0  ? 1 : 1.0f - balance) * velocity;
     rightScale = (balance > 0 ? 1 : 1.0f + balance) * velocity;
 
-    float nextAttack = max(0.01f, min(env, 0.99f));
+    float nextAttack = fmax(0.01f, fmin(env, 0.99f));
     float nextDecay = 1.0f - nextAttack;
     decayStart = nextAttack * size;
     attackMult = 1.0f / (nextAttack*size);
