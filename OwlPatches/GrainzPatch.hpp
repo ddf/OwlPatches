@@ -46,6 +46,7 @@ class GrainzPatch : public Patch
   Grain* grains[MAX_GRAINS];
   int availableGrains[MAX_GRAINS];
   int activeGrains;
+  uint16_t  freeze;
   AudioBuffer* grainBuffer;
   float grainRatePhasor;
   bool grainTriggered;
@@ -72,7 +73,7 @@ class GrainzPatch : public Patch
 public:
   GrainzPatch()
     : recordBufferSize(getSampleRate()*8), recordLeft(0), recordRight(0), grainBuffer(0)
-    , grainRatePhasor(0), grainTriggered(false), lastGrain(0), activeGrains(0)
+    , grainRatePhasor(0), grainTriggered(false), lastGrain(0), activeGrains(0), freeze(OFF)
     , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0)
     , voct(-0.5f, 4)
   {
@@ -135,6 +136,10 @@ public:
       grainTriggerDelay = samples;
       grainTriggered = true;
     }
+    else if (bid == inFreeze && value == ON)
+    {
+      freeze = freeze == ON ? OFF : ON;
+    }
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -175,7 +180,7 @@ public:
       playedGate -= getBlockSize();
     }
 
-    if (!isButtonPressed(inFreeze))
+    if (freeze == OFF)
     {
       // Note: the way feedback is applied is based on how Clouds does it
       float cutoff = (20.0f + 100.0f * feedback * feedback);
@@ -269,6 +274,7 @@ public:
     inOutLeft.add(grainLeft);
     inOutRight.add(grainRight);
 
+    setButton(inFreeze, freeze);
     setButton(outGrainPlayed, playedGate > 0);
     setParameterValue(outGrainPlayback, avgProgress);
     setParameterValue(outGrainEnvelope, avgEnvelope);
