@@ -33,7 +33,7 @@ class GrainzPatch : public Patch
 
   // outputs
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
-  const PatchParameterId outGrainChance = PARAMETER_F;
+  const PatchParameterId outGrainPlayback = PARAMETER_F;
   const PatchParameterId outGrainEnvelope = PARAMETER_G;
 
   StereoDcBlockingFilter* dcFilter;
@@ -48,9 +48,11 @@ class GrainzPatch : public Patch
   int activeGrains;
   AudioBuffer* grainBuffer;
   float grainRatePhasor;
-  float grainChance;
   bool grainTriggered;
   float grainTriggerDelay;
+
+  const int playedGateSampleLength;
+  int   playedGate;
   // last grain that was started, could be null if we skipped it.
   Grain* lastGrain;
 
@@ -70,7 +72,8 @@ class GrainzPatch : public Patch
 public:
   GrainzPatch()
     : recordBufferSize(getSampleRate()*8), recordLeft(0), recordRight(0), grainBuffer(0)
-    , grainRatePhasor(0), grainChance(0), grainTriggered(false), lastGrain(0), activeGrains(0)
+    , grainRatePhasor(0), grainTriggered(false), lastGrain(0), activeGrains(0)
+    , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0),
     , voct(-0.5f, 4)
   {
     voct.setTune(-4);
@@ -96,7 +99,7 @@ public:
     registerParameter(inVelocity, "Velocity Variation");
     registerParameter(inFeedback, "Feedback");
     registerParameter(inDryWet, "Dry/Wet");
-    registerParameter(outGrainChance, "Random>");
+    registerParameter(outGrainPlayback, "Playback>");
     registerParameter(outGrainEnvelope, "Envelope>");
 
     // default to triangle window
@@ -167,6 +170,11 @@ public:
 
     dcFilter->process(audio, audio);
 
+    if (playedGate > 0)
+    {
+      playedGate -= getBlockSize();
+    }
+
     if (!isButtonPressed(inFreeze))
     {
       // Note: the way feedback is applied is based on how Clouds does it
@@ -199,8 +207,7 @@ public:
     for (int i = 0; i < size; ++i)
     {
       grainRatePhasor += 1.0f;
-      float randNum = randf();
-      bool startProb = randNum < grainProb && targetGrains > activeGrains;
+      bool startProb = randf() < grainProb && targetGrains > activeGrains;
       bool startSteady = grainRatePhasor >= grainSpacing;
       bool startGrain = startProb || startSteady || grainTriggered;
       if (startGrain && numAvailableGrains)
@@ -217,12 +224,13 @@ public:
         grainTriggered = false;
         grainTriggerDelay = 0;
         grainRatePhasor = 0;
-        grainChance = randNum;
+        playedGate = playedGateSampleLength;
         lastGrain = g;
       }
     }
 
     grainBuffer->clear();
+    float avgProgress = 0;
     float avgEnvelope = 0;
     activeGrains = 0;
     
@@ -233,6 +241,7 @@ public:
       if (!g->isDone())
       {
         avgEnvelope += g->envelope();
+        avgProgress += g->progress();
         ++activeGrains;
       }
 
@@ -242,6 +251,7 @@ public:
     if (activeGrains > 0)
     {
       avgEnvelope /= activeGrains;
+      avgProgress /= activeGrains;
     }
 
     // feedback wet signal
@@ -259,9 +269,8 @@ public:
     inOutLeft.add(grainLeft);
     inOutRight.add(grainRight);
 
-    uint16_t gate = lastGrain != nullptr && !lastGrain->isDone() && lastGrain->progress() < 0.25f;
-    setButton(outGrainPlayed, gate);
-    setParameterValue(outGrainChance, grainChance);
+    setButton(outGrainPlayed, playedGate > 0);
+    setParameterValue(outGrainPlayback, avgProgress);
     setParameterValue(outGrainEnvelope, avgEnvelope);
   }
 private:
