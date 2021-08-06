@@ -8,6 +8,7 @@ class Grain : public SignalGenerator, MultiSignalGenerator
   float* right;
   int bufferSize;
   int sampleRate;
+  int preDelay;
   float ramp;
   float start;
   float size;
@@ -21,7 +22,7 @@ class Grain : public SignalGenerator, MultiSignalGenerator
 public:
   Grain(float* inLeft, float* inRight, int bufferSz, int sr)
     : left(inLeft), right(inRight), bufferSize(bufferSz)
-    , sampleRate(sr), ramp(randf()*bufferSize), start(0), decayStart(0)
+    , sampleRate(sr), preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
     , leftScale(1), rightScale(1)
   {
@@ -46,8 +47,9 @@ public:
   // env describes a blend from:
   // short attack / long decay -> triangle -> long attack / short delay
   // balance is only left channel at 0, only right channel at 1
-  void trigger(float end, float length, float rate, float env, float balance, float velocity)
+  void trigger(int delay, float end, float length, float rate, float env, float balance, float velocity)
   {
+    preDelay = delay;
     ramp = 0;
     size = length * bufferSize;
     // we always advance by buffer size
@@ -68,6 +70,12 @@ public:
 
   float generate() override
   {
+    if (preDelay)
+    {
+      --preDelay;
+      return 0.0f;
+    }
+
     const float pos = start + ramp;
     const int i = (int)pos;
     const int j = i + 1;
@@ -87,10 +95,19 @@ public:
 
   void generate(AudioBuffer& output) override
   {
-    const int outLen = output.getSize();
+    int outLen = output.getSize();
     float* outL = output.getSamples(0);
     float* outR = output.getSamples(1);
-    for (int s = 0; s < outLen; ++s)
+
+    while (preDelay && outLen)
+    {
+      ++outL;
+      ++outR;
+      --preDelay;
+      --outLen;
+    }
+
+    while(outLen--)
     {
       const float pos = start + ramp;
       const float t = pos - (int)pos;

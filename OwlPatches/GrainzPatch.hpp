@@ -44,17 +44,20 @@ class GrainzPatch : public Patch
   RecordBuffer* recordRight;
 
   Grain* grains[MAX_GRAINS];
+  int availableGrains[MAX_GRAINS];
+  int activeGrains;
   AudioBuffer* grainBuffer;
-  float samplesUntilNextGrain;
+  float grainRatePhasor;
   float grainChance;
   bool grainTriggered;
+  float grainTriggerDelay;
   // last grain that was started, could be null if we skipped it.
   Grain* lastGrain;
 
   AudioBuffer* feedbackBuffer;
   StereoBiquadFilter* feedbackFilter;
 
-  SmoothFloat grainSpacing;
+  SmoothFloat grainOverlap;
   SmoothFloat grainPosition;
   SmoothFloat grainSize;
   SmoothFloat grainSpeed;
@@ -67,7 +70,7 @@ class GrainzPatch : public Patch
 public:
   GrainzPatch()
     : recordBufferSize(getSampleRate()*8), recordLeft(0), recordRight(0), grainBuffer(0)
-    , samplesUntilNextGrain(0), grainChance(0), grainTriggered(false), lastGrain(0)
+    , grainRatePhasor(0), grainChance(0), grainTriggered(false), lastGrain(0), activeGrains(0)
     , voct(-0.5f, 4)
   {
     voct.setTune(-4);
@@ -126,7 +129,7 @@ public:
   {
     if (bid == inTrigger && value == ON)
     {
-      samplesUntilNextGrain = samples;
+      grainTriggerDelay = samples;
       grainTriggered = true;
     }
   }
@@ -141,9 +144,18 @@ public:
     FloatArray feedLeft = feedbackBuffer->getSamples(0);
     FloatArray feedRight = feedbackBuffer->getSamples(1);
 
-    float lastGrainSampleLength = grainSize * recordBufferSize;
+    // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float grainDensity = getParameterValue(inDensity);
-    grainSpacing = 1.0f + grainDensity*(0.1f - 1.0f);
+    float overlap = 0;
+    if (grainDensity >= 0.53f)
+    {
+      overlap = (grainDensity - 0.53f) * 2.12f;
+    }
+    else if (grainDensity <= 0.47f)
+    {
+      overlap = (0.47f - grainDensity) * 2.12f;
+    }
+    grainOverlap = overlap * overlap * overlap;
     grainPosition = getParameterValue(inPosition)*0.25f;
     grainSize = (0.001f + getParameterValue(inSize)*0.124f);
     grainSpeed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
@@ -168,35 +180,55 @@ public:
       }
     }
 
-    samplesUntilNextGrain -= getBlockSize();
-
-    bool startGrain = false;
     float grainSampleLength = (grainSize*recordBufferSize);
-    if (samplesUntilNextGrain <= 0)
+    float targetGrains = MAX_GRAINS * grainOverlap;
+    float grainProb = targetGrains / grainSampleLength;
+    float grainSpacing = grainSampleLength / targetGrains;
+
+    if (grainDensity < 0.5f)
     {
-      grainChance = randf();
-      startGrain = grainChance < grainDensity || grainTriggered;
-      samplesUntilNextGrain += (grainSpacing * grainSampleLength) / grainSpeed;
-      grainTriggered = false;
+      grainProb = -1.0f;
+    }
+    else
+    {
+      grainRatePhasor = -getBlockSize();
+    }
+
+    int numAvailableGrains = updateAvailableGrains();
+
+    for (int i = 0; i < size; ++i)
+    {
+      grainRatePhasor += 1.0f;
+      float randNum = randf();
+      bool startProb = randNum < grainProb && targetGrains > activeGrains;
+      bool startSteady = grainRatePhasor >= grainSpacing;
+      bool startGrain = startProb || startSteady || grainTriggered;
+      if (startGrain && numAvailableGrains)
+      {
+        --numAvailableGrains;
+        int gidx = availableGrains[numAvailableGrains];
+        Grain* g = grains[gidx];
+        float grainDelay = i > grainTriggerDelay ? i : grainTriggerDelay;
+        int head = recordLeft->getWriteIndex() - size + i;
+        float grainEndPos = (float)head / recordBufferSize;
+        float pan = 0.5f + (randf() - 0.5f)*grainSpread;
+        float vel = 1.0f + (randf() * 2 - 1.0f)*grainVelocity;
+        g->trigger(grainDelay, grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan, vel);
+        grainTriggered = false;
+        grainTriggerDelay = 0;
+        grainRatePhasor = 0;
+        grainChance = randNum;
+        lastGrain = g;
+      }
     }
 
     grainBuffer->clear();
     float avgEnvelope = 0;
-    int activeGrains = 0;
+    activeGrains = 0;
     
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
       auto g = grains[gi];
-
-      if (startGrain && g->isDone())
-      {
-        float grainEndPos = (float)recordLeft->getWriteIndex() / recordBufferSize;
-        float pan = 0.5f + (randf() - 0.5f)*grainSpread;
-        float vel = 1.0f + (randf() * 2 - 1.0f)*grainVelocity;
-        g->trigger(grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan, vel);
-        startGrain = false;
-        lastGrain = g;
-      }
 
       if (!g->isDone())
       {
@@ -231,5 +263,20 @@ public:
     setButton(outGrainPlayed, gate);
     setParameterValue(outGrainChance, grainChance);
     setParameterValue(outGrainEnvelope, avgEnvelope);
+  }
+private:
+
+  int updateAvailableGrains()
+  {
+    int count = 0;
+    for (int gi = 0; gi < MAX_GRAINS; ++gi)
+    {
+      if (grains[gi]->isDone())
+      {
+        availableGrains[count] = gi;
+        ++count;
+      }
+    }
+    return count;
   }
 };
