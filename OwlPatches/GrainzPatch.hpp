@@ -73,7 +73,7 @@ public:
   GrainzPatch()
     : recordBufferSize(getSampleRate()*8), recordLeft(0), recordRight(0), grainBuffer(0)
     , grainRatePhasor(0), grainTriggered(false), lastGrain(0), activeGrains(0)
-    , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0),
+    , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0)
     , voct(-0.5f, 4)
   {
     voct.setTune(-4);
