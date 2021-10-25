@@ -64,8 +64,6 @@ class GrainzPatch : public Patch
 
   const int playedGateSampleLength;
   int   playedGate;
-  // last grain that was started, could be null if we skipped it.
-  Grain* lastGrain;
 
   StereoBiquadFilter* feedbackFilter;
 
@@ -82,7 +80,7 @@ class GrainzPatch : public Patch
 public:
   GrainzPatch()
     : recordBufferSize(getSampleRate()*8), recordLeft(0), recordRight(0), grainBuffer(0)
-    , grainRatePhasor(0), grainTriggered(false), lastGrain(0), activeGrains(0), freeze(OFF)
+    , grainRatePhasor(0), grainTriggered(false), activeGrains(0), freeze(OFF)
     , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0)
     , voct(-0.5f, 4)
   {
@@ -249,7 +247,6 @@ public:
         grainTriggerDelay = 0;
         grainRatePhasor = 0;
         playedGate = playedGateSampleLength;
-        lastGrain = g;
       }
     }
 #ifdef PROFILE
