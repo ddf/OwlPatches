@@ -210,7 +210,7 @@ public:
 #ifdef PROFILE
     float t2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, "fb ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1) * 1000), 10));
 #endif
 
     float grainSampleLength = (grainSize*recordBufferSize);
@@ -258,7 +258,7 @@ public:
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, " trig ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1) * 1000), 10));
 #endif
 
 #ifdef PROFILE
@@ -291,7 +291,7 @@ public:
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, " gen ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1) * 1000), 10));
 #endif
 
 #ifdef PROFILE
@@ -320,7 +320,7 @@ public:
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, " mix ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1)*1000), 10));
     debugMessage(debugMsg);
 #endif
 
