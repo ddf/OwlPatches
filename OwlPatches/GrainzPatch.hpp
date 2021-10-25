@@ -191,7 +191,7 @@ public:
     }
 
 #ifdef PROFILE
-    char debugMsg[256];
+    char debugMsg[64];
     char* debugCpy = debugMsg;
     float t1 = getElapsedBlockTime();
 #endif
@@ -209,7 +209,7 @@ public:
     }
 #ifdef PROFILE
     float t2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, "feedback ");
+    debugCpy = stpcpy(debugCpy, "fb ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
 #endif
 
@@ -257,7 +257,7 @@ public:
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, ", trigger grains ");
+    debugCpy = stpcpy(debugCpy, " trig ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
 #endif
 
@@ -290,7 +290,7 @@ public:
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, ", generate grains ");
+    debugCpy = stpcpy(debugCpy, " gen ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
 #endif
 
@@ -313,7 +313,7 @@ public:
     inOutRight.add(grainRight);
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, ", mix output ");
+    debugCpy = stpcpy(debugCpy, " mix ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
     debugMessage(debugMsg);
 #endif
