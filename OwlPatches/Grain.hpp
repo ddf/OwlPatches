@@ -99,10 +99,10 @@ public:
     float* outL = output.getSamples(0);
     float* outR = output.getSamples(1);
 
-    generate(outL, outR, outLen);
+    generate(left, right, outL, outR, outLen);
   }
 
-  void generate(float* outL, float* outR, int outLen)
+  void generate(float* inL, float* inR, float* outL, float* outR, int outLen)
   {
     while (preDelay && outLen)
     {
@@ -128,7 +128,7 @@ public:
       // not sure where the extra time comes from with the first sample,
       // but probably something relating to array access?
       //*outL++ += interpolated(left, i, j, t) * env * leftScale;
-      *outR++ += 0;// interpolated(right, i, j, t) * env * rightScale;
+      *outR++ += interpolated(inR, i, j, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
