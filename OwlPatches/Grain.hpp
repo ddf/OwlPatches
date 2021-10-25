@@ -118,7 +118,7 @@ public:
       const float t = pos - (int)pos;
       const int i = ((int)pos) % bufferSize;
       const int j = (i + 1) % bufferSize;
-      const float env = envelope();
+      //const float env = envelope();
 
       //*outL++ += interpolated(left, i, j, t) * env * leftScale;
       //*outR++ += interpolated(right, i, j, t) * env * rightScale;
