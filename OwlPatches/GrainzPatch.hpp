@@ -67,7 +67,6 @@ class GrainzPatch : public Patch
   // last grain that was started, could be null if we skipped it.
   Grain* lastGrain;
 
-  AudioBuffer* feedbackBuffer;
   StereoBiquadFilter* feedbackFilter;
 
   SmoothFloat grainOverlap;
@@ -94,8 +93,7 @@ public:
     recordLeft = RecordBuffer::create(recordBufferSize);
     recordRight = RecordBuffer::create(recordBufferSize);
     grainBuffer = AudioBuffer::create(2, getBlockSize());
-    feedbackBuffer = AudioBuffer::create(2, getBlockSize());
-    
+
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
       grains[i] = Grain::create(recordLeft->getData(), recordRight->getData(), recordBufferSize, getSampleRate());
@@ -130,7 +128,6 @@ public:
     RecordBuffer::destroy(recordLeft);
     RecordBuffer::destroy(recordRight);
     AudioBuffer::destroy(grainBuffer);
-    AudioBuffer::destroy(feedbackBuffer);
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
@@ -159,8 +156,6 @@ public:
     FloatArray inOutRight = audio.getSamples(1);
     FloatArray grainLeft = grainBuffer->getSamples(0);
     FloatArray grainRight = grainBuffer->getSamples(1);
-    FloatArray feedLeft = feedbackBuffer->getSamples(0);
-    FloatArray feedRight = feedbackBuffer->getSamples(1);
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float grainDensity = getParameterValue(inDensity);
@@ -297,20 +292,8 @@ public:
 #ifdef PROFILE
     t1 = getElapsedBlockTime();
 #endif
-    // feedback wet signal
-    //grainLeft.copyTo(feedLeft);
-    //grainRight.copyTo(feedRight);
-
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
-    //inOutLeft.multiply(dryAmt);
-    //inOutRight.multiply(dryAmt);
-
-    //grainLeft.multiply(wetAmt);
-    //grainRight.multiply(wetAmt);
-
-    //inOutLeft.add(grainLeft);
-    //inOutRight.add(grainRight);
     for (int i = 0; i < size; ++i)
     {
       inOutLeft[i]  = inOutLeft[i]*dryAmt  + grainLeft[i]*wetAmt;
