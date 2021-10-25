@@ -9,6 +9,10 @@
 
 #define PROFILE
 
+#ifdef PROFILE
+#include <cstdio>
+#endif
+
 using namespace daisysp;
 
 typedef FractionalCircularFloatBuffer RecordBuffer;
@@ -183,6 +187,8 @@ public:
     }
 
 #ifdef PROFILE
+    char debugMsg[256];
+    int offset = 0;
     float t1 = getElapsedBlockTime();
 #endif
     if (freeze == OFF)
@@ -199,7 +205,7 @@ public:
     }
 #ifdef PROFILE
     float t2 = getElapsedBlockTime();
-    debugMessage("feedback", t2 - t1);
+    offset += sprintf(debugMsg, "feedback %f ", t2 - t1);
 #endif
 
     float grainSampleLength = (grainSize*recordBufferSize);
@@ -246,7 +252,7 @@ public:
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    debugMessage("trigger grains", t2 - t1);
+    offset += sprintf(debugMsg + offset, "trigger grains %f", t2 - t1);
 #endif
 
 #ifdef PROFILE
@@ -278,7 +284,7 @@ public:
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    debugMessage("generate grains", t2 - t1);
+    offset += sprintf(debugMsg + offset, "generate grains %f ", t2 - t1);
 #endif
 
 #ifdef PROFILE
@@ -300,7 +306,8 @@ public:
     inOutRight.add(grainRight);
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    debugMessage("mix output", t2 - t1);
+    offset += sprintf(debugMsg + offset, "mix output %f", t2 - t1);
+    debugMessage(debugMsg);
 #endif
 
     setButton(inFreeze, freeze);
