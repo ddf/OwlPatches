@@ -303,19 +303,19 @@ public:
 
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
-    inOutLeft.multiply(dryAmt);
-    inOutRight.multiply(dryAmt);
+    //inOutLeft.multiply(dryAmt);
+    //inOutRight.multiply(dryAmt);
 
-    grainLeft.multiply(wetAmt);
-    grainRight.multiply(wetAmt);
+    //grainLeft.multiply(wetAmt);
+    //grainRight.multiply(wetAmt);
 
     //inOutLeft.add(grainLeft);
     //inOutRight.add(grainRight);
     for (int i = 0; i < size; ++i)
     {
-      inOutLeft[i] += grainLeft[i];
-      inOutRight[i] += grainRight[i];
-      grainLeft[i] = grainRight[i] = 0;
+      inOutLeft[i]  = inOutLeft[i]*dryAmt  + grainLeft[i]*wetAmt;
+      inOutRight[i] = inOutRight[i]*dryAmt + grainRight[i]*wetAmt;
+      grainLeft[i]  = grainRight[i] = 0;
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
