@@ -126,11 +126,11 @@ public:
       //*outR++ += interpolated(right, i, j, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
-      //if ((ramp += speed) >= size)
-      //{
-      //  ramp -= size;
-      //  attackMult = decayMult = 0;
-      //}
+      if ((ramp += speed) >= size)
+      {
+        ramp -= size;
+        attackMult = decayMult = 0;
+      }
     }
   }
 
