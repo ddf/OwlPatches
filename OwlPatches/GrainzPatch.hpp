@@ -7,6 +7,8 @@
 
 #include "Grain.hpp"
 
+#define PROFILE
+
 using namespace daisysp;
 
 typedef FractionalCircularFloatBuffer RecordBuffer;
@@ -180,6 +182,9 @@ public:
       playedGate -= getBlockSize();
     }
 
+#ifdef PROFILE
+    float t1 = getElapsedBlockTime();
+#endif
     if (freeze == OFF)
     {
       // Note: the way feedback is applied is based on how Clouds does it
@@ -192,6 +197,10 @@ public:
         recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * feedRight[i] + inOutRight[i]) - inOutRight[i]));
       }
     }
+#ifdef PROFILE
+    float t2 = getElapsedBlockTime();
+    debugMessage("feedback", t2 - t1);
+#endif
 
     float grainSampleLength = (grainSize*recordBufferSize);
     float targetGrains = MAX_GRAINS * grainOverlap;
@@ -207,8 +216,10 @@ public:
       grainRatePhasor = -getBlockSize();
     }
 
+#ifdef PROFILE
+    t1 = getElapsedBlockTime();
+#endif
     int numAvailableGrains = updateAvailableGrains();
-
     for (int i = 0; i < size; ++i)
     {
       grainRatePhasor += 1.0f;
@@ -233,7 +244,14 @@ public:
         lastGrain = g;
       }
     }
+#ifdef PROFILE
+    t2 = getElapsedBlockTime();
+    debugMessage("trigger grains", t2 - t1);
+#endif
 
+#ifdef PROFILE
+    t1 = getElapsedBlockTime();
+#endif
     grainBuffer->clear();
     float avgProgress = 0;
     float avgEnvelope = 0;
@@ -258,7 +276,14 @@ public:
       avgEnvelope /= activeGrains;
       avgProgress /= activeGrains;
     }
+#ifdef PROFILE
+    t2 = getElapsedBlockTime();
+    debugMessage("generate grains", t2 - t1);
+#endif
 
+#ifdef PROFILE
+    t1 = getElapsedBlockTime();
+#endif
     // feedback wet signal
     grainLeft.copyTo(feedLeft);
     grainRight.copyTo(feedRight);
@@ -273,6 +298,10 @@ public:
 
     inOutLeft.add(grainLeft);
     inOutRight.add(grainRight);
+#ifdef PROFILE
+    t2 = getElapsedBlockTime();
+    debugMessage("mix output", t2 - t1);
+#endif
 
     setButton(inFreeze, freeze);
     setButton(outGrainPlayed, playedGate > 0);
