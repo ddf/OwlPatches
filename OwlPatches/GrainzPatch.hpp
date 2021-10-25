@@ -18,7 +18,11 @@ using namespace daisysp;
 typedef FractionalCircularFloatBuffer RecordBuffer;
 
 // TODO: want more than 16 grains, but not sure how
+#ifdef PROFILE
+static const int MAX_GRAINS = 8;
+#else
 static const int MAX_GRAINS = 16;
+#endif
 
 class GrainzPatch : public Patch
 {
