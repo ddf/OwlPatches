@@ -120,7 +120,7 @@ public:
       const int j = (i + 1) % bufferSize;
       const float env = envelope();
 
-      *outL++ += interpolated(left, i, j, t) * env * leftScale;
+      //*outL++ += interpolated(left, i, j, t) * env * leftScale;
       //*outR++ += interpolated(right, i, j, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
