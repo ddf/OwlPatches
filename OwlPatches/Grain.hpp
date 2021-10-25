@@ -112,20 +112,21 @@ public:
       --outLen;
     }
 
-    const int wrapAt = bufferSize - 1;
     while(outLen--)
     {
-      //const float pos = start + ramp;
-      //const int ipos = (int)pos;
-      //const float t = pos - ipos;
-      //const int i = ipos > wrapAt ? ipos - bufferSize : ipos;
-      //const int j = i == wrapAt ? 0 : i + 1;
-      //const float env = envelope();
+      // setting all of these is basically free.
+      // removing modulo and using ternary logic doesn't improve performance.
+      const float pos = start + ramp;
+      const float t = pos - (int)pos;
+      const int i = ((int)pos) % bufferSize;
+      const int j = (i + 1) % bufferSize;
+      const float env = envelope();
 
       //*outL++ += interpolated(left, i, j, t) * env * leftScale;
       //*outR++ += interpolated(right, i, j, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
+      // just this on its own is about 6ns per grain
       if ((ramp += speed) >= size)
       {
         ramp -= size;
