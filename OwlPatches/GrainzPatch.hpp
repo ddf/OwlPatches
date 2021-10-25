@@ -196,10 +196,8 @@ public:
       feedbackFilter->process(*grainBuffer, *grainBuffer);
       for (int i = 0; i < size; ++i)
       {
-        float left = inOutLeft[i];
-        float right = inOutRight[i];
-        recordLeft->write(left + feedback * (SoftLimit(feedback * 1.4f * grainLeft[i] + left) - left));
-        recordRight->write(right + feedback * (SoftLimit(feedback * 1.4f * grainRight[i] + right) - right));
+        recordLeft->write(inOutLeft[i] + feedback * (SoftLimit(feedback * 1.4f * grainLeft[i] + inOutLeft[i]) - inOutLeft[i]));
+        recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * grainRight[i] + inOutRight[i]) - inOutRight[i]));
       }
     }
 #ifdef PROFILE
