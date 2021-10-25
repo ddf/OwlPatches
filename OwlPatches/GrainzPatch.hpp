@@ -10,7 +10,7 @@
 #define PROFILE
 
 #ifdef PROFILE
-#include <cstdio>
+#include <stdio.h>
 #endif
 
 using namespace daisysp;
