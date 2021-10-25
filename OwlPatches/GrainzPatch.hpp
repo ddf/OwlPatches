@@ -268,9 +268,7 @@ public:
     float avgProgress = 0;
     float avgEnvelope = 0;
     activeGrains = 0;
-    
-    float* sampleL = recordLeft->getData();
-    float* sampleR = recordRight->getData();
+
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
       auto g = grains[gi];
@@ -282,7 +280,7 @@ public:
         ++activeGrains;
       }
 
-      g->generate(sampleL, sampleR, grainLeft, grainRight, size);
+      g->generate(grainLeft, grainRight, size);
     }
 
     if (activeGrains > 0)

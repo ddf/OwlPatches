@@ -102,7 +102,7 @@ public:
     generate(left, right, outL, outR, outLen);
   }
 
-  void generate(float* inL, float* inR, float* outL, float* outR, int outLen)
+  void generate(float* outL, float* outR, int outLen)
   {
     while (preDelay && outLen)
     {
@@ -127,8 +127,9 @@ public:
       // and then when adding the second channel, only to 380-400ns.
       // not sure where the extra time comes from with the first sample,
       // but probably something relating to array access?
-      //*outL++ += interpolated(left, i, j, t) * env * leftScale;
-      *outR++ += interpolated(inR, i, j, t) * env * rightScale;
+      // doesn't seem to matter whether we access the member arrays or pass in arguments.
+      *outL++ += interpolated(left, i, j, t) * env * leftScale;
+      *outR++ += interpolated(right, i, j, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
