@@ -315,7 +315,6 @@ public:
     {
       inOutLeft[i]  = inOutLeft[i]*dryAmt  + grainLeft[i]*wetAmt;
       inOutRight[i] = inOutRight[i]*dryAmt + grainRight[i]*wetAmt;
-      grainLeft[i]  = grainRight[i] = 0;
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
