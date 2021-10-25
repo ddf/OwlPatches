@@ -280,7 +280,7 @@ public:
         ++activeGrains;
       }
 
-      g->generate(*grainBuffer);
+      g->generate(grainLeft, grainRight, size);
     }
 
     if (activeGrains > 0)

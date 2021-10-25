@@ -99,6 +99,11 @@ public:
     float* outL = output.getSamples(0);
     float* outR = output.getSamples(1);
 
+    generate(outL, outR, outLen);
+  }
+
+  void generate(float* outL, float* outR, int outLen)
+  {
     while (preDelay && outLen)
     {
       ++outL;
