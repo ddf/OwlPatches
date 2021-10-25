@@ -200,11 +200,11 @@ public:
       // Note: the way feedback is applied is based on how Clouds does it
       float cutoff = (20.0f + 100.0f * feedback * feedback);
       feedbackFilter->setHighPass(cutoff, 1);
-      feedbackFilter->process(*feedbackBuffer, *feedbackBuffer);
+      feedbackFilter->process(*grainBuffer, *grainBuffer);
       for (int i = 0; i < size; ++i)
       {
-        recordLeft->write(inOutLeft[i] + feedback * (SoftLimit(feedback * 1.4f * feedLeft[i] + inOutLeft[i]) - inOutLeft[i]));
-        recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * feedRight[i] + inOutRight[i]) - inOutRight[i]));
+        recordLeft->write(inOutLeft[i] + feedback * (SoftLimit(feedback * 1.4f * grainLeft[i] + inOutLeft[i]) - inOutLeft[i]));
+        recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * grainRight[i] + inOutRight[i]) - inOutRight[i]));
       }
     }
 #ifdef PROFILE
@@ -264,7 +264,7 @@ public:
 #ifdef PROFILE
     t1 = getElapsedBlockTime();
 #endif
-    //grainBuffer->clear();
+    grainBuffer->clear();
     float avgProgress = 0;
     float avgEnvelope = 0;
     activeGrains = 0;
@@ -298,8 +298,8 @@ public:
     t1 = getElapsedBlockTime();
 #endif
     // feedback wet signal
-    grainLeft.copyTo(feedLeft);
-    grainRight.copyTo(feedRight);
+    //grainLeft.copyTo(feedLeft);
+    //grainRight.copyTo(feedRight);
 
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
