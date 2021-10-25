@@ -10,7 +10,7 @@
 #define PROFILE
 
 #ifdef PROFILE
-#include <stdio.h>
+#include <string.h>
 #endif
 
 using namespace daisysp;
@@ -188,7 +188,7 @@ public:
 
 #ifdef PROFILE
     char debugMsg[256];
-    int offset = 0;
+    char* debugCpy = debugMsg;
     float t1 = getElapsedBlockTime();
 #endif
     if (freeze == OFF)
@@ -205,7 +205,8 @@ public:
     }
 #ifdef PROFILE
     float t2 = getElapsedBlockTime();
-    offset += sprintf(debugMsg, "feedback %f ", t2 - t1);
+    debugCpy = stpcpy(debugCpy, "feedback ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
 #endif
 
     float grainSampleLength = (grainSize*recordBufferSize);
@@ -252,7 +253,8 @@ public:
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    offset += sprintf(debugMsg + offset, "trigger grains %f", t2 - t1);
+    debugCpy = stpcpy(debugCpy, ", trigger grains ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
 #endif
 
 #ifdef PROFILE
@@ -284,7 +286,8 @@ public:
     }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    offset += sprintf(debugMsg + offset, "generate grains %f ", t2 - t1);
+    debugCpy = stpcpy(debugCpy, ", generate grains ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
 #endif
 
 #ifdef PROFILE
@@ -306,7 +309,8 @@ public:
     inOutRight.add(grainRight);
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
-    offset += sprintf(debugMsg + offset, "mix output %f", t2 - t1);
+    debugCpy = stpcpy(debugCpy, ", mix output ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
     debugMessage(debugMsg);
 #endif
 
