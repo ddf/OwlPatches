@@ -7,7 +7,7 @@
 
 #include "Grain.hpp"
 
-#define PROFILE
+//#define PROFILE
 
 #ifdef PROFILE
 #include <string.h>
