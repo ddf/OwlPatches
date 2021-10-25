@@ -315,7 +315,7 @@ public:
     t2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, ", mix output ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(t2 - t1, 10));
-    debugMessage("foooo");
+    debugMessage(debugMsg);
 #endif
 
     setButton(inFreeze, freeze);
