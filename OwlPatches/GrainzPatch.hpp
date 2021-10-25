@@ -264,7 +264,7 @@ public:
 #ifdef PROFILE
     t1 = getElapsedBlockTime();
 #endif
-    grainBuffer->clear();
+    //grainBuffer->clear();
     float avgProgress = 0;
     float avgEnvelope = 0;
     activeGrains = 0;
@@ -309,8 +309,14 @@ public:
     grainLeft.multiply(wetAmt);
     grainRight.multiply(wetAmt);
 
-    inOutLeft.add(grainLeft);
-    inOutRight.add(grainRight);
+    //inOutLeft.add(grainLeft);
+    //inOutRight.add(grainRight);
+    for (int i = 0; i < size; ++i)
+    {
+      inOutLeft[i] += grainLeft[i];
+      inOutRight[i] += grainRight[i];
+      grainLeft[i] = grainRight[i] = 0;
+    }
 #ifdef PROFILE
     t2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, " mix ");
