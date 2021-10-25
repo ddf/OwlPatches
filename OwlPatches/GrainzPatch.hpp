@@ -21,7 +21,7 @@ typedef CircularFloatBuffer RecordBuffer;
 #ifdef PROFILE
 static const int MAX_GRAINS = 8;
 #else
-static const int MAX_GRAINS = 8;
+static const int MAX_GRAINS = 16;
 #endif
 
 class GrainzPatch : public Patch
