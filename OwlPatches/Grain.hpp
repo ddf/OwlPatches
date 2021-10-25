@@ -115,12 +115,12 @@ public:
     const int wrapAt = bufferSize - 1;
     while(outLen--)
     {
-      const float pos = start + ramp;
-      const int ipos = (int)pos;
-      const float t = pos - ipos;
-      const int i = ipos > wrapAt ? ipos - bufferSize : ipos;
-      const int j = i == wrapAt ? 0 : i + 1;
-      const float env = envelope();
+      //const float pos = start + ramp;
+      //const int ipos = (int)pos;
+      //const float t = pos - ipos;
+      //const int i = ipos > wrapAt ? ipos - bufferSize : ipos;
+      //const int j = i == wrapAt ? 0 : i + 1;
+      //const float env = envelope();
 
       //*outL++ += interpolated(left, i, j, t) * env * leftScale;
       //*outR++ += interpolated(right, i, j, t) * env * rightScale;
