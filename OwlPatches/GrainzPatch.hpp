@@ -1,6 +1,6 @@
 #include "Patch.h"
 #include "DcBlockingFilter.h"
-#include "FractionalCircularBuffer.h"
+#include "CircularBuffer.h"
 #include "VoltsPerOctave.h"
 #include "BiquadFilter.h"
 #include "custom_dsp.h"
@@ -15,7 +15,7 @@
 
 using namespace daisysp;
 
-typedef FractionalCircularFloatBuffer RecordBuffer;
+typedef CircularFloatBuffer RecordBuffer;
 
 // TODO: want more than 16 grains, but not sure how
 #ifdef PROFILE
