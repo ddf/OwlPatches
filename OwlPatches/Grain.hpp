@@ -143,11 +143,9 @@ public:
 
 private:
 
-  float interpolated(float* buffer, int i, int j, float t) const
+  inline float interpolated(float* buffer, int i, int j, float t) const
   {
-    const float low = buffer[i];
-    const float high = buffer[j];
-    return low + t * (high - low);
+    return buffer[i] + t * (buffer[j] - buffer[i]);
   }
 
 public:
