@@ -286,6 +286,7 @@ public:
     float process2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, "proc ");
     debugCpy = stpcpy(debugCpy, msg_itoa((int)((process2 - process2) * 1000), 10));
+    debugMessage(debugCpy);
 #endif
   }
 private:
