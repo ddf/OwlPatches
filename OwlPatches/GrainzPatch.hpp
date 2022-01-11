@@ -7,7 +7,7 @@
 
 #include "Grain.hpp"
 
-//#define PROFILE
+#define PROFILE
 
 #ifdef PROFILE
 #include <string.h>
@@ -18,11 +18,7 @@ using namespace daisysp;
 typedef CircularFloatBuffer RecordBuffer;
 
 // TODO: want more than 16 grains, but not sure how
-#ifdef PROFILE
-static const int MAX_GRAINS = 8;
-#else
 static const int MAX_GRAINS = 16;
-#endif
 
 class GrainzPatch : public Patch
 {
@@ -149,6 +145,11 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+#ifdef PROFILE
+    char debugMsg[64];
+    char* debugCpy = debugMsg;
+    float process1 = getElapsedBlockTime();
+#endif
     const int size = audio.getSize();
     FloatArray inOutLeft = audio.getSamples(0);
     FloatArray inOutRight = audio.getSamples(1);
@@ -183,11 +184,6 @@ public:
       playedGate -= getBlockSize();
     }
 
-#ifdef PROFILE
-    char debugMsg[64];
-    char* debugCpy = debugMsg;
-    float t1 = getElapsedBlockTime();
-#endif
     if (freeze == OFF)
     {
       // Note: the way feedback is applied is based on how Clouds does it
@@ -200,11 +196,6 @@ public:
         recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * grainRight[i] + inOutRight[i]) - inOutRight[i]));
       }
     }
-#ifdef PROFILE
-    float t2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, "fb ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1) * 1000), 10));
-#endif
 
     float grainSampleLength = (grainSize*recordBufferSize);
     float targetGrains = MAX_GRAINS * grainOverlap;
@@ -220,9 +211,6 @@ public:
       grainRatePhasor = -getBlockSize();
     }
 
-#ifdef PROFILE
-    t1 = getElapsedBlockTime();
-#endif
     int numAvailableGrains = updateAvailableGrains();
     for (int i = 0; i < size; ++i)
     {
@@ -247,14 +235,9 @@ public:
         playedGate = playedGateSampleLength;
       }
     }
-#ifdef PROFILE
-    t2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, " trig ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1) * 1000), 10));
-#endif
 
 #ifdef PROFILE
-    t1 = getElapsedBlockTime();
+    float gen1 = getElapsedBlockTime();
 #endif
     grainBuffer->clear();
     float avgProgress = 0;
@@ -281,14 +264,11 @@ public:
       avgProgress /= activeGrains;
     }
 #ifdef PROFILE
-    t2 = getElapsedBlockTime();
+    float gen2 = getElapsedBlockTime();
     debugCpy = stpcpy(debugCpy, " gen ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1) * 1000), 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)((gen2 - gen1) * 1000), 10));
 #endif
 
-#ifdef PROFILE
-    t1 = getElapsedBlockTime();
-#endif
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     for (int i = 0; i < size; ++i)
@@ -296,17 +276,17 @@ public:
       inOutLeft[i]  = inOutLeft[i]*dryAmt  + grainLeft[i]*wetAmt;
       inOutRight[i] = inOutRight[i]*dryAmt + grainRight[i]*wetAmt;
     }
-#ifdef PROFILE
-    t2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, " mix ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)((t2 - t1)*1000), 10));
-    debugMessage(debugMsg);
-#endif
 
     setButton(inFreeze, freeze);
     setButton(outGrainPlayed, playedGate > 0);
     setParameterValue(outGrainPlayback, avgProgress);
     setParameterValue(outGrainEnvelope, avgEnvelope);
+
+#ifdef PROFILE
+    float process2 = getElapsedBlockTime();
+    debugCpy = stpcpy(debugCpy, "proc ");
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)((process2 - process2) * 1000), 10));
+#endif
   }
 private:
 
