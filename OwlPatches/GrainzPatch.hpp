@@ -148,7 +148,7 @@ public:
 #ifdef PROFILE
     char debugMsg[64];
     char* debugCpy = debugMsg;
-    float process1 = getElapsedBlockTime();
+    const float processStart = getElapsedBlockTime();
 #endif
     const int size = audio.getSize();
     FloatArray inOutLeft = audio.getSamples(0);
@@ -237,7 +237,7 @@ public:
     }
 
 #ifdef PROFILE
-    float gen1 = getElapsedBlockTime();
+    const float genStart = getElapsedBlockTime();
 #endif
     grainBuffer->clear();
     float avgProgress = 0;
@@ -264,9 +264,9 @@ public:
       avgProgress /= activeGrains;
     }
 #ifdef PROFILE
-    float gen2 = getElapsedBlockTime();
+    const float genTime = getElapsedBlockTime() - genStart;
     debugCpy = stpcpy(debugCpy, " gen ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)((gen2 - gen1) * 1000), 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)(genTime * 1000), 10));
 #endif
 
     const float wetAmt = dryWet;
@@ -283,9 +283,9 @@ public:
     setParameterValue(outGrainEnvelope, avgEnvelope);
 
 #ifdef PROFILE
-    float process2 = getElapsedBlockTime();
-    debugCpy = stpcpy(debugCpy, "proc ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)((process2 - process2) * 1000), 10));
+    const float processTime = getElapsedBlockTime() - processStart - genTime;
+    debugCpy = stpcpy(debugCpy, " proc ");
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)(processTime * 1000), 10));
     debugMessage(debugMsg);
 #endif
   }
