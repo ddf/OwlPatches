@@ -248,7 +248,7 @@ public:
     {
       auto g = grains[gi];
 
-      if (!g->isDone())
+      if (!g->isDone)
       {
         avgEnvelope += g->envelope();
         avgProgress += g->progress();
@@ -296,7 +296,7 @@ private:
     int count = 0;
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
-      if (grains[gi]->isDone())
+      if (grains[gi]->isDone)
       {
         availableGrains[count] = gi;
         ++count;

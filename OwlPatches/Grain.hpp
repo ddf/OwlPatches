@@ -24,14 +24,11 @@ public:
     : left(inLeft), right(inRight), bufferSize(bufferSz)
     , sampleRate(sr), preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
-    , leftScale(1), rightScale(1)
+    , leftScale(1), rightScale(1), isDone(true)
   {
   }
-
-  inline bool isDone() const
-  {
-    return attackMult == 0 && decayMult == 0;
-  }
+  
+  bool isDone;
 
   inline float progress() const
   {
@@ -66,6 +63,7 @@ public:
     decayStart = nextAttack * size;
     attackMult = 1.0f / (nextAttack*size);
     decayMult = 1.0f / (nextDecay*size);
+    isDone = false;
   }
 
   float generate() override
@@ -87,6 +85,7 @@ public:
     {
       ramp -= size;
       attackMult = decayMult = 0;
+      isDone = true;
     }
 
     return sample;
@@ -137,6 +136,7 @@ public:
       {
         ramp -= size;
         attackMult = decayMult = 0;
+        isDone = true;
       }
     }
   }
