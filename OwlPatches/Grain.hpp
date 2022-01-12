@@ -103,12 +103,13 @@ public:
 
   void generate(float* outL, float* outR, int outLen)
   {
-    while (preDelay && outLen)
+    const int skip = min(preDelay, outLen);
+    if (skip)
     {
-      ++outL;
-      ++outR;
-      --preDelay;
-      --outLen;
+      outL += skip;
+      outR += skip;
+      preDelay -= skip;
+      outLen -= skip;
     }
 
     while(outLen--)
