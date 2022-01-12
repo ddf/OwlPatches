@@ -58,6 +58,10 @@ class GrainzPatch : public Patch
   bool grainTriggered;
   float grainTriggerDelay;
 
+  // these are expressed as a percentage of the total buffer size
+  const float minGrainSize;
+  const float maxGrainSize;
+
   const int playedGateSampleLength;
   int   playedGate;
 
@@ -77,6 +81,8 @@ public:
   GrainzPatch()
     : recordLeft(0), recordRight(0), grainBuffer(0)
     , grainRatePhasor(0), grainTriggered(false), activeGrains(0), freeze(OFF)
+    , minGrainSize(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 8ms
+    , maxGrainSize(getSampleRate()*1.0f / RECORD_BUFFER_SIZE) // 1 second
     , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0)
     , voct(-0.5f, 4)
   {
@@ -169,7 +175,7 @@ public:
     }
     grainOverlap = overlap * overlap * overlap;
     grainPosition = getParameterValue(inPosition)*0.25f;
-    grainSize = (0.001f + getParameterValue(inSize)*0.124f);
+    grainSize = (minGrainSize + getParameterValue(inSize)*(maxGrainSize - minGrainSize));
     grainSpeed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     grainEnvelope = getParameterValue(inEnvelope);
     grainSpread = getParameterValue(inSpread);
