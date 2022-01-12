@@ -1,6 +1,6 @@
 #include "SignalGenerator.h"
-#include "custom_dsp.h"
 #include "Envelope.h"
+#include "basicmaths.h"
 
 class Grain : public SignalGenerator, MultiSignalGenerator
 {
@@ -58,7 +58,7 @@ public:
     leftScale = (balance < 0  ? 1 : 1.0f - balance) * velocity;
     rightScale = (balance > 0 ? 1 : 1.0f + balance) * velocity;
 
-    float nextAttack = daisysp::fmax(0.01f, daisysp::fmin(env, 0.99f));
+    float nextAttack = clamp(env, 0.01f, 0.99f);
     float nextDecay = 1.0f - nextAttack;
     decayStart = nextAttack * size;
     attackMult = 1.0f / (nextAttack*size);

@@ -3,9 +3,8 @@
 #include "CircularBuffer.h"
 #include "VoltsPerOctave.h"
 #include "BiquadFilter.h"
-#include "custom_dsp.h"
-
 #include "Grain.hpp"
+#include "custom_dsp.h" // for SoftLimit
 
 #define PROFILE
 
