@@ -18,6 +18,8 @@ typedef CircularFloatBuffer RecordBuffer;
 
 // TODO: want more than 16 grains, but not sure how
 static const int MAX_GRAINS = 16;
+// must be power of two
+static const int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
 
 class GrainzPatch : public Patch
 {
@@ -44,7 +46,6 @@ class GrainzPatch : public Patch
   StereoDcBlockingFilter* dcFilter;
   VoltsPerOctave voct;
 
-  const int recordBufferSize;
   RecordBuffer* recordLeft;
   RecordBuffer* recordRight;
 
@@ -74,7 +75,7 @@ class GrainzPatch : public Patch
 
 public:
   GrainzPatch()
-    : recordBufferSize(getSampleRate()*8), recordLeft(0), recordRight(0), grainBuffer(0)
+    : recordLeft(0), recordRight(0), grainBuffer(0)
     , grainRatePhasor(0), grainTriggered(false), activeGrains(0), freeze(OFF)
     , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0)
     , voct(-0.5f, 4)
@@ -83,13 +84,13 @@ public:
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     feedbackFilter = StereoBiquadFilter::create(getSampleRate());
 
-    recordLeft = RecordBuffer::create(recordBufferSize);
-    recordRight = RecordBuffer::create(recordBufferSize);
+    recordLeft = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    recordRight = RecordBuffer::create(RECORD_BUFFER_SIZE);
     grainBuffer = AudioBuffer::create(2, getBlockSize());
 
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
-      grains[i] = Grain::create(recordLeft->getData(), recordRight->getData(), recordBufferSize, getSampleRate());
+      grains[i] = Grain::create(recordLeft->getData(), recordRight->getData(), RECORD_BUFFER_SIZE, getSampleRate());
     }
 
     registerParameter(inPosition, "Position");
@@ -196,7 +197,7 @@ public:
       }
     }
 
-    float grainSampleLength = (grainSize*recordBufferSize);
+    float grainSampleLength = (grainSize*RECORD_BUFFER_SIZE);
     float targetGrains = MAX_GRAINS * grainOverlap;
     float grainProb = targetGrains / grainSampleLength;
     float grainSpacing = grainSampleLength / targetGrains;
@@ -224,7 +225,7 @@ public:
         Grain* g = grains[gidx];
         float grainDelay = i > grainTriggerDelay ? i : grainTriggerDelay;
         int head = recordLeft->getWriteIndex() - size + i;
-        float grainEndPos = (float)head / recordBufferSize;
+        float grainEndPos = (float)head / RECORD_BUFFER_SIZE;
         float pan = 0.5f + (randf() - 0.5f)*grainSpread;
         float vel = 1.0f + (randf() * 2 - 1.0f)*grainVelocity;
         g->trigger(grainDelay, grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan, vel);

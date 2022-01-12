@@ -6,8 +6,8 @@ class Grain : public SignalGenerator, MultiSignalGenerator
 {
   float* left;
   float* right;
-  int bufferSize;
-  int sampleRate;
+  const int bufferSize;
+  const int bufferWrapMask;
   int preDelay;
   float ramp;
   float start;
@@ -20,9 +20,10 @@ class Grain : public SignalGenerator, MultiSignalGenerator
   float rightScale;
 
 public:
+  // buffer size argument must be power of two!
   Grain(float* inLeft, float* inRight, int bufferSz, int sr)
-    : left(inLeft), right(inRight), bufferSize(bufferSz)
-    , sampleRate(sr), preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
+    : left(inLeft), right(inRight), bufferSize(bufferSz), bufferWrapMask(bufferSz - 1)
+    , preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
     , leftScale(1), rightScale(1), isDone(true)
   {
@@ -78,7 +79,7 @@ public:
     const int i = (int)pos;
     const int j = i + 1;
     const float t = pos - i;
-    float sample = interpolated(left[i%bufferSize], left[j%bufferSize], t) * envelope();
+    float sample = interpolated(left[i&bufferWrapMask], left[j&bufferWrapMask], t) * envelope();
 
     // keep looping, but silently, mainly so we can keep track of grain performance
     if ((ramp += speed) >= size)
@@ -118,8 +119,8 @@ public:
       // removing modulo and using ternary logic doesn't improve performance.
       const float pos = start + ramp;
       const float t = pos - (int)pos;
-      const int i = ((int)pos) % bufferSize;
-      const int j = (i + 1) % bufferSize;
+      const int i = ((int)pos) & bufferWrapMask;
+      const int j = (i + 1) & bufferWrapMask;
       const float env = envelope();
 
       // biggest perf hit is here
