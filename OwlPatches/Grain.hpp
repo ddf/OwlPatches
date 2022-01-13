@@ -137,8 +137,8 @@ public:
       // not sure where the extra time comes from with the first sample,
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
-      *outL++ = interpolated(left[i], left[j], t) * env;
-      *outR++ = interpolated(right[i], right[j], t) * env;
+      *outL++ = interpolated(left[i], left[j], t) * env * leftScale;
+      *outR++ = interpolated(right[i], right[j], t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
@@ -149,10 +149,6 @@ public:
         isDone = true;
       }
     }
-
-    // apply scaling
-    genLeft.multiply(leftScale);
-    genRight.multiply(rightScale);
   }
 
 private:
