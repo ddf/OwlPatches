@@ -304,8 +304,8 @@ public:
     const float dryAmt = 1.0f - wetAmt;
     for (int i = 0; i < size; ++i)
     {
-      inOutLeft[i]  = inOutLeft[i]*dryAmt  + feedLeft[i]*wetAmt;
-      inOutRight[i] = inOutRight[i]*dryAmt + feedRight[i]*wetAmt;
+      inOutLeft[i]  = inOutLeft[i]*dryAmt  + grainLeft[i]*wetAmt;
+      inOutRight[i] = inOutRight[i]*dryAmt + grainRight[i]*wetAmt;
     }
 
     setButton(inFreeze, freeze);
