@@ -66,7 +66,8 @@ class GrainzPatch : public Patch
   int   playedGate;
 
   AudioBuffer* feedbackBuffer;
-  StereoBiquadFilter* feedbackFilter;
+  BiquadFilter* feedbackFilterLeft;
+  BiquadFilter* feedbackFilterRight;
 
   SmoothFloat grainOverlap;
   SmoothFloat grainPosition;
@@ -89,7 +90,8 @@ public:
   {
     voct.setTune(-4);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
-    feedbackFilter = StereoBiquadFilter::create(getSampleRate());
+    feedbackFilterLeft = BiquadFilter::create(getSampleRate());
+    feedbackFilterRight = BiquadFilter::create(getSampleRate());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
     recordLeft = RecordBuffer::create(RECORD_BUFFER_SIZE);
@@ -125,7 +127,8 @@ public:
   ~GrainzPatch()
   {
     StereoDcBlockingFilter::destroy(dcFilter);
-    StereoBiquadFilter::destroy(feedbackFilter);
+    BiquadFilter::destroy(feedbackFilterLeft);
+    BiquadFilter::destroy(feedbackFilterRight);
     AudioBuffer::destroy(feedbackBuffer);
 
     RecordBuffer::destroy(recordLeft);
@@ -199,8 +202,10 @@ public:
     {
       // Note: the way feedback is applied is based on how Clouds does it
       float cutoff = (20.0f + 100.0f * feedback * feedback);
-      feedbackFilter->setHighPass(cutoff, 1);
-      feedbackFilter->process(*feedbackBuffer, *feedbackBuffer);
+      feedbackFilterLeft->setHighPass(cutoff, 1);
+      feedbackFilterLeft->process(feedLeft);
+      feedbackFilterRight->setHighPass(cutoff, 1);
+      feedbackFilterRight->process(feedRight);
       float softLimitCoeff = feedback * 1.4f;
       for (int i = 0; i < size; ++i)
       {
