@@ -22,7 +22,7 @@ class Grain : public SignalGenerator, MultiSignalGenerator
 
 public:
   // buffer size argument must be power of two!
-  Grain(float* inLeft, float* inRight, int bufferSz, int sr)
+  Grain(float* inLeft, float* inRight, int bufferSz)
     : left(inLeft), right(inRight), bufferSize(bufferSz), bufferWrapMask(bufferSz - 1)
     , preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
