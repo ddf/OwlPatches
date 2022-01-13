@@ -203,8 +203,10 @@ public:
       feedbackFilter->process(*feedbackBuffer, *feedbackBuffer);
       for (int i = 0; i < size; ++i)
       {
-        recordLeft->write(inOutLeft[i] + feedback * (SoftLimit(feedback * 1.4f * feedLeft[i] + inOutLeft[i]) - inOutLeft[i]));
-        recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * feedRight[i] + inOutRight[i]) - inOutRight[i]));
+        float left = inOutLeft[i];
+        float right = inOutRight[i];
+        recordLeft->write(left + feedback * (SoftLimit(feedback * 1.4f * feedLeft[i] + left) - left));
+        recordRight->write(right + feedback * (SoftLimit(feedback * 1.4f * feedRight[i] + right) - right));
       }
     }
 
@@ -287,7 +289,7 @@ public:
 #endif
 
     const float wetAmt = dryWet;
-    const float dryAmt = 1.0f - wetAmt;    
+    const float dryAmt = 1.0f - wetAmt;
     for (int i = 0; i < size; ++i)
     {
       inOutLeft[i]  = inOutLeft[i]*dryAmt  + feedLeft[i]*wetAmt;
