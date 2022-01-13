@@ -206,12 +206,13 @@ public:
       feedbackFilterLeft->process(feedLeft);
       feedbackFilterRight->setHighPass(cutoff, 1);
       feedbackFilterRight->process(feedRight);
+      float softLimitCoeff = feedback * 1.4f;
       for (int i = 0; i < size; ++i)
       {
         float left = inOutLeft[i];
         float right = inOutRight[i];
-        recordLeft->write(left + feedback * (SoftLimit(feedLeft[i] + left) - left));
-        recordRight->write(right + feedback * (SoftLimit(feedRight[i] + right) - right));
+        recordLeft->write(left + feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left));
+        recordRight->write(right + feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right));
       }
     }
 
@@ -282,12 +283,8 @@ public:
     float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
     grainLeft.scale(fromGainAdjust, toGainAdjust);
     grainRight.scale(fromGainAdjust, toGainAdjust);
-
-    // boost feedback for soft limiting next block via a multiply, to get the multiply and copy into one ARM call.
-    // I don't *think* this will impact the high pass filtering?
-    float softLimitCoeff = feedback * 1.4f;
-    grainLeft.multiply(softLimitCoeff, feedLeft);
-    grainRight.multiply(softLimitCoeff, feedRight);
+    grainLeft.copyTo(feedLeft);
+    grainRight.copyTo(feedRight);
 
     if (activeGrains > 0)
     {
