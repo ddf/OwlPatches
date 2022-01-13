@@ -288,11 +288,18 @@ public:
 
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
-    for (int i = 0; i < size; ++i)
-    {
-      inOutLeft[i]  = inOutLeft[i]*dryAmt  + feedLeft[i]*wetAmt;
-      inOutRight[i] = inOutRight[i]*dryAmt + feedRight[i]*wetAmt;
-    }
+    grainLeft.multiply(wetAmt);
+    grainRight.multiply(wetAmt);
+    inOutLeft.multiply(dryAmt);
+    inOutLeft.multiply(dryAmt);
+    inOutLeft.add(grainLeft);
+    inOutRight.add(grainRight);
+    
+    //for (int i = 0; i < size; ++i)
+    //{
+    //  inOutLeft[i]  = inOutLeft[i]*dryAmt  + feedLeft[i]*wetAmt;
+    //  inOutRight[i] = inOutRight[i]*dryAmt + feedRight[i]*wetAmt;
+    //}
 
     setButton(inFreeze, freeze);
     setButton(outGrainPlayed, playedGate > 0);
