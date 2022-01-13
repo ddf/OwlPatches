@@ -157,12 +157,12 @@ private:
 public:
   static Grain* create(float* buffer, int size, int sampleRate)
   {
-    return new Grain(buffer, buffer, size, sampleRate);
+    return new Grain(buffer, buffer, size);
   }
 
-  static Grain* create(float* left, float* right, int size, int sampleRate)
+  static Grain* create(float* left, float* right, int size)
   {
-    return new Grain(left, right, size, sampleRate);
+    return new Grain(left, right, size);
   }
 
   static void destroy(Grain* grain)
