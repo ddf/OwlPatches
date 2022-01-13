@@ -93,7 +93,6 @@ public:
     return sample;
   }
 
-  // will overwrite the contents of the provided buffer
   void generate(AudioBuffer& output) override
   {
     int outLen = output.getSize();
@@ -103,7 +102,6 @@ public:
     generate(outL, outR, outLen);
   }
 
-  // will overwrite the contents of the provided buffers
   void generate(FloatArray genLeft, FloatArray genRight, int genLen)
   {
     const int skip = min(preDelay, genLen);
@@ -111,10 +109,7 @@ public:
     {
       preDelay -= skip;
       genLen -= skip;
-
-      genLeft.subArray(0, skip).setAll(0);
       genLeft = genLeft.subArray(skip, genLen);
-      genRight.subArray(0, skip).setAll(0);
       genRight = genRight.subArray(skip, genLen);
     }
 
@@ -137,8 +132,8 @@ public:
       // not sure where the extra time comes from with the first sample,
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
-      *outL++ = interpolated(left[i], left[j], t) * env * leftScale;
-      *outR++ = interpolated(right[i], right[j], t) * env * rightScale;
+      *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
+      *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain

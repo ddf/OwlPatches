@@ -250,7 +250,7 @@ public:
 #ifdef PROFILE
     const float genStart = getElapsedBlockTime();
 #endif
-    feedbackBuffer->clear();
+    grainBuffer->clear();
     float avgProgress = 0;
     float avgEnvelope = 0;
     int prevActiveGrains = activeGrains;
@@ -268,9 +268,8 @@ public:
       }
 
       g->generate(grainLeft, grainRight, size);
-      feedLeft.add(grainLeft);
-      feedRight.add(grainRight);
     }
+    grainBuffer->copyTo(*feedbackBuffer);
     //float fromGainAdjust = prevActiveGrains > 1 ? 1.0f / sqrtf((float)prevActiveGrains) : 1;
     //float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
     //feedRight.scale(fromGainAdjust, toGainAdjust);
