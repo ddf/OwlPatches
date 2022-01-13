@@ -201,12 +201,13 @@ public:
       float cutoff = (20.0f + 100.0f * feedback * feedback);
       feedbackFilter->setHighPass(cutoff, 1);
       feedbackFilter->process(*feedbackBuffer, *feedbackBuffer);
+      float softLimitCoeff = feedback * 1.4f;
       for (int i = 0; i < size; ++i)
       {
         float left = inOutLeft[i];
         float right = inOutRight[i];
-        recordLeft->write(left + feedback * (SoftLimit(feedback * 1.4f * feedLeft[i] + left) - left));
-        recordRight->write(right + feedback * (SoftLimit(feedback * 1.4f * feedRight[i] + right) - right));
+        recordLeft->write(left + feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left));
+        recordRight->write(right + feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right));
       }
     }
 
