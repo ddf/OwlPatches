@@ -226,6 +226,7 @@ public:
     }
 
     int numAvailableGrains = updateAvailableGrains();
+    const int readIdx = recordLeft->getWriteIndex() - size;
     for (int i = 0; i < size; ++i)
     {
       grainRatePhasor += 1.0f;
@@ -238,7 +239,7 @@ public:
         int gidx = availableGrains[numAvailableGrains];
         Grain* g = grains[gidx];
         float grainDelay = i > grainTriggerDelay ? i : grainTriggerDelay;
-        int head = recordLeft->getWriteIndex() - size + i;
+        int head = readIdx + i;
         float grainEndPos = (float)head / RECORD_BUFFER_SIZE;
         float pan = 0.5f + (randf() - 0.5f)*grainSpread;
         float vel = 1.0f + (randf() * 2 - 1.0f)*grainVelocity;
