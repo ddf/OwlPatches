@@ -271,10 +271,10 @@ public:
       feedLeft.add(grainLeft);
       feedRight.add(grainRight);
     }
-    float fromGainAdjust = prevActiveGrains > 1 ? 1.0f / sqrtf((float)prevActiveGrains) : 1;
-    float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
-    feedRight.scale(fromGainAdjust, toGainAdjust);
-    feedLeft.scale(fromGainAdjust, toGainAdjust);
+    //float fromGainAdjust = prevActiveGrains > 1 ? 1.0f / sqrtf((float)prevActiveGrains) : 1;
+    //float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
+    //feedRight.scale(fromGainAdjust, toGainAdjust);
+    //feedLeft.scale(fromGainAdjust, toGainAdjust);
 
     if (activeGrains > 0)
     {
