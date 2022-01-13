@@ -269,11 +269,11 @@ public:
 
       g->generate(grainLeft, grainRight, size);
     }
+    float fromGainAdjust = prevActiveGrains > 1 ? 1.0f / sqrtf((float)prevActiveGrains) : 1;
+    float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
+    grainLeft.scale(fromGainAdjust, toGainAdjust);
+    grainRight.scale(fromGainAdjust, toGainAdjust);
     grainBuffer->copyTo(*feedbackBuffer);
-    //float fromGainAdjust = prevActiveGrains > 1 ? 1.0f / sqrtf((float)prevActiveGrains) : 1;
-    //float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
-    //feedRight.scale(fromGainAdjust, toGainAdjust);
-    //feedLeft.scale(fromGainAdjust, toGainAdjust);
 
     if (activeGrains > 0)
     {

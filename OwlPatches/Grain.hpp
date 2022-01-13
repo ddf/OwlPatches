@@ -132,6 +132,7 @@ public:
       // not sure where the extra time comes from with the first sample,
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
+      // on the forums it was pointed out that accessing the array is just slow because it lives in SDRAM.
       *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
       *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
 
