@@ -254,7 +254,8 @@ public:
 #ifdef PROFILE
     const float genStart = getElapsedBlockTime();
 #endif
-    grainBuffer->clear();
+    grainLeft.clear();
+    grainRight.clear();
     float avgProgress = 0;
     float avgEnvelope = 0;
     int prevActiveGrains = activeGrains;
@@ -277,7 +278,8 @@ public:
     float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
     grainLeft.scale(fromGainAdjust, toGainAdjust);
     grainRight.scale(fromGainAdjust, toGainAdjust);
-    grainBuffer->copyTo(*feedbackBuffer);
+    grainLeft.copyTo(feedLeft);
+    grainRight.copyTo(feedRight);
 
     if (activeGrains > 0)
     {
