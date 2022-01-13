@@ -1,5 +1,6 @@
 #include "SignalGenerator.h"
 #include "Envelope.h"
+#include "FloatArray.h"
 #include "basicmaths.h"
 
 class Grain : public SignalGenerator, MultiSignalGenerator
@@ -92,28 +93,35 @@ public:
     return sample;
   }
 
-
+  // will overwrite the contents of the provided buffer
   void generate(AudioBuffer& output) override
   {
     int outLen = output.getSize();
-    float* outL = output.getSamples(0);
-    float* outR = output.getSamples(1);
+    FloatArray outL = output.getSamples(0);
+    FloatArray outR = output.getSamples(1);
 
     generate(outL, outR, outLen);
   }
 
-  void generate(float* outL, float* outR, int outLen)
+  // will overwrite the contents of the provided buffers
+  void generate(FloatArray genLeft, FloatArray genRight, int genLen)
   {
-    const int skip = min(preDelay, outLen);
+    const int skip = min(preDelay, genLen);
     if (skip)
     {
-      outL += skip;
-      outR += skip;
       preDelay -= skip;
-      outLen -= skip;
+      genLen -= skip;
+
+      genLeft.subArray(0, skip).setAll(0);
+      genLeft = genLeft.subArray(skip, genLen);
+      genRight.subArray(0, skip).setAll(0);
+      genRight = genRight.subArray(skip, genLen);
     }
 
-    while(outLen--)
+    float* outL = genLeft.getData();
+    float* outR = genRight.getData();
+
+    while(genLen--)
     {
       // setting all of these is basically free.
       // removing modulo and using ternary logic doesn't improve performance.
@@ -129,8 +137,8 @@ public:
       // not sure where the extra time comes from with the first sample,
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
-      *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
-      *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
+      *outL++ = interpolated(left[i], left[j], t) * env;
+      *outR++ = interpolated(right[i], right[j], t) * env;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
@@ -141,6 +149,10 @@ public:
         isDone = true;
       }
     }
+
+    // apply scaling
+    genLeft.multiply(leftScale);
+    genRight.multiply(rightScale);
   }
 
 private:

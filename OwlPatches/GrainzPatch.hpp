@@ -65,6 +65,7 @@ class GrainzPatch : public Patch
   const int playedGateSampleLength;
   int   playedGate;
 
+  AudioBuffer* feedbackBuffer;
   StereoBiquadFilter* feedbackFilter;
 
   SmoothFloat grainOverlap;
@@ -89,6 +90,7 @@ public:
     voct.setTune(-4);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     feedbackFilter = StereoBiquadFilter::create(getSampleRate());
+    feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
     recordLeft = RecordBuffer::create(RECORD_BUFFER_SIZE);
     recordRight = RecordBuffer::create(RECORD_BUFFER_SIZE);
@@ -124,6 +126,7 @@ public:
   {
     StereoDcBlockingFilter::destroy(dcFilter);
     StereoBiquadFilter::destroy(feedbackFilter);
+    AudioBuffer::destroy(feedbackBuffer);
 
     RecordBuffer::destroy(recordLeft);
     RecordBuffer::destroy(recordRight);
@@ -161,6 +164,8 @@ public:
     FloatArray inOutRight = audio.getSamples(1);
     FloatArray grainLeft = grainBuffer->getSamples(0);
     FloatArray grainRight = grainBuffer->getSamples(1);
+    FloatArray feedLeft = feedbackBuffer->getSamples(0);
+    FloatArray feedRight = feedbackBuffer->getSamples(1);
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float grainDensity = getParameterValue(inDensity);
@@ -195,11 +200,11 @@ public:
       // Note: the way feedback is applied is based on how Clouds does it
       float cutoff = (20.0f + 100.0f * feedback * feedback);
       feedbackFilter->setHighPass(cutoff, 1);
-      feedbackFilter->process(*grainBuffer, *grainBuffer);
+      feedbackFilter->process(*feedbackBuffer, *feedbackBuffer);
       for (int i = 0; i < size; ++i)
       {
-        recordLeft->write(inOutLeft[i] + feedback * (SoftLimit(feedback * 1.4f * grainLeft[i] + inOutLeft[i]) - inOutLeft[i]));
-        recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * grainRight[i] + inOutRight[i]) - inOutRight[i]));
+        recordLeft->write(inOutLeft[i] + feedback * (SoftLimit(feedback * 1.4f * feedLeft[i] + inOutLeft[i]) - inOutLeft[i]));
+        recordRight->write(inOutRight[i] + feedback * (SoftLimit(feedback * 1.4f * feedRight[i] + inOutRight[i]) - inOutRight[i]));
       }
     }
 
@@ -245,9 +250,10 @@ public:
 #ifdef PROFILE
     const float genStart = getElapsedBlockTime();
 #endif
-    grainBuffer->clear();
+    feedbackBuffer->clear();
     float avgProgress = 0;
     float avgEnvelope = 0;
+    int prevActiveGrains = activeGrains;
     activeGrains = 0;
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
@@ -262,7 +268,13 @@ public:
       }
 
       g->generate(grainLeft, grainRight, size);
+      feedLeft.add(grainLeft);
+      feedRight.add(grainRight);
     }
+    float fromGainAdjust = prevActiveGrains > 1 ? 1.0f / sqrtf((float)prevActiveGrains) : 1;
+    float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
+    feedRight.scale(fromGainAdjust, toGainAdjust);
+    feedLeft.scale(fromGainAdjust, toGainAdjust);
 
     if (activeGrains > 0)
     {
@@ -279,8 +291,8 @@ public:
     const float dryAmt = 1.0f - wetAmt;
     for (int i = 0; i < size; ++i)
     {
-      inOutLeft[i]  = inOutLeft[i]*dryAmt  + grainLeft[i]*wetAmt;
-      inOutRight[i] = inOutRight[i]*dryAmt + grainRight[i]*wetAmt;
+      inOutLeft[i]  = inOutLeft[i]*dryAmt  + feedLeft[i]*wetAmt;
+      inOutRight[i] = inOutRight[i]*dryAmt + feedRight[i]*wetAmt;
     }
 
     setButton(inFreeze, freeze);
