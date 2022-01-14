@@ -112,9 +112,10 @@ public:
     FloatArray outL = output.getSamples(0);
     FloatArray outR = output.getSamples(1);
 
-    generate(outL, outR, outLen);
+    generate<false>(outL, outR, outLen);
   }
 
+  template<bool clear>
   void generate(FloatArray genLeft, FloatArray genRight, int genLen)
   {
     const int skip = min(preDelay, genLen);
@@ -122,6 +123,10 @@ public:
     {
       preDelay -= skip;
       genLen -= skip;
+      if constexpr(clear) {
+        genLeft.subArray(0, skip).clear();
+        genRight.subArray(0, skip).clear();
+      }
       genLeft = genLeft.subArray(skip, genLen);
       genRight = genRight.subArray(skip, genLen);
     }
@@ -146,16 +151,28 @@ public:
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
       // on the forums it was pointed out that accessing the array is just slow because it lives in SDRAM.
-      *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
-      *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
+      if constexpr(clear) {
+        *outL++ = interpolated(left[i], left[j], t) * env * leftScale;
+        *outR++ = interpolated(right[i], right[j], t) * env * rightScale;
+      }
+      else {
+        *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
+        *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
+      }
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
       if ((ramp += speed) >= size)
       {
-        ramp -= size;
-        attackMult = decayMult = 0;
+        ramp = size;
+        //ramp -= size;
+        //attackMult = decayMult = 0;
         isDone = true;
+        if constexpr(clear) {
+          memset(outL, 0, sizeof(float) * genLen);
+          memset(outR, 0, sizeof(float) * genLen);
+        }
+        break;
       }
     }
   }
