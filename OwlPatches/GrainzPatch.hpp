@@ -77,6 +77,7 @@ class GrainzPatch : public Patch
   SmoothFloat grainVelocity;
   SmoothFloat feedback;
   SmoothFloat dryWet;
+  float norms[MAX_GRAINS + 1];
 
 public:
   GrainzPatch()
@@ -87,6 +88,10 @@ public:
     , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0)
     , voct(-0.5f, 4)
   {
+    norms[0] = 1;
+    for (int i = 1; i < MAX_GRAINS + 1; i++) {
+      norms[i] = 1 / sqrtf(i);
+    }
     voct.setTune(-4);
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     feedbackFilterLeft = BiquadFilter::create(getSampleRate());
@@ -135,7 +140,6 @@ public:
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
       Grain::destroy(grains[i]);
-      Grain::destroy(grains[i + 1]);
     }
   }
 
@@ -257,12 +261,11 @@ public:
 #ifdef PROFILE
     const float genStart = getElapsedBlockTime();
 #endif
-    grainLeft.clear();
-    grainRight.clear();
     float avgProgress = 0;
     float avgEnvelope = 0;
     int prevActiveGrains = activeGrains;
     activeGrains = 0;
+    bool clear = true;
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
@@ -273,12 +276,21 @@ public:
         avgEnvelope += g->envelope();
         avgProgress += g->progress();
         ++activeGrains;
+        if (clear) {
+          g->generate<true>(grainLeft, grainRight, size);
+          clear = false;
+        }
+        else {
+          g->generate<false>(grainLeft, grainRight, size);
+        }
       }
-
-      g->generate(grainLeft, grainRight, size);
     }
-    float fromGainAdjust = prevActiveGrains > 1 ? 1.0f / sqrtf((float)prevActiveGrains) : 1;
-    float toGainAdjust = activeGrains > 1 ? 1.0f / sqrtf((float)activeGrains) : 1;
+    if (clear) {
+      grainLeft.clear();
+      grainRight.clear();
+    }
+    float fromGainAdjust = norms[prevActiveGrains];
+    float toGainAdjust = norms[activeGrains];
     grainLeft.scale(fromGainAdjust, toGainAdjust);
     grainRight.scale(fromGainAdjust, toGainAdjust);
     grainLeft.copyTo(feedLeft);
