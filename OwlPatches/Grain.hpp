@@ -6,7 +6,7 @@
 // tried out recording to a sample buffer of shorts,
 // which requires converting back to float when a grain reads from the buffer.
 // this turned out to be quite a bit slower than just operating on the float buffer.
-#if 0
+#if 1
 typedef float Sample;
 #define SampleToFloat 1
 #define FloatToSample 1
