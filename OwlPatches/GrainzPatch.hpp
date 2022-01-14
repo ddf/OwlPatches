@@ -6,7 +6,7 @@
 #include "Grain.hpp"
 #include "custom_dsp.h" // for SoftLimit
 
-#define PROFILE
+//#define PROFILE
 
 #ifdef PROFILE
 #include <string.h>
