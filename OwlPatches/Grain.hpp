@@ -135,6 +135,11 @@ public:
     float* outL = genLeft.getData();
     float* outR = genRight.getData();
 
+    // keep track of the most recently accessed samples
+    // to reduce redundant reads from the array at lower speeds
+    int pi = -1; Sample psi;
+    int pj = -1; Sample psj;
+
     while(genLen--)
     {
       // setting all of these is basically free.
@@ -144,8 +149,8 @@ public:
       const int i = ((int)pos) & bufferWrapMask;
       const int j = (i + 1) & bufferWrapMask;
       const float env = envelope();
-      const Sample si = buffer[i];
-      const Sample sj = buffer[j];
+      const Sample si = (i==pi) ? psi : (i==pj) ? psj : buffer[i];
+      const Sample sj = (j==pj) ? psj : buffer[j];
 
       // biggest perf hit is here
       // time jumps from 50ns to 297ns uncommenting only one of these.
@@ -162,6 +167,9 @@ public:
         *outL++ += interpolated(si.re, sj.re, t) * env * leftScale;
         *outR++ += interpolated(si.im, sj.im, t) * env * rightScale;
       }
+
+      pi = i; psi = si;
+      pj = j; psj = sj;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
