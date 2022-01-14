@@ -171,7 +171,7 @@ private:
   }
 
 public:
-  static Grain* create(Sample* buffer, int size, int sampleRate)
+  static Grain* create(Sample* buffer, int size)
   {
     return new Grain(buffer, size);
   }
