@@ -135,7 +135,7 @@ public:
     float* outL = genLeft.getData();
     float* outR = genRight.getData();
 
-    static Sample[130] scratch;
+    static Sample scratch[130];
     
     // copy the buffer data we need into our scratch array
     if (genLen)
