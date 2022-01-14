@@ -162,7 +162,7 @@ public:
 
 private:
 
-  inline float interpolated(Sample a, Sample b, float t) const
+  inline float interpolated(float a, float b, float t) const
   {
     return (a + t * (b - a)) * SampleToFloat;
   }
