@@ -135,22 +135,22 @@ public:
     float* outL = genLeft.getData();
     float* outR = genRight.getData();
 
-    static Sample scratch[130];
+    static Sample scratch[256];
     
     // copy the buffer data we need into our scratch array
     if (genLen)
     {
       int offset = ((int)(start + ramp)) & bufferWrapMask;
-      int readLen = (int)(genLen*speed) + 1;
+      int readLen = ((int)(genLen*speed)) + 1;
       int rem = bufferSize - offset;
-      if (readLen >= rem)
+      if (readLen > rem)
       { 
         memcpy(scratch, buffer + offset, rem*sizeof(Sample));
         memcpy(scratch + rem, buffer, (readLen - rem)*sizeof(Sample));
       }
       else
       {
-        memcpy(scratch, buffer + offset, readLen);
+        memcpy(scratch, buffer + offset, readLen*sizeof(Sample));
       }
     }
 
