@@ -3,10 +3,13 @@
 #include "FloatArray.h"
 #include "basicmaths.h"
 
+typedef float Sample;
+#define SampleToFloat 1
+
 class Grain : public SignalGenerator, MultiSignalGenerator
 {
-  float* left;
-  float* right;
+  Sample* left;
+  Sample* right;
   const int bufferSize;
   const int bufferWrapMask;
   int preDelay;
@@ -22,7 +25,7 @@ class Grain : public SignalGenerator, MultiSignalGenerator
 
 public:
   // buffer size argument must be power of two!
-  Grain(float* inLeft, float* inRight, int bufferSz)
+  Grain(Sample* inLeft, Sample* inRight, int bufferSz)
     : left(inLeft), right(inRight), bufferSize(bufferSz), bufferWrapMask(bufferSz - 1)
     , preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
@@ -80,7 +83,7 @@ public:
     const int i = (int)pos;
     const int j = i + 1;
     const float t = pos - i;
-    float sample = interpolated(left[i&bufferWrapMask], left[j&bufferWrapMask], t) * envelope();
+    float sample = interpolated(left[i&bufferWrapMask]*SampleToFloat, left[j&bufferWrapMask]*SampleToFloat, t) * envelope();
 
     // keep looping, but silently, mainly so we can keep track of grain performance
     if ((ramp += speed) >= size)
@@ -133,8 +136,8 @@ public:
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
       // on the forums it was pointed out that accessing the array is just slow because it lives in SDRAM.
-      *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
-      *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
+      *outL++ += interpolated(left[i]*SampleToFloat, left[j]*SampleToFloat, t) * env * leftScale;
+      *outR++ += interpolated(right[i]*SampleToFloat, right[j]*SampleToFloat, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
@@ -155,12 +158,12 @@ private:
   }
 
 public:
-  static Grain* create(float* buffer, int size, int sampleRate)
+  static Grain* create(Sample* buffer, int size, int sampleRate)
   {
     return new Grain(buffer, buffer, size);
   }
 
-  static Grain* create(float* left, float* right, int size)
+  static Grain* create(Sample* left, Sample* right, int size)
   {
     return new Grain(left, right, size);
   }

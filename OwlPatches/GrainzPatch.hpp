@@ -14,7 +14,7 @@
 
 using namespace daisysp;
 
-typedef CircularFloatBuffer RecordBuffer;
+typedef CircularBuffer<Sample> RecordBuffer;
 
 // TODO: want more grains, but not sure how much more optimizing can be done
 static const int MAX_GRAINS = 18;
