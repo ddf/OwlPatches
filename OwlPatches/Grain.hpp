@@ -135,22 +135,38 @@ public:
     float* outL = genLeft.getData();
     float* outR = genRight.getData();
 
-    // keep track of the most recently accessed samples
-    // to reduce redundant reads from the array at lower speeds
-    int pi = -1; Sample psi;
-    int pj = -1; Sample psj;
+    static Sample[130] scratch;
+    
+    // copy the buffer data we need into our scratch array
+    if (genLen)
+    {
+      int offset = ((int)(start + ramp)) & bufferWrapMask;
+      int readLen = (int)(genLen*speed) + 1;
+      int rem = bufferSize - offset;
+      if (readLen >= rem)
+      { 
+        memcpy(scratch, buffer + offset, rem*sizeof(Sample));
+        memcpy(scratch + rem, buffer, (readLen - rem)*sizeof(Sample));
+      }
+      else
+      {
+        memcpy(scratch, offset, readLen);
+      }
+    }
+
+    const float rampBegin = ramp;
 
     while(genLen--)
     {
       // setting all of these is basically free.
       // removing modulo and using ternary logic doesn't improve performance.
-      const float pos = start + ramp;
+      const float pos = ramp - rampBegin;
       const float t = pos - (int)pos;
-      const int i = ((int)pos) & bufferWrapMask;
-      const int j = (i + 1) & bufferWrapMask;
+      const int i = ((int)pos);
+      const int j = (i + 1);
       const float env = envelope();
-      const Sample si = (i==pi) ? psi : (i==pj) ? psj : buffer[i];
-      const Sample sj = (j==pj) ? psj : buffer[j];
+      const Sample si = scratch[i];
+      const Sample sj = scratch[j];
 
       // biggest perf hit is here
       // time jumps from 50ns to 297ns uncommenting only one of these.
@@ -167,9 +183,6 @@ public:
         *outL++ += interpolated(si.re, sj.re, t) * env * leftScale;
         *outR++ += interpolated(si.im, sj.im, t) * env * rightScale;
       }
-
-      pi = i; psi = si;
-      pj = j; psj = sj;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
