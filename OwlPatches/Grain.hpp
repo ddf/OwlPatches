@@ -141,9 +141,9 @@ public:
     if (genLen)
     {
       int offset = ((int)(start + ramp)) & bufferWrapMask;
-      int readLen = ((int)(genLen*speed)) + 1;
+      int readLen = ((int)(genLen*speed)) + 2;
       int rem = bufferSize - offset;
-      if (readLen > rem)
+      if (readLen >= rem)
       { 
         memcpy(scratch, buffer + offset, rem*sizeof(Sample));
         memcpy(scratch + rem, buffer, (readLen - rem)*sizeof(Sample));
