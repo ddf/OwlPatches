@@ -160,7 +160,8 @@ public:
   {
 #ifdef PROFILE
     char debugMsg[64];
-    char* debugCpy = debugMsg;
+    char* debugCpy = stpcpy(debugMsg, "blk ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(audio.getSize(), 10));
     const float processStart = getElapsedBlockTime();
 #endif
     const int size = audio.getSize();
@@ -303,7 +304,9 @@ public:
     }
 #ifdef PROFILE
     const float genTime = getElapsedBlockTime() - genStart;
-    debugCpy = stpcpy(debugCpy, " gen ");
+    debugCpy = stpcpy(debugCpy, " gen(");
+    debugCpy = stpcpy(debugCpy, msg_itoa(activeGrains, 10));
+    debugCpy = stpcpy(debugCpy, ") ");
     debugCpy = stpcpy(debugCpy, msg_itoa((int)(genTime * 1000), 10));
 #endif
 
