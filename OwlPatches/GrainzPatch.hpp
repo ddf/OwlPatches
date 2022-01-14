@@ -14,12 +14,11 @@
 
 using namespace daisysp;
 
-typedef CircularBuffer<Sample> RecordBuffer;
-
 // TODO: want more grains, but not sure how much more optimizing can be done
 static const int MAX_GRAINS = 24;
 // must be power of two
 static const int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
+static const int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 
 class GrainzPatch : public Patch
 {
@@ -46,7 +45,8 @@ class GrainzPatch : public Patch
   StereoDcBlockingFilter* dcFilter;
   VoltsPerOctave voct;
 
-  RecordBuffer* recordBuffer;
+  Sample* recordBuffer;
+  int recordWriteIndex;
 
   Grain* grains[MAX_GRAINS];
   int availableGrains[MAX_GRAINS];
@@ -81,7 +81,7 @@ class GrainzPatch : public Patch
 
 public:
   GrainzPatch()
-    : recordBuffer(0), grainBuffer(0)
+    : recordBuffer(0), recordWriteIndex(0), grainBuffer(0)
     , grainRatePhasor(0), grainTriggered(false), activeGrains(0), freeze(OFF)
     , minGrainSize(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 8ms
     , maxGrainSize(getSampleRate()*1.0f / RECORD_BUFFER_SIZE) // 1 second
@@ -98,12 +98,12 @@ public:
     feedbackFilterRight = BiquadFilter::create(getSampleRate());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    recordBuffer = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    recordBuffer = new Sample[RECORD_BUFFER_SIZE];
     grainBuffer = AudioBuffer::create(2, getBlockSize());
 
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
-      grains[i] = Grain::create(recordBuffer->getData(), RECORD_BUFFER_SIZE);
+      grains[i] = Grain::create(recordBuffer, RECORD_BUFFER_SIZE);
     }
 
     registerParameter(inPosition, "Position");
@@ -133,9 +133,9 @@ public:
     BiquadFilter::destroy(feedbackFilterLeft);
     BiquadFilter::destroy(feedbackFilterRight);
     AudioBuffer::destroy(feedbackBuffer);
-
-    RecordBuffer::destroy(recordBuffer);
     AudioBuffer::destroy(grainBuffer);
+
+    delete[] recordBuffer;
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
@@ -215,7 +215,8 @@ public:
         float right = inOutRight[i];
         left += feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
         right += feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
-        recordBuffer->write(Sample(left*FloatToSample, right*FloatToSample));
+        recordBuffer[recordWriteIndex] = Sample(left*FloatToSample, right*FloatToSample);
+        recordWriteIndex = (recordWriteIndex + 1) & RECORD_BUFFER_WRAP;
       }
     }
 
@@ -234,7 +235,7 @@ public:
     }
 
     int numAvailableGrains = updateAvailableGrains();
-    const int readIdx = recordBuffer->getWriteIndex() - size;
+    const int readIdx = recordWriteIndex - size;
     for (int i = 0; i < size; ++i)
     {
       grainRatePhasor += 1.0f;
