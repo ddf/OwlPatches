@@ -9,7 +9,7 @@ typedef float Sample;
 #define FloatToSample 1
 #else
 typedef int16_t Sample;
-#define SampleToFloat (1.0f/32767)
+#define SampleToFloat 0.0000305185f // 1 / 32767
 #define FloatToSample 32767
 #endif
 
