@@ -340,8 +340,7 @@ private:
     {
       if (grains[gi]->isDone)
       {
-        availableGrains[count] = gi;
-        ++count;
+        availableGrains[count++] = gi;
       }
     }
     return count;
