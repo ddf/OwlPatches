@@ -3,6 +3,9 @@
 #include "FloatArray.h"
 #include "basicmaths.h"
 
+// tried out recording to a sample buffer of shorts,
+// which requires converting back to float when a grain reads from the buffer.
+// this turned out to be quite a bit slower than just operating on the float buffer.
 #if 0
 typedef float Sample;
 #define SampleToFloat 1
@@ -90,7 +93,7 @@ public:
     const int i = (int)pos;
     const int j = i + 1;
     const float t = pos - i;
-    float sample = interpolated(left[i&bufferWrapMask]*SampleToFloat, left[j&bufferWrapMask]*SampleToFloat, t) * envelope();
+    float sample = interpolated(left[i&bufferWrapMask], left[j&bufferWrapMask], t) * envelope();
 
     // keep looping, but silently, mainly so we can keep track of grain performance
     if ((ramp += speed) >= size)
@@ -143,8 +146,8 @@ public:
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
       // on the forums it was pointed out that accessing the array is just slow because it lives in SDRAM.
-      *outL++ += interpolated(left[i]*SampleToFloat, left[j]*SampleToFloat, t) * env * leftScale;
-      *outR++ += interpolated(right[i]*SampleToFloat, right[j]*SampleToFloat, t) * env * rightScale;
+      *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
+      *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
@@ -159,9 +162,9 @@ public:
 
 private:
 
-  inline float interpolated(float a, float b, float t) const
+  inline float interpolated(Sample a, Sample b, float t) const
   {
-    return a + t * (b - a);
+    return (a + t * (b - a)) * SampleToFloat;
   }
 
 public:
@@ -179,5 +182,4 @@ public:
   {
     delete grain;
   }
-
 };
