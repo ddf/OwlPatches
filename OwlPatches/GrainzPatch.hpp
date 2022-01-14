@@ -46,8 +46,7 @@ class GrainzPatch : public Patch
   StereoDcBlockingFilter* dcFilter;
   VoltsPerOctave voct;
 
-  RecordBuffer* recordLeft;
-  RecordBuffer* recordRight;
+  RecordBuffer* recordBuffer;
 
   Grain* grains[MAX_GRAINS];
   int availableGrains[MAX_GRAINS];
@@ -81,7 +80,7 @@ class GrainzPatch : public Patch
 
 public:
   GrainzPatch()
-    : recordLeft(0), recordRight(0), grainBuffer(0)
+    : recordBuffer(0), grainBuffer(0)
     , grainRatePhasor(0), grainTriggered(false), activeGrains(0), freeze(OFF)
     , minGrainSize(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 8ms
     , maxGrainSize(getSampleRate()*1.0f / RECORD_BUFFER_SIZE) // 1 second
@@ -94,13 +93,12 @@ public:
     feedbackFilterRight = BiquadFilter::create(getSampleRate());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    recordLeft = RecordBuffer::create(RECORD_BUFFER_SIZE);
-    recordRight = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    recordBuffer = RecordBuffer::create(RECORD_BUFFER_SIZE);
     grainBuffer = AudioBuffer::create(2, getBlockSize());
 
     for (int i = 0; i < MAX_GRAINS; ++i)
     {
-      grains[i] = Grain::create(recordLeft->getData(), recordRight->getData(), RECORD_BUFFER_SIZE);
+      grains[i] = Grain::create(recordBuffer->getData(), RECORD_BUFFER_SIZE);
     }
 
     registerParameter(inPosition, "Position");
@@ -131,8 +129,7 @@ public:
     BiquadFilter::destroy(feedbackFilterRight);
     AudioBuffer::destroy(feedbackBuffer);
 
-    RecordBuffer::destroy(recordLeft);
-    RecordBuffer::destroy(recordRight);
+    RecordBuffer::destroy(recordBuffer);
     AudioBuffer::destroy(grainBuffer);
 
     for (int i = 0; i < MAX_GRAINS; i+=2)
@@ -213,8 +210,7 @@ public:
         float right = inOutRight[i];
         left += feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
         right += feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
-        recordLeft->write(left*FloatToSample);
-        recordRight->write(right*FloatToSample);
+        recordBuffer->write(Sample(left*FloatToSample, right*FloatToSample));
       }
     }
 
@@ -233,7 +229,7 @@ public:
     }
 
     int numAvailableGrains = updateAvailableGrains();
-    const int readIdx = recordLeft->getWriteIndex() - size;
+    const int readIdx = recordBuffer->getWriteIndex() - size;
     for (int i = 0; i < size; ++i)
     {
       grainRatePhasor += 1.0f;

@@ -7,19 +7,20 @@
 // which requires converting back to float when a grain reads from the buffer.
 // this turned out to be quite a bit slower than just operating on the float buffer.
 #if 1
-typedef float Sample;
+#include "ComplexFloatArray.h"
+typedef ComplexFloat Sample;
 #define SampleToFloat 1
 #define FloatToSample 1
 #else
-typedef int16_t Sample;
+#include "ComplexShortArray.h"
+typedef ComplexShort Sample;
 #define SampleToFloat 0.0000305185f // 1 / 32767
 #define FloatToSample 32767
 #endif
 
 class Grain : public SignalGenerator, MultiSignalGenerator
 {
-  Sample* left;
-  Sample* right;
+  Sample* buffer;
   const int bufferSize;
   const int bufferWrapMask;
   int preDelay;
@@ -35,8 +36,8 @@ class Grain : public SignalGenerator, MultiSignalGenerator
 
 public:
   // buffer size argument must be power of two!
-  Grain(Sample* inLeft, Sample* inRight, int bufferSz)
-    : left(inLeft), right(inRight), bufferSize(bufferSz), bufferWrapMask(bufferSz - 1)
+  Grain(Sample* inBuffer, int bufferSz)
+    : buffer(inBuffer), bufferSize(bufferSz), bufferWrapMask(bufferSz - 1)
     , preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
     , size(bufferSize), speed(1), attackMult(0), decayMult(0)
     , leftScale(1), rightScale(1), isDone(true)
@@ -93,7 +94,7 @@ public:
     const int i = (int)pos;
     const int j = i + 1;
     const float t = pos - i;
-    float sample = interpolated(left[i&bufferWrapMask], left[j&bufferWrapMask], t) * envelope();
+    float sample = interpolated(buffer[i&bufferWrapMask].re, buffer[j&bufferWrapMask].re, t) * envelope();
 
     // keep looping, but silently, mainly so we can keep track of grain performance
     if ((ramp += speed) >= size)
@@ -138,6 +139,8 @@ public:
       const int i = ((int)pos) & bufferWrapMask;
       const int j = (i + 1) & bufferWrapMask;
       const float env = envelope();
+      const Sample si = buffer[i];
+      const Sample sj = buffer[j];
 
       // biggest perf hit is here
       // time jumps from 50ns to 297ns uncommenting only one of these.
@@ -146,8 +149,8 @@ public:
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
       // on the forums it was pointed out that accessing the array is just slow because it lives in SDRAM.
-      *outL++ += interpolated(left[i], left[j], t) * env * leftScale;
-      *outR++ += interpolated(right[i], right[j], t) * env * rightScale;
+      *outL++ += interpolated(si.re, sj.re, t) * env * leftScale;
+      *outR++ += interpolated(si.im, sj.im, t) * env * rightScale;
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
@@ -170,12 +173,7 @@ private:
 public:
   static Grain* create(Sample* buffer, int size, int sampleRate)
   {
-    return new Grain(buffer, buffer, size);
-  }
-
-  static Grain* create(Sample* left, Sample* right, int size)
-  {
-    return new Grain(left, right, size);
+    return new Grain(buffer, size);
   }
 
   static void destroy(Grain* grain)
