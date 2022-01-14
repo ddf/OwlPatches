@@ -3,8 +3,15 @@
 #include "FloatArray.h"
 #include "basicmaths.h"
 
+#if 0
 typedef float Sample;
 #define SampleToFloat 1
+#define FloatToSample 1
+#else
+typedef int16_t Sample;
+#define SampleToFloat (1.0f/32767)
+#define FloatToSample 32767
+#endif
 
 class Grain : public SignalGenerator, MultiSignalGenerator
 {

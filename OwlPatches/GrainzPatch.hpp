@@ -211,8 +211,10 @@ public:
       {
         float left = inOutLeft[i];
         float right = inOutRight[i];
-        recordLeft->write(left + feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left));
-        recordRight->write(right + feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right));
+        left += feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
+        right += feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
+        recordLeft->write(left*FloatToSample);
+        recordRight->write(right*FloatToSample);
       }
     }
 
