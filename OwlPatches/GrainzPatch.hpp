@@ -17,7 +17,7 @@ using namespace daisysp;
 typedef CircularBuffer<Sample> RecordBuffer;
 
 // TODO: want more grains, but not sure how much more optimizing can be done
-static const int MAX_GRAINS = 18;
+static const int MAX_GRAINS = 20;
 // must be power of two
 static const int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
 
