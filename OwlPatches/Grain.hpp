@@ -150,7 +150,7 @@ public:
       }
       else
       {
-        memcpy(scratch, offset, readLen);
+        memcpy(scratch, buffer + offset, readLen);
       }
     }
 
