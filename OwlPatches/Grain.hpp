@@ -141,6 +141,7 @@ public:
     if (genLen)
     {
       int offset = ((int)(start + ramp)) & bufferWrapMask;
+      // need at least two samples at slower speeds when genLen*speed truncates to 0
       int readLen = ((int)(genLen*speed)) + 2;
       int rem = bufferSize - offset;
       if (readLen >= rem)
