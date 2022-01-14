@@ -15,7 +15,7 @@
 using namespace daisysp;
 
 // TODO: want more grains, but not sure how much more optimizing can be done
-static const int MAX_GRAINS = 24;
+static const int MAX_GRAINS = 23;
 // must be power of two
 static const int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
 static const int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
