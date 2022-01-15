@@ -2,7 +2,7 @@
 #include "basicmaths.h"
 
 typedef int16_t Sample;
-#define MEMORY_PER_SAMPLE 16 // must be power of 2
+#define MEMORY_PER_SAMPLE 24
 
 template<int SIZE>
 struct SampleMemory
@@ -13,7 +13,7 @@ struct SampleMemory
   void write(Sample sample)
   {
     samples[writePosition] = sample;
-    writePosition = (writePosition + 1) & (SIZE - 1);
+    writePosition = (writePosition + 1) % SIZE;
   }
 
   Sample generate()
