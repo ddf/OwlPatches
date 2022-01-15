@@ -1,21 +1,20 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
 
-#define FLOAT_TO_UNSIGNED 65535
-#define UNSIGNED_TO_FLOAT (1.0f/65535)
-
-#define UNSIGNED(x) ((uint16_t)((x*0.5f + 0.5f)*FLOAT_TO_UNSIGNED))
-#define FLOAT(x)    ((x*UNSIGNED_TO_FLOAT)*2 - 1)
+typedef int16_t Sample;
+#define SampleToFloat 0.0000305185f // 1 / 32767
+#define FloatToSample 32767
+#define SampleToIndex(s) (s+FloatToSample)
 
 #define MEMORY_PER_SAMPLE 8 // must be power of 2
 
 template<int SIZE>
 struct SampleMemory
 {
-  uint16_t samples[SIZE];
+  Sample   samples[SIZE];
   uint16_t writePosition;
 
-  void write(uint16_t sample)
+  void write(Sample sample)
   {
     samples[writePosition] = sample;
     writePosition = (writePosition + 1) & (SIZE - 1);
@@ -27,24 +26,15 @@ class MarkovChain : public SignalGenerator
   typedef SampleMemory<MEMORY_PER_SAMPLE> MemType;
 
   MemType* memory;
-  uint16_t lastLearn;
-  uint16_t lastGenerate;
+  Sample lastLearn;
+  Sample lastGenerate;
 
 public:
   MarkovChain()
     : memory(0), lastLearn(0), lastGenerate(0)
   {
-    memory = new MemType[FLOAT_TO_UNSIGNED];
-    const int zero = UNSIGNED(0);
-
-    for (int i = 0; i < FLOAT_TO_UNSIGNED; ++i)
-    {
-      memory[i].writePosition = 0;
-      for (int s = 0; s < MEMORY_PER_SAMPLE; ++i)
-      {
-        memory[i].samples[s] = zero;
-      }
-    }
+    memory = new MemType[65535];
+    memset(memory, 0, 65535 * sizeof(MemType));
   }
 
   ~MarkovChain()
@@ -55,28 +45,28 @@ public:
 
   void setLastLearn(float value)
   {
-    lastLearn = UNSIGNED(value);
+    lastLearn = value * FloatToSample;
   }
 
   void setLastGenerate(float value)
   {
-    lastGenerate = UNSIGNED(value);
+    lastGenerate = value * FloatToSample;
   }
 
   void learn(FloatArray input)
   {
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
-      uint16_t sample = UNSIGNED(input[i]);
-      memory[lastLearn].write(sample);
+      Sample sample = input[i] * SampleToFloat;
+      memory[SampleToIndex(lastLearn)].write(sample);
       lastLearn = sample;
     }
   }
 
   float generate() override
   {
-    lastGenerate = memory[lastGenerate].samples[rand()&(MEMORY_PER_SAMPLE - 1)];
-    return FLOAT(lastGenerate);
+    lastGenerate = memory[SampleToIndex(lastGenerate)].samples[rand()&(MEMORY_PER_SAMPLE - 1)];
+    return lastGenerate*SampleToFloat;
   }
 
   void generate(FloatArray output) override
