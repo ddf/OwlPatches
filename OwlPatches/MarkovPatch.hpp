@@ -75,7 +75,7 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray left = audio.getSamples(0);
-    FloatArray right = audio.getSamples(0);
+    FloatArray right = audio.getSamples(1);
 
     if (listening)
     {
