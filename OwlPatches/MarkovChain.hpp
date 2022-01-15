@@ -72,7 +72,7 @@ public:
 
   void generate(FloatArray output) override
   {
-    for (int i = 0; int sz = output.getSize(); ++i)
+    for (int i = 0, sz = output.getSize(); i < sz; ++i)
     {
       output[i] = generate();
     }
