@@ -57,7 +57,7 @@ public:
   {
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
-      Sample sample = input[i] * SampleToFloat;
+      Sample sample = input[i] * FloatToSample;
       memory[SampleToIndex(lastLearn)].write(sample);
       lastLearn = sample;
     }
