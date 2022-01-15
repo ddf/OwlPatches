@@ -15,6 +15,11 @@ struct SampleMemory
     samples[writePosition] = sample;
     writePosition = (writePosition + 1) & (SIZE - 1);
   }
+
+  Sample generate()
+  {
+    return samples[arm_rand32()&(SIZE - 1)];
+  }
 };
 
 class MarkovChain : public SignalGenerator
@@ -61,7 +66,7 @@ public:
 
   float generate() override
   {
-    lastGenerate = memory[toIndex(lastGenerate)].samples[rand()&(MEMORY_PER_SAMPLE - 1)];
+    lastGenerate = memory[toIndex(lastGenerate)].generate();
     return toFloat(lastGenerate);
   }
 
