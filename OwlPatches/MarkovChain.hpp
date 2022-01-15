@@ -2,7 +2,7 @@
 #include "basicmaths.h"
 
 typedef int16_t Sample;
-#define MEMORY_PER_SAMPLE 8 // must be power of 2
+#define MEMORY_PER_SAMPLE 16 // must be power of 2
 
 template<int SIZE>
 struct SampleMemory
@@ -32,10 +32,12 @@ class MarkovChain : public SignalGenerator
 
 public:
   MarkovChain()
-    : memory(0), lastLearn(0), lastGenerate(0)
+    : memory(0)
   {
     memory = new MemType[65535];
     memset(memory, 0, 65535 * sizeof(MemType));
+    lastLearn = toSample(0);
+    lastGenerate = toSample(0);
   }
 
   ~MarkovChain()
