@@ -81,20 +81,23 @@ public:
     {
       markov->setLastLearn(lastLearnLeft);
       markov->learn(left);
-      markov->setLastLearn(lastLearnRight);
-      markov->learn(right);
       lastLearnLeft = left[left.getSize() - 1];
-      lastLearnRight = right[right.getSize() - 1];
+
+      //markov->setLastLearn(lastLearnRight);
+      //markov->learn(right);
+      //lastLearnRight = right[right.getSize() - 1];
     }
 
     if (generating)
     {
       markov->setLastGenerate(lastGenLeft);
       markov->generate(left);
-      markov->setLastGenerate(lastGenRight);
-      markov->generate(right);
       lastGenLeft = left[left.getSize() - 1];
-      lastGenRight = right[right.getSize() - 1];
+
+      left.copyTo(right);
+      //markov->setLastGenerate(lastGenRight);
+      //markov->generate(right);
+      //lastGenRight = right[right.getSize() - 1];
     }
     else
     {
