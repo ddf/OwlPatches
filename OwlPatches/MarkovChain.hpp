@@ -2,10 +2,6 @@
 #include "basicmaths.h"
 
 typedef int16_t Sample;
-#define SampleToFloat 0.0000305185f // 1 / 32767
-#define FloatToSample 32767
-#define SampleToIndex(s) (s+FloatToSample)
-
 #define MEMORY_PER_SAMPLE 8 // must be power of 2
 
 template<int SIZE>
@@ -45,28 +41,28 @@ public:
 
   void setLastLearn(float value)
   {
-    lastLearn = value * FloatToSample;
+    lastLearn = toSample(value);
   }
 
   void setLastGenerate(float value)
   {
-    lastGenerate = value * FloatToSample;
+    lastGenerate = toSample(value);
   }
 
   void learn(FloatArray input)
   {
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
-      Sample sample = input[i] * FloatToSample;
-      memory[SampleToIndex(lastLearn)].write(sample);
+      Sample sample = toSample(input[i]);
+      memory[toIndex(lastLearn)].write(sample);
       lastLearn = sample;
     }
   }
 
   float generate() override
   {
-    lastGenerate = memory[SampleToIndex(lastGenerate)].samples[rand()&(MEMORY_PER_SAMPLE - 1)];
-    return lastGenerate*SampleToFloat;
+    lastGenerate = memory[toIndex(lastGenerate)].samples[rand()&(MEMORY_PER_SAMPLE - 1)];
+    return toFloat(lastGenerate);
   }
 
   void generate(FloatArray output) override
@@ -77,6 +73,23 @@ public:
     }
   }
 
+private:
+  inline Sample toSample(float value) const
+  {
+    return (Sample)(value * 32767);
+  }
+
+  inline float toFloat(Sample value) const
+  {
+    return value * 0.0000305185f;
+  }
+
+  inline uint16_t toIndex(Sample value) const
+  {
+    return (uint16_t)(value + 32767);
+  }
+
+public:
   static MarkovChain* create()
   {
     return new MarkovChain();
