@@ -35,7 +35,16 @@ public:
     : memory(0), lastLearn(0), lastGenerate(0)
   {
     memory = new MemType[FLOAT_TO_UNSIGNED];
-    memset(memory, 0, FLOAT_TO_UNSIGNED * sizeof(MemType));
+    const int zero = UNSIGNED(0);
+
+    for (int i = 0; i < FLOAT_TO_UNSIGNED; ++i)
+    {
+      memory[i].writePosition = 0;
+      for (int s = 0; s < MEMORY_PER_SAMPLE; ++i)
+      {
+        memory[i].samples[s] = zero;
+      }
+    }
   }
 
   ~MarkovChain()

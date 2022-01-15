@@ -96,6 +96,11 @@ public:
       lastGenLeft = left[left.getSize() - 1];
       lastGenRight = right[right.getSize() - 1];
     }
+    else
+    {
+      left.clear();
+      right.clear();
+    }
 
     setButton(inToggleListen, listening);
     setButton(inToggleGenerate, generating);
