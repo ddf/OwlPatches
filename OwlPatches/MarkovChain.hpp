@@ -8,19 +8,17 @@ template<int SIZE>
 struct SampleMemory
 {
   Sample   samples[SIZE];
-  uint8_t  count;
+  uint8_t  writePosition;
 
   void write(Sample sample)
   {
-    if (count < SIZE)
-    {
-      samples[count++] = sample;
-    }
+    samples[writePosition] = sample;
+    writePosition = (writePosition + 1) & (SIZE - 1);
   }
 
   Sample generate()
   {
-    return count > 0 ? samples[arm_rand32() % count] : 0;
+    return samples[arm_rand32()&(SIZE - 1)];
   }
 };
 
