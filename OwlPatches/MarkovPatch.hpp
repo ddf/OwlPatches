@@ -43,7 +43,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-  : listening(ON), generating(ON), lastLearnLeft(0), lastLearnRight(0)
+  : listening(OFF), generating(ON), lastLearnLeft(0), lastLearnRight(0)
   , genBuffer(0), lastGenLeft(0), lastGenRight(0)
   {
     markov = MarkovChain::create();
