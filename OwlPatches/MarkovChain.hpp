@@ -12,8 +12,10 @@ struct SampleMemory
 
   void write(Sample sample)
   {
-    samples[writePosition] = sample;
-    writePosition = (writePosition + 1) & (SIZE - 1);
+    if (writePosition < SIZE)
+    {
+      samples[writePosition++] = sample;
+    }
   }
 
   Sample generate()
