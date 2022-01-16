@@ -139,6 +139,8 @@
     <ClInclude Include="Grain.hpp" />
     <ClInclude Include="GrainzPatch.hpp" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
+    <ClInclude Include="MarkovChain.hpp" />
+    <ClInclude Include="MarkovPatch.hpp" />
     <ClInclude Include="Noise.hpp" />
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />

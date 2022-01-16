@@ -42,5 +42,11 @@
     <ClInclude Include="Grain.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MarkovPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MarkovChain.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
