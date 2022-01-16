@@ -31,23 +31,32 @@ class MarkovPatch : public Patch
   uint16_t listening;
   uint16_t generating;
 
+  AudioBuffer* genBuffer;
+
   float lastLearnLeft, lastLearnRight;
   float lastGenLeft, lastGenRight;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
 
+  static const PatchParameterId inDryWet = PARAMETER_A;
+
 public: 
   MarkovPatch()
   : listening(ON), generating(ON), lastLearnLeft(0), lastLearnRight(0)
-  , lastGenLeft(0), lastGenRight(0)
+  , genBuffer(0), lastGenLeft(0), lastGenRight(0)
   {
     markov = MarkovChain::create();
+    genBuffer = AudioBuffer::create(2, getBlockSize());
+
+    registerParameter(inDryWet, "Dry/Wet");
+
   }
 
   ~MarkovPatch()
   {
     MarkovChain::destroy(markov);
+    AudioBuffer::destroy(genBuffer);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -74,14 +83,16 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    FloatArray left = audio.getSamples(0);
-    FloatArray right = audio.getSamples(1);
+    FloatArray inLeft = audio.getSamples(0);
+    FloatArray inRight = audio.getSamples(1);
+    FloatArray genLeft = genBuffer->getSamples(0);
+    FloatArray genRight = genBuffer->getSamples(1);
 
     if (listening)
     {
       markov->setLastLearn(lastLearnLeft);
-      markov->learn(left);
-      lastLearnLeft = left[left.getSize() - 1];
+      markov->learn(inLeft);
+      lastLearnLeft = inLeft[inLeft.getSize() - 1];
 
       //markov->setLastLearn(lastLearnRight);
       //markov->learn(right);
@@ -91,19 +102,21 @@ public:
     if (generating)
     {
       markov->setLastGenerate(lastGenLeft);
-      markov->generate(left);
-      lastGenLeft = left[left.getSize() - 1];
+      markov->generate(genLeft);
+      lastGenLeft = genLeft[genLeft.getSize()-1];
 
-      left.copyTo(right);
       //markov->setLastGenerate(lastGenRight);
       //markov->generate(right);
       //lastGenRight = right[right.getSize() - 1];
     }
-    else
-    {
-      left.clear();
-      right.clear();
-    }
+
+    float dryWet = getParameterValue(inDryWet);
+    const float wetAmt = dryWet;
+    const float dryAmt = 1.0f - wetAmt;
+    inLeft.multiply(dryAmt);
+    genLeft.multiply(wetAmt);
+    inLeft.add(genLeft);
+    inLeft.copyTo(inRight);
 
     setButton(inToggleListen, listening);
     setButton(inToggleGenerate, generating);
