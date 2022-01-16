@@ -2,7 +2,7 @@
 #include "basicmaths.h"
 
 typedef float Sample;
-#define MEMORY_SIZE 350000
+#define MEMORY_SIZE 400000
 #define MEMORY_PER_SAMPLE 4
 
 template<int SIZE>
