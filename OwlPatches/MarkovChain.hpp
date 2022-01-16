@@ -14,6 +14,11 @@ struct SampleMemory
   {
     if (writePosition < SIZE)
     {
+      // don't write samples we already know about
+      for (int i = 0; i < writePosition; ++i)
+      {
+        if (samples[i] == sample) return;
+      }
       samples[writePosition++] = sample;
     }
   }
