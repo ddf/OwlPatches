@@ -80,7 +80,7 @@ class MarkovChain : public SignalGenerator
       return node;
     }
 
-    void put(Sample sample)
+    MemoryNode* put(Sample sample)
     {
       if (nodeCount < MEMORY_MAX_NODES)
       {
@@ -98,19 +98,21 @@ class MarkovChain : public SignalGenerator
         {
           nodeTable[idx] = allocateNode(sample);
         }
+        return node;
       }
+      return 0;
     }
 
     int size() const { return nodeCount; }
 
   private:
 
-    uint32_t hash(float f)
+    uint32_t hash(Sample f)
     {
       return (f * 32767) + 32767;
     }
 
-    MemoryNode* allocateNode(float sample)
+    MemoryNode* allocateNode(Sample sample)
     {
       MemoryNode* node = nodePool[nodeCount];
       node->thisSample = sample;
@@ -146,15 +148,16 @@ public:
 
   void learn(float value)
   {
+    Sample sample = toSample(value);
     MemoryNode* node = memory->get(lastLearn);
+    if (!node)
+    {
+      node = memory->put(lastLearn);
+    }
     if (node)
     {
-      node->write(value);
+      node->write(sample);
       ++totalWrites;
-    }
-    else
-    {
-      memory->put(value);
     }
     lastLearn = value;
   }
