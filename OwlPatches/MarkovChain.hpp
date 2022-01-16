@@ -96,7 +96,7 @@ public:
 
   float getAverageChainLength()
   {
-    return (float)totalWrites / 65535;
+    return (float)totalWrites / MEMORY_SIZE;
   }
 
 private:
