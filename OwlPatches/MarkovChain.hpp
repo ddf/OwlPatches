@@ -51,7 +51,7 @@ class MarkovChain : public SignalGenerator
     int nodeCount;
 
   public:
-    Memory()
+    Memory() : nodeCount(0)
     {
       memset(nodeTable, 0, MEMORY_SIZE * sizeof(MemoryNode*));
       for (int i = 0; i < MEMORY_MAX_NODES; ++i)
@@ -100,13 +100,7 @@ class MarkovChain : public SignalGenerator
 
     uint32_t hash(float f)
     {
-      if (f == 0) return f;
-
-      f *= 32767;
-
-      uint32_t ui;
-      memcpy(&ui, &f, sizeof(float));
-      return ui & 0xfffff000;
+      return (f * 32767) + 32767;
     }
 
     MemoryNode* allocateNode(float sample)
