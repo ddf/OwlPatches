@@ -107,9 +107,11 @@ class MarkovChain : public SignalGenerator
 
   private:
 
-    uint32_t hash(Sample f)
+    uint32_t hash(float f)
     {
-      return (f * 32767) + 32767;
+      uint32_t ui;
+      memcpy(&ui, &f, sizeof(float));
+      return ui & 0xfffff000;
     }
 
     MemoryNode* allocateNode(Sample sample)
@@ -154,9 +156,8 @@ public:
     {
       node = memory->put(lastLearn);
     }
-    if (node)
+    if (node && node->write(sample))
     {
-      node->write(sample);
       ++totalWrites;
     }
     lastLearn = value;
