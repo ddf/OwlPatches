@@ -2,7 +2,7 @@
 #include "basicmaths.h"
 
 typedef float Sample;
-#define MEMORY_SIZE (1<<16)
+#define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_SAMPLE 4
 
