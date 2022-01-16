@@ -102,6 +102,11 @@ public:
       //lastLearnRight = right[right.getSize() - 1];
     }
 
+    //char debugMsg[64];
+    //char* debugCpy = stpcpy(debugMsg, "avg len ");
+    //debugCpy = stpcpy(debugCpy, msg_ftoa(, 10));
+    debugMessage("avg len ", markov->getAverageChainLength());
+
     if (generating)
     {
       markov->generate(genLeft);
@@ -121,11 +126,6 @@ public:
 
     setButton(inToggleListen, listening);
     setButton(inToggleGenerate, generating);
-
-    char debugMsg[64];
-    char* debugCpy = stpcpy(debugMsg, "avg len ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(markov->getAverageChainLength(), 10));
-    debugMessage(debugMsg);
   }
   
 };
