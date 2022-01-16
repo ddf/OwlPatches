@@ -1,8 +1,9 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
 
-typedef int16_t Sample;
-#define MEMORY_PER_SAMPLE 16
+typedef float Sample;
+#define MEMORY_SIZE 1<<17
+#define MEMORY_PER_SAMPLE 4
 
 template<int SIZE>
 struct SampleMemory
@@ -44,8 +45,8 @@ public:
   MarkovChain()
     : memory(0)
   {
-    memory = new MemType[65535];
-    memset(memory, 0, 65535 * sizeof(MemType));
+    memory = new MemType[MEMORY_SIZE];
+    memset(memory, 0, MEMORY_SIZE * sizeof(MemType));
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
   }
@@ -101,17 +102,17 @@ public:
 private:
   inline Sample toSample(float value) const
   {
-    return (Sample)(value * 32767);
+    return value;
   }
 
   inline float toFloat(Sample value) const
   {
-    return value * 0.0000305185f;
+    return value;
   }
 
-  inline uint16_t toIndex(Sample value) const
+  inline int toIndex(Sample value) const
   {
-    return (uint16_t)(value + 32767);
+    return (int)((value*0.5f + 0.5f)*(MEMORY_SIZE - 1));
   }
 
 public:
