@@ -107,11 +107,19 @@ class MarkovChain : public SignalGenerator
 
   private:
 
-    uint32_t hash(float f)
+    uint32_t hash(float x)
     {
-      uint32_t ui;
-      memcpy(&ui, &f, sizeof(float));
-      return ui & 0xfffff000;
+      //uint32_t ui;
+      //memcpy(&ui, &f, sizeof(float));
+      //return ui & 0xfffff000;
+
+      union
+      {
+        float f;
+        unsigned u;
+      };
+      f = x;
+      return u;
     }
 
     MemoryNode* allocateNode(Sample sample)
