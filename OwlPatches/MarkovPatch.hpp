@@ -78,6 +78,10 @@ public:
         lastGenLeft = 0;
         lastGenRight = 0;
       }
+      else
+      {
+        genBuffer->clear();
+      }
     }
   }
 
@@ -90,9 +94,7 @@ public:
 
     if (listening)
     {
-      markov->setLastLearn(lastLearnLeft);
       markov->learn(inLeft);
-      lastLearnLeft = inLeft[inLeft.getSize() - 1];
 
       //markov->setLastLearn(lastLearnRight);
       //markov->learn(right);
@@ -101,9 +103,7 @@ public:
 
     if (generating)
     {
-      markov->setLastGenerate(lastGenLeft);
       markov->generate(genLeft);
-      lastGenLeft = genLeft[genLeft.getSize()-1];
 
       //markov->setLastGenerate(lastGenRight);
       //markov->generate(right);
