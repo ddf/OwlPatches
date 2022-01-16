@@ -36,6 +36,8 @@ struct SampleMemory
 
   Sample generate()
   {
+    if (totalCount == 0) return 0;
+
     uint32_t threshold = arm_rand32() % totalCount;
     uint32_t accum = 0;
     for (int i = 0; i < SIZE; ++i)
