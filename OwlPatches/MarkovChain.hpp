@@ -25,7 +25,7 @@ struct SampleMemory
 
   Sample generate()
   {
-    return samples[arm_rand32()&(SIZE - 1)];
+    return writePosition > 0 ? samples[arm_rand32() % writePosition] : 0;
   }
 };
 
