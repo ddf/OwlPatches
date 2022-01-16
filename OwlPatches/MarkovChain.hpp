@@ -1,6 +1,5 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
-#include <functional> // for std:hash
 
 typedef float Sample;
 #define MEMORY_SIZE 1024
@@ -71,12 +70,12 @@ class MarkovChain : public SignalGenerator
 
     MemoryNode* get(Sample sample)
     {
-      std::size_t hash = std::hash<Sample>{}(sample) % MEMORY_SIZE;
-      MemoryNode* node = nodeTable[hash];
-      if (nodeTable[hash] == 0)
+      uint32_t idx = hash(sample) % MEMORY_SIZE;
+      MemoryNode* node = nodeTable[idx];
+      if (nodeTable[idx] == 0)
       {
         node = allocateNode(sample);
-        nodeTable[hash] = node;
+        nodeTable[idx] = node;
       }
       else
       {
@@ -98,6 +97,16 @@ class MarkovChain : public SignalGenerator
     int size() const { return nodeCount; }
 
   private:
+
+    uint32_t hash(float f)
+    {
+      if (f == 0) return f;
+
+      uint32_t ui;
+      memcpy(&ui, &f, sizeof(float));
+      return ui & 0xfffff000;
+    }
+
     MemoryNode* allocateNode(float sample)
     {
       MemoryNode* node = 0;
