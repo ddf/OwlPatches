@@ -72,26 +72,33 @@ class MarkovChain : public SignalGenerator
     {
       uint32_t idx = hash(sample) % MEMORY_SIZE;
       MemoryNode* node = nodeTable[idx];
-      if (node == 0)
+      while (node && node->thisSample != sample)
       {
-        node = allocateNode(sample);
-        nodeTable[idx] = node;
-      }
-      else
-      {
-        while (node->thisSample != sample)
-        {
-          if (node->nextNode == 0)
-          {
-            node->nextNode = allocateNode(sample);
-            return node->nextNode;
-          }
-
-          node = node->nextNode;
-        }
+        node = node->nextNode;
       }
 
       return node;
+    }
+
+    void put(Sample sample)
+    {
+      if (nodeCount < MEMORY_MAX_NODES)
+      {
+        uint32_t idx = hash(sample) % MEMORY_SIZE;
+        MemoryNode* node = nodeTable[idx];
+        if (node)
+        {
+          while (node->nextNode)
+          {
+            node = node->nextNode;
+          }
+          node->nextNode = allocateNode(sample);
+        }
+        else
+        {
+          nodeTable[idx] = allocateNode(sample);
+        }
+      }
     }
 
     int size() const { return nodeCount; }
@@ -105,14 +112,9 @@ class MarkovChain : public SignalGenerator
 
     MemoryNode* allocateNode(float sample)
     {
-      MemoryNode* node = 0;
-      if (nodeCount < MEMORY_MAX_NODES)
-      {
-        node = nodePool[nodeCount];
-        node->thisSample = sample;
-        ++nodeCount;
-      }
-
+      MemoryNode* node = nodePool[nodeCount];
+      node->thisSample = sample;
+      ++nodeCount;
       return node;
     }
   };
@@ -137,36 +139,39 @@ public:
       delete memory;
   }
 
-  void setLastLearn(float value)
-  {
-    lastLearn = toSample(value);
-  }
-
   void setLastGenerate(float value)
   {
     lastGenerate = toSample(value);
+  }
+
+  void learn(float value)
+  {
+    MemoryNode* node = memory->get(lastLearn);
+    if (node)
+    {
+      node->write(value);
+      ++totalWrites;
+    }
+    else
+    {
+      memory->put(value);
+    }
+    lastLearn = value;
   }
 
   void learn(FloatArray input)
   {
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
-      MemoryNode* node = memory->get(lastLearn);
-      if (node == 0) break;
-
-      Sample sample = toSample(input[i]);
-      if (node->write(sample))
-      {
-        ++totalWrites;
-      }
-      lastLearn = sample;
+      learn(input[i]);
     }
   }
 
   float generate() override
   {
     MemoryNode* node = memory->get(lastGenerate);
-    lastGenerate = node != 0 ? node->generate() : 0;
+    if (!node) node = memory->get(0);
+    lastGenerate = node ? node->generate() : 0;
     return toFloat(lastGenerate);
   }
 

@@ -49,11 +49,11 @@ public:
   {
     markov = MarkovChain::create();
     markov->setLastGenerate(0);
-    markov->setLastLearn(0);
+    markov->learn(0);
+
     genBuffer = AudioBuffer::create(2, getBlockSize());
 
     registerParameter(inDryWet, "Dry/Wet");
-
   }
 
   ~MarkovPatch()
@@ -67,10 +67,12 @@ public:
     if (bid == inToggleListen && value == ON)
     {
       listening = listening == ON ? OFF : ON;
-      if (listening)
+      // when we turn listening off we follow the last sample we learned with zero.
+      if (!listening)
       {
         lastLearnLeft = 0;
         lastLearnRight = 0;
+        markov->learn(0);
       }
     }
     else if (bid == inToggleGenerate && value == ON)
