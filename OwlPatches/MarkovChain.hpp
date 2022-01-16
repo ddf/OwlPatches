@@ -28,10 +28,10 @@ class MarkovChain : public SignalGenerator
       if (writePosition < MEMORY_PER_SAMPLE)
       {
         // don't write samples we already know about
-        for (int i = 0; i < writePosition; ++i)
-        {
-          if (nextSample[i] == sample) return false;
-        }
+        //for (int i = 0; i < writePosition; ++i)
+        //{
+        //  if (nextSample[i] == sample) return false;
+        //}
         nextSample[writePosition++] = sample;
         return true;
       }
