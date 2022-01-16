@@ -152,7 +152,7 @@ public:
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
       Sample sample = toSample(input[i]);
-      MemoryNode* node = memory->get(sample);
+      MemoryNode* node = memory->get(lastLearn);
       if (node == 0) break;
 
       if (node->write(sample))
