@@ -1,42 +1,117 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
+#include <functional> // for std:hash
 
 typedef float Sample;
-#define MEMORY_SIZE 400000
+#define MEMORY_SIZE 1024
+#define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_SAMPLE 4
-
-template<int SIZE>
-struct SampleMemory
-{
-  Sample   samples[SIZE];
-  uint8_t  writePosition;
-
-  bool write(Sample sample)
-  {
-    if (writePosition < SIZE)
-    {
-      // don't write samples we already know about
-      for (int i = 0; i < writePosition; ++i)
-      {
-        if (samples[i] == sample) return false;
-      }
-      samples[writePosition++] = sample;
-      return true;
-    }
-    return false;
-  }
-
-  Sample generate()
-  {
-    return writePosition > 0 ? samples[arm_rand32() % writePosition] : 0;
-  }
-};
 
 class MarkovChain : public SignalGenerator
 {
-  typedef SampleMemory<MEMORY_PER_SAMPLE> MemType;
+  class MemoryNode
+  {
+  public:
+    MemoryNode* nextNode;
 
-  MemType* memory;
+    Sample   thisSample;
+    Sample   nextSample[MEMORY_PER_SAMPLE];
+    uint8_t  writePosition;
+
+    MemoryNode(Sample sample)
+      : nextNode(0), thisSample(sample), writePosition(0)
+    {
+
+    }
+
+    bool write(Sample sample)
+    {
+      if (writePosition < MEMORY_PER_SAMPLE)
+      {
+        // don't write samples we already know about
+        for (int i = 0; i < writePosition; ++i)
+        {
+          if (nextSample[i] == sample) return false;
+        }
+        nextSample[writePosition++] = sample;
+        return true;
+      }
+      return false;
+    }
+
+    Sample generate()
+    {
+      return writePosition > 0 ? nextSample[arm_rand32() % writePosition] : 0;
+    }
+  };
+
+  class Memory
+  {
+    MemoryNode* nodeTable[MEMORY_SIZE];
+    MemoryNode* nodePool[MEMORY_MAX_NODES];
+    int nodeCount;
+
+  public:
+    Memory()
+    {
+      memset(nodeTable, 0, MEMORY_SIZE * sizeof(MemoryNode*));
+      for (int i = 0; i < MEMORY_MAX_NODES; ++i)
+      {
+        nodePool[i] = new MemoryNode(0);
+      }
+    }
+
+    ~Memory()
+    {
+      for (int i = 0; MEMORY_MAX_NODES; ++i)
+      {
+        delete nodePool[i];
+      }
+    }
+
+    MemoryNode* get(Sample sample)
+    {
+      std::size_t hash = std::hash<Sample>{}(sample) % MEMORY_SIZE;
+      MemoryNode* node = nodeTable[hash];
+      if (nodeTable[hash] == 0)
+      {
+        node = allocateNode(sample);
+        nodeTable[hash] = node;
+      }
+      else
+      {
+        while (node->thisSample != sample)
+        {
+          if (node->nextNode == 0)
+          {
+            node->nextNode = allocateNode(sample);
+            return node->nextNode;
+          }
+
+          node = node->nextNode;
+        }
+      }
+
+      return node;
+    }
+
+    int size() const { return nodeCount; }
+
+  private:
+    MemoryNode* allocateNode(float sample)
+    {
+      MemoryNode* node = 0;
+      if (nodeCount < MEMORY_MAX_NODES)
+      {
+        node = nodePool[nodeCount++];
+        node->thisSample = sample;
+      }
+
+      return node;
+    }
+  };
+
+  Memory*  memory;
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
@@ -45,8 +120,7 @@ public:
   MarkovChain()
     : memory(0)
   {
-    memory = new MemType[MEMORY_SIZE];
-    memset(memory, 0, MEMORY_SIZE * sizeof(MemType));
+    memory = new Memory();
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
   }
@@ -54,7 +128,7 @@ public:
   ~MarkovChain()
   {
     if (memory)
-      delete[] memory;
+      delete memory;
   }
 
   void setLastLearn(float value)
@@ -72,7 +146,8 @@ public:
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
       Sample sample = toSample(input[i]);
-      if (memory[toIndex(lastLearn)].write(sample))
+      MemoryNode* node = memory->get(sample);
+      if (node != 0 && node->write(sample))
       {
         ++totalWrites;
       }
@@ -82,7 +157,8 @@ public:
 
   float generate() override
   {
-    lastGenerate = memory[toIndex(lastGenerate)].generate();
+    MemoryNode* node = memory->get(lastGenerate);
+    lastGenerate = node != 0 ? node->generate() : 0;
     return toFloat(lastGenerate);
   }
 
@@ -94,9 +170,10 @@ public:
     }
   }
 
-  float getAverageChainLength()
+  float getAverageChainLength() const
   {
-    return (float)totalWrites / MEMORY_SIZE;
+    int memSize = memory->size();
+    return memSize > 0 ? (float)totalWrites / memSize : 0;
   }
 
 private:
@@ -108,11 +185,6 @@ private:
   inline float toFloat(Sample value) const
   {
     return value;
-  }
-
-  inline int toIndex(Sample value) const
-  {
-    return (int)((value*0.5f + 0.5f)*(MEMORY_SIZE - 1) + 0.5f);
   }
 
 public:
