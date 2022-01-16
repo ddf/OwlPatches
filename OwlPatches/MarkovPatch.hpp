@@ -104,7 +104,9 @@ public:
     }
 
     char debugMsg[64];
-    char* debugCpy = stpcpy(debugMsg, "avg len ");
+    char* debugCpy = stpcpy(debugMsg, "mem size ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(markov->getMemorySize(), 10));
+    debugCpy = stpcpy(debugMsg, " avg len ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(markov->getAverageChainLength(), 10));
     debugMessage(debugMsg);
 

@@ -72,7 +72,7 @@ class MarkovChain : public SignalGenerator
     {
       uint32_t idx = hash(sample) % MEMORY_SIZE;
       MemoryNode* node = nodeTable[idx];
-      if (nodeTable[idx] == 0)
+      if (node == 0)
       {
         node = allocateNode(sample);
         nodeTable[idx] = node;
@@ -112,8 +112,9 @@ class MarkovChain : public SignalGenerator
       MemoryNode* node = 0;
       if (nodeCount < MEMORY_MAX_NODES)
       {
-        node = nodePool[nodeCount++];
+        node = nodePool[nodeCount];
         node->thisSample = sample;
+        ++nodeCount;
       }
 
       return node;
@@ -156,7 +157,9 @@ public:
     {
       Sample sample = toSample(input[i]);
       MemoryNode* node = memory->get(sample);
-      if (node != 0 && node->write(sample))
+      if (node == 0) break;
+
+      if (node->write(sample))
       {
         ++totalWrites;
       }
@@ -177,6 +180,11 @@ public:
     {
       output[i] = generate();
     }
+  }
+
+  int getMemorySize() const
+  {
+    return memory->size();
   }
 
   float getAverageChainLength() const
