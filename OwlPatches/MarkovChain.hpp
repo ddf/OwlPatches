@@ -2,7 +2,7 @@
 #include "basicmaths.h"
 
 typedef float Sample;
-#define MEMORY_SIZE 1024*4
+#define MEMORY_SIZE 1024*8
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_SAMPLE 4
 
@@ -101,6 +101,8 @@ class MarkovChain : public SignalGenerator
     uint32_t hash(float f)
     {
       if (f == 0) return f;
+
+      f *= 32767;
 
       uint32_t ui;
       memcpy(&ui, &f, sizeof(float));
