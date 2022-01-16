@@ -10,17 +10,19 @@ struct SampleMemory
   Sample   samples[SIZE];
   uint8_t  writePosition;
 
-  void write(Sample sample)
+  bool write(Sample sample)
   {
     if (writePosition < SIZE)
     {
       // don't write samples we already know about
       for (int i = 0; i < writePosition; ++i)
       {
-        if (samples[i] == sample) return;
+        if (samples[i] == sample) return false;
       }
       samples[writePosition++] = sample;
+      return true;
     }
+    return false;
   }
 
   Sample generate()
@@ -34,8 +36,9 @@ class MarkovChain : public SignalGenerator
   typedef SampleMemory<MEMORY_PER_SAMPLE> MemType;
 
   MemType* memory;
-  Sample lastLearn;
-  Sample lastGenerate;
+  uint32_t totalWrites;
+  Sample   lastLearn;
+  Sample   lastGenerate;
 
 public:
   MarkovChain()
@@ -68,7 +71,10 @@ public:
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
       Sample sample = toSample(input[i]);
-      memory[toIndex(lastLearn)].write(sample);
+      if (memory[toIndex(lastLearn)].write(sample))
+      {
+        ++totalWrites;
+      }
       lastLearn = sample;
     }
   }
@@ -89,12 +95,7 @@ public:
 
   float getAverageChainLength()
   {
-    uint32_t totalLen = 0;
-    for (int i = 0; i < 65535; ++i)
-    {
-      totalLen += memory[i].writePosition;
-    }
-    return (float)totalLen / 65535;
+    return (float)totalWrites / 65535;
   }
 
 private:
