@@ -87,6 +87,16 @@ public:
     }
   }
 
+  float getAverageChainLength()
+  {
+    uint32_t totalLen = 0;
+    for (int i = 0; i < 65535; ++i)
+    {
+      totalLen += memory[i].writePosition;
+    }
+    return (float)totalLen / 65535;
+  }
+
 private:
   inline Sample toSample(float value) const
   {

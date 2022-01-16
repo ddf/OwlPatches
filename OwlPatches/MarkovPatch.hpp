@@ -24,6 +24,7 @@ DESCRIPTION:
 
 #include "Patch.h"
 #include "MarkovChain.hpp"
+#include <string.h>
 
 class MarkovPatch : public Patch 
 {
@@ -120,6 +121,11 @@ public:
 
     setButton(inToggleListen, listening);
     setButton(inToggleGenerate, generating);
+
+    char debugMsg[64];
+    char* debugCpy = stpcpy(debugMsg, "avg len ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(markov->getAverageChainLength(), 10));
+    debugMessage(debugMsg);
   }
   
 };
