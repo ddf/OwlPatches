@@ -2,7 +2,7 @@
 #include "basicmaths.h"
 
 typedef float Sample;
-#define MEMORY_SIZE 1<<17
+#define MEMORY_SIZE 1<<18
 #define MEMORY_PER_SAMPLE 4
 
 template<int SIZE>
