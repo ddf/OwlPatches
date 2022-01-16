@@ -2,56 +2,25 @@
 #include "basicmaths.h"
 
 typedef int16_t Sample;
-#define MEMORY_PER_SAMPLE 8
+#define MEMORY_PER_SAMPLE 16
 
 template<int SIZE>
 struct SampleMemory
 {
   Sample   samples[SIZE];
-  uint16_t counts[SIZE];
-  uint32_t totalCount;
+  uint8_t  count;
 
   void write(Sample sample)
   {
-    for (int i = 0; i < SIZE; ++i)
+    if (count < SIZE)
     {
-      const Sample s = samples[i];
-      const uint16_t c = counts[i];
-      if (s == sample)
-      {
-        if (c < 65535)
-        {
-          counts[i] = c + 1;
-          ++totalCount;
-        }
-      }
-      else if (c == 0)
-      {
-        samples[i] = sample;
-        counts[i] = 1;
-        ++totalCount;
-      }
+      samples[count++] = sample;
     }
   }
 
   Sample generate()
   {
-    if (totalCount == 0) return 0;
-
-    uint32_t threshold = arm_rand32() % totalCount;
-    uint32_t accum = 0;
-    for (int i = 0; i < SIZE; ++i)
-    {
-      if (counts[i] > 0)
-      {
-        accum += counts[i];
-        if (accum >= threshold)
-        {
-          return samples[i];
-        }
-      }
-    }
-    return 0;
+    return count > 0 ? samples[arm_rand32() % count] : 0;
   }
 };
 
