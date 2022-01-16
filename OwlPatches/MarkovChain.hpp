@@ -112,7 +112,7 @@ private:
 
   inline int toIndex(Sample value) const
   {
-    return (int)((value*0.5f + 0.5f)*(MEMORY_SIZE - 1));
+    return (int)((value*0.5f + 0.5f)*(MEMORY_SIZE - 1) + 0.5f);
   }
 
 public:
