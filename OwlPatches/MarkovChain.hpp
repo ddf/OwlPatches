@@ -31,7 +31,7 @@ class MarkovChain : public SignalGenerator
       {
         if (nextSample[i] == sample)
         {
-          if (counts[i] < 255)
+          if (counts[i] < 16)
           {
             counts[i] = counts[i] + 1;
             ++totalCount;
