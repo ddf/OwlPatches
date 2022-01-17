@@ -40,7 +40,9 @@ class MarkovPatch : public Patch
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
 
-  static const PatchParameterId inDryWet = PARAMETER_A;
+  static const PatchParameterId inWordSize = PARAMETER_A;
+  static const PatchParameterId inDryWet = PARAMETER_B;
+  
 
 public: 
   MarkovPatch()
@@ -51,7 +53,9 @@ public:
 
     genBuffer = AudioBuffer::create(2, getBlockSize());
 
+    registerParameter(inWordSize, "Word Size");
     registerParameter(inDryWet, "Dry/Wet");
+
   }
 
   ~MarkovPatch()
@@ -112,6 +116,8 @@ public:
 
     if (generating)
     {
+      int wordSize = (1 + getParameterValue(inWordSize) * 256);
+      markov->setGenerateSize(wordSize);
       markov->generate(genLeft);
 
       //markov->setLastGenerate(lastGenRight);

@@ -171,6 +171,11 @@ public:
     currentGenerateSize = generateSize;
   }
 
+  void setGenerateSize(int genSize)
+  {
+    generateSize = genSize;
+  }
+
   void setLastGenerate(float value)
   {
     lastGenerate = toSample(value);
