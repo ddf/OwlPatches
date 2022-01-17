@@ -78,7 +78,7 @@ public:
       generating = generating == ON ? OFF : ON;
       if (generating)
       {
-        markov->setLastGenerate(0);
+        markov->resetGenerate();
       }
       else
       {

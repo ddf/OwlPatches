@@ -21,6 +21,7 @@ class MarkovChain : public SignalGenerator
     MemoryNode(Sample sample)
       : nextNode(0), thisSample(sample), writePosition(0)
     {
+      memset(nextSample, 0, MEMORY_PER_SAMPLE * sizeof(Sample));
     }
 
     bool write(Sample sample)
@@ -145,10 +146,12 @@ class MarkovChain : public SignalGenerator
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
+  int      generateSize;
+  int      currentGenerateSize;
 
 public:
   MarkovChain()
-    : memory(0)
+    : memory(0), generateSize(1), currentGenerateSize(1)
   {
     memory = new Memory();
     lastLearn = toSample(0);
@@ -160,6 +163,12 @@ public:
   {
     if (memory)
       delete memory;
+  }
+
+  void resetGenerate()
+  {
+    lastGenerate = toSample(0);
+    currentGenerateSize = generateSize;
   }
 
   void setLastGenerate(float value)
@@ -196,7 +205,15 @@ public:
   {
     MemoryNode* node = memory->get(lastGenerate);
     if (!node) node = zeroNode;
-    lastGenerate = node->generate();
+    if (currentGenerateSize < generateSize)
+    {
+      lastGenerate = node->nextSample[0];
+      ++currentGenerateSize;
+    }
+    else
+    {
+      lastGenerate = node->generate();
+    }
     return toFloat(lastGenerate);
   }
 
