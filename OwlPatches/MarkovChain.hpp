@@ -248,7 +248,11 @@ public:
       lastWordBegin = lastGenerate;
       // random word size with each word within our max bound
       // otherwise longer words can get stuck repeating the same data.
-      currentWordSize = 1 + (arm_rand32() % maxWordSize);
+      currentWordSize += arm_rand32() % 8;
+      if (currentWordSize > maxWordSize)
+      {
+        currentWordSize = 1 + currentWordSize % maxWordSize;
+      }
     }
     return toFloat(lastGenerate);
   }
