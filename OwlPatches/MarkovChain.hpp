@@ -1,7 +1,7 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
 
-typedef float Sample;
+typedef int16_t Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*5
 #define MEMORY_PER_SAMPLE 4
