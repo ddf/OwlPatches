@@ -135,9 +135,7 @@ class MarkovChain : public SignalGenerator
       node->thisSample = sample;
       node->writePosition = 0;
       node->nextNode = 0;
-      //++nodeCount;
-      // "forget" old data by reusing nodes?
-      nodeCount = (nodeCount + 1) % MEMORY_MAX_NODES;
+      ++nodeCount;
       return node;
     }
   };
