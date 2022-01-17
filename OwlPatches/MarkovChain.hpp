@@ -175,7 +175,7 @@ public:
     {
       ++totalWrites;
     }
-    lastLearn = value;
+    lastLearn = sample;
   }
 
   void learn(FloatArray input)
