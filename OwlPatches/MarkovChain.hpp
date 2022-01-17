@@ -70,7 +70,7 @@ class MarkovChain : public SignalGenerator
 
     MemoryNode* get(Sample sample)
     {
-      uint32_t idx = hash(sample) & (MEMORY_SIZE-1);
+      uint32_t idx = hash(sample) % (MEMORY_SIZE);
       MemoryNode* node = nodeTable[idx];
       while (node && node->thisSample != sample)
       {
@@ -84,7 +84,7 @@ class MarkovChain : public SignalGenerator
     {
       if (nodeCount < MEMORY_MAX_NODES)
       {
-        uint32_t idx = hash(sample) & (MEMORY_SIZE-1);
+        uint32_t idx = hash(sample) % (MEMORY_SIZE);
         MemoryNode* node = nodeTable[idx];
         if (node)
         {
