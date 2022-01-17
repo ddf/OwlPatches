@@ -1,7 +1,7 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
 
-typedef float Sample;
+typedef int16_t Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_SAMPLE 4
@@ -181,7 +181,7 @@ public:
 
   void learn(float value)
   {
-    //if (value != 0) value += -JITTER + randf()*JITTER * 2;
+    if (value != 0) value += -JITTER + randf()*JITTER * 2;
 
     Sample sample = toSample(value);
     MemoryNode* node = memory->get(lastLearn);
