@@ -93,11 +93,12 @@ class MarkovChain : public SignalGenerator
             node = node->nextNode;
           }
           node->nextNode = allocateNode(sample);
+          node = node->nextNode;
         }
         else
         {
-          node = allocateNode(sample);
-          nodeTable[idx] = node;
+          nodeTable[idx] = allocateNode(sample);
+          node = nodeTable[idx];
         }
         return node;
       }
