@@ -181,7 +181,7 @@ public:
 
   void learn(float value)
   {
-    if (value != 0) value += -JITTER + randf()*JITTER * 2;
+    //if (value != 0) value += -JITTER + randf()*JITTER * 2;
 
     Sample sample = toSample(value);
     MemoryNode* node = memory->get(lastLearn);
