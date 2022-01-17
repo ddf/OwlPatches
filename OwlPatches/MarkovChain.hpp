@@ -187,6 +187,9 @@ public:
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
       learn(input[i]);
+      // make sure our sample conversion is correct
+      Sample s = toSample(input[i]);
+      input[i] = toFloat(s);
     }
   }
 
