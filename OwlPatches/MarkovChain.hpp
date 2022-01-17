@@ -218,6 +218,7 @@ public:
     else
     {
       lastGenerate = node->generate();
+      currentGenerateSize = 1;
     }
     return toFloat(lastGenerate);
   }

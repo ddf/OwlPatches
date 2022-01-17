@@ -116,7 +116,7 @@ public:
 
     if (generating)
     {
-      int wordSize = (1 + getParameterValue(inWordSize) * 256);
+      int wordSize = (1 + getParameterValue(inWordSize) * getSampleRate());
       markov->setGenerateSize(wordSize);
       markov->generate(genLeft);
 
