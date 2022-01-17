@@ -141,6 +141,7 @@ class MarkovChain : public SignalGenerator
   };
 
   Memory*  memory;
+  MemoryNode* zeroNode;
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
@@ -152,6 +153,7 @@ public:
     memory = new Memory();
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
+    zeroNode = memory->put(lastLearn);
   }
 
   ~MarkovChain()
@@ -193,8 +195,8 @@ public:
   float generate() override
   {
     MemoryNode* node = memory->get(lastGenerate);
-    if (!node) node = memory->get(0);
-    lastGenerate = node ? node->generate() : 0;
+    if (!node) node = zeroNode;
+    lastGenerate = node->generate();
     return toFloat(lastGenerate);
   }
 
