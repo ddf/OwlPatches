@@ -5,7 +5,7 @@ typedef float Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_SAMPLE 4
-#define JITTER 0 // 0.000001f
+#define JITTER 0.000001f
 
 class MarkovChain : public SignalGenerator
 {
@@ -133,7 +133,11 @@ class MarkovChain : public SignalGenerator
     {
       MemoryNode* node = nodePool[nodeCount];
       node->thisSample = sample;
-      ++nodeCount;
+      node->writePosition = 0;
+      node->nextNode = 0;
+      //++nodeCount;
+      // "forget" old data by reusing nodes?
+      nodeCount = (nodeCount + 1) % MEMORY_MAX_NODES;
       return node;
     }
   };
