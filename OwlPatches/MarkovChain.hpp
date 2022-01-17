@@ -16,23 +16,39 @@ class MarkovChain : public SignalGenerator
 
     Sample   thisSample;
     Sample   nextSample[MEMORY_PER_SAMPLE];
+    uint8_t  counts[MEMORY_PER_SAMPLE];
+    uint16_t totalCount;
     uint8_t  writePosition;
 
     MemoryNode(Sample sample)
-      : nextNode(0), thisSample(sample), writePosition(0)
+      : nextNode(0), thisSample(sample), totalCount(0), writePosition(0)
     {
-
     }
 
     bool write(Sample sample)
     {
+      for (int i = 0; i < writePosition; ++i)
+      {
+        if (nextSample[i] == sample)
+        {
+          if (counts[i] < 255)
+          {
+            counts[i] = counts[i] + 1;
+            ++totalCount;
+            return true;
+          }
+          return false;
+        }
+      }
       if (writePosition < MEMORY_PER_SAMPLE)
       {
         // don't write samples we already know about
-        for (int i = 0; i < writePosition; ++i)
-        {
-          if (nextSample[i] == sample) return false;
-        }
+        //for (int i = 0; i < writePosition; ++i)
+        //{
+        //  if (nextSample[i] == sample) return false;
+        //}
+        counts[writePosition] = 1;
+        ++totalCount;
         nextSample[writePosition++] = sample;
         return true;
       }
@@ -41,7 +57,20 @@ class MarkovChain : public SignalGenerator
 
     Sample generate()
     {
-      return writePosition > 0 ? nextSample[arm_rand32() % writePosition] : 0;
+      if (writePosition == 0) return 0;
+      uint32_t thresh = arm_rand32() % totalCount;
+      uint32_t accum = 0;
+      for (int i = 0; i < writePosition; ++i)
+      {
+        accum += counts[i];
+        if (accum >= thresh)
+        {
+          return nextSample[i];
+        }
+      }
+      return 0;
+      //return writePosition > 0 ? nextSample[arm_rand32() % writePosition] : 0;
+
     }
   };
 
