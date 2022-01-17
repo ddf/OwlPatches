@@ -141,6 +141,7 @@ class MarkovChain : public SignalGenerator
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
+  Sample   lastWordBegin;
   int      maxWordSize;
   int      currentWordSize;
   int      letterCount;
@@ -152,6 +153,7 @@ public:
     memory = new Memory();
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
+    lastWordBegin = lastGenerate;
     zeroNode = memory->put(lastLearn);
   }
 
@@ -232,12 +234,18 @@ public:
         default:
         {
           int idx = 1 + (arm_rand32() % (node->writePosition - 1));
-          lastGenerate = node->nextSample[idx];
+          Sample next = node->nextSample[idx];
+          if (next == lastWordBegin)
+          {
+            next = toSample(0);
+          }
+          lastGenerate = next;
         }
         break;
       }
 
       letterCount = 1;
+      lastWordBegin = lastGenerate;
       // random word size with each word within our max bound
       // otherwise longer words can get stuck repeating the same data.
       currentWordSize = 1 + (arm_rand32() % maxWordSize);
