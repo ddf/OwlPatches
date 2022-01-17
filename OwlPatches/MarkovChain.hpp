@@ -1,7 +1,7 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
 
-typedef float Sample;
+typedef int16_t Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*5
 #define MEMORY_PER_SAMPLE 4
@@ -116,9 +116,20 @@ class MarkovChain : public SignalGenerator
       union
       {
         float f;
-        unsigned u;
+        uint32_t u;
       };
       f = x;
+      return u;
+    }
+
+    uint32_t hash(int16_t x)
+    {
+      union
+      {
+        int16_t i;
+        uint32_t u;
+      };
+      i = x;
       return u;
     }
 
@@ -209,12 +220,12 @@ public:
 private:
   inline Sample toSample(float value) const
   {
-    return value;
+    return value * 32767;
   }
 
   inline float toFloat(Sample value) const
   {
-    return value;
+    return value * 0.0000305185f;
   }
 
 public:
