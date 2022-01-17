@@ -38,11 +38,6 @@ class MarkovChain : public SignalGenerator
       }
       return false;
     }
-
-    Sample generate()
-    {
-      return writePosition > 0 ? nextSample[arm_rand32() % writePosition] : 0;
-    }
   };
 
   class Memory
@@ -218,7 +213,30 @@ public:
     }
     else
     {
-      lastGenerate = node->generate();
+      switch (node->writePosition)
+      {
+        // nothing follows, restart at zero
+        case 0: 
+        {
+          lastGenerate = toSample(0);
+        }
+        break;
+
+        // node has only one sample that follows it, do that unless it is the same value as the sample itself
+        case 1: 
+        {
+          lastGenerate = node->thisSample != node->nextSample[0] ? node->nextSample[0] : toSample(0);
+        }
+        break;
+
+        default:
+        {
+          int idx = 1 + (arm_rand32() % (node->writePosition - 1));
+          lastGenerate = node->nextSample[idx];
+        }
+        break;
+      }
+
       letterCount = 1;
       // random word size with each word within our max bound
       // otherwise longer words can get stuck repeating the same data.
