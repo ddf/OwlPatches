@@ -5,7 +5,7 @@ typedef float Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_SAMPLE 4
-#define JITTER 0.000001f
+#define JITTER 0 // 0.000001f
 
 class MarkovChain : public SignalGenerator
 {
