@@ -146,12 +146,13 @@ class MarkovChain : public SignalGenerator
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
-  int      generateSize;
-  int      currentGenerateSize;
+  int      maxWordSize;
+  int      currentWordSize;
+  int      letterCount;
 
 public:
   MarkovChain()
-    : memory(0), generateSize(1), currentGenerateSize(1)
+    : memory(0), maxWordSize(1), currentWordSize(1), letterCount(1)
   {
     memory = new Memory();
     lastLearn = toSample(0);
@@ -168,12 +169,12 @@ public:
   void resetGenerate()
   {
     lastGenerate = toSample(0);
-    currentGenerateSize = generateSize;
+    letterCount = currentWordSize;
   }
 
-  void setGenerateSize(int genSize)
+  void setWordSize(int length)
   {
-    generateSize = genSize;
+    maxWordSize = std::max(1, length);
   }
 
   void setLastGenerate(float value)
@@ -210,15 +211,18 @@ public:
   {
     MemoryNode* node = memory->get(lastGenerate);
     if (!node) node = zeroNode;
-    if (currentGenerateSize < generateSize)
+    if (letterCount < currentWordSize)
     {
       lastGenerate = node->nextSample[0];
-      ++currentGenerateSize;
+      ++letterCount;
     }
     else
     {
       lastGenerate = node->generate();
-      currentGenerateSize = 1;
+      letterCount = 1;
+      // random word size with each word within our max bound
+      // otherwise longer words can get stuck repeating the same data.
+      currentWordSize = 1 + (arm_rand32() % maxWordSize);
     }
     return toFloat(lastGenerate);
   }
