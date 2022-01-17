@@ -48,8 +48,6 @@ public:
   , genBuffer(0), lastGenLeft(0), lastGenRight(0)
   {
     markov = MarkovChain::create();
-    markov->setLastGenerate(0);
-    markov->learn(0);
 
     genBuffer = AudioBuffer::create(2, getBlockSize());
 
@@ -80,7 +78,7 @@ public:
       generating = generating == ON ? OFF : ON;
       if (generating)
       {
-        markov->setLastGenerate(0);
+        markov->resetWord();
       }
       else
       {

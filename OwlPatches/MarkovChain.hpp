@@ -21,6 +21,7 @@ class MarkovChain : public SignalGenerator
     MemoryNode(Sample sample)
       : nextNode(0), thisSample(sample), writePosition(0)
     {
+      memset(nextSample, 0, MEMORY_PER_SAMPLE * sizeof(Sample));
     }
 
     bool write(Sample sample)
@@ -141,23 +142,38 @@ class MarkovChain : public SignalGenerator
   };
 
   Memory*  memory;
+  MemoryNode* zeroNode;
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
+  int      wordSize;
+  int      currentWordSize;
 
 public:
   MarkovChain()
-    : memory(0)
+    : memory(0), wordSize(1), currentWordSize(1)
   {
     memory = new Memory();
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
+    zeroNode = memory->put(lastLearn);
   }
 
   ~MarkovChain()
   {
     if (memory)
       delete memory;
+  }
+
+  void setWordSize(int value)
+  {
+    wordSize = std::max(value, 1);
+  }
+
+  void resetWord()
+  {
+    lastGenerate = toSample(0);
+    currentWordSize = 1;
   }
 
   void setLastGenerate(float value)
@@ -193,8 +209,17 @@ public:
   float generate() override
   {
     MemoryNode* node = memory->get(lastGenerate);
-    if (!node) node = memory->get(0);
-    lastGenerate = node ? node->generate() : 0;
+    node = zeroNode;
+    if (currentWordSize < wordSize)
+    {
+      lastGenerate = node->nextSample[0];
+      ++currentWordSize;
+    }
+    else
+    {
+      lastGenerate = node->generate();
+      currentWordSize = 1;
+    }
     return toFloat(lastGenerate);
   }
 
