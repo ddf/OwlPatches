@@ -125,7 +125,7 @@ class MarkovChain : public SignalGenerator
 
     uint32_t hash(int16_t x)
     {
-      return (uint32_t)x;
+      return int(x) + 32767;
     }
 
     MemoryNode* allocateNode(Sample sample)
