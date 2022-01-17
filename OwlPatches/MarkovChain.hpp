@@ -124,13 +124,7 @@ class MarkovChain : public SignalGenerator
 
     uint32_t hash(int16_t x)
     {
-      union
-      {
-        int16_t i;
-        uint32_t u;
-      };
-      i = x;
-      return u;
+      return ((int)x)+32767;
     }
 
     MemoryNode* allocateNode(Sample sample)
@@ -187,9 +181,6 @@ public:
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
       learn(input[i]);
-      // make sure our sample conversion is correct
-      Sample s = toSample(input[i]);
-      input[i] = toFloat(s);
     }
   }
 
