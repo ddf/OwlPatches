@@ -53,7 +53,7 @@ class MarkovChain : public SignalGenerator
   public:
     Memory() : nodeCount(0)
     {
-      memset(nodeTable, 0, MEMORY_SIZE * sizeof(MemoryNode*));
+      memset(nodeTable, 0, MEMORY_SIZE * sizeof(Node*));
       for (int i = 0; i < MEMORY_MAX_NODES; ++i)
       {
         nodePool[i] = new Node(K(0));
