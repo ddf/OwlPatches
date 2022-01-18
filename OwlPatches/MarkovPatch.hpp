@@ -23,6 +23,7 @@ DESCRIPTION:
 */
 
 #include "Patch.h"
+#include "DcBlockingFilter.h"
 #include "MarkovChain.hpp"
 #include <string.h>
 
@@ -32,6 +33,7 @@ class MarkovPatch : public Patch
   uint16_t listening;
   uint16_t generating;
 
+  StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
 
   float lastLearnLeft, lastLearnRight;
@@ -51,6 +53,7 @@ public:
   {
     markov = MarkovChain::create();
 
+    dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     genBuffer = AudioBuffer::create(2, getBlockSize());
 
     registerParameter(inWordSize, "Word Size");
@@ -61,6 +64,7 @@ public:
   ~MarkovPatch()
   {
     MarkovChain::destroy(markov);
+    StereoDcBlockingFilter::destroy(dcBlockingFilter);
     AudioBuffer::destroy(genBuffer);
   }
 
@@ -97,6 +101,8 @@ public:
     FloatArray inRight = audio.getSamples(1);
     FloatArray genLeft = genBuffer->getSamples(0);
     FloatArray genRight = genBuffer->getSamples(1);
+
+    dcBlockingFilter->process(audio, audio);
 
     if (listening)
     {
