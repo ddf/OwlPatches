@@ -4,7 +4,7 @@
 typedef float Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
-#define MEMORY_PER_SAMPLE 4
+#define MEMORY_PER_NODE 4
 #define JITTER 0.000001f
 
 class MarkovChain : public SignalGenerator
@@ -16,21 +16,21 @@ class MarkovChain : public SignalGenerator
     class Node
     {
     public:
-      Node* nextNode;
+      Node* next;
 
       K   key;
-      V   values[MEMORY_PER_SAMPLE];
+      V   values[MEMORY_PER_NODE];
       uint8_t  writePosition;
 
       Node(K k)
-        : nextNode(0), key(k), writePosition(0)
+        : next(0), key(k), writePosition(0)
       {
-        memset(values, 0, MEMORY_PER_SAMPLE * sizeof(V));
+        memset(values, 0, MEMORY_PER_NODE * sizeof(V));
       }
 
       bool write(V value)
       {
-        if (writePosition < MEMORY_PER_SAMPLE)
+        if (writePosition < MEMORY_PER_NODE)
         {
           // don't write samples we already know about
           for (int i = 0; i < writePosition; ++i)
@@ -74,7 +74,7 @@ class MarkovChain : public SignalGenerator
       Node* node = nodeTable[idx];
       while (node && node->key != key)
       {
-        node = node->nextNode;
+        node = node->next;
       }
 
       return node;
@@ -88,12 +88,12 @@ class MarkovChain : public SignalGenerator
         Node* node = nodeTable[idx];
         if (node)
         {
-          while (node->nextNode)
+          while (node->next)
           {
-            node = node->nextNode;
+            node = node->next;
           }
-          node->nextNode = allocateNode(key);
-          node = node->nextNode;
+          node->next = allocateNode(key);
+          node = node->next;
         }
         else
         {
@@ -134,7 +134,7 @@ class MarkovChain : public SignalGenerator
       Node* node = nodePool[nodeCount];
       node->key = key;
       node->writePosition = 0;
-      node->nextNode = 0;
+      node->next = 0;
       ++nodeCount;
       return node;
     }
