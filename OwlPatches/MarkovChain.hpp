@@ -42,6 +42,23 @@ class MarkovChain : public SignalGenerator
         }
         return false;
       }
+
+      void erase(V value)
+      {
+        if (writePosition == 0) return;
+
+        for (int i = 0; i < writePosition; ++i)
+        {
+          // when we find the value in the list, swap with value at end of list,
+          // reduce list length
+          if (values[i] == value)
+          {
+            values[i] = values[writePosition - 1];
+            --writePosition;
+            break;
+          }
+        }
+      }
     };
 
   private:
@@ -162,6 +179,7 @@ public:
   {
     bufferSize = MEMORY_MAX_NODES;
     buffer = new Sample[bufferSize];
+    memset(buffer, 0, bufferSize * sizeof(Sample));
     memory = new SampleMemory();
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
@@ -196,26 +214,35 @@ public:
   void learn(float value)
   {
     // for now stop when our buffer is full
-    if (bufferWritePos == bufferSize) return;
+    // if (bufferWritePos == bufferSize) return;
+
+    const int nextWritePosition = (bufferWritePos + 1) % bufferSize;
+
+    // erase the position we are about to write to from the next sample list of what's already there
+    SampleMemory::Node* node = memory->get(buffer[bufferWritePos]);
+    if (node)
+    {
+      node->erase(nextWritePosition);
+    }
 
     if (JITTER)
     {
       if (value != 0) value += -JITTER + randf()*JITTER * 2;
     }
 
-    Sample sample = toSample(value);
-    int sampleIdx = bufferWritePos;
-    buffer[bufferWritePos++] = sample;
+    Sample sample = toSample(value);   
+    buffer[bufferWritePos] = sample;
 
-    SampleMemory::Node* node = memory->get(lastLearn);
+    node = memory->get(lastLearn);
     if (!node)
     {
       node = memory->put(lastLearn);
     }
-    if (node && node->write(sampleIdx))
+    if (node && node->write(bufferWritePos))
     {
       ++totalWrites;
     }
+    bufferWritePos = nextWritePosition;
     lastLearn = sample;
   }
 
