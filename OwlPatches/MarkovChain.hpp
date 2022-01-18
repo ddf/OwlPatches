@@ -362,7 +362,7 @@ public:
 
         default:
         {
-          int idx = 1 + (arm_rand32() % (node->valuesLength - 1));
+          int idx = arm_rand32() % node->valuesLength;
           int nextIdx = node->values[idx];
           if (nextIdx == lastWordBegin)
           {
