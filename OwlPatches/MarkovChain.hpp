@@ -20,24 +20,24 @@ class MarkovChain : public SignalGenerator
 
       K   key;
       V   values[MEMORY_PER_NODE];
-      uint8_t  writePosition;
+      uint8_t  valuesLength;
 
       Node(K k)
-        : next(0), key(k), writePosition(0)
+        : next(0), key(k), valuesLength(0)
       {
         memset(values, 0, MEMORY_PER_NODE * sizeof(V));
       }
 
       bool write(V value)
       {
-        if (writePosition < MEMORY_PER_NODE)
+        if (valuesLength < MEMORY_PER_NODE)
         {
           // don't write samples we already know about
-          for (int i = 0; i < writePosition; ++i)
+          for (int i = 0; i < valuesLength; ++i)
           {
             if (values[i] == value) return false;
           }
-          values[writePosition++] = value;
+          values[valuesLength++] = value;
           return true;
         }
         return false;
@@ -45,13 +45,13 @@ class MarkovChain : public SignalGenerator
 
       bool erase(V value)
       {
-        for (int i = 0; i < writePosition; ++i)
+        for (int i = 0; i < valuesLength; ++i)
         {
           // when we find the value in the list, swap with value at end of list, reduce list length
           if (values[i] == value)
           {
-            values[i] = values[writePosition - 1];
-            --writePosition;
+            values[i] = values[valuesLength - 1];
+            --valuesLength;
             return true;
           }
         }
@@ -120,6 +120,30 @@ class MarkovChain : public SignalGenerator
       return 0;
     }
 
+    void remove(K key)
+    {
+      uint32_t idx = hash(key) & (MEMORY_SIZE - 1);
+      Node* prevNode = 0;
+      Node* node = nodeTable[idx];
+      while (node && node->key != key)
+      {
+        prevNode = node;
+        node = node->next;
+      }
+      if (node)
+      {
+        if (prevNode)
+        {
+          prevNode->next = node->next;
+        }
+        else
+        {
+          nodeTable[idx] = node->next;
+        }
+        deallocateNode(node);
+      }
+    }
+
     int size() const { return nodeCount; }
 
   private:
@@ -148,10 +172,26 @@ class MarkovChain : public SignalGenerator
     {
       Node* node = nodePool[nodeCount];
       node->key = key;
-      node->writePosition = 0;
+      node->valuesLength = 0;
       node->next = 0;
       ++nodeCount;
       return node;
+    }
+
+    void deallocateNode(Node* node)
+    {
+      // this is probably too slow
+      for (int i = 0; i < nodeCount; ++i)
+      {
+        if (nodePool[i] == node)
+        {
+          int swapIdx = nodeCount - 1;
+          nodePool[i] = nodePool[swapIdx];
+          nodePool[swapIdx] = node;
+          --nodeCount;
+          break;
+        }
+      }
     }
   };
 
@@ -217,12 +257,20 @@ public:
     const int nextWritePosition = (bufferWritePos + 1) % bufferSize;
 
     // erase the position we are about to write to from the next sample list of what's already there
-    SampleMemory::Node* node = memory->get(buffer[bufferWritePos]);
-    if (node)
+    Sample prevSample = buffer[bufferWritePos];
+    SampleMemory::Node* node = memory->get(prevSample);
+    // we do not want the zero node to be removed from memory
+    // and since we wrote a zero as the first value to the zero node,
+    // we do not erase it.
+    if (node && !(node == zeroNode && nextWritePosition == 0))
     {
       if (node->erase(nextWritePosition))
       {
         --totalWrites;
+        if (node->valuesLength == 0)
+        {
+          memory->remove(prevSample);
+        }
       }
     }
 
@@ -267,7 +315,7 @@ public:
     {
       SampleMemory::Node* node = memory->get(lastGenerate);
       if (!node) node = zeroNode;
-      switch (node->writePosition)
+      switch (node->valuesLength)
       {
         // nothing follows, restart at zero
         case 0: 
@@ -295,7 +343,7 @@ public:
 
         default:
         {
-          int idx = 1 + (arm_rand32() % (node->writePosition - 1));
+          int idx = 1 + (arm_rand32() % (node->valuesLength - 1));
           int nextIdx = node->values[idx];
           if (nextIdx == lastWordBegin)
           {
