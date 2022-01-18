@@ -9,41 +9,45 @@ typedef float Sample;
 
 class MarkovChain : public SignalGenerator
 {
-  class MemoryNode
-  {
-  public:
-    MemoryNode* nextNode;
-
-    Sample   thisSample;
-    Sample   nextSample[MEMORY_PER_SAMPLE];
-    uint8_t  writePosition;
-
-    MemoryNode(Sample sample)
-      : nextNode(0), thisSample(sample), writePosition(0)
-    {
-      memset(nextSample, 0, MEMORY_PER_SAMPLE * sizeof(Sample));
-    }
-
-    bool write(Sample sample)
-    {
-      if (writePosition < MEMORY_PER_SAMPLE)
-      {
-        // don't write samples we already know about
-        for (int i = 0; i < writePosition; ++i)
-        {
-          if (nextSample[i] == sample) return false;
-        }
-        nextSample[writePosition++] = sample;
-        return true;
-      }
-      return false;
-    }
-  };
-
+  template<class K, class V>
   class Memory
   {
-    MemoryNode* nodeTable[MEMORY_SIZE];
-    MemoryNode* nodePool[MEMORY_MAX_NODES];
+  public:
+    class Node
+    {
+    public:
+      Node* nextNode;
+
+      K   key;
+      V   values[MEMORY_PER_SAMPLE];
+      uint8_t  writePosition;
+
+      Node(K k)
+        : nextNode(0), key(k), writePosition(0)
+      {
+        memset(values, 0, MEMORY_PER_SAMPLE * sizeof(V));
+      }
+
+      bool write(V value)
+      {
+        if (writePosition < MEMORY_PER_SAMPLE)
+        {
+          // don't write samples we already know about
+          for (int i = 0; i < writePosition; ++i)
+          {
+            if (values[i] == value) return false;
+          }
+          values[writePosition++] = value;
+          return true;
+        }
+        return false;
+      }
+    };
+
+  private:
+
+    Node* nodeTable[MEMORY_SIZE];
+    Node* nodePool[MEMORY_MAX_NODES];
     int nodeCount;
 
   public:
@@ -52,7 +56,7 @@ class MarkovChain : public SignalGenerator
       memset(nodeTable, 0, MEMORY_SIZE * sizeof(MemoryNode*));
       for (int i = 0; i < MEMORY_MAX_NODES; ++i)
       {
-        nodePool[i] = new MemoryNode(0);
+        nodePool[i] = new Node(K(0));
       }
     }
 
@@ -64,11 +68,11 @@ class MarkovChain : public SignalGenerator
       }
     }
 
-    MemoryNode* get(Sample sample)
+    Node* get(K key)
     {
-      uint32_t idx = hash(sample) & (MEMORY_SIZE - 1);
-      MemoryNode* node = nodeTable[idx];
-      while (node && node->thisSample != sample)
+      uint32_t idx = hash(key) & (MEMORY_SIZE - 1);
+      Node* node = nodeTable[idx];
+      while (node && node->key != key)
       {
         node = node->nextNode;
       }
@@ -76,24 +80,24 @@ class MarkovChain : public SignalGenerator
       return node;
     }
 
-    MemoryNode* put(Sample sample)
+    Node* put(K key)
     {
       if (nodeCount < MEMORY_MAX_NODES)
       {
-        uint32_t idx = hash(sample) & (MEMORY_SIZE - 1);
-        MemoryNode* node = nodeTable[idx];
+        uint32_t idx = hash(key) & (MEMORY_SIZE - 1);
+        Node* node = nodeTable[idx];
         if (node)
         {
           while (node->nextNode)
           {
             node = node->nextNode;
           }
-          node->nextNode = allocateNode(sample);
+          node->nextNode = allocateNode(key);
           node = node->nextNode;
         }
         else
         {
-          nodeTable[idx] = allocateNode(sample);
+          nodeTable[idx] = allocateNode(key);
           node = nodeTable[idx];
         }
         return node;
@@ -125,10 +129,10 @@ class MarkovChain : public SignalGenerator
       return int(x) + 32767;
     }
 
-    MemoryNode* allocateNode(Sample sample)
+    Node* allocateNode(K key)
     {
-      MemoryNode* node = nodePool[nodeCount];
-      node->thisSample = sample;
+      Node* node = nodePool[nodeCount];
+      node->key = key;
       node->writePosition = 0;
       node->nextNode = 0;
       ++nodeCount;
@@ -136,8 +140,10 @@ class MarkovChain : public SignalGenerator
     }
   };
 
-  Memory*  memory;
-  MemoryNode* zeroNode;
+  typedef Memory<Sample, Sample> SampleMemory;
+
+  SampleMemory*  memory;
+  SampleMemory::Node* zeroNode;
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
@@ -150,7 +156,7 @@ public:
   MarkovChain()
     : memory(0), maxWordSize(1), currentWordSize(1), letterCount(1)
   {
-    memory = new Memory();
+    memory = new SampleMemory();
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
     lastWordBegin = lastGenerate;
@@ -184,7 +190,7 @@ public:
     if (value != 0) value += -JITTER + randf()*JITTER * 2;
 
     Sample sample = toSample(value);
-    MemoryNode* node = memory->get(lastLearn);
+    SampleMemory::Node* node = memory->get(lastLearn);
     if (!node)
     {
       node = memory->put(lastLearn);
@@ -206,11 +212,11 @@ public:
 
   float generate() override
   {
-    MemoryNode* node = memory->get(lastGenerate);
+    SampleMemory::Node* node = memory->get(lastGenerate);
     if (!node) node = zeroNode;
     if (letterCount < currentWordSize)
     {
-      lastGenerate = node->nextSample[0];
+      lastGenerate = node->values[0];
       ++letterCount;
     }
     else
@@ -227,14 +233,14 @@ public:
         // node has only one sample that follows it, do that unless it is the same value as the sample itself
         case 1: 
         {
-          lastGenerate = node->thisSample != node->nextSample[0] ? node->nextSample[0] : toSample(0);
+          lastGenerate = node->key != node->values[0] ? node->values[0] : toSample(0);
         }
         break;
 
         default:
         {
           int idx = 1 + (arm_rand32() % (node->writePosition - 1));
-          Sample next = node->nextSample[idx];
+          Sample next = node->values[idx];
           if (next == lastWordBegin)
           {
             next = toSample(0);
