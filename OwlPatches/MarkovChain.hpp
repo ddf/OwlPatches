@@ -290,11 +290,11 @@ public:
       letterCount = 1;
       // random word size with each word within our max bound
       // otherwise longer words can get stuck repeating the same data.
-      currentWordSize += arm_rand32() % 8;
-      if (currentWordSize > maxWordSize)
-      {
-        currentWordSize = 1 + currentWordSize % maxWordSize;
-      }
+      //currentWordSize += arm_rand32() % 8;
+      //if (currentWordSize > maxWordSize)
+      //{
+      //  currentWordSize = 1 + currentWordSize % maxWordSize;
+      //}
     }
     return toFloat(lastGenerate);
   }
