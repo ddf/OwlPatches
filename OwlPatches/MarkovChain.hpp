@@ -5,7 +5,7 @@ typedef float Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_NODE 4
-#define JITTER 0.000001f
+#define JITTER 0.000000f
 
 class MarkovChain : public SignalGenerator
 {
@@ -198,7 +198,10 @@ public:
     // for now stop when our buffer is full
     if (bufferWritePos == bufferSize) return;
 
-    //if (value != 0) value += -JITTER + randf()*JITTER * 2;
+    if (JITTER)
+    {
+      if (value != 0) value += -JITTER + randf()*JITTER * 2;
+    }
 
     Sample sample = toSample(value);
     int sampleIdx = bufferWritePos;
