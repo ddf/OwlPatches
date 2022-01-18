@@ -26,7 +26,7 @@ class MarkovChain : public SignalGenerator
 
     bool write(Sample sample)
     {
-      //if (writePosition < MEMORY_PER_SAMPLE)
+      if (writePosition < MEMORY_PER_SAMPLE)
       {
         // don't write samples we already know about
         for (int i = 0; i < writePosition; ++i)
@@ -36,7 +36,7 @@ class MarkovChain : public SignalGenerator
         nextSample[writePosition++] = sample;
         return true;
       }
-      //return false;
+      return false;
     }
   };
 
