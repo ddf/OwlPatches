@@ -198,7 +198,7 @@ public:
     // for now stop when our buffer is full
     if (bufferWritePos == bufferSize) return;
 
-    if (value != 0) value += -JITTER + randf()*JITTER * 2;
+    //if (value != 0) value += -JITTER + randf()*JITTER * 2;
 
     Sample sample = toSample(value);
     int sampleIdx = bufferWritePos;
