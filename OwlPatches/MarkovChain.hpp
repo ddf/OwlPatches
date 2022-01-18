@@ -1,7 +1,7 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
 
-typedef int16_t Sample;
+typedef float Sample;
 #define MEMORY_SIZE (1<<15)
 #define MEMORY_MAX_NODES MEMORY_SIZE*4
 #define MEMORY_PER_NODE 4
@@ -160,7 +160,7 @@ public:
     : buffer(0), bufferWritePos(0), memory(0)
     , lastWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(1)
   {
-    bufferSize = MEMORY_MAX_NODES;
+    bufferSize = MEMORY_MAX_NODES*2;
     buffer = new Sample[bufferSize];
     memory = new SampleMemory();
     lastLearn = toSample(0);
