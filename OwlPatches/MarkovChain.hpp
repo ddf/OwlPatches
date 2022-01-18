@@ -140,31 +140,39 @@ class MarkovChain : public SignalGenerator
     }
   };
 
-  typedef Memory<Sample, Sample> SampleMemory;
+  typedef Memory<Sample, int> SampleMemory;
 
+  Sample* buffer;
+  int bufferSize;
+  int bufferWritePos;
   SampleMemory*  memory;
   SampleMemory::Node* zeroNode;
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
-  Sample   lastWordBegin;
+  int      lastWordBegin;
   int      maxWordSize;
   int      currentWordSize;
   int      letterCount;
 
 public:
   MarkovChain()
-    : memory(0), maxWordSize(1), currentWordSize(1), letterCount(1)
+    : buffer(0), bufferWritePos(0), memory(0)
+    , lastWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(1)
   {
+    bufferSize = MEMORY_MAX_NODES;
+    buffer = new Sample[bufferSize];
     memory = new SampleMemory();
     lastLearn = toSample(0);
     lastGenerate = toSample(0);
-    lastWordBegin = lastGenerate;
     zeroNode = memory->put(lastLearn);
+    zeroNode->write(0);
   }
 
   ~MarkovChain()
   {
+    delete[] buffer;
+
     if (memory)
       delete memory;
   }
@@ -187,15 +195,21 @@ public:
 
   void learn(float value)
   {
+    // for now stop when our buffer is full
+    if (bufferWritePos == bufferSize) return;
+
     if (value != 0) value += -JITTER + randf()*JITTER * 2;
 
     Sample sample = toSample(value);
+    int sampleIdx = bufferWritePos;
+    buffer[bufferWritePos++] = sample;
+
     SampleMemory::Node* node = memory->get(lastLearn);
     if (!node)
     {
       node = memory->put(lastLearn);
     }
-    if (node && node->write(sample))
+    if (node && node->write(sampleIdx))
     {
       ++totalWrites;
     }
@@ -212,46 +226,68 @@ public:
 
   float generate() override
   {
-    SampleMemory::Node* node = memory->get(lastGenerate);
-    if (!node) node = zeroNode;
     if (letterCount < currentWordSize)
     {
-      lastGenerate = node->values[0];
-      ++letterCount;
+      int genIdx = lastWordBegin + letterCount;
+      if (genIdx < bufferSize)
+      {
+        lastGenerate = buffer[genIdx];
+        ++letterCount;
+      }
+      else
+      {
+        lastGenerate = toSample(0);
+        letterCount = currentWordSize;
+      }
     }
     else
     {
+      SampleMemory::Node* node = memory->get(lastGenerate);
+      if (!node) node = zeroNode;
       switch (node->writePosition)
       {
         // nothing follows, restart at zero
         case 0: 
         {
-          lastGenerate = toSample(0);
+          resetGenerate();
         }
         break;
 
         // node has only one sample that follows it, do that unless it is the same value as the sample itself
         case 1: 
         {
-          lastGenerate = node->key != node->values[0] ? node->values[0] : toSample(0);
+          int nextIdx = node->values[0];
+          Sample next = buffer[nextIdx];
+          if (node->key != next)
+          {
+            lastGenerate = next;
+            lastWordBegin = nextIdx;
+          }
+          else
+          {
+            resetGenerate();
+          }
         }
         break;
 
         default:
         {
           int idx = 1 + (arm_rand32() % (node->writePosition - 1));
-          Sample next = node->values[idx];
-          if (next == lastWordBegin)
+          int nextIdx = node->values[idx];
+          if (nextIdx == lastWordBegin)
           {
-            next = toSample(0);
+            resetGenerate();
           }
-          lastGenerate = next;
+          else
+          {
+            lastGenerate = buffer[nextIdx];
+            lastWordBegin = nextIdx;
+          }
         }
         break;
       }
 
       letterCount = 1;
-      lastWordBegin = lastGenerate;
       // random word size with each word within our max bound
       // otherwise longer words can get stuck repeating the same data.
       currentWordSize += arm_rand32() % 8;
