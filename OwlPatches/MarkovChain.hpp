@@ -295,6 +295,7 @@ public:
       //{
       //  currentWordSize = 1 + currentWordSize % maxWordSize;
       //}
+      currentWordSize = maxWordSize;
     }
     return toFloat(lastGenerate);
   }
