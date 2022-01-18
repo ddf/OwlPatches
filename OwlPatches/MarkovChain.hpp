@@ -16,25 +16,12 @@ class MarkovChain : public SignalGenerator
 
     Sample   thisSample;
     Sample   nextSample[MEMORY_PER_SAMPLE];
-    uint8_t  nextLength;
-
-  private:
     uint8_t  writePosition;
 
-  public:
-
     MemoryNode(Sample sample)
-      : nextNode(0), thisSample(sample), nextLength(0), writePosition(0)
+      : nextNode(0), thisSample(sample), writePosition(0)
     {
       memset(nextSample, 0, MEMORY_PER_SAMPLE * sizeof(Sample));
-    }
-
-    void reset(float value)
-    {
-      thisSample = value;
-      nextSample[0] = 0;
-      nextLength = 0;
-      writePosition = 0;
     }
 
     bool write(Sample sample)
@@ -46,9 +33,7 @@ class MarkovChain : public SignalGenerator
         {
           if (nextSample[i] == sample) return false;
         }
-        nextSample[writePosition] = sample;
-        writePosition = (writePosition + 1) & (MEMORY_PER_SAMPLE - 1);
-        nextLength = std::min(MEMORY_PER_SAMPLE, nextLength + 1);
+        nextSample[writePosition++] = sample;
         return true;
       }
       //return false;
@@ -143,7 +128,9 @@ class MarkovChain : public SignalGenerator
     MemoryNode* allocateNode(Sample sample)
     {
       MemoryNode* node = nodePool[nodeCount];
-      node->reset(sample);
+      node->thisSample = sample;
+      node->writePosition = 0;
+      node->nextNode = 0;
       ++nodeCount;
       return node;
     }
@@ -228,7 +215,7 @@ public:
     }
     else
     {
-      switch (node->nextLength)
+      switch (node->writePosition)
       {
         // nothing follows, restart at zero
         case 0: 
@@ -246,7 +233,7 @@ public:
 
         default:
         {
-          int idx = 1 + (arm_rand32() % (node->nextLength - 1));
+          int idx = 1 + (arm_rand32() % (node->writePosition - 1));
           Sample next = node->nextSample[idx];
           if (next == lastWordBegin)
           {
