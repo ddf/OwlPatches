@@ -77,7 +77,20 @@ class MarkovChain : public SignalGenerator
 
     ~Memory()
     {
-      for (int i = 0; MEMORY_MAX_NODES; ++i)
+      // delete all nodes in the table
+      for (int i = 0; i < MEMORY_SIZE; ++i)
+      {
+        Node* node = nodeTable[i];
+        while (node)
+        {
+          Node* next = node->next;
+          delete node;
+          node = next;
+        }
+      }
+
+      // delete all nodes that weren't allocated to the table
+      for (int i = nodeCount; MEMORY_MAX_NODES; ++i)
       {
         delete nodePool[i];
       }
@@ -171,6 +184,7 @@ class MarkovChain : public SignalGenerator
     Node* allocateNode(K key)
     {
       Node* node = nodePool[nodeCount];
+      nodePool[nodeCount] = 0;
       node->key = key;
       node->valuesLength = 0;
       node->next = 0;
@@ -181,16 +195,21 @@ class MarkovChain : public SignalGenerator
     void deallocateNode(Node* node)
     {
       // this is probably too slow
-      for (int i = 0; i < nodeCount; ++i)
+      //for (int i = 0; i < nodeCount; ++i)
+      //{
+      //  if (nodePool[i] == node)
+      //  {
+      //    int swapIdx = nodeCount - 1;
+      //    nodePool[i] = nodePool[swapIdx];
+      //    nodePool[swapIdx] = node;
+      //    --nodeCount;
+      //    break;
+      //  }
+      //}
+      if (nodeCount > 0)
       {
-        if (nodePool[i] == node)
-        {
-          int swapIdx = nodeCount - 1;
-          nodePool[i] = nodePool[swapIdx];
-          nodePool[swapIdx] = node;
-          --nodeCount;
-          break;
-        }
+        --nodeCount;
+        nodePool[nodeCount] = node;
       }
     }
   };
