@@ -343,14 +343,13 @@ public:
         }
         break;
 
-        // node has only one sample that follows it, do that unless it is the same value as the sample itself
+        // node has only one sample that follows it, do that unless it will continue playback from where we just ended
         case 1: 
         {
           int nextIdx = node->values[0];
-          Sample next = buffer[nextIdx];
-          if (node->key != next)
+          if (nextIdx != lastWordBegin + letterCount)
           {
-            lastGenerate = next;
+            lastGenerate = buffer[nextIdx];
             lastWordBegin = nextIdx;
           }
           else
