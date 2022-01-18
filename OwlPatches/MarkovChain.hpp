@@ -43,21 +43,19 @@ class MarkovChain : public SignalGenerator
         return false;
       }
 
-      void erase(V value)
+      bool erase(V value)
       {
-        if (writePosition == 0) return;
-
         for (int i = 0; i < writePosition; ++i)
         {
-          // when we find the value in the list, swap with value at end of list,
-          // reduce list length
+          // when we find the value in the list, swap with value at end of list, reduce list length
           if (values[i] == value)
           {
             values[i] = values[writePosition - 1];
             --writePosition;
-            break;
+            return true;
           }
         }
+        return false;
       }
     };
 
@@ -222,7 +220,10 @@ public:
     SampleMemory::Node* node = memory->get(buffer[bufferWritePos]);
     if (node)
     {
-      node->erase(nextWritePosition);
+      if (node->erase(nextWritePosition))
+      {
+        --totalWrites;
+      }
     }
 
     if (JITTER)
@@ -230,7 +231,7 @@ public:
       if (value != 0) value += -JITTER + randf()*JITTER * 2;
     }
 
-    Sample sample = toSample(value);   
+    Sample sample = toSample(value);
     buffer[bufferWritePos] = sample;
 
     node = memory->get(lastLearn);
@@ -258,17 +259,9 @@ public:
   {
     if (letterCount < currentWordSize)
     {
-      int genIdx = lastWordBegin + letterCount;
-      if (genIdx < bufferSize)
-      {
-        lastGenerate = buffer[genIdx];
-        ++letterCount;
-      }
-      else
-      {
-        lastGenerate = toSample(0);
-        letterCount = currentWordSize;
-      }
+      int genIdx = (lastWordBegin + letterCount) % bufferSize;
+      lastGenerate = buffer[genIdx];
+      ++letterCount;
     }
     else
     {
