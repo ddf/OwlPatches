@@ -127,6 +127,8 @@ public:
     debugCpy = stpcpy(debugCpy, msg_itoa(markov->getMemorySize(), 10));
     debugCpy = stpcpy(debugCpy, " avg len ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(markov->getAverageChainLength(), 10));
+    debugCpy = stpcpy(debugCpy, " spd ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(speed, 10));
     debugMessage(debugMsg);
 
     if (generating)
