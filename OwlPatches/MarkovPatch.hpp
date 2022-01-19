@@ -48,14 +48,17 @@ class MarkovPatch : public Patch
 
   static const PatchParameterId inSpeed = PARAMETER_A;
   static const PatchParameterId inWordSize = PARAMETER_B;
-  static const PatchParameterId inDryWet = PARAMETER_C;  
+  static const PatchParameterId inDryWet = PARAMETER_C;
+
+  const int minWordSizeSamples;
+  const int maxWordSizeSamples;
   
 
 public: 
   MarkovPatch()
-  : listening(OFF), generating(ON), lastLearnLeft(0), lastLearnRight(0)
-  , genBuffer(0), lastGenLeft(0), lastGenRight(0)
-  , voct(-0.5f, 4)
+    : listening(OFF), generating(ON), lastLearnLeft(0), lastLearnRight(0)
+    , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
+    , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate())
   {
     markov = MarkovChain::create();
 
@@ -134,7 +137,7 @@ public:
 
     if (generating)
     {
-      int wordSize = (1 + getParameterValue(inWordSize) * 256);
+      int wordSize = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
       markov->setWordSize(wordSize);
       markov->generate(genLeft);
 
