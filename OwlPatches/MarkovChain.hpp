@@ -227,13 +227,12 @@ class MarkovChain : public SignalGenerator
   int      lastWordBegin;
   int      maxWordSize;
   int      currentWordSize;
-  float    letterCount;
-  float    playbackSpeed;
+  int      letterCount;
 
 public:
   MarkovChain()
     : buffer(0), bufferWritePos(0), memory(0)
-    , lastWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(0), playbackSpeed(1)
+    , lastWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(0)
   {
     bufferSize = MEMORY_MAX_NODES;
     buffer = new Sample[bufferSize];
@@ -257,11 +256,6 @@ public:
   {
     lastGenerate = toSample(0);
     letterCount = 0;
-  }
-
-  void setSpeed(float speed)
-  {
-    playbackSpeed = speed;
   }
 
   void setWordSize(int length)
@@ -377,7 +371,7 @@ public:
         break;
       }
 
-      letterCount = 1 * playbackSpeed;
+      letterCount = 1;
       // random word size with each word within our max bound
       // otherwise longer words can get stuck repeating the same data.
       //currentWordSize += arm_rand32() % 8;
@@ -387,20 +381,15 @@ public:
       //}
       currentWordSize = maxWordSize;
     }
-    else if (letterCount < currentWordSize)
-    {
-      const float genPos = lastWordBegin + letterCount;
-      const int i = ((int)genPos) % bufferSize;
-      const int j = i + 1;
-      const float t = genPos - i;
-      lastGenerate = buffer[i] + t * (buffer[j] - buffer[i]);
-      letterCount = std::min(letterCount + playbackSpeed, (float)currentWordSize);
-    }
     else
     {
-      int genIdx = (lastWordBegin + currentWordSize) % bufferSize;
+      int genIdx = (lastWordBegin + letterCount) % bufferSize;
       lastGenerate = buffer[genIdx];
-      letterCount = 0;
+      ++letterCount;
+      if (letterCount == currentWordSize)
+      {
+        letterCount = 0;
+      }
     }
     return toFloat(lastGenerate);
   }
