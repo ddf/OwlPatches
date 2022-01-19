@@ -31,10 +31,12 @@ DESCRIPTION:
 
 class MarkovPatch : public Patch 
 {
+  typedef AdsrEnvelope<false> DecayEnvelope;
+
   MarkovChain* markov;
   uint16_t listening;
   VoltsPerOctave voct;
-  AdsrEnvelope<true>* envelope;
+  DecayEnvelope* envelope;
 
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
@@ -57,7 +59,7 @@ class MarkovPatch : public Patch
 
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
-  const int minDecaySeconds = 0.001f;
+  const int minDecaySeconds = 0.002f;
   const int maxDecaySeconds = 1.0f;
 
 public: 
@@ -70,7 +72,7 @@ public:
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     genBuffer = AudioBuffer::create(2, getBlockSize());
-    envelope = AdsrEnvelope<true>::create(getSampleRate());
+    envelope = DecayEnvelope::create(getSampleRate());
     envelope->setAttack(minDecaySeconds);
     envelope->setRelease(minDecaySeconds);
 
@@ -86,7 +88,7 @@ public:
     MarkovChain::destroy(markov);
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
     AudioBuffer::destroy(genBuffer);
-    AdsrEnvelope<true>::destroy(envelope);
+    DecayEnvelope::destroy(envelope);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
