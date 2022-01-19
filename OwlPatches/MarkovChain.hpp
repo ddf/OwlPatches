@@ -261,7 +261,7 @@ public:
 
   void setSpeed(float speed)
   {
-
+    playbackSpeed = speed;
   }
 
   void setWordSize(int length)
