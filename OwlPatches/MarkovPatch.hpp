@@ -69,7 +69,7 @@ class MarkovPatch : public Patch
 public: 
   MarkovPatch()
     : listening(OFF), resetInSamples(0), lastLearnLeft(0), lastLearnRight(0)
-    , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4), 
+    , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*0.004f)
     , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
