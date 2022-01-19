@@ -62,6 +62,7 @@ public:
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     genBuffer = AudioBuffer::create(2, getBlockSize());
 
+    voct.setTune(-4);
     registerParameter(inSpeed, "Speed");
     registerParameter(inWordSize, "Word Size");
     registerParameter(inDryWet, "Dry/Wet");
