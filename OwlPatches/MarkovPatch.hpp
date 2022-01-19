@@ -148,9 +148,22 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(speed, 10));
     debugMessage(debugMsg);
 
+    int wordEndedGateDelay = 0;
     if (wordEndedGate > 0)
     {
+      if (wordEndedGate < getBlockSize())
+      {
+        wordEndedGateDelay = wordEndedGate;
+      }
       wordEndedGate -= getBlockSize();
+    }
+
+    // will a word end this block?
+    const int samplesUntilWordEnd = markov->getCurrentWordSize() - markov->getLetterCount();
+    if (samplesUntilWordEnd <= getBlockSize())
+    {
+      wordEndedGate = wordEndedGateLength;
+      wordEndedGateDelay = samplesUntilWordEnd;
     }
 
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
@@ -159,12 +172,6 @@ public:
 
     int wordSize = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
     markov->setWordSize(wordSize);
-
-    // will a word end this block?
-    if (markov->getCurrentWordSize() - markov->getLetterCount() <= getBlockSize())
-    {
-      wordEndedGate = wordEndedGateLength;
-    }
 
     for (int i = 0; i < inSize; ++i)
     {
@@ -184,7 +191,7 @@ public:
     inLeft.copyTo(inRight);
 
     setButton(inToggleListen, listening);
-    setButton(outWordEnded, wordEndedGate > 0);
+    setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
   }
   
 };
