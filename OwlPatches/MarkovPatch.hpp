@@ -24,6 +24,7 @@ DESCRIPTION:
 
 #include "Patch.h"
 #include "DcBlockingFilter.h"
+#include "VoltsPerOctave.h"
 #include "MarkovChain.hpp"
 #include <string.h>
 
@@ -32,9 +33,12 @@ class MarkovPatch : public Patch
   MarkovChain* markov;
   uint16_t listening;
   uint16_t generating;
+  VoltsPerOctave voct;
 
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
+
+  SmoothFloat speed;
 
   float lastLearnLeft, lastLearnRight;
   float lastGenLeft, lastGenRight;
@@ -42,20 +46,23 @@ class MarkovPatch : public Patch
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
 
-  static const PatchParameterId inWordSize = PARAMETER_A;
-  static const PatchParameterId inDryWet = PARAMETER_B;
+  static const PatchParameterId inSpeed = PARAMETER_A;
+  static const PatchParameterId inWordSize = PARAMETER_B;
+  static const PatchParameterId inDryWet = PARAMETER_C;  
   
 
 public: 
   MarkovPatch()
   : listening(OFF), generating(ON), lastLearnLeft(0), lastLearnRight(0)
   , genBuffer(0), lastGenLeft(0), lastGenRight(0)
+  , voct(-0.5f, 4)
   {
     markov = MarkovChain::create();
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     genBuffer = AudioBuffer::create(2, getBlockSize());
 
+    registerParameter(inSpeed, "Speed");
     registerParameter(inWordSize, "Word Size");
     registerParameter(inDryWet, "Dry/Wet");
 
@@ -102,6 +109,8 @@ public:
     FloatArray genLeft = genBuffer->getSamples(0);
     FloatArray genRight = genBuffer->getSamples(1);
 
+    speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
+
     dcBlockingFilter->process(audio, audio);
 
     if (listening)
@@ -123,6 +132,7 @@ public:
     if (generating)
     {
       int wordSize = (1 + getParameterValue(inWordSize) * 256);
+      markov->setSpeed(speed);
       markov->setWordSize(wordSize);
       markov->generate(genLeft);
 
