@@ -258,6 +258,16 @@ public:
     letterCount = 0;
   }
 
+  int getLetterCount() const
+  {
+    return letterCount;
+  }
+
+  int getCurrentWordSize() const
+  {
+    return currentWordSize;
+  }
+
   void setWordSize(int length)
   {
     maxWordSize = std::max(1, length);

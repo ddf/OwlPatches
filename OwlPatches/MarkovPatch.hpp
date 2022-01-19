@@ -33,6 +33,16 @@ class MarkovPatch : public Patch
 {
   typedef AdsrEnvelope<false> DecayEnvelope;
 
+  static const PatchButtonId inToggleListen = BUTTON_1;
+  static const PatchButtonId inToggleGenerate = BUTTON_2;
+  static const PatchButtonId outWordEnded = PUSHBUTTON;
+
+  static const PatchParameterId inWordSize = PARAMETER_A;
+  static const PatchParameterId inDecay = PARAMETER_B;
+  static const PatchParameterId inDryWet = PARAMETER_D;
+
+  static const PatchParameterId inSpeed = PARAMETER_G;
+
   MarkovChain* markov;
   uint16_t listening;
   VoltsPerOctave voct;
@@ -48,15 +58,9 @@ class MarkovPatch : public Patch
   float lastLearnLeft, lastLearnRight;
   float lastGenLeft, lastGenRight;
 
-  static const PatchButtonId inToggleListen = BUTTON_1;
-  static const PatchButtonId inToggleGenerate = BUTTON_2;
+  int wordEndedGate;
 
-  static const PatchParameterId inWordSize  = PARAMETER_A;
-  static const PatchParameterId inDecay     = PARAMETER_B;
-  static const PatchParameterId inDryWet    = PARAMETER_D;
-
-  static const PatchParameterId inSpeed     = PARAMETER_G;
-
+  const int wordEndedGateLength;
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
   const int minDecaySeconds = 0.002f;
@@ -65,7 +69,8 @@ class MarkovPatch : public Patch
 public: 
   MarkovPatch()
     : listening(OFF), resetInSamples(0), lastLearnLeft(0), lastLearnRight(0)
-    , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
+    , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4), 
+    , wordEndedGate(0), wordEndedGateLength(getSampleRate()*0.004f)
     , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
     markov = MarkovChain::create();
@@ -143,12 +148,23 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(speed, 10));
     debugMessage(debugMsg);
 
+    if (wordEndedGate > 0)
+    {
+      wordEndedGate -= getBlockSize();
+    }
+
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     decay = minDecaySeconds + getParameterValue(inDecay)*(maxDecaySeconds - minDecaySeconds);
     envelope->setRelease(decay);
 
     int wordSize = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
     markov->setWordSize(wordSize);
+
+    // will a word end this block?
+    if (markov->getCurrentWordSize() - markov->getLetterCount() <= getBlockSize())
+    {
+      wordEndedGate = wordEndedGateLength;
+    }
 
     for (int i = 0; i < inSize; ++i)
     {
@@ -168,6 +184,7 @@ public:
     inLeft.copyTo(inRight);
 
     setButton(inToggleListen, listening);
+    setButton(outWordEnded, wordEndedGate > 0);
   }
   
 };
