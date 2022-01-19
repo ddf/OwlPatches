@@ -2,8 +2,8 @@
 #include "basicmaths.h"
 
 typedef int16_t Sample;
-#define MEMORY_SIZE (1<<15)
-#define MEMORY_MAX_NODES MEMORY_SIZE*4
+#define MEMORY_SIZE (1<<16)
+#define MEMORY_MAX_NODES MEMORY_SIZE*1
 #define MEMORY_PER_NODE 4
 #define JITTER 0.000000f
 
