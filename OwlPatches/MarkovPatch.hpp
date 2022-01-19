@@ -25,6 +25,7 @@ DESCRIPTION:
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "VoltsPerOctave.h"
+#include "AdsrEnvelope.h"
 #include "MarkovChain.hpp"
 #include <string.h>
 
@@ -32,13 +33,15 @@ class MarkovPatch : public Patch
 {
   MarkovChain* markov;
   uint16_t listening;
-  uint16_t generating;
   VoltsPerOctave voct;
+  AdsrEnvelope<true>* envelope;
 
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
+  uint16_t resetInSamples;
 
   SmoothFloat speed;
+  SmoothFloat decay;
 
   float lastLearnLeft, lastLearnRight;
   float lastGenLeft, lastGenRight;
@@ -46,16 +49,20 @@ class MarkovPatch : public Patch
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
 
-  static const PatchParameterId inSpeed = PARAMETER_A;
-  static const PatchParameterId inWordSize = PARAMETER_B;
-  static const PatchParameterId inDryWet = PARAMETER_C;
+  static const PatchParameterId inWordSize  = PARAMETER_A;
+  static const PatchParameterId inDecay     = PARAMETER_B;
+  static const PatchParameterId inDryWet    = PARAMETER_D;
+
+  static const PatchParameterId inSpeed     = PARAMETER_G;
 
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
+  const int minDecaySeconds = 0.001f;
+  const int maxDecaySeconds = 1.0f;
 
 public: 
   MarkovPatch()
-    : listening(OFF), generating(ON), lastLearnLeft(0), lastLearnRight(0)
+    : listening(OFF), resetInSamples(0), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
@@ -63,12 +70,15 @@ public:
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     genBuffer = AudioBuffer::create(2, getBlockSize());
+    envelope = AdsrEnvelope<true>::create(getSampleRate());
+    envelope->setAttack(minDecaySeconds);
+    envelope->setRelease(minDecaySeconds);
 
     voct.setTune(-4);
-    registerParameter(inSpeed, "Speed");
     registerParameter(inWordSize, "Word Size");
     registerParameter(inDryWet, "Dry/Wet");
-
+    registerParameter(inDecay, "Decay");
+    registerParameter(inSpeed, "Speed");
   }
 
   ~MarkovPatch()
@@ -76,6 +86,7 @@ public:
     MarkovChain::destroy(markov);
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
     AudioBuffer::destroy(genBuffer);
+    AdsrEnvelope<true>::destroy(envelope);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -93,26 +104,22 @@ public:
     }
     else if (bid == inToggleGenerate)
     {
-      generating = value;
-      if (generating)
+      bool gateOpen = value == ON;
+      if (gateOpen)
       {
-        markov->resetGenerate();
+        resetInSamples = samples;
       }
-      else
-      {
-        genBuffer->clear();
-      }
+      envelope->gate(gateOpen, samples);
     }
   }
 
   void processAudio(AudioBuffer& audio) override
   {
+    const int inSize = audio.getSize();
     FloatArray inLeft = audio.getSamples(0);
     FloatArray inRight = audio.getSamples(1);
     FloatArray genLeft = genBuffer->getSamples(0);
     FloatArray genRight = genBuffer->getSamples(1);
-
-    speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
 
     dcBlockingFilter->process(audio, audio);
 
@@ -134,15 +141,20 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(speed, 10));
     debugMessage(debugMsg);
 
-    if (generating)
-    {
-      int wordSize = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
-      markov->setWordSize(wordSize);
-      markov->generate(genLeft);
+    speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
+    decay = minDecaySeconds + getParameterValue(inDecay)*(maxDecaySeconds - minDecaySeconds);
+    envelope->setRelease(decay);
 
-      //markov->setLastGenerate(lastGenRight);
-      //markov->generate(right);
-      //lastGenRight = right[right.getSize() - 1];
+    int wordSize = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
+    markov->setWordSize(wordSize);
+
+    for (int i = 0; i < inSize; ++i)
+    {
+      genLeft[i] = markov->generate() * envelope->generate();
+      if (resetInSamples && --resetInSamples == 0)
+      {
+        markov->resetGenerate();
+      }
     }
 
     float dryWet = getParameterValue(inDryWet);
