@@ -52,13 +52,12 @@ class MarkovPatch : public Patch
 
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
-  
 
 public: 
   MarkovPatch()
     : listening(OFF), generating(ON), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
-    , minWordSizeSamples((getSampleRate()*0.004f)), maxWordSizeSamples(getSampleRate()*0.25f)
+    , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
     markov = MarkovChain::create();
 
@@ -92,9 +91,9 @@ public:
         markov->learn(0);
       }
     }
-    else if (bid == inToggleGenerate && value == ON)
+    else if (bid == inToggleGenerate)
     {
-      generating = generating == ON ? OFF : ON;
+      generating = value;
       if (generating)
       {
         markov->resetGenerate();
@@ -155,7 +154,6 @@ public:
     inLeft.copyTo(inRight);
 
     setButton(inToggleListen, listening);
-    setButton(inToggleGenerate, generating);
   }
   
 };
