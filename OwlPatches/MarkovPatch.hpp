@@ -146,9 +146,13 @@ public:
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.memorySize, 10));
     debugCpy = stpcpy(debugCpy, " min ");
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainLength, 10));
-    debugCpy = stpcpy(debugCpy, " max ");
+    debugCpy = stpcpy(debugCpy, "(");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainCount, 10));
+    debugCpy = stpcpy(debugCpy, ") max ");
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainLength, 10));
-    debugCpy = stpcpy(debugCpy, " avg ");
+    debugCpy = stpcpy(debugCpy, "(");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainCount, 10));
+    debugCpy = stpcpy(debugCpy, ") avg ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
     debugMessage(debugMsg);
 

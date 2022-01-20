@@ -279,7 +279,9 @@ public:
   {
     int memorySize;
     int minChainLength;
+    int minChainCount;
     int maxChainLength;
+    int maxChainCount;
     float avgChainLength;
   };
 
@@ -482,7 +484,9 @@ public:
   {
     int memSize = 0;
     int minLength = 0;
+    int minCount = 0;
     int maxLength = 0;
+    int maxCount = 0;
     int totalCount = 0;
     for (int i = 1; i < MEMORY_PER_NODE + 1; ++i)
     {
@@ -493,17 +497,19 @@ public:
       if (nodeCountWithLength > 0 && minLength == 0)
       {
         minLength = nodeLength;
+        minCount = nodeCountWithLength;
       }
 
       if (nodeCountWithLength > 0 && nodeLength > maxLength)
       {
         maxLength = nodeLength;
+        maxCount = nodeCountWithLength;
       }
 
       totalCount += nodeCountWithLength * nodeLength;
     }
     float avg = memSize > 0 ? (float)totalCount / memSize : 0;
-    return Stats{ memSize, minLength, maxLength, avg };
+    return Stats{ memSize, minLength, minCount, maxLength, maxCount, avg };
   }
 
 public:
