@@ -243,8 +243,8 @@ public:
     buffer = new Sample[bufferSize];
     memset(buffer, 0, bufferSize * sizeof(Sample));
     memory = new SampleMemory();
-    lastLearn = Sample(0);
-    lastGenerate = Sample(0);
+    memset(&lastLearn, 0, sizeof(Sample));
+    memset(&lastGenerate, 0, sizeof(Sample));
     zeroNode = memory->put(lastLearn);
     zeroNode->write(0);
   }
@@ -259,7 +259,7 @@ public:
 
   void resetGenerate()
   {
-    lastGenerate = Sample(0);
+    memset(&lastGenerate, 0, sizeof(Sample));
     letterCount = 0;
   }
 
