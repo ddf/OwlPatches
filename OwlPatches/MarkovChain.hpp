@@ -269,7 +269,7 @@ protected:
     Frame(S _x, S _y) : x(_x), y(_y) {}
     S left() const { return x; }
     S right() const { return y; }
-    S key() const { return x + y; }
+    S key() const { return x*0.5f + y*0.5f; }
   };
 
   typedef Frame<Sample, channels> SampleFrame;
