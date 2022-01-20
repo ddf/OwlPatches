@@ -76,7 +76,7 @@ class MarkovChain
       memset(nodeTable, 0, MEMORY_SIZE * sizeof(Node*));
       for (int i = 0; i < MEMORY_MAX_NODES; ++i)
       {
-        nodePool[i] = new Node(K(0));
+        nodePool[i] = new Node();
       }
     }
 
