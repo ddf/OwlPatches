@@ -1,4 +1,5 @@
 #include "SignalGenerator.h"
+#include "ComplexShortArray.h"
 #include "basicmaths.h"
 
 #define MEMORY_SIZE (1<<16)
@@ -435,5 +436,20 @@ public:
   {
     if (markov)
       delete markov;
+  }
+};
+
+class ComplexShortMarkovGenerator : public MarkovChain<ComplexShort>, ComplexSignalGenerator
+{
+public:
+  void learn(ComplexFloat value)
+  {
+    MarkovChain<ComplexShort>::learn({ value.re * 32767, value.im * 32767 });
+  }
+
+  ComplexFloat generate() override
+  {
+    ComplexShort sample = MarkovChain<ComplexShort>::generate();
+    return ComplexFloat(sample.re * 0.0000305185f, sample.im * 0.0000305185f);
   }
 };
