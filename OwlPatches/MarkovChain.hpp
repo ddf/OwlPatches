@@ -214,12 +214,13 @@ class MarkovChain
   };
 
   typedef Memory<Sample, int> SampleMemory;
+  typedef Memory<Sample, int>::Node SampleMemoryNode;
 
   Sample* buffer;
   int bufferSize;
   int bufferWritePos;
   SampleMemory*  memory;
-  SampleMemory::Node* zeroNode;
+  SampleMemoryNode* zeroNode;
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
