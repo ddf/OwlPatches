@@ -232,11 +232,6 @@ protected:
   {
     S data[C];
 
-    Frame() :
-    {
-      memset(data, 0, C*sizeof(S));
-    }
-
     S key() const
     {
       S k = 0;
@@ -251,19 +246,23 @@ protected:
   template<class S>
   struct Frame<S, 1>
   {
-    Frame(S v) : { data[0] = v; }
-    operator S() const { return data[0]; }
-    S key() const { return data[0]; }
+    S x;
+
+    Frame(S v) : { x = v; }
+    operator S() const { return x; }
+    S key() const { return x; }
   };
 
   template<class S>
   struct Frame<S, 2>
   {
-    Frame(S x) { data[0] = x; data[1] = x; }
-    Frame(S x, S y) { data[0] = x; data[1] = y; }
-    S left() const { return data[0]; }
-    S right() const { return data[1]; }
-    S key() const { return data[0] + data[1]; }
+    S x, y;
+
+    Frame(S _x) : x(_x), y(_x) {}
+    Frame(S _x, S _y) : x(_x), y(_y) {}
+    S left() const { return x; }
+    S right() const { return y; }
+    S key() const { return x + y; }
   };
 
   typedef Frame<Sample, channels> SampleFrame;
