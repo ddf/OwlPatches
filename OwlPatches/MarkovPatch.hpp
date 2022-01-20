@@ -32,7 +32,7 @@ DESCRIPTION:
 class MarkovPatch : public Patch 
 {
   typedef AdsrEnvelope<false> DecayEnvelope;
-  typedef MarkovChain<int16_t> MarkovChain;
+  typedef MarkovChain<int16_t> MarkovGenerator;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
@@ -44,7 +44,7 @@ class MarkovPatch : public Patch
 
   static const PatchParameterId inSpeed = PARAMETER_G;
 
-  MarkovChain* markov;
+  MarkovGenerator* markov;
   uint16_t listening;
   VoltsPerOctave voct;
   DecayEnvelope* envelope;
@@ -74,7 +74,7 @@ public:
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*0.004f)
     , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
-    markov = MarkovChain::create();
+    markov = MarkovGenerator::create();
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     genBuffer = AudioBuffer::create(2, getBlockSize());
@@ -91,7 +91,7 @@ public:
 
   ~MarkovPatch()
   {
-    MarkovChain::destroy(markov);
+    MarkovGenerator::destroy(markov);
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
     AudioBuffer::destroy(genBuffer);
     DecayEnvelope::destroy(envelope);
