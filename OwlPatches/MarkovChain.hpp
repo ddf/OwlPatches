@@ -237,8 +237,8 @@ public:
     buffer = new Sample[bufferSize];
     memset(buffer, 0, bufferSize * sizeof(Sample));
     memory = new SampleMemory();
-    lastLearn = toSample(0);
-    lastGenerate = toSample(0);
+    lastLearn = Sample(0);
+    lastGenerate = Sample(0);
     zeroNode = memory->put(lastLearn);
     zeroNode->write(0);
   }
@@ -253,7 +253,7 @@ public:
 
   void resetGenerate()
   {
-    lastGenerate = toSample(0);
+    lastGenerate = Sample(0);
     letterCount = 0;
   }
 
@@ -270,11 +270,6 @@ public:
   void setWordSize(int length)
   {
     maxWordSize = std::max(1, length);
-  }
-
-  void setLastGenerate(float value)
-  {
-    lastGenerate = toSample(value);
   }
 
   void learn(Sample sample)
