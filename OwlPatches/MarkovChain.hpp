@@ -296,7 +296,6 @@ public:
   {
     bufferSize = MEMORY_MAX_NODES;
     buffer = new SampleFrame[bufferSize];
-    memset(buffer, 0, bufferSize * sizeof(SampleFrame));
     memory = new SampleMemory();
     zeroNode = memory->put(lastLearn.key());
     zeroNode->write(0);
@@ -348,7 +347,7 @@ public:
         --totalWrites;
         if (node->valuesLength == 0)
         {
-          memory->remove(prevSampleFrame);
+          memory->remove(prevSampleFrame.key());
         }
       }
     }
