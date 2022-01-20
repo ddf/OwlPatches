@@ -140,13 +140,16 @@ public:
       }
     }
 
+    MarkovGenerator::Stats stats = markov->getStats();
     char debugMsg[64];
-    char* debugCpy = stpcpy(debugMsg, "mem size ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(markov->getMemorySize(), 10));
-    debugCpy = stpcpy(debugCpy, " avg len ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(markov->getAverageChainLength(), 10));
-    debugCpy = stpcpy(debugCpy, " spd ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(speed, 10));
+    char* debugCpy = stpcpy(debugMsg, "nodes ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.memorySize, 10));
+    debugCpy = stpcpy(debugCpy, " min ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainLength, 10));
+    debugCpy = stpcpy(debugCpy, " max ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainLength, 10));
+    debugCpy = stpcpy(debugCpy, " avg ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
     debugMessage(debugMsg);
 
     int wordEndedGateDelay = 0;

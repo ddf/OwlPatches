@@ -274,19 +274,29 @@ protected:
 
   typedef Frame<Sample, channels> SampleFrame;
 
+public:
+  struct Stats
+  {
+    int memorySize;
+    int minChainLength;
+    int maxChainLength;
+    float avgChainLength;
+  };
+
 private:
   SampleFrame* buffer;
   int bufferSize;
   int bufferWritePos;
   SampleMemory*  memory;
   typename SampleMemory::Node* zeroNode;
-  uint32_t totalWrites;
   SampleFrame lastLearn;
   SampleFrame lastGenerate;
   int      lastWordBegin;
   int      maxWordSize;
   int      currentWordSize;
   int      letterCount;
+
+  int nodeLengthCounts[MEMORY_PER_NODE+1];
 
 public:
   MarkovChain(int inBufferSize)
@@ -296,8 +306,16 @@ public:
   {
     buffer = new SampleFrame[bufferSize];
     memory = new SampleMemory();
+
+    for (int i = 0; i < MEMORY_PER_NODE + 1; ++i)
+    {
+      nodeLengthCounts[i] = 0;
+    }
+
     zeroNode = memory->put(lastLearn.key());
     zeroNode->write(0);
+
+    nodeLengthCounts[1] = 1;
   }
 
   ~MarkovChain()
@@ -341,12 +359,18 @@ public:
     // we do not erase it.
     if (node && !(node == zeroNode && nextWritePosition == 0))
     {
+      int prevLen = node->valuesLength;
       if (node->erase(nextWritePosition))
       {
-        --totalWrites;
+        nodeLengthCounts[prevLen] = nodeLengthCounts[prevLen] - 1;
+
         if (node->valuesLength == 0)
         {
           memory->remove(prevSampleFrame.key());
+        }
+        else
+        {
+          nodeLengthCounts[node->valuesLength] = nodeLengthCounts[node->valuesLength] + 1;
         }
       }
     }
@@ -358,9 +382,17 @@ public:
     {
       node = memory->put(lastLearn.key());
     }
-    if (node && node->write(bufferWritePos))
+    if (node)
     {
-      ++totalWrites;
+      int prevLen = node->valuesLength;
+      if (node->write(bufferWritePos))
+      {
+        // we don't keep track of zero length nodes because they get removed from memory
+        if (prevLen != 0)
+          nodeLengthCounts[prevLen] = nodeLengthCounts[prevLen] - 1;
+
+        nodeLengthCounts[node->valuesLength] = nodeLengthCounts[node->valuesLength] + 1;
+      }
     }
     bufferWritePos = nextWritePosition;
     lastLearn = sampleFrame;
@@ -446,15 +478,32 @@ public:
     return lastGenerate;
   }
 
-  int getMemorySize() const
+  Stats getStats() const
   {
-    return memory->size();
-  }
-
-  float getAverageChainLength() const
-  {
-    int memSize = memory->size();
-    return memSize > 0 ? (float)totalWrites / memSize : 0;
+    int memSize = 0;
+    int minCount = INT_MAX;
+    int minIndex = 0;
+    int maxCount = 0;
+    int maxIndex = 0;
+    int totalCount = 0;
+    for (int i = 1; i < MEMORY_PER_NODE + 1; ++i)
+    {
+      int lenCount = nodeLengthCounts[i];
+      memSize += lenCount;
+      if (lenCount < minCount)
+      {
+        minCount = lenCount;
+        minIndex = i;
+      }
+      else if (lenCount > maxCount)
+      {
+        maxCount = lenCount;
+        maxIndex = i;
+      }
+      totalCount += i * lenCount;
+    }
+    float avg = memSize > 0 ? (float)totalCount / memSize : 0;
+    return Stats{ memSize, minIndex, maxIndex, avg };
   }
 
 public:
