@@ -6,7 +6,7 @@
 #define MEMORY_MAX_NODES MEMORY_SIZE*1
 #define MEMORY_PER_NODE 4
 
-template<class Sample>
+template<class Sample, int channels>
 class MarkovChain
 {
   template<class K, class V>
@@ -226,14 +226,57 @@ class MarkovChain
 
   typedef Memory<Sample, int> SampleMemory;
 
-  Sample* buffer;
+protected:
+  template<class S, int C>
+  struct Frame
+  {
+    S data[C];
+
+    SampleFrame() :
+    {
+      memset(data, 0, C*sizeof(S));
+    }
+
+    S key() const
+    {
+      S k = 0;
+      for (int i = 0; i < C; ++i)
+      {
+        k += data[i];
+      }
+      return k;
+    }
+  };
+
+  template<class S>
+  struct Frame<S, 1>
+  {
+    Frame(S v) : { data[0] = v; }
+    operator S() const { return data[0]; }
+    S key() const { return data[0]; }
+  };
+
+  template<class S>
+  struct Frame<S, 2>
+  {
+    Frame(S x) { data[0] = x; data[1] = x; }
+    Frame(S x, S y) { data[0] = x; data[1] = y; }
+    S left() const { return data[0]; }
+    S right() const { return data[1]; }
+    S key() const { return data[0] + data[1]; }
+  };
+
+  typedef Frame<Sample, channels> SampleFrame;
+
+private:
+  SampleFrame* buffer;
   int bufferSize;
   int bufferWritePos;
   SampleMemory*  memory;
   typename SampleMemory::Node* zeroNode;
   uint32_t totalWrites;
-  Sample   lastLearn;
-  Sample   lastGenerate;
+  SampleFrame lastLearn;
+  SampleFrame lastGenerate;
   int      lastWordBegin;
   int      maxWordSize;
   int      currentWordSize;
@@ -243,14 +286,13 @@ public:
   MarkovChain()
     : buffer(0), bufferWritePos(0), memory(0)
     , lastWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(0)
+    , lastLearn(0), lastGenerate(0)
   {
     bufferSize = MEMORY_MAX_NODES;
-    buffer = new Sample[bufferSize];
-    memset(buffer, 0, bufferSize * sizeof(Sample));
+    buffer = new SampleFrame[bufferSize];
+    memset(buffer, 0, bufferSize * sizeof(SampleFrame));
     memory = new SampleMemory();
-    memset(&lastLearn, 0, sizeof(Sample));
-    memset(&lastGenerate, 0, sizeof(Sample));
-    zeroNode = memory->put(lastLearn);
+    zeroNode = memory->put(lastLearn.key());
     zeroNode->write(0);
   }
 
@@ -264,7 +306,7 @@ public:
 
   void resetGenerate()
   {
-    memset(&lastGenerate, 0, sizeof(Sample));
+    lastGenerate = SampleFrame(0);
     letterCount = 0;
   }
 
@@ -283,13 +325,13 @@ public:
     maxWordSize = std::max(1, length);
   }
 
-  void learn(Sample sample)
+  void learn(SampleFrame sampleFrame)
   {
     const int nextWritePosition = (bufferWritePos + 1) % bufferSize;
 
     // erase the position we are about to write to from the next sample list of what's already there
-    Sample prevSample = buffer[bufferWritePos];
-    typename SampleMemory::Node* node = memory->get(prevSample);
+    SampleFrame prevSampleFrame = buffer[bufferWritePos];
+    typename SampleMemory::Node* node = memory->get(prevSampleFrame.key());
     // we do not want the zero node to be removed from memory
     // and since we wrote a zero as the first value to the zero node,
     // we do not erase it.
@@ -300,27 +342,27 @@ public:
         --totalWrites;
         if (node->valuesLength == 0)
         {
-          memory->remove(prevSample);
+          memory->remove(prevSampleFrame);
         }
       }
     }
 
-    buffer[bufferWritePos] = sample;
+    buffer[bufferWritePos] = sampleFrame;
 
-    node = memory->get(lastLearn);
+    node = memory->get(lastLearn.key());
     if (!node)
     {
-      node = memory->put(lastLearn);
+      node = memory->put(lastLearn.key());
     }
     if (node && node->write(bufferWritePos))
     {
       ++totalWrites;
     }
     bufferWritePos = nextWritePosition;
-    lastLearn = sample;
+    lastLearn = sampleFrame;
   }
 
-  void learn(SimpleArray<Sample> input)
+  void learn(SimpleArray<SampleFrame> input)
   {
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
@@ -328,11 +370,11 @@ public:
     }
   }
 
-  Sample generate()
+  SampleFrame generate()
   {
     if (letterCount == 0)
     {
-      typename SampleMemory::Node* node = memory->get(lastGenerate);
+      typename SampleMemory::Node* node = memory->get(lastGenerate.key());
       if (!node) node = zeroNode;
       switch (node->valuesLength)
       {
@@ -347,8 +389,8 @@ public:
         case 1: 
         {
           int nextIdx = node->values[0];
-          Sample next = buffer[nextIdx];
-          if (node->key != next)
+          SampleFrame next = buffer[nextIdx];
+          if (node->key != next.key())
           {
             lastGenerate = next;
             lastWordBegin = nextIdx;
@@ -412,29 +454,29 @@ public:
   }
 
 public:
-  static MarkovChain<Sample>* create()
+  static MarkovChain<Sample, channels>* create()
   {
-    return new MarkovChain<Sample>();
+    return new MarkovChain<Sample, channels>();
   }
 
-  static void destroy(MarkovChain<Sample>* markov)
+  static void destroy(MarkovChain<Sample, channels>* markov)
   {
     if (markov)
       delete markov;
   }
 };
 
-class ShortMarkovGenerator : public MarkovChain<int16_t>, SignalGenerator
+class ShortMarkovGenerator : public MarkovChain<int16_t, 1>, SignalGenerator
 {
 public:
   void learn(float value)
   {
-    MarkovChain<int16_t>::learn(value * 32767);
+    MarkovChain::learn(SampleFrame((int16_t)(value * 32767)));
   }
 
   float generate() override 
   {
-    return MarkovChain<int16_t>::generate() * 0.0000305185f;
+    return MarkovChain::generate() * 0.0000305185f;
   }
 
   static ShortMarkovGenerator* create()
@@ -449,19 +491,19 @@ public:
   }
 };
 
-class ComplexShortMarkovGenerator : public MarkovChain<ComplexShort>, ComplexSignalGenerator
+class ComplexShortMarkovGenerator : public MarkovChain<int16_t, 2>, ComplexSignalGenerator
 {
 public:
   void learn(ComplexFloat value)
   {
-    ComplexShort sample = { (int16_t)(value.re * 32767), (int16_t)(value.im * 32767) };
-    MarkovChain<ComplexShort>::learn(sample);
+    const SampleFrame frame((int16_t)(value.re * 32767), (int16_t)(value.im * 32767));
+    MarkovChain::learn(frame);
   }
 
   ComplexFloat generate() override
   {
-    ComplexShort sample = MarkovChain<ComplexShort>::generate();
-    return ComplexFloat(sample.re * 0.0000305185f, sample.im * 0.0000305185f);
+    SampleFrame frame = MarkovChain::generate();
+    return ComplexFloat(frame.left() * 0.0000305185f, frame.right() * 0.0000305185f);
   }
 
   static ComplexShortMarkovGenerator* create()
