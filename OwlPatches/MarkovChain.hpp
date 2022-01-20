@@ -1,13 +1,12 @@
 #include "SignalGenerator.h"
 #include "basicmaths.h"
 
-typedef int16_t Sample;
 #define MEMORY_SIZE (1<<16)
 #define MEMORY_MAX_NODES MEMORY_SIZE*1
 #define MEMORY_PER_NODE 4
-#define JITTER 0.000000f
 
-class MarkovChain : public SignalGenerator
+template<class Sample>
+class MarkovChain
 {
   template<class K, class V>
   class Memory
@@ -278,11 +277,8 @@ public:
     lastGenerate = toSample(value);
   }
 
-  void learn(float value)
+  void learn(Sample sample)
   {
-    // for now stop when our buffer is full
-    // if (bufferWritePos == bufferSize) return;
-
     const int nextWritePosition = (bufferWritePos + 1) % bufferSize;
 
     // erase the position we are about to write to from the next sample list of what's already there
@@ -303,12 +299,6 @@ public:
       }
     }
 
-    if (JITTER)
-    {
-      if (value != 0) value += -JITTER + randf()*JITTER * 2;
-    }
-
-    Sample sample = toSample(value);
     buffer[bufferWritePos] = sample;
 
     node = memory->get(lastLearn);
@@ -324,7 +314,7 @@ public:
     lastLearn = sample;
   }
 
-  void learn(FloatArray input)
+  void learn(SimpleArray<Sample> input)
   {
     for (int i = 0, sz = input.getSize(); i < sz; ++i)
     {
@@ -332,7 +322,7 @@ public:
     }
   }
 
-  float generate() override
+  Sample generate()
   {
     if (letterCount == 0)
     {
@@ -401,7 +391,7 @@ public:
         letterCount = 0;
       }
     }
-    return toFloat(lastGenerate);
+    return lastGenerate;
   }
 
   void generate(FloatArray output) override
@@ -423,24 +413,13 @@ public:
     return memSize > 0 ? (float)totalWrites / memSize : 0;
   }
 
-private:
-  inline Sample toSample(float value) const
-  {
-    return value * 32767;
-  }
-
-  inline float toFloat(Sample value) const
-  {
-    return value * 0.0000305185f;
-  }
-
 public:
-  static MarkovChain* create()
+  static MarkovChain<Sample>* create()
   {
-    return new MarkovChain();
+    return new MarkovChain<Sample>();
   }
 
-  static void destroy(MarkovChain* markov)
+  static void destroy(MarkovChain<Sample>* markov)
   {
     if (markov)
       delete markov;
