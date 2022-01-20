@@ -74,7 +74,7 @@ public:
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*0.004f)
     , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
-    markov = MarkovGenerator::create(getSampleRate()*4);
+    markov = MarkovGenerator::create(getSampleRate()*8);
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     genBuffer = AudioBuffer::create(2, getBlockSize());
