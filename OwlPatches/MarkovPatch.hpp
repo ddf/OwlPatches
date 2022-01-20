@@ -32,7 +32,7 @@ DESCRIPTION:
 class MarkovPatch : public Patch 
 {
   typedef AdsrEnvelope<false> DecayEnvelope;
-  typedef ShortMarkovGenerator MarkovGenerator;
+  typedef ComplexShortMarkovGenerator MarkovGenerator;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
@@ -135,8 +135,8 @@ public:
     {
       for (int i = 0; i < inSize; ++i)
       {
-        //markov->learn(ComplexFloat(inLeft[i], inRight[i]));
-        markov->learn(inLeft[i]);
+        markov->learn(ComplexFloat(inLeft[i], inRight[i]));
+        //markov->learn(inLeft[i]);
       }
     }
 
@@ -176,11 +176,11 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      //ComplexFloat sample = markov->generate() * envelope->generate();
-      //genLeft[i] = sample.re;
-      //genRight[i] = sample.im;
-      genLeft[i] = markov->generate() * envelope->generate();
-      genRight[i] = genLeft[i];
+      ComplexFloat sample = markov->generate() * envelope->generate();
+      genLeft[i] = sample.re;
+      genRight[i] = sample.im;
+      //genLeft[i] = markov->generate() * envelope->generate();
+      //genRight[i] = genLeft[i];
       if (resetInSamples && --resetInSamples == 0)
       {
         markov->resetGenerate();
