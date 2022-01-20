@@ -232,6 +232,11 @@ protected:
   {
     S data[C];
 
+    Frame() :
+    {
+      memset(data, 0, C * sizeof(S));
+    }
+
     S key() const
     {
       S k = 0;
@@ -248,7 +253,8 @@ protected:
   {
     S x;
 
-    Frame(S v) : { x = v; }
+    Frame() : x(0) {}
+    Frame(S v) : x(v) {}
     operator S() const { return x; }
     S key() const { return x; }
   };
@@ -258,6 +264,7 @@ protected:
   {
     S x, y;
 
+    Frame() : x(0), y(0) {}
     Frame(S _x) : x(_x), y(_x) {}
     Frame(S _x, S _y) : x(_x), y(_y) {}
     S left() const { return x; }
