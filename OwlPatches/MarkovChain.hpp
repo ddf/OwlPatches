@@ -444,7 +444,8 @@ class ComplexShortMarkovGenerator : public MarkovChain<ComplexShort>, ComplexSig
 public:
   void learn(ComplexFloat value)
   {
-    MarkovChain<ComplexShort>::learn({ value.re * 32767, value.im * 32767 });
+    ComplexShort sample = { value.re * 32767, value.im * 32767 };
+    MarkovChain<ComplexShort>::learn(sample);
   }
 
   ComplexFloat generate() override
