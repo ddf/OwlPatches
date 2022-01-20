@@ -29,9 +29,27 @@ DESCRIPTION:
 #include "MarkovChain.hpp"
 #include <string.h>
 
+class DecayEnvelope : public ExponentialAdsrEnvelope
+{
+  DecayEnvelope(int sr) : ExponentialAdsrEnvelope(sr) {}
+
+public:
+
+  bool isIdle() const { return stage == kIdle; }
+
+  static DecayEnvelope* create(int sr)
+  {
+    return new DecayEnvelope(sr);
+  }
+
+  static void destroy(DecayEnvelope* env)
+  {
+    delete env;
+  }
+};
+
 class MarkovPatch : public Patch 
 {
-  typedef AdsrEnvelope<false> DecayEnvelope;
   typedef ComplexShortMarkovGenerator MarkovGenerator;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
@@ -47,7 +65,8 @@ class MarkovPatch : public Patch
   MarkovGenerator* markov;
   uint16_t listening;
   VoltsPerOctave voct;
-  DecayEnvelope* envelope;
+  DecayEnvelope* listenEnvelope;
+  DecayEnvelope* generateEnvelope;
 
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
@@ -77,10 +96,15 @@ public:
     markov = MarkovGenerator::create(getSampleRate()*8);
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
+
+    listenEnvelope = DecayEnvelope::create(getSampleRate());
+    listenEnvelope->setAttack(minDecaySeconds);
+    listenEnvelope->setRelease(minDecaySeconds);
+
     genBuffer = AudioBuffer::create(2, getBlockSize());
-    envelope = DecayEnvelope::create(getSampleRate());
-    envelope->setAttack(minDecaySeconds);
-    envelope->setRelease(minDecaySeconds);
+    generateEnvelope = DecayEnvelope::create(getSampleRate());
+    generateEnvelope->setAttack(minDecaySeconds);
+    generateEnvelope->setRelease(minDecaySeconds);
 
     voct.setTune(-4);
     registerParameter(inWordSize, "Word Size");
@@ -94,7 +118,8 @@ public:
     MarkovGenerator::destroy(markov);
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
     AudioBuffer::destroy(genBuffer);
-    DecayEnvelope::destroy(envelope);
+    DecayEnvelope::destroy(listenEnvelope);
+    DecayEnvelope::destroy(generateEnvelope);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -102,13 +127,7 @@ public:
     if (bid == inToggleListen && value == ON)
     {
       listening = listening == ON ? OFF : ON;
-      // when we turn listening off we follow the last sample we learned with zero.
-      if (!listening)
-      {
-        lastLearnLeft = 0;
-        lastLearnRight = 0;
-        markov->learn(0);
-      }
+      listenEnvelope->gate(listening == ON, samples);
     }
     else if (bid == inToggleGenerate)
     {
@@ -117,7 +136,7 @@ public:
       {
         resetInSamples = samples;
       }
-      envelope->gate(gateOpen, samples);
+      generateEnvelope->gate(gateOpen, samples);
     }
   }
 
@@ -131,13 +150,14 @@ public:
 
     dcBlockingFilter->process(audio, audio);
 
-    if (listening)
+    for (int i = 0; i < inSize; ++i)
     {
-      for (int i = 0; i < inSize; ++i)
+      if (!listenEnvelope->isIdle())
       {
-        markov->learn(ComplexFloat(inLeft[i], inRight[i]));
-        //markov->learn(inLeft[i]);
+        const float env = listenEnvelope->generate();
+        markov->learn(ComplexFloat(inLeft[i]*env, inRight[i]*env));
       }
+      //markov->learn(inLeft[i]);
     }
 
     MarkovGenerator::Stats stats = markov->getStats();
@@ -176,14 +196,14 @@ public:
 
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     decay = minDecaySeconds + getParameterValue(inDecay)*(maxDecaySeconds - minDecaySeconds);
-    envelope->setRelease(decay);
+    generateEnvelope->setRelease(decay);
 
     int wordSize = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
     markov->setWordSize(wordSize);
 
     for (int i = 0; i < inSize; ++i)
     {
-      ComplexFloat sample = markov->generate() * envelope->generate();
+      ComplexFloat sample = markov->generate() * generateEnvelope->generate();
       genLeft[i] = sample.re;
       genRight[i] = sample.im;
       //genLeft[i] = markov->generate() * envelope->generate();
