@@ -481,29 +481,29 @@ public:
   Stats getStats() const
   {
     int memSize = 0;
-    int minCount = MEMORY_MAX_NODES;
-    int minIndex = 0;
-    int maxCount = 0;
-    int maxIndex = 0;
+    int minLength = 0;
+    int maxLength = 0;
     int totalCount = 0;
     for (int i = 1; i < MEMORY_PER_NODE + 1; ++i)
     {
-      int lenCount = nodeLengthCounts[i];
-      memSize += lenCount;
-      if (lenCount < minCount)
+      int nodeLength = i;
+      int nodeCountWithLength = nodeLengthCounts[i];
+      memSize += nodeCountWithLength;
+      
+      if (nodeCountWithLength > 0 && minLength == 0)
       {
-        minCount = lenCount;
-        minIndex = i;
+        minLength = nodeLength;
       }
-      else if (lenCount > maxCount)
+
+      if (nodeCountWithLength > 0 && nodeLength > maxLength)
       {
-        maxCount = lenCount;
-        maxIndex = i;
+        maxLength = nodeLength;
       }
-      totalCount += i * lenCount;
+
+      totalCount += nodeCountWithLength * nodeLength;
     }
     float avg = memSize > 0 ? (float)totalCount / memSize : 0;
-    return Stats{ memSize, minIndex, maxIndex, avg };
+    return Stats{ memSize, minLength, maxLength, avg };
   }
 
 public:
