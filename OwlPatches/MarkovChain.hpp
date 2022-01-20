@@ -232,7 +232,7 @@ protected:
   {
     S data[C];
 
-    SampleFrame() :
+    Frame() :
     {
       memset(data, 0, C*sizeof(S));
     }
