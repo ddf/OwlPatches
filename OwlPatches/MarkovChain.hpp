@@ -4,7 +4,7 @@
 
 #define MEMORY_SIZE (1<<16)
 #define MEMORY_MAX_NODES MEMORY_SIZE*1
-#define MEMORY_PER_NODE 10
+#define MEMORY_PER_NODE 16
 
 template<class Sample, int channels>
 class MarkovChain
