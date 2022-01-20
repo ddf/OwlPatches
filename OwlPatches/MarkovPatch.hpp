@@ -32,7 +32,7 @@ DESCRIPTION:
 class MarkovPatch : public Patch 
 {
   typedef AdsrEnvelope<false> DecayEnvelope;
-  typedef MarkovChain<int16_t> MarkovGenerator;
+  typedef ShortMarkovGenerator MarkovGenerator;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
@@ -135,7 +135,7 @@ public:
     {
       for (int i = 0; i < inSize; ++i)
       {
-        markov->learn(inLeft[i] * 32767);
+        markov->learn(inLeft[i]);
       }
 
       //markov->setLastLearn(lastLearnRight);
@@ -179,7 +179,7 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      float sample = markov->generate() * 0.0000305185f;
+      float sample = markov->generate();
       genLeft[i]   = sample * envelope->generate();
       if (resetInSamples && --resetInSamples == 0)
       {

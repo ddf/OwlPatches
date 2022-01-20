@@ -412,3 +412,28 @@ public:
       delete markov;
   }
 };
+
+class ShortMarkovGenerator : public MarkovChain<int16_t>, SignalGenerator
+{
+public:
+  void learn(float value)
+  {
+    MarkovChain<int16_t>::learn(value * 32767);
+  }
+
+  float generate() override 
+  {
+    return MarkovChain<int16_t>::generate() * 0.0000305185f;
+  }
+
+  static ShortMarkovGenerator* create()
+  {
+    return new ShortMarkovGenerator();
+  }
+
+  static void destroy(ShortMarkovGenerator* markov)
+  {
+    if (markov)
+      delete markov;
+  }
+};
