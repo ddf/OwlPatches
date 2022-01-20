@@ -289,12 +289,11 @@ private:
   int      letterCount;
 
 public:
-  MarkovChain()
-    : buffer(0), bufferWritePos(0), memory(0)
+  MarkovChain(int inBufferSize)
+    : buffer(0), bufferWritePos(0), memory(0), bufferSize(inBufferSize)
     , lastWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(0)
     , lastLearn(0), lastGenerate(0)
   {
-    bufferSize = MEMORY_MAX_NODES;
     buffer = new SampleFrame[bufferSize];
     memory = new SampleMemory();
     zeroNode = memory->put(lastLearn.key());
@@ -459,9 +458,9 @@ public:
   }
 
 public:
-  static MarkovChain<Sample, channels>* create()
+  static MarkovChain<Sample, channels>* create(int bufferSize)
   {
-    return new MarkovChain<Sample, channels>();
+    return new MarkovChain<Sample, channels>(bufferSize);
   }
 
   static void destroy(MarkovChain<Sample, channels>* markov)
@@ -473,6 +472,11 @@ public:
 
 class ShortMarkovGenerator : public MarkovChain<int16_t, 1>, SignalGenerator
 {
+  ShortMarkovGenerator(int bufferSize) : MarkovChain(bufferSize)
+  {
+
+  }
+
 public:
   void learn(float value)
   {
@@ -484,9 +488,9 @@ public:
     return MarkovChain::generate() * 0.0000305185f;
   }
 
-  static ShortMarkovGenerator* create()
+  static ShortMarkovGenerator* create(int bufferSize)
   {
-    return new ShortMarkovGenerator();
+    return new ShortMarkovGenerator(bufferSize);
   }
 
   static void destroy(ShortMarkovGenerator* markov)
@@ -498,6 +502,11 @@ public:
 
 class ComplexShortMarkovGenerator : public MarkovChain<int16_t, 2>, ComplexSignalGenerator
 {
+  ComplexShortMarkovGenerator(int bufferSize) : MarkovChain(bufferSize)
+  {
+
+  }
+
 public:
   void learn(ComplexFloat value)
   {
@@ -511,9 +520,9 @@ public:
     return ComplexFloat(frame.left() * 0.0000305185f, frame.right() * 0.0000305185f);
   }
 
-  static ComplexShortMarkovGenerator* create()
+  static ComplexShortMarkovGenerator* create(int bufferSize)
   {
-    return new ComplexShortMarkovGenerator();
+    return new ComplexShortMarkovGenerator(bufferSize);
   }
 
   static void destroy(ComplexShortMarkovGenerator* markov)
