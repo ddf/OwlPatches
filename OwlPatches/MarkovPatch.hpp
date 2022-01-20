@@ -152,9 +152,10 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
+      // need to generate even if we don't use the value otherwise internal state won't update
+      const float env = listenEnvelope->generate();
       if (!listenEnvelope->isIdle())
       {
-        const float env = listenEnvelope->generate();
         markov->learn(ComplexFloat(inLeft[i]*env, inRight[i]*env));
       }
       //markov->learn(inLeft[i]);
