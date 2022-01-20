@@ -321,7 +321,7 @@ public:
   {
     if (letterCount == 0)
     {
-      SampleMemory::Node* node = memory->get(lastGenerate);
+      typename SampleMemory::Node* node = memory->get(lastGenerate);
       if (!node) node = zeroNode;
       switch (node->valuesLength)
       {
