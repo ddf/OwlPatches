@@ -458,4 +458,15 @@ public:
     ComplexShort sample = MarkovChain<ComplexShort>::generate();
     return ComplexFloat(sample.re * 0.0000305185f, sample.im * 0.0000305185f);
   }
+
+  static ComplexShortMarkovGenerator* create()
+  {
+    return new ComplexShortMarkovGenerator();
+  }
+
+  static void destroy(ComplexShortMarkovGenerator* markov)
+  {
+    if (markov)
+      delete markov;
+  }
 };

@@ -32,7 +32,7 @@ DESCRIPTION:
 class MarkovPatch : public Patch 
 {
   typedef AdsrEnvelope<false> DecayEnvelope;
-  typedef ShortMarkovGenerator MarkovGenerator;
+  typedef ComplexShortMarkovGenerator MarkovGenerator;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inToggleGenerate = BUTTON_2;
@@ -135,12 +135,8 @@ public:
     {
       for (int i = 0; i < inSize; ++i)
       {
-        markov->learn(inLeft[i]);
+        markov->learn(ComplexFloat(inLeft[i], inRight[i]));
       }
-
-      //markov->setLastLearn(lastLearnRight);
-      //markov->learn(right);
-      //lastLearnRight = right[right.getSize() - 1];
     }
 
     char debugMsg[64];
@@ -179,8 +175,9 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      float sample = markov->generate();
-      genLeft[i]   = sample * envelope->generate();
+      ComplexFloat sample = markov->generate() * envelope->generate();
+      genLeft[i] = sample.re;
+      genRight[i] = sample.im;
       if (resetInSamples && --resetInSamples == 0)
       {
         markov->resetGenerate();
@@ -191,9 +188,11 @@ public:
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     inLeft.multiply(dryAmt);
+    inRight.multiply(dryAmt);
     genLeft.multiply(wetAmt);
+    genRight.multiply(wetAmt);
     inLeft.add(genLeft);
-    inLeft.copyTo(inRight);
+    inRight.add(genLeft);
 
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
