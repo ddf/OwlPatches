@@ -481,7 +481,7 @@ public:
   Stats getStats() const
   {
     int memSize = 0;
-    int minCount = INT_MAX;
+    int minCount = MEMORY_MAX_NODES;
     int minIndex = 0;
     int maxCount = 0;
     int maxIndex = 0;
