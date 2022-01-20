@@ -22,6 +22,11 @@ class MarkovChain
       V   values[MEMORY_PER_NODE];
       uint8_t  valuesLength;
 
+      Node() : next(0), valuesLength(0)
+      {
+
+      }
+
       Node(K k)
         : next(0), key(k), valuesLength(0)
       {
