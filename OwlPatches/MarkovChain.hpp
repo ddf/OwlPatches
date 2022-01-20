@@ -181,6 +181,11 @@ class MarkovChain
       return int(x) + 32767;
     }
 
+    uint32_t hash(ComplexShort x)
+    {
+      return hash(x.re) ^ hash(x.im);
+    }
+
     Node* allocateNode(K key)
     {
       Node* node = nodePool[nodeCount];
@@ -444,7 +449,7 @@ class ComplexShortMarkovGenerator : public MarkovChain<ComplexShort>, ComplexSig
 public:
   void learn(ComplexFloat value)
   {
-    ComplexShort sample = { value.re * 32767, value.im * 32767 };
+    ComplexShort sample = { (int16_t)(value.re * 32767), (int16_t)(value.im * 32767) };
     MarkovChain<ComplexShort>::learn(sample);
   }
 
