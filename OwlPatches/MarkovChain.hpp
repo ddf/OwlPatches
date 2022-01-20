@@ -214,13 +214,12 @@ class MarkovChain
   };
 
   typedef Memory<Sample, int> SampleMemory;
-  typedef Memory<Sample, int>::Node SampleMemoryNode;
 
   Sample* buffer;
   int bufferSize;
   int bufferWritePos;
   SampleMemory*  memory;
-  SampleMemoryNode* zeroNode;
+  typename SampleMemory::Node* zeroNode;
   uint32_t totalWrites;
   Sample   lastLearn;
   Sample   lastGenerate;
@@ -279,7 +278,7 @@ public:
 
     // erase the position we are about to write to from the next sample list of what's already there
     Sample prevSample = buffer[bufferWritePos];
-    SampleMemory::Node* node = memory->get(prevSample);
+    typename SampleMemory::Node* node = memory->get(prevSample);
     // we do not want the zero node to be removed from memory
     // and since we wrote a zero as the first value to the zero node,
     // we do not erase it.
