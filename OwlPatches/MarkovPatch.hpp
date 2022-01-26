@@ -26,6 +26,7 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "VoltsPerOctave.h"
 #include "AdsrEnvelope.h"
+#include "Interpolator.h"
 #include "MarkovChain.hpp"
 #include <string.h>
 
@@ -58,6 +59,7 @@ class MarkovPatch : public Patch
 
   static const PatchParameterId inWordSize = PARAMETER_A;
   static const PatchParameterId inDecay = PARAMETER_B;
+  static const PatchParameterId inWordSizeVariation = PARAMETER_C;
   static const PatchParameterId inDryWet = PARAMETER_D;
 
   static const PatchParameterId outWordProgress = PARAMETER_F;
@@ -115,11 +117,15 @@ public:
 
     voct.setTune(-4);
     registerParameter(inWordSize, "Word Size");
+    registerParameter(inWordSizeVariation, "Word Size Variation");
     registerParameter(inDryWet, "Dry/Wet");
     registerParameter(inDecay, "Decay");
     registerParameter(inSpeed, "Speed");
     registerParameter(outWordProgress, "Word>");
     registerParameter(outDecayEnvelope, "Envelope>");
+
+    setParameterValue(inWordSizeVariation, 0.5f);
+    setParameterValue(inSpeed, 0.5f);
   }
 
   ~MarkovPatch()
@@ -188,8 +194,19 @@ public:
     decay = minDecaySeconds + getParameterValue(inDecay)*(maxDecaySeconds - minDecaySeconds);
     generateEnvelope->setRelease(decay);
 
-    int wordSize = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
-    markov->setWordSize(wordSize);
+    int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
+
+    float wordVariationParam = getParameterValue(inWordSizeVariation);
+    float varyAmt = 0;
+    // maps parameter to [0,1) weight above and below a dead-zone in the center
+    if (wordVariationParam >= 0.53f)
+    {
+      varyAmt = (wordVariationParam - 0.53f) * 2.12f;
+    }
+    else if (wordVariationParam <= 0.47f)
+    {
+      varyAmt = (0.47f - wordVariationParam) * 2.12f;
+    }
 
     for (int i = 0; i < inSize; ++i)
     {
@@ -206,6 +223,14 @@ public:
       if (samplesToGenStateChange >= 0)
       {
         --samplesToGenStateChange;
+      }
+
+      if (markov->getLetterCount() == 0)
+      {
+        int range = Interpolator::linear(0, maxWordSizeSamples - minWordSizeSamples, randf()*varyAmt);
+        if (randf() > 0.5f) range *= -1;
+        int wordSize = std::min(minWordSizeSamples, wordSizeParam + range);
+        markov->setWordSize(wordSize);
       }
 
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
