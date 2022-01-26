@@ -272,7 +272,7 @@ public:
     debugCpy = stpcpy(debugCpy, " d ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(decay, 10));
     debugCpy = stpcpy(debugCpy, " w ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(int((float)wordSize / getSampleRate() * 1000), 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa(int((float)wordSizeParam / getSampleRate() * 1000), 10));
     debugMessage(debugMsg);
   }
   
