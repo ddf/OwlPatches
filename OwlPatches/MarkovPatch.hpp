@@ -36,15 +36,6 @@ class DecayEnvelope : public ExponentialAdsrEnvelope
 public:
 
   bool isIdle() const { return stage == kIdle; }
-  //float generate() override
-  //{
-  //  ExponentialAdsrEnvelope::generate();
-  //  if (stage == kAttack)
-  //  {
-  //    level = 1;
-  //  }
-  //  return level;
-  //}
 
   static DecayEnvelope* create(int sr)
   {
@@ -94,7 +85,7 @@ class MarkovPatch : public Patch
   const int wordEndedGateLength;
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
-  const float minDecaySeconds = 0.75f;
+  const float minDecaySeconds = 0.004f;
   const float maxDecaySeconds = 1.0f;
 
 public: 
