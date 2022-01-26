@@ -472,10 +472,7 @@ public:
       int genIdx = (lastWordBegin + letterCount) % bufferSize;
       lastGenerate = buffer[genIdx];
       ++letterCount;
-      // start a new word when we finish this one
-      // or if the next read would cross from our last recorded sample
-      // to where the next one will be written
-      if (letterCount == currentWordSize || lastWordBegin + letterCount == bufferWritePos)
+      if (letterCount == currentWordSize)
       {
         letterCount = 0;
       }
