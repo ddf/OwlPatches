@@ -139,6 +139,7 @@ public:
     else if (bid == inToggleGenerate)
     {
       bool gateOpen = value == ON;
+      samples = 0;
       if (gateOpen)
       {
         resetInSamples = samples;
