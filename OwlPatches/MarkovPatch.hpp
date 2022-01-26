@@ -60,7 +60,8 @@ class MarkovPatch : public Patch
   static const PatchParameterId inDecay = PARAMETER_B;
   static const PatchParameterId inDryWet = PARAMETER_D;
 
-  static const PatchParameterId outDecayEnvelope = PARAMETER_F;
+  static const PatchParameterId outWordProgress = PARAMETER_F;
+  static const PatchParameterId outDecayEnvelope = PARAMETER_G;
 
   static const PatchParameterId inSpeed = PARAMETER_G;
 
@@ -82,8 +83,8 @@ class MarkovPatch : public Patch
 
   int wordEndedGate;
 
-  const float attackSeconds = 0.008f;
-  const float minDecaySeconds = 0.016f;
+  const float attackSeconds = 0.005f;
+  const float minDecaySeconds = 0.010f;
   const float maxDecaySeconds = 1.0f;
 
   const int wordEndedGateLength;
@@ -115,6 +116,7 @@ public:
     registerParameter(inDryWet, "Dry/Wet");
     registerParameter(inDecay, "Decay");
     registerParameter(inSpeed, "Speed");
+    registerParameter(outWordProgress, "Word>");
     registerParameter(outDecayEnvelope, "Envelope>");
   }
 
@@ -219,6 +221,7 @@ public:
 
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
+    setParameterValue(outWordProgress, (float)markov->getLetterCount() / markov->getCurrentWordSize());
     setParameterValue(outDecayEnvelope, generateEnvelope->getLevel());
 
     MarkovGenerator::Stats stats = markov->getStats();
