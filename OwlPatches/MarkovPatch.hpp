@@ -60,6 +60,8 @@ class MarkovPatch : public Patch
   static const PatchParameterId inDecay = PARAMETER_B;
   static const PatchParameterId inDryWet = PARAMETER_D;
 
+  static const PatchParameterId outDecayEnvelope = PARAMETER_F;
+
   static const PatchParameterId inSpeed = PARAMETER_G;
 
   MarkovGenerator* markov;
@@ -111,6 +113,7 @@ public:
     registerParameter(inDryWet, "Dry/Wet");
     registerParameter(inDecay, "Decay");
     registerParameter(inSpeed, "Speed");
+    registerParameter(outDecayEnvelope, "Envelope>");
   }
 
   ~MarkovPatch()
@@ -230,6 +233,7 @@ public:
 
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
+    setParameterValue(outDecayEnvelope, generateEnvelope->getLevel());
   }
   
 };
