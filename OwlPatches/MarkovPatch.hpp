@@ -85,7 +85,7 @@ class MarkovPatch : public Patch
   const int wordEndedGateLength;
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
-  const float minDecaySeconds = 0.004f;
+  const float minDecaySeconds = 0.008f;
   const float maxDecaySeconds = 1.0f;
 
 public: 
@@ -166,22 +166,6 @@ public:
       //markov->learn(inLeft[i]);
     }
 
-    MarkovGenerator::Stats stats = markov->getStats();
-    char debugMsg[64];
-    char* debugCpy = stpcpy(debugMsg, "nodes ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(stats.memorySize, 10));
-    debugCpy = stpcpy(debugCpy, " min ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainLength, 10));
-    debugCpy = stpcpy(debugCpy, "(");
-    debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainCount, 10));
-    debugCpy = stpcpy(debugCpy, ") max ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainLength, 10));
-    debugCpy = stpcpy(debugCpy, "(");
-    debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainCount, 10));
-    debugCpy = stpcpy(debugCpy, ") avg ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
-    debugMessage(debugMsg);
-
     int wordEndedGateDelay = 0;
     if (wordEndedGate > 0)
     {
@@ -234,6 +218,24 @@ public:
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
     setParameterValue(outDecayEnvelope, generateEnvelope->getLevel());
+
+    MarkovGenerator::Stats stats = markov->getStats();
+    char debugMsg[64];
+    char* debugCpy = stpcpy(debugMsg, "nodes ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.memorySize, 10));
+    debugCpy = stpcpy(debugCpy, " min ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainLength, 10));
+    debugCpy = stpcpy(debugCpy, "(");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainCount, 10));
+    debugCpy = stpcpy(debugCpy, ") max ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainLength, 10));
+    debugCpy = stpcpy(debugCpy, "(");
+    debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainCount, 10));
+    debugCpy = stpcpy(debugCpy, ") avg ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
+    debugCpy = stpcpy(debugCpy, " dcy ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(decay, 10));
+    debugMessage(debugMsg);
   }
   
 };
