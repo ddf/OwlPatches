@@ -36,7 +36,7 @@ class DecayEnvelope : public ExponentialAdsrEnvelope
 public:
 
   bool isIdle() const { return stage == kIdle; }
-  float generate() override 
+  float generate() override
   {
     ExponentialAdsrEnvelope::generate();
     if (stage == kAttack) return 1;
@@ -111,7 +111,7 @@ public:
 
     genBuffer = AudioBuffer::create(2, getBlockSize());
     generateEnvelope = DecayEnvelope::create(getSampleRate());
-    generateEnvelope->setAttack(0);
+    generateEnvelope->setAttack(minDecaySeconds);
     generateEnvelope->setRelease(minDecaySeconds);
 
     voct.setTune(-4);
