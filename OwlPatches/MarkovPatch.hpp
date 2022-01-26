@@ -73,7 +73,7 @@ class MarkovPatch : public Patch
 
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
-  uint16_t resetInSamples;
+  int resetInSamples;
 
   SmoothFloat speed;
   SmoothFloat decay;
@@ -93,7 +93,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), resetInSamples(0), lastLearnLeft(0), lastLearnRight(0)
+    : listening(OFF), resetInSamples(-1), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
     , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
@@ -141,9 +141,7 @@ public:
       bool gateOpen = value == ON;
       if (gateOpen)
       {
-        // +1 to samples because we want to reset even if samples is zero.
-        // in our generate loop we check for a non-zero value before decrementing.
-        resetInSamples = samples+1;
+        resetInSamples = samples;
       }
       generateEnvelope->gate(gateOpen, samples);
     }
@@ -197,10 +195,15 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      //if (resetInSamples && --resetInSamples == 0)
-      //{
-      //  markov->resetGenerate();
-      //}
+      if (resetInSamples == 0)
+      {
+        markov->resetGenerate();
+      }
+
+      if (resetInSamples >= 0)
+      {
+        --resetInSamples;
+      }
 
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
       genLeft[i] = sample.re;
