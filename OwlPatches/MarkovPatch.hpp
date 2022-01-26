@@ -39,7 +39,10 @@ public:
   float generate() override
   {
     ExponentialAdsrEnvelope::generate();
-    if (stage == kAttack) return 1;
+    if (stage == kAttack)
+    {
+      level = 1;
+    }
     return level;
   }
 
