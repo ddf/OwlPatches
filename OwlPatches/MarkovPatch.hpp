@@ -226,7 +226,7 @@ public:
 
     MarkovGenerator::Stats stats = markov->getStats();
     char debugMsg[64];
-    char* debugCpy = stpcpy(debugMsg, "nodes ");
+    char* debugCpy = stpcpy(debugMsg, "n ");
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.memorySize, 10));
     debugCpy = stpcpy(debugCpy, " min ");
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.minChainLength, 10));
@@ -238,9 +238,9 @@ public:
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainCount, 10));
     debugCpy = stpcpy(debugCpy, ") avg ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
-    debugCpy = stpcpy(debugCpy, " dcy ");
+    debugCpy = stpcpy(debugCpy, " d ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(decay, 10));
-    debugCpy = stpcpy(debugCpy, " wrd ");
+    debugCpy = stpcpy(debugCpy, " w ");
     debugCpy = stpcpy(debugCpy, msg_itoa(int((float)wordSize / getSampleRate() * 1000), 10));
     debugMessage(debugMsg);
   }
