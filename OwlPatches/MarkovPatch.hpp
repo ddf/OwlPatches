@@ -197,10 +197,10 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      if (resetInSamples && --resetInSamples == 0)
-      {
-        markov->resetGenerate();
-      }
+      //if (resetInSamples && --resetInSamples == 0)
+      //{
+      //  markov->resetGenerate();
+      //}
 
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
       genLeft[i] = sample.re;
