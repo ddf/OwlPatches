@@ -85,14 +85,15 @@ class MarkovPatch : public Patch
   const int wordEndedGateLength;
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
-  const float attackSeconds = 0.008f;
-  const float minDecaySeconds = 0.016f;
-  const float maxDecaySeconds = 1.0f;
+  const float attackSeconds;
+  const float minDecaySeconds;
+  const float maxDecaySeconds;
 
 public: 
   MarkovPatch()
     : listening(OFF), resetInSamples(0), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
+    , attackSeconds(0.008f), minDecaySeconds(0.016f), maxDecaySeconds(1.0f)
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
     , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
