@@ -105,7 +105,7 @@ public:
 
     genBuffer = AudioBuffer::create(2, getBlockSize());
     generateEnvelope = DecayEnvelope::create(getSampleRate());
-    generateEnvelope->setAttack(minDecaySeconds);
+    generateEnvelope->setAttack(0);
     generateEnvelope->setRelease(minDecaySeconds);
 
     voct.setTune(-4);
