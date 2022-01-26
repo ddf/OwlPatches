@@ -85,7 +85,7 @@ class MarkovPatch : public Patch
   const int wordEndedGateLength;
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
-  const float minDecaySeconds = 0.008f;
+  const float minDecaySeconds = 0.016f;
   const float maxDecaySeconds = 1.0f;
 
 public: 
