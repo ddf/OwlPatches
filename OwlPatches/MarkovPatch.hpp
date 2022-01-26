@@ -82,7 +82,7 @@ class MarkovPatch : public Patch
 
   int wordEndedGate;
 
-  const float attackSeconds = 0.004f;
+  const float attackSeconds = 0.008f;
   const float minDecaySeconds = 0.016f;
   const float maxDecaySeconds = 1.0f;
 
