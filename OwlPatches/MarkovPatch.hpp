@@ -36,6 +36,12 @@ class DecayEnvelope : public ExponentialAdsrEnvelope
 public:
 
   bool isIdle() const { return stage == kIdle; }
+  float generate() override 
+  {
+    ExponentialAdsrEnvelope::generate();
+    if (stage == kAttack) return 1;
+    return level;
+  }
 
   static DecayEnvelope* create(int sr)
   {
