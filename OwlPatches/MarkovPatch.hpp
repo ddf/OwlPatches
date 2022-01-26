@@ -85,6 +85,7 @@ class MarkovPatch : public Patch
   const int wordEndedGateLength;
   const int minWordSizeSamples;
   const int maxWordSizeSamples;
+  const float attackSeconds = 0.008f;
   const float minDecaySeconds = 0.016f;
   const float maxDecaySeconds = 1.0f;
 
@@ -92,20 +93,20 @@ public:
   MarkovPatch()
     : listening(OFF), resetInSamples(0), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
-    , wordEndedGate(0), wordEndedGateLength(getSampleRate()*0.004f)
-    , minWordSizeSamples((getSampleRate()*0.008f)), maxWordSizeSamples(getSampleRate()*0.25f)
+    , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
+    , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
     markov = MarkovGenerator::create(getSampleRate()*4);
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
 
     listenEnvelope = DecayEnvelope::create(getSampleRate());
-    listenEnvelope->setAttack(minDecaySeconds);
-    listenEnvelope->setRelease(minDecaySeconds);
+    listenEnvelope->setAttack(attackSeconds);
+    listenEnvelope->setRelease(attackSeconds);
 
     genBuffer = AudioBuffer::create(2, getBlockSize());
     generateEnvelope = DecayEnvelope::create(getSampleRate());
-    generateEnvelope->setAttack(minDecaySeconds);
+    generateEnvelope->setAttack(attackSeconds);
     generateEnvelope->setRelease(minDecaySeconds);
 
     voct.setTune(-4);
