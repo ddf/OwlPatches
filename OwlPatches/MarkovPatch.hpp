@@ -73,7 +73,9 @@ class MarkovPatch : public Patch
 
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
-  int resetInSamples;
+  
+  bool genState;
+  uint16_t samplesToGenStateChange;
 
   SmoothFloat speed;
   SmoothFloat decay;
@@ -93,7 +95,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), resetInSamples(-1), lastLearnLeft(0), lastLearnRight(0)
+    : listening(OFF), samplesToGenStateChange(-1), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
     , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
@@ -138,13 +140,8 @@ public:
     }
     else if (bid == inToggleGenerate)
     {
-      bool gateOpen = value == ON;
-      samples = 0;
-      if (gateOpen)
-      {
-        resetInSamples = samples;
-      }
-      generateEnvelope->gate(gateOpen, samples);
+      genState = value == ON;
+      samplesToGenStateChange = samples;
     }
   }
 
@@ -196,14 +193,19 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      if (resetInSamples == 0)
+      if (samplesToGenStateChange == 0)
       {
-        markov->resetGenerate();
+        if (genState)
+        {
+          markov->resetGenerate();
+        }
+
+        generateEnvelope->gate(genState);
       }
 
-      if (resetInSamples >= 0)
+      if (samplesToGenStateChange >= 0)
       {
-        --resetInSamples;
+        --samplesToGenStateChange;
       }
 
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
