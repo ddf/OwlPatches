@@ -134,7 +134,9 @@ public:
       bool gateOpen = value == ON;
       if (gateOpen)
       {
-        resetInSamples = samples;
+        // +1 to samples because we want to reset even if samples is zero.
+        // in our generate loop we check for a non-zero value before decrementing.
+        resetInSamples = samples+1;
       }
       generateEnvelope->gate(gateOpen, samples);
     }
@@ -204,15 +206,16 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
+      if (resetInSamples && --resetInSamples == 0)
+      {
+        markov->resetGenerate();
+      }
+
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
       genLeft[i] = sample.re;
       genRight[i] = sample.im;
       //genLeft[i] = markov->generate() * envelope->generate();
       //genRight[i] = genLeft[i];
-      if (resetInSamples && --resetInSamples == 0)
-      {
-        markov->resetGenerate();
-      }
     }
 
     float dryWet = getParameterValue(inDryWet);
