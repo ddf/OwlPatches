@@ -235,6 +235,8 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
     debugCpy = stpcpy(debugCpy, " dcy ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(decay, 10));
+    debugCpy = stpcpy(debugCpy, " wrd ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa((float)wordSize / getSampleRate(), 10));
     debugMessage(debugMsg);
   }
   
