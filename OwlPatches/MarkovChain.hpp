@@ -346,7 +346,7 @@ public:
 
   void setWordSize(int length)
   {
-    maxWordSize = std::max(1, length);
+    maxWordSize = std::max(2, length);
   }
 
   void learn(SampleFrame sampleFrame)

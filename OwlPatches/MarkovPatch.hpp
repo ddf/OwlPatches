@@ -182,14 +182,6 @@ public:
       wordEndedGate -= getBlockSize();
     }
 
-    // will a word end this block?
-    const int samplesUntilWordEnd = markov->getCurrentWordSize() - markov->getLetterCount();
-    if (samplesUntilWordEnd <= getBlockSize())
-    {
-      wordEndedGate = wordEndedGateLength;
-      wordEndedGateDelay = samplesUntilWordEnd;
-    }
-
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     decay = minDecaySeconds + getParameterValue(inDecay)*(maxDecaySeconds - minDecaySeconds);
     generateEnvelope->setRelease(decay);
@@ -225,6 +217,7 @@ public:
         --samplesToGenStateChange;
       }
 
+      // word going to start, update the word size
       if (markov->getLetterCount() == 0)
       {
         // random variation over the full value of the parameter
@@ -245,6 +238,12 @@ public:
           int wordSize = std::max(minWordSizeSamples, (int)(wordSizeParam * interval));
           markov->setWordSize(wordSize);
         }
+      }
+      // word about to end, set the gate
+      else if (markov->getLetterCount() == markov->getCurrentWordSize() - 1)
+      {
+        wordEndedGate = wordEndedGateLength;
+        wordEndedGateDelay = i;
       }
 
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
