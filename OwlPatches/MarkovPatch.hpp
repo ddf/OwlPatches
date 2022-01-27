@@ -229,7 +229,7 @@ public:
       {
         int range = Interpolator::linear(0, maxWordSizeSamples - minWordSizeSamples, randf()*varyAmt);
         if (randf() > 0.5f) range *= -1;
-        int wordSize = std::min(minWordSizeSamples, wordSizeParam + range);
+        int wordSize = std::max(minWordSizeSamples, wordSizeParam + range);
         markov->setWordSize(wordSize);
       }
 
