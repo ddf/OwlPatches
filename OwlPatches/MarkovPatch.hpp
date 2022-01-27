@@ -227,10 +227,24 @@ public:
 
       if (markov->getLetterCount() == 0)
       {
-        int range = Interpolator::linear(0, maxWordSizeSamples - minWordSizeSamples, randf()*varyAmt);
-        if (randf() > 0.5f) range *= -1;
-        int wordSize = std::max(minWordSizeSamples, wordSizeParam + range);
-        markov->setWordSize(wordSize);
+        // random variation over the full value of the parameter
+        if (wordVariationParam > 0.5f)
+        {
+          int range = Interpolator::linear(0, maxWordSizeSamples - minWordSizeSamples, randf()*varyAmt);
+          if (randf() > 0.5f) range *= -1;
+          int wordSize = std::max(minWordSizeSamples, wordSizeParam + range);
+          markov->setWordSize(wordSize);
+        }
+        // random variation using musical mult/divs of the current word size
+        else
+        {
+          static float intervals[] = { 1, 2, 4, 8 };
+          int idx = Interpolator::linear(0, 4, randf()*varyAmt);
+          float interval = intervals[idx];
+          if (randf() > 0.5f) interval = 1.0f / interval;
+          int wordSize = std::max(minWordSizeSamples, (int)(wordSizeParam * interval));
+          markov->setWordSize(wordSize);
+        }
       }
 
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
