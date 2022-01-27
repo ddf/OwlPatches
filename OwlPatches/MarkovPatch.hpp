@@ -238,8 +238,8 @@ public:
         // random variation using musical mult/divs of the current word size
         else
         {
-          static float intervals[] = { 1, 2, 4, 8 };
-          int idx = Interpolator::linear(0, 4, randf()*varyAmt);
+          static float intervals[] = { 1, 2, 2, 4, 4, 3, 3 };
+          int idx = Interpolator::linear(0, 7, randf()*varyAmt);
           float interval = intervals[idx];
           if (randf() > 0.5f) interval = 1.0f / interval;
           int wordSize = std::max(minWordSizeSamples, (int)(wordSizeParam * interval));
