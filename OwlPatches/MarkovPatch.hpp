@@ -186,14 +186,20 @@ public:
     linearGenerateEnvelope->setRelease(wordReleaseSeconds);
   }
 
-  float generateEnvelope()
+  void updateEnvelope()
   {
     bool state = markov->getLetterCount() < wordGateLength;
     expoGenerateEnvelope->gate(state);
     linearGenerateEnvelope->gate(state);
 
-    float expo = expoGenerateEnvelope->generate();
-    float line = linearGenerateEnvelope->generate();
+    expoGenerateEnvelope->generate();
+    linearGenerateEnvelope->generate();
+  }
+
+  float getEnvelopeLevel()
+  {
+    float expo = expoGenerateEnvelope->getLevel();
+    float line = linearGenerateEnvelope->getLevel();
     if (envelopeShape <= 0.47f)
     {
       float t = (0.47f - envelopeShape) * 2.12f;
@@ -298,7 +304,9 @@ public:
         wordEndedGateDelay = i;
       }
 
-      ComplexFloat sample = markov->generate() * generateEnvelope();
+      updateEnvelope();
+
+      ComplexFloat sample = markov->generate() * getEnvelopeLevel();
       genLeft[i] = sample.re;
       genRight[i] = sample.im;
       //genLeft[i] = markov->generate() * envelope->generate();
@@ -318,7 +326,7 @@ public:
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
     setParameterValue(outWordProgress, (float)markov->getLetterCount() / markov->getCurrentWordSize());
-    setParameterValue(outDecayEnvelope, expoGenerateEnvelope->getLevel());
+    setParameterValue(outDecayEnvelope, getEnvelopeLevel());
 
     MarkovGenerator::Stats stats = markov->getStats();
     char debugMsg[64];
