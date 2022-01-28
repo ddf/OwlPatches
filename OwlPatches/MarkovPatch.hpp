@@ -28,6 +28,7 @@ DESCRIPTION:
 #include "AdsrEnvelope.h"
 #include "Interpolator.h"
 #include "MarkovChain.hpp"
+#include "TapTempo.hpp"
 #include <string.h>
 
 class DecayEnvelope : public ExponentialAdsrEnvelope
@@ -54,7 +55,7 @@ class MarkovPatch : public Patch
   typedef ComplexShortMarkovGenerator MarkovGenerator;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
-  static const PatchButtonId inToggleGenerate = BUTTON_2;
+  static const PatchButtonId inClock = BUTTON_2;
   static const PatchButtonId outWordEnded = PUSHBUTTON;
 
   static const PatchParameterId inWordSize = PARAMETER_A;
@@ -67,6 +68,9 @@ class MarkovPatch : public Patch
 
   static const PatchParameterId inSpeed = PARAMETER_G;
 
+  static const int TAP_TRIGGER_LIMIT = (1 << 17);
+
+  TapTempo<TAP_TRIGGER_LIMIT> tempo;
   MarkovGenerator* markov;
   uint16_t listening;
   VoltsPerOctave voct;
@@ -97,7 +101,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), samplesToGenStateChange(-1), lastLearnLeft(0), lastLearnRight(0)
+    : tempo(getSampleRate() * 60 / 120), listening(OFF), samplesToGenStateChange(-1), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
     , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
@@ -144,10 +148,15 @@ public:
       listening = listening == ON ? OFF : ON;
       listenEnvelope->gate(listening == ON, samples);
     }
-    else if (bid == inToggleGenerate)
+    else if (bid == inClock)
     {
-      genState = value == ON;
-      samplesToGenStateChange = samples;
+      bool on = value == ON;
+      tempo.trigger(on, samples);
+
+      if (on)
+      {
+        samplesToGenStateChange = samples;
+      }
     }
   }
 
@@ -158,6 +167,8 @@ public:
     FloatArray inRight = audio.getSamples(1);
     FloatArray genLeft = genBuffer->getSamples(0);
     FloatArray genRight = genBuffer->getSamples(1);
+
+    tempo.clock(inSize);
 
     dcBlockingFilter->process(audio, audio);
 
@@ -187,6 +198,8 @@ public:
     generateEnvelope->setRelease(decay);
 
     int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
+    // test tempo: lock word size to clock tick length
+    wordSizeParam = tempo.getPeriod() * TAP_TRIGGER_LIMIT;
 
     float wordVariationParam = getParameterValue(inWordSizeVariation);
     float varyAmt = 0;
@@ -204,12 +217,7 @@ public:
     {
       if (samplesToGenStateChange == 0)
       {
-        if (genState)
-        {
-          markov->resetGenerate();
-        }
-
-        generateEnvelope->gate(genState);
+        markov->resetGenerate();
       }
 
       if (samplesToGenStateChange >= 0)
@@ -245,6 +253,8 @@ public:
         wordEndedGate = wordEndedGateLength;
         wordEndedGateDelay = i;
       }
+
+      generateEnvelope->gate(markov->getLetterCount() < minWordSizeSamples);
 
       ComplexFloat sample = markov->generate() * generateEnvelope->generate();
       genLeft[i] = sample.re;
