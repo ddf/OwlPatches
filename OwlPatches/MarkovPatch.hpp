@@ -28,7 +28,7 @@ DESCRIPTION:
 #include "AdsrEnvelope.h"
 #include "Interpolator.h"
 #include "MarkovChain.hpp"
-#include "TapTempo.hpp"
+#include "TapTempo.h"
 #include <string.h>
 
 class DecayEnvelope : public ExponentialAdsrEnvelope
@@ -70,7 +70,7 @@ class MarkovPatch : public Patch
 
   static const int TAP_TRIGGER_LIMIT = (1 << 17);
 
-  TapTempo<TAP_TRIGGER_LIMIT> tempo;
+  TapTempo* tempo;
   MarkovGenerator* markov;
   uint16_t listening;
   VoltsPerOctave voct;
@@ -101,11 +101,14 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : tempo(getSampleRate() * 60 / 120), listening(OFF), samplesToGenStateChange(-1), lastLearnLeft(0), lastLearnRight(0)
+    : listening(OFF), samplesToGenStateChange(-1), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
     , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
+    tempo = TapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
+    tempo->setBeatsPerMinute(120);
+
     markov = MarkovGenerator::create(getSampleRate()*4);
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
@@ -151,7 +154,7 @@ public:
     else if (bid == inClock)
     {
       bool on = value == ON;
-      tempo.trigger(on, samples);
+      tempo->trigger(on, samples);
 
       if (on)
       {
@@ -168,7 +171,7 @@ public:
     FloatArray genLeft = genBuffer->getSamples(0);
     FloatArray genRight = genBuffer->getSamples(1);
 
-    tempo.clock(inSize);
+    tempo->clock(inSize);
 
     dcBlockingFilter->process(audio, audio);
 
@@ -199,7 +202,7 @@ public:
 
     int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
     // test tempo: lock word size to clock tick length
-    wordSizeParam = tempo.getPeriod() * TAP_TRIGGER_LIMIT;
+    wordSizeParam = tempo->getPeriodInSamples();
 
     float wordVariationParam = getParameterValue(inWordSizeVariation);
     float varyAmt = 0;
