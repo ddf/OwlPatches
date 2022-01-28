@@ -98,15 +98,15 @@ class MarkovPatch : public Patch
   const float maxDecaySeconds = 1.0f;
 
   const int wordEndedGateLength;
+  const int minWordGateLength;
   const int minWordSizeSamples;
-  const int maxWordSizeSamples;
 
 public: 
   MarkovPatch()
     : listening(OFF), samplesToReset(-1), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , wordGateLength(1), wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
-    , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
+    , minWordGateLength((getSampleRate()*attackSeconds)), minWordSizeSamples((getSampleRate()*attackSeconds*2))
   {
     tempo = TapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
     tempo->setBeatsPerMinute(120);
@@ -175,7 +175,7 @@ public:
     if (envelopeShape >= 0.53f)
     {
       float t = (envelopeShape - 0.53f) * 2.12f;
-      wordGateLength = Interpolator::linear(minWordSizeSamples, wordSize, t);
+      wordGateLength = Interpolator::linear(minWordGateLength, wordSize - minWordGateLength, t);
     }
     else
     {
@@ -243,11 +243,10 @@ public:
 
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     envelopeShape = getParameterValue(inDecay);
-    //generateEnvelope->setRelease(decay);
 
-    int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
+    //int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
     // test tempo: lock word size to clock tick length
-    wordSizeParam = tempo->getPeriodInSamples();
+    int wordSizeParam = tempo->getPeriodInSamples();
 
     float wordVariationParam = getParameterValue(inWordSizeVariation);
     float varyAmt = 0;
@@ -277,12 +276,12 @@ public:
       if (markov->getLetterCount() == 0)
       {
         int wordSize = wordSizeParam;
-        // random variation over the full value of the parameter
+        // random variation up to 8 times longer or 8 times shorter
         if (wordVariationParam > 0.5f)
         {
-          int range = Interpolator::linear(0, maxWordSizeSamples - minWordSizeSamples, randf()*varyAmt);
-          if (randf() > 0.5f) range *= -1;
-          wordSize = std::max(minWordSizeSamples, wordSizeParam + range);
+          float scale = Interpolator::linear(1, 8, randf()*varyAmt);
+          if (randf() > 0.5f) scale = 1.0f / scale;
+          wordSize = std::max(minWordSizeSamples, (int)(wordSizeParam * scale));
         }
         // random variation using musical mult/divs of the current word size
         else
