@@ -175,7 +175,7 @@ public:
     if (envelopeShape >= 0.53f)
     {
       float t = (envelopeShape - 0.53f) * 2.12f;
-      wordGateLength = Interpolator::linear(minWordSizeSamples, wordSize - minWordSizeSamples * 2, t);
+      wordGateLength = Interpolator::linear(minWordSizeSamples, wordSize, t);
     }
     else
     {
