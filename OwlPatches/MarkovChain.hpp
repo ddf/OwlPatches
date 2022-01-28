@@ -293,8 +293,8 @@ private:
   typename SampleMemory::Node* zeroNode;
   SampleFrame lastLearn;
   SampleFrame lastGenerate;
-  int      lastWordBegin;
   int      maxWordSize;
+  int      currentWordBegin;
   int      currentWordSize;
   int      letterCount;
 
@@ -303,7 +303,7 @@ private:
 public:
   MarkovChain(int inBufferSize)
     : buffer(0), bufferWritePos(0), memory(0), bufferSize(inBufferSize)
-    , lastWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(0)
+    , currentWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(0)
     , lastLearn(0), lastGenerate(0)
   {
     buffer = new SampleFrame[bufferSize];
@@ -315,8 +315,6 @@ public:
     }
 
     zeroNode = memory->put(lastLearn.key());
-    zeroNode->write(0);
-
     nodeLengthCounts[1] = 1;
   }
 
@@ -356,17 +354,16 @@ public:
     // erase the position we are about to write to from the next sample list of what's already there
     SampleFrame prevSampleFrame = buffer[bufferWritePos];
     typename SampleMemory::Node* node = memory->get(prevSampleFrame.key());
-    // we do not want the zero node to be removed from memory
-    // and since we wrote a zero as the first value to the zero node,
-    // we do not erase it.
-    if (node && !(node == zeroNode && nextWritePosition == 0))
+    if (node)
     {
       int prevLen = node->valuesLength;
       if (node->erase(nextWritePosition))
       {
         nodeLengthCounts[prevLen] = nodeLengthCounts[prevLen] - 1;
 
-        if (node->valuesLength == 0)
+        // never remove the zero node so we don't have to check for null
+        // when falling back to zeroNode in generate.
+        if (node->valuesLength == 0 && node != zeroNode)
         {
           memory->remove(prevSampleFrame.key());
         }
@@ -419,7 +416,7 @@ public:
         // nothing follows, restart at zero
         case 0: 
         {
-          resetGenerate();
+          beginWordAtZero();
         }
         break;
 
@@ -431,11 +428,11 @@ public:
           if (node->key != next.key())
           {
             lastGenerate = next;
-            lastWordBegin = nextIdx;
+            currentWordBegin = nextIdx;
           }
           else
           {
-            resetGenerate();
+            beginWordAtZero();
           }
         }
         break;
@@ -444,32 +441,25 @@ public:
         {
           int idx = arm_rand32() % node->valuesLength;
           int nextIdx = node->values[idx];
-          if (nextIdx == lastWordBegin)
+          if (nextIdx == currentWordBegin)
           {
-            resetGenerate();
+            beginWordAtZero();
           }
           else
           {
             lastGenerate = buffer[nextIdx];
-            lastWordBegin = nextIdx;
+            currentWordBegin = nextIdx;
           }
         }
         break;
       }
 
       letterCount = 1;
-      // random word size with each word within our max bound
-      // otherwise longer words can get stuck repeating the same data.
-      //currentWordSize += arm_rand32() % 8;
-      //if (currentWordSize > maxWordSize)
-      //{
-      //  currentWordSize = 1 + currentWordSize % maxWordSize;
-      //}
       currentWordSize = maxWordSize;
     }
     else
     {
-      int genIdx = (lastWordBegin + letterCount) % bufferSize;
+      int genIdx = (currentWordBegin + letterCount) % bufferSize;
       lastGenerate = buffer[genIdx];
       ++letterCount;
       if (letterCount == currentWordSize)
@@ -510,6 +500,22 @@ public:
     }
     float avg = memSize > 0 ? (float)totalCount / memSize : 0;
     return Stats{ memSize, minLength, minCount, maxLength, maxCount, avg };
+  }
+
+private:
+  void beginWordAtZero()
+  {
+    lastGenerate = SampleFrame(0);
+    if (zeroNode->valuesLength > 0)
+    {
+      int idx = arm_rand32() % zeroNode->valuesLength;
+      currentWordBegin = zeroNode->values[idx];
+    }
+    else
+    {
+      // pick a random position in the buffer, hope for the best?
+      currentWordBegin = arm_rand32() % bufferSize;
+    }
   }
 
 public:
