@@ -218,15 +218,15 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      if (samplesToGenStateChange == 0)
-      {
-        markov->resetGenerate();
-      }
+      //if (samplesToGenStateChange == 0)
+      //{
+      //  markov->resetGenerate();
+      //}
 
-      if (samplesToGenStateChange >= 0)
-      {
-        --samplesToGenStateChange;
-      }
+      //if (samplesToGenStateChange >= 0)
+      //{
+      //  --samplesToGenStateChange;
+      //}
 
       // word going to start, update the word size
       if (markov->getLetterCount() == 0)
