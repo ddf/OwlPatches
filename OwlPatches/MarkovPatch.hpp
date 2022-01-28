@@ -81,7 +81,7 @@ class MarkovPatch : public Patch
   AudioBuffer* genBuffer;
   
   bool genState;
-  uint16_t samplesToGenStateChange;
+  int  samplesToReset;
 
   SmoothFloat speed;
   SmoothFloat decay;
@@ -101,7 +101,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), samplesToGenStateChange(-1), lastLearnLeft(0), lastLearnRight(0)
+    : listening(OFF), samplesToReset(-1), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
     , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
     , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
@@ -158,7 +158,7 @@ public:
 
       if (on)
       {
-        samplesToGenStateChange = samples;
+        samplesToReset = samples;
       }
     }
   }
@@ -218,15 +218,15 @@ public:
 
     for (int i = 0; i < inSize; ++i)
     {
-      //if (samplesToGenStateChange == 0)
-      //{
-      //  markov->resetGenerate();
-      //}
+      if (samplesToReset == 0)
+      {
+        markov->resetGenerate();
+      }
 
-      //if (samplesToGenStateChange >= 0)
-      //{
-      //  --samplesToGenStateChange;
-      //}
+      if (samplesToReset >= 0)
+      {
+        --samplesToReset;
+      }
 
       // word going to start, update the word size
       if (markov->getLetterCount() == 0)
