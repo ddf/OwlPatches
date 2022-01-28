@@ -280,7 +280,8 @@ public:
         if (wordVariationParam > 0.5f)
         {
           float scale = Interpolator::linear(1, 8, randf()*varyAmt);
-          if (randf() > 0.5f) scale = 1.0f / scale;
+          // weight towards shorter
+          if (randf() > 0.25f) scale = 1.0f / scale;
           wordSize = std::max(minWordSizeSamples, (int)(wordSizeParam * scale));
         }
         // random variation using musical mult/divs of the current word size
