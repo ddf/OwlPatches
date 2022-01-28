@@ -31,20 +31,20 @@ DESCRIPTION:
 #include "TapTempo.h"
 #include <string.h>
 
-class DecayEnvelope : public ExponentialAdsrEnvelope
+class ListenEnvelope : public ExponentialAdsrEnvelope
 {
-  DecayEnvelope(int sr) : ExponentialAdsrEnvelope(sr) {}
+  ListenEnvelope(int sr) : ExponentialAdsrEnvelope(sr) {}
 
 public:
 
   bool isIdle() const { return stage == kIdle; }
 
-  static DecayEnvelope* create(int sr)
+  static ListenEnvelope* create(int sr)
   {
-    return new DecayEnvelope(sr);
+    return new ListenEnvelope(sr);
   }
 
-  static void destroy(DecayEnvelope* env)
+  static void destroy(ListenEnvelope* env)
   {
     delete env;
   }
@@ -74,8 +74,9 @@ class MarkovPatch : public Patch
   MarkovGenerator* markov;
   uint16_t listening;
   VoltsPerOctave voct;
-  DecayEnvelope* listenEnvelope;
-  DecayEnvelope* generateEnvelope;
+  ListenEnvelope* listenEnvelope;
+  ExponentialAdsrEnvelope* expoGenerateEnvelope;
+  LinearAdsrEnvelope* linearGenerateEnvelope;
 
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
@@ -84,11 +85,12 @@ class MarkovPatch : public Patch
   int  samplesToReset;
 
   SmoothFloat speed;
-  SmoothFloat decay;
+  SmoothFloat envelopeShape;
 
   float lastLearnLeft, lastLearnRight;
   float lastGenLeft, lastGenRight;
 
+  int wordGateLength;
   int wordEndedGate;
 
   const float attackSeconds = 0.005f;
@@ -103,7 +105,7 @@ public:
   MarkovPatch()
     : listening(OFF), samplesToReset(-1), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
-    , wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
+    , wordGateLength(1), wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
     , minWordSizeSamples((getSampleRate()*attackSeconds)), maxWordSizeSamples(getSampleRate()*0.25f)
   {
     tempo = TapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
@@ -113,14 +115,18 @@ public:
 
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
 
-    listenEnvelope = DecayEnvelope::create(getSampleRate());
+    listenEnvelope = ListenEnvelope::create(getSampleRate());
     listenEnvelope->setAttack(attackSeconds);
     listenEnvelope->setRelease(attackSeconds);
 
     genBuffer = AudioBuffer::create(2, getBlockSize());
-    generateEnvelope = DecayEnvelope::create(getSampleRate());
-    generateEnvelope->setAttack(attackSeconds);
-    generateEnvelope->setRelease(minDecaySeconds);
+    expoGenerateEnvelope = ExponentialAdsrEnvelope::create(getSampleRate());
+    expoGenerateEnvelope->setAttack(attackSeconds);
+    expoGenerateEnvelope->setRelease(minDecaySeconds);
+
+    linearGenerateEnvelope = LinearAdsrEnvelope::create(getSampleRate());
+    linearGenerateEnvelope->setAttack(attackSeconds);
+    linearGenerateEnvelope->setRelease(minDecaySeconds);
 
     voct.setTune(-4);
     registerParameter(inWordSize, "Word Size");
@@ -140,8 +146,9 @@ public:
     MarkovGenerator::destroy(markov);
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
     AudioBuffer::destroy(genBuffer);
-    DecayEnvelope::destroy(listenEnvelope);
-    DecayEnvelope::destroy(generateEnvelope);
+    ListenEnvelope::destroy(listenEnvelope);
+    ExponentialAdsrEnvelope::destroy(expoGenerateEnvelope);
+    LinearAdsrEnvelope::destroy(linearGenerateEnvelope);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -161,6 +168,38 @@ public:
         samplesToReset = samples;
       }
     }
+  }
+
+  void setEnvelopeRelease(int wordSize)
+  {
+    if (envelopeShape >= 0.53f)
+    {
+      float t = (envelopeShape - 0.53f) * 2.12f;
+      wordGateLength = Interpolator::linear(minWordSizeSamples, wordSize - minWordSizeSamples * 2, t);
+    }
+    else
+    {
+      wordGateLength = minWordSizeSamples;
+    }
+    float wordReleaseSeconds = (float)(wordSize - wordGateLength) / getSampleRate();
+    expoGenerateEnvelope->setRelease(wordReleaseSeconds);
+    linearGenerateEnvelope->setRelease(wordReleaseSeconds);
+  }
+
+  float generateEnvelope()
+  {
+    bool state = markov->getLetterCount() < wordGateLength;
+    expoGenerateEnvelope->gate(state);
+    linearGenerateEnvelope->gate(state);
+
+    float expo = expoGenerateEnvelope->generate();
+    float line = linearGenerateEnvelope->generate();
+    if (envelopeShape <= 0.47f)
+    {
+      float t = (0.47f - envelopeShape) * 2.12f;
+      return Interpolator::linear(line, expo, t);
+    }
+    return line;
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -197,7 +236,7 @@ public:
     }
 
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
-    decay = minDecaySeconds + getParameterValue(inDecay)*(maxDecaySeconds - minDecaySeconds);
+    envelopeShape = getParameterValue(inDecay);
     //generateEnvelope->setRelease(decay);
 
     int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
@@ -250,8 +289,7 @@ public:
         }
 
         markov->setWordSize(wordSize);
-        float wordReleaseSeconds = (float)(wordSize - minWordSizeSamples) / getSampleRate();
-        generateEnvelope->setRelease(wordReleaseSeconds);
+        setEnvelopeRelease(wordSize);
       }
       // word about to end, set the gate
       else if (markov->getLetterCount() == markov->getCurrentWordSize() - 1)
@@ -260,9 +298,7 @@ public:
         wordEndedGateDelay = i;
       }
 
-      generateEnvelope->gate(markov->getLetterCount() < minWordSizeSamples);
-
-      ComplexFloat sample = markov->generate() * generateEnvelope->generate();
+      ComplexFloat sample = markov->generate() * generateEnvelope();
       genLeft[i] = sample.re;
       genRight[i] = sample.im;
       //genLeft[i] = markov->generate() * envelope->generate();
@@ -282,7 +318,7 @@ public:
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
     setParameterValue(outWordProgress, (float)markov->getLetterCount() / markov->getCurrentWordSize());
-    setParameterValue(outDecayEnvelope, generateEnvelope->getLevel());
+    setParameterValue(outDecayEnvelope, expoGenerateEnvelope->getLevel());
 
     MarkovGenerator::Stats stats = markov->getStats();
     char debugMsg[64];
@@ -299,7 +335,7 @@ public:
     debugCpy = stpcpy(debugCpy, ") avg ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
     debugCpy = stpcpy(debugCpy, " d ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(decay, 10));
+    debugCpy = stpcpy(debugCpy, msg_ftoa(envelopeShape, 10));
     debugCpy = stpcpy(debugCpy, " w ");
     debugCpy = stpcpy(debugCpy, msg_itoa(int((float)wordSizeParam / getSampleRate() * 1000), 10));
     debugMessage(debugMsg);
