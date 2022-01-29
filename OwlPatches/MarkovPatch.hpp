@@ -326,7 +326,7 @@ public:
           }
 
           int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
-          clocksToReset = wordScale > 1 ? (int)(wordScale - 1) : 0;
+          clocksToReset = wordScale > 1 ? (int)(wordScale - 0.5f) : 0;
 
           markov->setWordSize(wordSize);
           setEnvelopeRelease(wordSize);
