@@ -359,7 +359,8 @@ public:
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordStartedGate > 0, wordStartedGateDelay);
     setParameterValue(outWordProgress, (float)markov->getLetterCount() / markov->getCurrentWordSize());
-    setParameterValue(outDecayEnvelope, getEnvelopeLevel());
+    //setParameterValue(outDecayEnvelope, getEnvelopeLevel());
+    setParameterValue(outDecayEnvelope, (float)clocksToReset / 4);
 
     MarkovGenerator::Stats stats = markov->getStats();
     char debugMsg[64];
