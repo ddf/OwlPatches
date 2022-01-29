@@ -93,13 +93,13 @@ class MarkovPatch : public Patch
   float lastGenLeft, lastGenRight;
 
   int wordGateLength;
-  int wordEndedGate;
+  int wordStartedGate;
 
   const float attackSeconds = 0.005f;
   const float minDecaySeconds = 0.010f;
   const float maxDecaySeconds = 1.0f;
 
-  const int wordEndedGateLength;
+  const int wordStartedGateLength;
   const int minWordGateLength;
   const int minWordSizeSamples;
 
@@ -107,7 +107,7 @@ public:
   MarkovPatch()
     : listening(OFF), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), lastLearnLeft(0), lastLearnRight(0)
     , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
-    , wordGateLength(1), wordEndedGate(0), wordEndedGateLength(getSampleRate()*attackSeconds)
+    , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(getSampleRate()*attackSeconds)
     , minWordGateLength((getSampleRate()*attackSeconds)), minWordSizeSamples((getSampleRate()*attackSeconds*2))
   {
     tempo = TapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
@@ -239,14 +239,14 @@ public:
       //markov->learn(inLeft[i]);
     }
 
-    int wordEndedGateDelay = 0;
-    if (wordEndedGate > 0)
+    int wordStartedGateDelay = 0;
+    if (wordStartedGate > 0)
     {
-      if (wordEndedGate < getBlockSize())
+      if (wordStartedGate < getBlockSize())
       {
-        wordEndedGateDelay = wordEndedGate;
+        wordStartedGateDelay = wordStartedGate;
       }
-      wordEndedGate -= getBlockSize();
+      wordStartedGate -= getBlockSize();
     }
 
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
@@ -328,12 +328,9 @@ public:
           markov->setWordSize(wordSize);
           setEnvelopeRelease(wordSize);
         }
-      }
-      // word about to end, set the gate
-      else if (markov->getLetterCount() == markov->getCurrentWordSize() - 1)
-      {
-        wordEndedGate = wordEndedGateLength;
-        wordEndedGateDelay = i;
+
+        wordStartedGate = wordStartedGateLength;
+        wordStartedGateDelay = i;
       }
 
       updateEnvelope();
@@ -356,7 +353,7 @@ public:
     inRight.add(genRight);
 
     setButton(inToggleListen, listening);
-    setButton(outWordEnded, wordEndedGate > 0, wordEndedGateDelay);
+    setButton(outWordEnded, wordStartedGate > 0, wordStartedGateDelay);
     setParameterValue(outWordProgress, (float)markov->getLetterCount() / markov->getCurrentWordSize());
     setParameterValue(outDecayEnvelope, getEnvelopeLevel());
 
