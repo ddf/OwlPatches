@@ -227,7 +227,6 @@ public:
     FloatArray genRight = genBuffer->getSamples(1);
 
     tempo->clock(inSize);
-    tempo->adjustSpeed(getParameterValue(inWordSize));
 
     dcBlockingFilter->process(audio, audio);
 
@@ -279,7 +278,9 @@ public:
 
         if (wordsToNewInterval == 0)
         {
-          int wordSize = tempo->getPeriodInSamples();
+          static float divmult[] = { 0.125f, 0.25f, 0.33f, 0.5f, 1, 2, 3, 4, 8 };
+          int idx = Interpolator::linear(0, 10, getParameterValue(inWordSize));
+          int wordSize = tempo->getPeriodInSamples() * divmult[idx];
 
           float wordVariationParam = getParameterValue(inWordSizeVariation);
           float varyAmt = 0;
