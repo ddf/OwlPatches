@@ -84,6 +84,7 @@ class MarkovPatch : public Patch
   int  clocksToReset;
   int  samplesToReset;
   int  wordsToNewInterval;
+  int  wordSize;
 
   SmoothFloat speed;
   SmoothFloat envelopeShape;
@@ -252,20 +253,6 @@ public:
     envelopeShape = getParameterValue(inDecay);
 
     //int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
-    // test tempo: lock word size to clock tick length
-    int wordSizeParam = tempo->getPeriodInSamples();
-
-    float wordVariationParam = getParameterValue(inWordSizeVariation);
-    float varyAmt = 0;
-    // maps parameter to [0,1) weight above and below a dead-zone in the center
-    if (wordVariationParam >= 0.53f)
-    {
-      varyAmt = (wordVariationParam - 0.53f) * 2.12f;
-    }
-    else if (wordVariationParam <= 0.47f)
-    {
-      varyAmt = (0.47f - wordVariationParam) * 2.12f;
-    }
 
     for (int i = 0; i < inSize; ++i)
     {
@@ -282,8 +269,6 @@ public:
       // word going to start, update the word size, envelope settings
       if (markov->getLetterCount() == 0)
       {
-        int wordSize = wordSizeParam;
-
         if (wordsToNewInterval > 0)
         {
           --wordsToNewInterval;
@@ -291,17 +276,31 @@ public:
 
         if (wordsToNewInterval == 0)
         {
+          int wordSize = tempo->getPeriodInSamples();
+
+          float wordVariationParam = getParameterValue(inWordSizeVariation);
+          float varyAmt = 0;
+          // maps parameter to [0,1) weight above and below a dead-zone in the center
+          if (wordVariationParam >= 0.53f)
+          {
+            varyAmt = (wordVariationParam - 0.53f) * 2.12f;
+          }
+          else if (wordVariationParam <= 0.47f)
+          {
+            varyAmt = (0.47f - wordVariationParam) * 2.12f;
+          }
+
           // random variation up to 8 times longer or 8 times shorter
-          if (wordVariationParam > 0.5f)
+          if (wordVariationParam >= 0.53f)
           {
             float scale = Interpolator::linear(1, 8, randf()*varyAmt);
             // weight towards shorter
             if (randf() > 0.25f) scale = 1.0f / scale;
-            wordSize = std::max(minWordSizeSamples, (int)(wordSizeParam * scale));
+            wordSize = std::max(minWordSizeSamples, (int)(wordSize * scale));
             wordsToNewInterval = 1;
           }
           // random variation using musical mult/divs of the current word size
-          else
+          else if (wordVariationParam <= 0.47f)
           {
             static float intervals[] = { 1, 2, 2, 4, 4, 3, 3 };
             int idx = Interpolator::linear(0, 7, randf()*varyAmt);
@@ -317,12 +316,17 @@ public:
               wordsToNewInterval = 1;
               clocksToReset = (int)interval;
             }
-            wordSize = std::max(minWordSizeSamples, (int)(wordSizeParam * interval));
+            wordSize = std::max(minWordSizeSamples, (int)(wordSize * interval));
           }
-        }
+          else
+          {
+            wordsToNewInterval = 1;
+            clocksToReset = 1;
+          }
 
-        markov->setWordSize(wordSize);
-        setEnvelopeRelease(wordSize);
+          markov->setWordSize(wordSize);
+          setEnvelopeRelease(wordSize);
+        }
       }
       // word about to end, set the gate
       else if (markov->getLetterCount() == markov->getCurrentWordSize() - 1)
