@@ -163,7 +163,8 @@ public:
       bool on = value == ON;
       tempo->trigger(on, samples);
 
-      if (on)
+      // don't reset when doing full random variation
+      if (on && getParameterValue(inWordSizeVariation) < 0.53f)
       {
         samplesToReset = samples;
       }
