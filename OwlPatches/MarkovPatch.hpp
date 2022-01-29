@@ -282,7 +282,7 @@ public:
           int idx = (int)roundf(Interpolator::linear(0, 6, getParameterValue(inWordSize)));
           float wordScale = divmult[idx];
           int wordSize = tempo->getPeriodInSamples() * wordScale;
-          clocksToReset = wordScale > 1 ? (int)(wordScale) : 0;
+          clocksToReset = wordScale > 1 ? (int)(wordScale - 1) : 0;
 
           float wordVariationParam = getParameterValue(inWordSizeVariation);
           float varyAmt = 0;
