@@ -328,7 +328,6 @@ public:
 
   void resetGenerate()
   {
-    lastGenerate = SampleFrame(0);
     letterCount = 0;
   }
 
