@@ -278,7 +278,7 @@ public:
 
         if (wordsToNewInterval == 0)
         {
-          static float divmult[] = { 0.25f, 0.33f, 0.5f, 1, 2, 3, 4 };
+          static float divmult[] = { 0.25f, 0.33f, 0.5f, 1.0f, 2.0f, 3.0f, 4.0f };
           int idx = (int)roundf(Interpolator::linear(0, 6, getParameterValue(inWordSize)));
           float wordScale = divmult[idx];
           int wordSize = tempo->getPeriodInSamples() * divmult[idx];
