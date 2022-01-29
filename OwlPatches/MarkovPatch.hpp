@@ -173,7 +173,7 @@ public:
         samplesToReset = samples;
       }
 
-      if (clocksToReset > 0)
+      if (on && clocksToReset > 0)
       {
         --clocksToReset;
       }
