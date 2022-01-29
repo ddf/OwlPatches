@@ -281,8 +281,8 @@ public:
           static float divmult[] = { 0.25f, 0.33f, 0.5f, 1.0f, 2.0f, 3.0f, 4.0f };
           int idx = (int)roundf(Interpolator::linear(0, 6, getParameterValue(inWordSize)));
           float wordScale = divmult[idx];
-          int wordSize = tempo->getPeriodInSamples() * divmult[idx];
-          clocksToReset = wordScale > 1 ? (int)(wordScale+1) : 1;
+          int wordSize = tempo->getPeriodInSamples() * wordScale;
+          clocksToReset = wordScale > 1 ? (int)(wordScale) : 0;
 
           float wordVariationParam = getParameterValue(inWordSizeVariation);
           float varyAmt = 0;
