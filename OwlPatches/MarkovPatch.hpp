@@ -84,7 +84,6 @@ class MarkovPatch : public Patch
   int  clocksToReset;
   int  samplesToReset;
   int  wordsToNewInterval;
-  int  wordSize;
 
   SmoothFloat speed;
   SmoothFloat envelopeShape;
@@ -300,7 +299,7 @@ public:
             float scale = Interpolator::linear(1, 8, randf()*varyAmt);
             // weight towards shorter
             if (randf() > 0.25f) scale = 1.0f / scale;
-            wordSize = std::max(minWordSizeSamples, (int)(wordSize * scale));
+            wordScale = scale;
             wordsToNewInterval = 1;
           }
           // random variation using musical mult/divs of the current word size
@@ -326,6 +325,7 @@ public:
           }
 
           int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
+          // think I'm gonna need to use a matrix for this like in glitch lich because there are two rate playing off each other.
           clocksToReset = wordScale > 1 ? (int)(wordScale - 0.5f)*wordsToNewInterval : 0;
 
           markov->setWordSize(wordSize);
