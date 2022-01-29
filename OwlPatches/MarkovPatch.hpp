@@ -278,9 +278,11 @@ public:
 
         if (wordsToNewInterval == 0)
         {
-          static float divmult[] = { 0.125f, 0.25f, 0.33f, 0.5f, 1, 2, 3, 4, 8 };
-          int idx = Interpolator::linear(0, 10, getParameterValue(inWordSize));
+          static float divmult[] = { 0.25f, 0.33f, 0.5f, 1, 2, 3, 4 };
+          int idx = (int)roundf(Interpolator::linear(0, 9, getParameterValue(inWordSize)));
+          float wordScale = divmult[idx];
           int wordSize = tempo->getPeriodInSamples() * divmult[idx];
+          clocksToReset = wordScale > 1 ? (int)wordScale : 1;
 
           float wordVariationParam = getParameterValue(inWordSizeVariation);
           float varyAmt = 0;
@@ -313,20 +315,18 @@ public:
             {
               wordSize = std::max(minWordSizeSamples, (int)(wordSize / (float)interval));
               wordsToNewInterval = (int)interval;
-              clocksToReset = 1;
             }
             else
             {
               wordSize = std::max(minWordSizeSamples, wordSize * interval);
               wordsToNewInterval = 1;
-              clocksToReset = (int)interval;
+              clocksToReset *= interval;
             }
             
           }
           else
           {
             wordsToNewInterval = 1;
-            clocksToReset = 1;
           }
 
           markov->setWordSize(wordSize);
