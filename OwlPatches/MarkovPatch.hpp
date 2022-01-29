@@ -70,7 +70,7 @@ class MarkovPatch : public Patch
 
   static const int TAP_TRIGGER_LIMIT = (1 << 17);
 
-  TapTempo* tempo;
+  AdjustableTapTempo* tempo;
   MarkovGenerator* markov;
   uint16_t listening;
   VoltsPerOctave voct;
@@ -110,8 +110,10 @@ public:
     , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(getSampleRate()*attackSeconds)
     , minWordGateLength((getSampleRate()*attackSeconds)), minWordSizeSamples((getSampleRate()*attackSeconds*2))
   {
-    tempo = TapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
+    tempo = AdjustableTapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
     tempo->setBeatsPerMinute(120);
+    // adjust between /4 and x4
+    tempo->setRange(8);
 
     markov = MarkovGenerator::create(getSampleRate()*4);
 
@@ -225,6 +227,7 @@ public:
     FloatArray genRight = genBuffer->getSamples(1);
 
     tempo->clock(inSize);
+    tempo->adjustSpeed(getParameterValue(inWordSize));
 
     dcBlockingFilter->process(audio, audio);
 
