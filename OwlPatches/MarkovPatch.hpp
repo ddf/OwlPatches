@@ -279,7 +279,7 @@ public:
         if (wordsToNewInterval == 0)
         {
           static float divmult[] = { 0.25f, 0.33f, 0.5f, 1, 2, 3, 4 };
-          int idx = (int)roundf(Interpolator::linear(0, 9, getParameterValue(inWordSize)));
+          int idx = (int)roundf(Interpolator::linear(0, 6, getParameterValue(inWordSize)));
           float wordScale = divmult[idx];
           int wordSize = tempo->getPeriodInSamples() * divmult[idx];
           clocksToReset = wordScale > 1 ? (int)wordScale : 1;
