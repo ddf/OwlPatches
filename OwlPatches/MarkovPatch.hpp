@@ -375,8 +375,8 @@ public:
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.maxChainCount, 10));
     debugCpy = stpcpy(debugCpy, ") avg ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(stats.avgChainLength, 10));
-    debugCpy = stpcpy(debugCpy, " d ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(envelopeShape, 10));
+    debugCpy = stpcpy(debugCpy, " C ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(getParameterValue(inWordSize), 10));
     debugCpy = stpcpy(debugCpy, " w ");
     debugCpy = stpcpy(debugCpy, msg_itoa(int((float)markov->getCurrentWordSize() / getSampleRate() * 1000), 10));
     debugMessage(debugMsg);
