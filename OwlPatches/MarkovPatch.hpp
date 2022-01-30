@@ -29,6 +29,7 @@ DESCRIPTION:
 #include "Interpolator.h"
 #include "MarkovChain.hpp"
 #include "TapTempo.h"
+#include "basicmaths.h"
 #include <string.h>
 
 class ListenEnvelope : public ExponentialAdsrEnvelope
@@ -347,7 +348,7 @@ public:
       genRight[i] = sample.im;
     }
 
-    float dryWet = getParameterValue(inDryWet);
+    float dryWet = std::clamp(getParameterValue(inDryWet)*1.01f, 0.0f, 1.0f);
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     inLeft.multiply(dryAmt);
