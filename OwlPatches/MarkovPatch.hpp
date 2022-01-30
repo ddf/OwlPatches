@@ -166,15 +166,15 @@ public:
       bool on = value == ON;
       tempo->trigger(on, samples);
 
+      if (on && clocksToReset > 0)
+      {
+        --clocksToReset;
+      }
+
       // don't reset when doing full random variation
       if (on && getParameterValue(inWordSizeVariation) < 0.53f && clocksToReset == 0)
       {
         samplesToReset = samples;
-      }
-
-      if (on && clocksToReset > 0)
-      {
-        --clocksToReset;
       }
     }
   }
