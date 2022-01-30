@@ -282,14 +282,14 @@ public:
           static const int intervalsLen = 7;
           static const float intervals[intervalsLen] = { 1.0f/3, 1.0f/4, 1.0f/2, 1, 2, 4, 3 };
           static const int counters[divMultLen][intervalsLen] = {
-            // intervals: 1/3  1/4  1/2  1  2  3  4 |    divmult
-                         { 1,   1,   1,  1, 1, 3,  1  }, // 1/4
-                         { 1,   1,   1,  1, 1, 1,  4  }, // 1/3
-                         { 1,   1,   1,  1, 1, 3,  2  }, // 1/2
-                         { 1,   1,   1,  1, 2, 3,  4  }, // 1
-                         { 2,   1,   1,  2, 4, 6,  8  }, // 2
-                         { 1,   3,   3,  3, 6, 9,  12 }, // 3
-                         { 4,   1,   2,  4, 8, 12, 16 }, // 4
+            // intervals: 1/3  1/4  1/2  1  2  4   3   |    divmult
+                         { 1,   1,   1,  1, 1, 1,  3   }, // 1/4
+                         { 1,   1,   1,  1, 1, 4,  1   }, // 1/3
+                         { 1,   1,   1,  1, 1, 2,  3   }, // 1/2
+                         { 1,   1,   1,  1, 2, 4,  3   }, // 1
+                         { 2,   1,   1,  2, 4, 8,  6   }, // 2
+                         { 1,   3,   3,  3, 6, 12, 9   }, // 3
+                         { 4,   1,   2,  4, 8, 16, 12  }, // 4
           };
 
           int divMultIdx = (int)roundf(Interpolator::linear(0, divMultLen-1, getParameterValue(inWordSize)));
