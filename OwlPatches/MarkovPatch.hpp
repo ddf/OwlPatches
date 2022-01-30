@@ -277,9 +277,24 @@ public:
 
         if (wordsToNewInterval == 0)
         {
-          static float divmult[] = { 0.25f, 0.33f, 0.5f, 1.0f, 2.0f, 3.0f, 4.0f };
-          int idx = (int)roundf(Interpolator::linear(0, 6, getParameterValue(inWordSize)));
-          float wordScale = divmult[idx];
+          static const int divMultLen = 7;
+          static const float divMult[divMultLen] = { 1.0f/4, 1.0f/3, 1.0f/2, 1, 2, 3, 4 };
+          static const int intervalsLen = 7;
+          static const float intervals[intervalsLen] = { 1.0f/3, 1.0f/4, 1.0f/2, 1, 2, 4, 3 };
+          static const int counters[divMultLen][intervalsLen] = {
+            // intervals: 1/3  1/4  1/2  1  2  3  4 |    divmult
+                         { 1,   1,   1,  1, 1, 3,  1  }, // 1/4
+                         { 1,   1,   1,  1, 1, 1,  4  }, // 1/3
+                         { 1,   1,   1,  1, 1, 3,  2  }, // 1/2
+                         { 1,   1,   1,  1, 2, 3,  4  }, // 1
+                         { 2,   1,   1,  2, 4, 6,  8  }, // 2
+                         { 1,   3,   3,  3, 6, 9,  12 }, // 3
+                         { 4,   1,   2,  4, 8, 12, 16 }, // 4
+          };
+
+          int divMultIdx = (int)roundf(Interpolator::linear(0, divMultLen-1, getParameterValue(inWordSize)));
+          int intervalIdx = 3;
+          float wordScale = divMult[divMultIdx];
 
           float wordVariationParam = getParameterValue(inWordSizeVariation);
           float varyAmt = 0;
@@ -296,27 +311,21 @@ public:
           // random variation up to 8 times longer or 8 times shorter
           if (wordVariationParam >= 0.53f)
           {
-            float scale = Interpolator::linear(1, 8, randf()*varyAmt);
+            float scale = Interpolator::linear(1, 4, randf()*varyAmt);
             // weight towards shorter
             if (randf() > 0.25f) scale = 1.0f / scale;
-            wordScale = scale;
+            wordScale *= scale;
             wordsToNewInterval = 1;
           }
           // random variation using musical mult/divs of the current word size
           else if (wordVariationParam <= 0.47f)
           {
-            static int intervals[] = { 1, 2, 2, 4, 4, 3, 3 };
-            int idx = Interpolator::linear(0, 7, randf()*varyAmt);
-            int interval = intervals[idx];
-            if (randf() > 0.25f)
+            intervalIdx = Interpolator::linear(0, intervalsLen - 1, 0.5f + randf()*0.5f*varyAmt);
+            float interval = intervals[intervalIdx];
+            wordScale *= interval;
+            if (interval < 1)
             {
-              wordScale /= interval;
-              wordsToNewInterval = (int)interval;
-            }
-            else
-            {
-              wordScale *= interval;
-              wordsToNewInterval = 1;
+              wordsToNewInterval = (int)(1.0f / interval);
             }
           }
           else
@@ -326,7 +335,7 @@ public:
 
           int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
           // think I'm gonna need to use a matrix for this like in glitch lich because there are two rate playing off each other.
-          clocksToReset = wordScale > 1 ? (int)(wordScale - 0.5f)*wordsToNewInterval : 0;
+          clocksToReset = counters[divMultIdx][intervalIdx];
 
           markov->setWordSize(wordSize);
           setEnvelopeRelease(wordSize);
