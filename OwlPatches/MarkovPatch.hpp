@@ -320,7 +320,10 @@ public:
           // random variation using musical mult/divs of the current word size
           else if (wordVariationParam <= 0.47f)
           {
-            intervalIdx = Interpolator::linear(0, intervalsLen - 1, 0.5f + randf()*0.5f*varyAmt);
+            // when varyAmt is zero, we want the interval in the middle of the array (ie 1).
+            // so we offset from 0.5f with a random value between -0.5 and 0.5, scaled by varyAmt
+            // (ie as vary amount gets larger we can pick values at closer to the ends of the array.
+            intervalIdx = Interpolator::linear(0, intervalsLen - 1, 0.5f + (randf() - 0.5f)*varyAmt);
             float interval = intervals[intervalIdx];
             wordScale *= interval;
             if (interval < 1)
