@@ -166,15 +166,15 @@ public:
       bool on = value == ON;
       tempo->trigger(on, samples);
 
-      if (on && clocksToReset > 0)
-      {
-        --clocksToReset;
-      }
-
       // don't reset when doing full random variation
       if (on && getParameterValue(inWordSizeVariation) < 0.53f && clocksToReset == 0)
       {
         samplesToReset = samples;
+      }
+
+      if (on && clocksToReset > 0)
+      {
+        --clocksToReset;
       }
     }
   }
@@ -335,7 +335,7 @@ public:
 
           int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
           // think I'm gonna need to use a matrix for this like in glitch lich because there are two rate playing off each other.
-          clocksToReset = counters[divMultIdx][intervalIdx];
+          clocksToReset = counters[divMultIdx][intervalIdx] - 1;
 
           markov->setWordSize(wordSize);
           setEnvelopeRelease(wordSize);
