@@ -88,9 +88,6 @@ class MarkovPatch : public Patch
   SmoothFloat speed;
   SmoothFloat envelopeShape;
 
-  float lastLearnLeft, lastLearnRight;
-  float lastGenLeft, lastGenRight;
-
   int wordGateLength;
   int wordStartedGate;
 
@@ -104,8 +101,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), lastLearnLeft(0), lastLearnRight(0)
-    , genBuffer(0), lastGenLeft(0), lastGenRight(0), voct(-0.5f, 4)
+    : listening(OFF), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), genBuffer(0), voct(-0.5f, 4)
     , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(getSampleRate()*attackSeconds)
     , minWordGateLength((getSampleRate()*attackSeconds)), minWordSizeSamples((getSampleRate()*attackSeconds*2))
   {
@@ -237,7 +233,6 @@ public:
       {
         markov->learn(ComplexFloat(inLeft[i]*env, inRight[i]*env));
       }
-      //markov->learn(inLeft[i]);
     }
 
     int wordStartedGateDelay = 0;
@@ -252,8 +247,6 @@ public:
 
     speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     envelopeShape = getParameterValue(inDecay);
-
-    //int wordSizeParam = minWordSizeSamples + getParameterValue(inWordSize) * (maxWordSizeSamples - minWordSizeSamples);
 
     for (int i = 0; i < inSize; ++i)
     {
@@ -337,7 +330,6 @@ public:
           }
 
           int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
-          // think I'm gonna need to use a matrix for this like in glitch lich because there are two rate playing off each other.
           clocksToReset = counters[divMultIdx][intervalIdx] - 1;
 
           markov->setWordSize(wordSize);
@@ -353,8 +345,6 @@ public:
       ComplexFloat sample = markov->generate() * getEnvelopeLevel();
       genLeft[i] = sample.re;
       genRight[i] = sample.im;
-      //genLeft[i] = markov->generate() * envelope->generate();
-      //genRight[i] = genLeft[i];
     }
 
     float dryWet = getParameterValue(inDryWet);
@@ -370,8 +360,8 @@ public:
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordStartedGate > 0, wordStartedGateDelay);
     setParameterValue(outWordProgress, (float)markov->getLetterCount() / markov->getCurrentWordSize());
-    //setParameterValue(outDecayEnvelope, getEnvelopeLevel());
-    setParameterValue(outDecayEnvelope, (float)clocksToReset / 4);
+    setParameterValue(outDecayEnvelope, getEnvelopeLevel());
+    //setParameterValue(outDecayEnvelope, (float)clocksToReset / 16);
 
     MarkovGenerator::Stats stats = markov->getStats();
     char debugMsg[64];
