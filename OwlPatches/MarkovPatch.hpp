@@ -348,7 +348,7 @@ public:
       genRight[i] = sample.im;
     }
 
-    float dryWet = std::clamp(getParameterValue(inDryWet)*1.01f, 0.0f, 1.0f);
+    float dryWet = std::clamp(getParameterValue(inDryWet)*1.02f, 0.0f, 1.0f);
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     inLeft.multiply(dryAmt);
