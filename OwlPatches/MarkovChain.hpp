@@ -326,10 +326,9 @@ public:
       delete memory;
   }
 
-  void resetGenerate()
+  void resetWord()
   {
     letterCount = 0;
-    lastGenerate = Sample(0);
   }
 
   int getLetterCount() const

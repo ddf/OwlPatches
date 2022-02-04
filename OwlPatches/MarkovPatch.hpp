@@ -325,7 +325,7 @@ public:
     {
       if (samplesToReset == 0)
       {
-        markov->resetGenerate();
+        markov->resetWord();
       }
 
       if (samplesToReset >= 0)
