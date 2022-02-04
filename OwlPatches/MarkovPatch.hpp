@@ -82,6 +82,7 @@ class MarkovPatch : public Patch
   StereoDcBlockingFilter* dcBlockingFilter;
   AudioBuffer* genBuffer;
 
+  int  samplesSinceLastTap;
   int  clocksToReset;
   int  samplesToReset;
   int  wordsToNewInterval;
@@ -102,7 +103,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), genBuffer(0), voct(-0.5f, 4)
+    : listening(OFF), samplesSinceLastTap(TAP_TRIGGER_LIMIT), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), genBuffer(0), voct(-0.5f, 4)
     , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(getSampleRate()*attackSeconds)
     , minWordGateLength((getSampleRate()*attackSeconds)), minWordSizeSamples((getSampleRate()*attackSeconds*2))
   {
@@ -162,6 +163,8 @@ public:
     {
       bool on = value == ON;
       tempo->trigger(on, samples);
+
+      samplesSinceLastTap = -samples;
 
       // don't reset when doing full random variation
       if (on && getParameterValue(inWordSizeVariation) < 0.53f && clocksToReset == 0)
@@ -235,9 +238,13 @@ public:
                    { 4,   1,   2,  4, 8, 16, 12  }, // 4
     };
 
-    int divMultIdx = (int)roundf(Interpolator::linear(0, divMultLen - 1, getParameterValue(inWordSize)));
+    float divMultT = Interpolator::linear(0, divMultLen - 1, getParameterValue(inWordSize));
+    bool smoothDivMult = samplesSinceLastTap < TAP_TRIGGER_LIMIT;
+    int divMultIdx = smoothDivMult ? (int)divMultT 
+                                   : (int)roundf(divMultT);
     int intervalIdx = 3;
-    float wordScale = divMult[divMultIdx];
+    float wordScale = smoothDivMult ? Interpolator::linear(divMult[divMultIdx], divMult[divMultIdx+1], divMultT - divMultIdx)
+                                    : divMult[divMultIdx];
 
     float wordVariationParam = getParameterValue(inWordSizeVariation);
     float varyAmt = 0;
@@ -295,6 +302,7 @@ public:
     FloatArray genRight = genBuffer->getSamples(1);
 
     tempo->clock(inSize);
+    samplesSinceLastTap += getBlockSize();
 
     dcBlockingFilter->process(audio, audio);
 
