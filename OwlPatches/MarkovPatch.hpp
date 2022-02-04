@@ -178,7 +178,11 @@ public:
 
   void setEnvelopeRelease(int wordSize)
   {
-    if (envelopeShape >= 0.53f)
+    if (envelopeShape >= 0.99f)
+    {
+      wordGateLength = wordSize;
+    }
+    else if (envelopeShape >= 0.53f)
     {
       float t = (envelopeShape - 0.53f) * 2.12f;
       wordGateLength = Interpolator::linear(minWordGateLength, wordSize - minWordGateLength, t);
