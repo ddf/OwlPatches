@@ -214,6 +214,74 @@ public:
     return line;
   }
 
+  void updateWordSettings()
+  {
+    static const int divMultLen = 7;
+    static const float divMult[divMultLen] = { 1.0f / 4, 1.0f / 3, 1.0f / 2, 1, 2, 3, 4 };
+    static const int intervalsLen = 7;
+    static const float intervals[intervalsLen] = { 1.0f / 3, 1.0f / 4, 1.0f / 2, 1, 2, 4, 3 };
+    static const int counters[divMultLen][intervalsLen] = {
+      // intervals: 1/3  1/4  1/2  1  2  4   3   |    divmult
+                   { 1,   1,   1,  1, 1, 1,  3   }, // 1/4
+                   { 1,   1,   1,  1, 1, 4,  1   }, // 1/3
+                   { 1,   1,   1,  1, 1, 2,  3   }, // 1/2
+                   { 1,   1,   1,  1, 2, 4,  3   }, // 1
+                   { 2,   1,   1,  2, 4, 8,  6   }, // 2
+                   { 1,   3,   3,  3, 6, 12, 9   }, // 3
+                   { 4,   1,   2,  4, 8, 16, 12  }, // 4
+    };
+
+    int divMultIdx = (int)roundf(Interpolator::linear(0, divMultLen - 1, getParameterValue(inWordSize)));
+    int intervalIdx = 3;
+    float wordScale = divMult[divMultIdx];
+
+    float wordVariationParam = getParameterValue(inWordSizeVariation);
+    float varyAmt = 0;
+    // maps parameter to [0,1) weight above and below a dead-zone in the center
+    if (wordVariationParam >= 0.53f)
+    {
+      varyAmt = (wordVariationParam - 0.53f) * 2.12f;
+    }
+    else if (wordVariationParam <= 0.47f)
+    {
+      varyAmt = (0.47f - wordVariationParam) * 2.12f;
+    }
+
+    // random variation up to 8 times longer or 8 times shorter
+    if (wordVariationParam >= 0.53f)
+    {
+      float scale = Interpolator::linear(1, 4, randf()*varyAmt);
+      // weight towards shorter
+      if (randf() > 0.25f) scale = 1.0f / scale;
+      wordScale *= scale;
+      wordsToNewInterval = 1;
+    }
+    // random variation using musical mult/divs of the current word size
+    else if (wordVariationParam <= 0.47f)
+    {
+      // when varyAmt is zero, we want the interval in the middle of the array (ie 1).
+      // so we offset from 0.5f with a random value between -0.5 and 0.5, scaled by varyAmt
+      // (ie as vary amount gets larger we can pick values at closer to the ends of the array.
+      intervalIdx = Interpolator::linear(0, intervalsLen - 1, 0.5f + (randf() - 0.5f)*varyAmt);
+      float interval = intervals[intervalIdx];
+      wordScale *= interval;
+      if (interval < 1)
+      {
+        wordsToNewInterval = (int)(1.0f / interval);
+      }
+    }
+    else
+    {
+      wordsToNewInterval = 1;
+    }
+
+    int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
+    clocksToReset = counters[divMultIdx][intervalIdx] - 1;
+
+    markov->setWordSize(wordSize);
+    setEnvelopeRelease(wordSize);
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     const int inSize = audio.getSize();
@@ -271,70 +339,7 @@ public:
 
         if (wordsToNewInterval == 0)
         {
-          static const int divMultLen = 7;
-          static const float divMult[divMultLen] = { 1.0f/4, 1.0f/3, 1.0f/2, 1, 2, 3, 4 };
-          static const int intervalsLen = 7;
-          static const float intervals[intervalsLen] = { 1.0f/3, 1.0f/4, 1.0f/2, 1, 2, 4, 3 };
-          static const int counters[divMultLen][intervalsLen] = {
-            // intervals: 1/3  1/4  1/2  1  2  4   3   |    divmult
-                         { 1,   1,   1,  1, 1, 1,  3   }, // 1/4
-                         { 1,   1,   1,  1, 1, 4,  1   }, // 1/3
-                         { 1,   1,   1,  1, 1, 2,  3   }, // 1/2
-                         { 1,   1,   1,  1, 2, 4,  3   }, // 1
-                         { 2,   1,   1,  2, 4, 8,  6   }, // 2
-                         { 1,   3,   3,  3, 6, 12, 9   }, // 3
-                         { 4,   1,   2,  4, 8, 16, 12  }, // 4
-          };
-
-          int divMultIdx = (int)roundf(Interpolator::linear(0, divMultLen-1, getParameterValue(inWordSize)));
-          int intervalIdx = 3;
-          float wordScale = divMult[divMultIdx];
-
-          float wordVariationParam = getParameterValue(inWordSizeVariation);
-          float varyAmt = 0;
-          // maps parameter to [0,1) weight above and below a dead-zone in the center
-          if (wordVariationParam >= 0.53f)
-          {
-            varyAmt = (wordVariationParam - 0.53f) * 2.12f;
-          }
-          else if (wordVariationParam <= 0.47f)
-          {
-            varyAmt = (0.47f - wordVariationParam) * 2.12f;
-          }
-
-          // random variation up to 8 times longer or 8 times shorter
-          if (wordVariationParam >= 0.53f)
-          {
-            float scale = Interpolator::linear(1, 4, randf()*varyAmt);
-            // weight towards shorter
-            if (randf() > 0.25f) scale = 1.0f / scale;
-            wordScale *= scale;
-            wordsToNewInterval = 1;
-          }
-          // random variation using musical mult/divs of the current word size
-          else if (wordVariationParam <= 0.47f)
-          {
-            // when varyAmt is zero, we want the interval in the middle of the array (ie 1).
-            // so we offset from 0.5f with a random value between -0.5 and 0.5, scaled by varyAmt
-            // (ie as vary amount gets larger we can pick values at closer to the ends of the array.
-            intervalIdx = Interpolator::linear(0, intervalsLen - 1, 0.5f + (randf() - 0.5f)*varyAmt);
-            float interval = intervals[intervalIdx];
-            wordScale *= interval;
-            if (interval < 1)
-            {
-              wordsToNewInterval = (int)(1.0f / interval);
-            }
-          }
-          else
-          {
-            wordsToNewInterval = 1;
-          }
-
-          int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
-          clocksToReset = counters[divMultIdx][intervalIdx] - 1;
-
-          markov->setWordSize(wordSize);
-          setEnvelopeRelease(wordSize);
+          updateWordSettings();
         }
 
         wordStartedGate = wordStartedGateLength;
@@ -384,5 +389,4 @@ public:
     debugCpy = stpcpy(debugCpy, msg_itoa(int((float)markov->getCurrentWordSize() / getSampleRate() * 1000), 10));
     debugMessage(debugMsg);
   }
-  
 };
