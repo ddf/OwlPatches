@@ -239,7 +239,7 @@ public:
     };
 
     float divMultT = Interpolator::linear(0, divMultLen - 1, getParameterValue(inWordSize));
-    bool smoothDivMult = samplesSinceLastTap < TAP_TRIGGER_LIMIT;
+    bool smoothDivMult = samplesSinceLastTap >= TAP_TRIGGER_LIMIT;
     int divMultIdx = smoothDivMult ? (int)divMultT 
                                    : (int)roundf(divMultT);
     int intervalIdx = 3;
@@ -302,7 +302,10 @@ public:
     FloatArray genRight = genBuffer->getSamples(1);
 
     tempo->clock(inSize);
-    samplesSinceLastTap += getBlockSize();
+    if (samplesSinceLastTap < TAP_TRIGGER_LIMIT)
+    {
+      samplesSinceLastTap += getBlockSize();
+    }
 
     dcBlockingFilter->process(audio, audio);
 
