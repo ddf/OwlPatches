@@ -329,6 +329,7 @@ public:
   void resetGenerate()
   {
     letterCount = 0;
+    lastGenerate = Sample(0);
   }
 
   int getLetterCount() const
