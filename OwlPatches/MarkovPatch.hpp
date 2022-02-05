@@ -19,7 +19,7 @@ LICENSE:
 
 
 DESCRIPTION:
-
+    
 */
 
 #include "Patch.h"
@@ -34,13 +34,13 @@ DESCRIPTION:
 
 class ListenEnvelope : public ExponentialAdsrEnvelope
 {
-  ListenEnvelope(int sr) : ExponentialAdsrEnvelope(sr) {}
+  ListenEnvelope(float sr) : ExponentialAdsrEnvelope(sr) {}
 
 public:
 
   bool isIdle() const { return stage == kIdle; }
 
-  static ListenEnvelope* create(int sr)
+  static ListenEnvelope* create(float sr)
   {
     return new ListenEnvelope(sr);
   }
