@@ -19,7 +19,37 @@ LICENSE:
 
 
 DESCRIPTION:
-    
+    Markov is essentially a "smart" granular synthesizer that plays 
+    only one grain at a time and chooses the starting sample of each 
+    grain based on the last sample of the previous grain.
+
+    Teach the patch how to generate sound by engaging Listen mode
+    by pressing Button 1 or sending a trigger to Gate 1. 
+    While listening, the patch records to a four second "memory" 
+    and analyzes it using a 1-dimensional Markov Chain. The patch
+    will "forget" old sound when more than four seconds are recorded.
+
+    Sound is continuously generated based on what has been learned
+    with control over the "word" size, which is analogous to grain size 
+    in a typical granular synthesizer.  Each word has an envelope 
+    applied to it, which can be morphed from an exponential decay, 
+    to a linear decay, to a box car.  When the envelope shape parameter 
+    is turned all the way up, the envelope is kept open at all times, 
+    putting the patch into a kind of pure synthesis mode where word size 
+    becomes less obvious.
+
+    The default word size with the word size parameter at 0. is half 
+    a second and can be increased to two seconds and decreased to 
+    an eighth of a second. The word size can also be set by tapping 
+    a tempo on Button 2 or by sending clock to Gate 2. While receiving 
+    clock at Gate 2, the word size parameter will divide or multiply 
+    the word size by musical durations.
+
+    Random variation can be added to the word size with the word variation
+    parameter. Below 0.5 only musical divisions and multiplications
+    are allowed, increasing in range as the parameter moves towards zero.
+    Above 0.5 the variation is totally random, increasing in range 
+    as the parameter moves towards one.
 */
 
 #include "Patch.h"
@@ -27,10 +57,11 @@ DESCRIPTION:
 #include "VoltsPerOctave.h"
 #include "AdsrEnvelope.h"
 #include "Interpolator.h"
-#include "MarkovChain.hpp"
 #include "TapTempo.h"
 #include "basicmaths.h"
 #include <string.h>
+
+#include "MarkovChain.hpp"
 
 class ListenEnvelope : public ExponentialAdsrEnvelope
 {
@@ -130,6 +161,7 @@ public:
     registerParameter(outWordProgress, "Word>");
     registerParameter(outDecayEnvelope, "Envelope>");
 
+    setParameterValue(inWordSize, 0.5f);
     setParameterValue(inWordSizeVariation, 0.5f);
   }
 
@@ -250,7 +282,7 @@ public:
       varyAmt = (0.47f - wordVariationParam) * 2.12f;
     }
 
-    // random variation up to 8 times longer or 8 times shorter
+    // smooth random variation
     if (wordVariationParam >= 0.53f)
     {
       float scale = Interpolator::linear(1, 4, randf()*varyAmt);
