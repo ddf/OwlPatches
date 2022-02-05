@@ -67,14 +67,11 @@ class MarkovPatch : public Patch
   static const PatchParameterId outWordProgress = PARAMETER_F;
   static const PatchParameterId outDecayEnvelope = PARAMETER_G;
 
-  static const PatchParameterId inSpeed = PARAMETER_G;
-
   static const int TAP_TRIGGER_LIMIT = (1 << 17);
 
-  AdjustableTapTempo* tempo;
+  TapTempo* tempo;
   MarkovGenerator* markov;
   uint16_t listening;
-  VoltsPerOctave voct;
   ListenEnvelope* listenEnvelope;
   ExponentialAdsrEnvelope* expoGenerateEnvelope;
   LinearAdsrEnvelope* linearGenerateEnvelope;
@@ -87,7 +84,6 @@ class MarkovPatch : public Patch
   int  samplesToReset;
   int  wordsToNewInterval;
 
-  SmoothFloat speed;
   SmoothFloat envelopeShape;
 
   int wordGateLength;
@@ -103,14 +99,12 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), samplesSinceLastTap(TAP_TRIGGER_LIMIT), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), genBuffer(0), voct(-0.5f, 4)
+    : listening(OFF), samplesSinceLastTap(TAP_TRIGGER_LIMIT), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), genBuffer(0)
     , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(getSampleRate()*attackSeconds)
     , minWordGateLength((getSampleRate()*attackSeconds)), minWordSizeSamples((getSampleRate()*attackSeconds*2))
   {
-    tempo = AdjustableTapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
+    tempo = TapTempo::create(getSampleRate(), TAP_TRIGGER_LIMIT);
     tempo->setBeatsPerMinute(120);
-    // adjust between /4 and x4
-    tempo->setRange(8);
 
     markov = MarkovGenerator::create(getSampleRate()*4);
 
@@ -129,21 +123,19 @@ public:
     linearGenerateEnvelope->setAttack(attackSeconds);
     linearGenerateEnvelope->setRelease(minDecaySeconds);
 
-    voct.setTune(-4);
     registerParameter(inWordSize, "Word Size");
     registerParameter(inWordSizeVariation, "Word Size Variation");
     registerParameter(inDryWet, "Dry/Wet");
     registerParameter(inDecay, "Decay");
-    registerParameter(inSpeed, "Speed");
     registerParameter(outWordProgress, "Word>");
     registerParameter(outDecayEnvelope, "Envelope>");
 
     setParameterValue(inWordSizeVariation, 0.5f);
-    setParameterValue(inSpeed, 0.5f);
   }
 
   ~MarkovPatch()
   {
+    TapTempo::destroy(tempo);
     MarkovGenerator::destroy(markov);
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
     AudioBuffer::destroy(genBuffer);
@@ -329,7 +321,6 @@ public:
       wordStartedGate -= getBlockSize();
     }
 
-    speed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
     envelopeShape = getParameterValue(inDecay);
 
     for (int i = 0; i < inSize; ++i)
