@@ -341,7 +341,7 @@ private:
   void beginWordAtZero()
   {
     lastGenerate = SampleFrame(0);
-    if (zeroNode->value.valuesLength > 0)
+    if (zeroNode->value.length() > 0)
     {
       int idx = arm_rand32() % zeroNode->value.length();
       currentWordBegin = zeroNode->value.get(idx);
