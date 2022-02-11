@@ -10,229 +10,20 @@
 template<class Sample, int channels>
 class MarkovChain
 {
-  //template<class K, class V>
-  //class Memory
-  //{
-  //public:
-  //  class Node
-  //  {
-  //  public:
-  //    Node* next;
-
-  //    K   key;
-  //    V   values[MEMORY_PER_NODE];
-  //    uint8_t  valuesLength;
-
-  //    Node() : next(0), valuesLength(0)
-  //    {
-
-  //    }
-
-  //    Node(K k)
-  //      : next(0), key(k), valuesLength(0)
-  //    {
-  //      memset(values, 0, MEMORY_PER_NODE * sizeof(V));
-  //    }
-
-  //    bool write(V value)
-  //    {
-  //      if (valuesLength < MEMORY_PER_NODE)
-  //      {
-  //        // don't write samples we already know about
-  //        for (int i = 0; i < valuesLength; ++i)
-  //        {
-  //          if (values[i] == value) return false;
-  //        }
-  //        values[valuesLength++] = value;
-  //        return true;
-  //      }
-  //      return false;
-  //    }
-
-  //    bool erase(V value)
-  //    {
-  //      for (int i = 0; i < valuesLength; ++i)
-  //      {
-  //        // when we find the value in the list, swap with value at end of list, reduce list length
-  //        if (values[i] == value)
-  //        {
-  //          values[i] = values[valuesLength - 1];
-  //          --valuesLength;
-  //          return true;
-  //        }
-  //      }
-  //      return false;
-  //    }
-  //  };
-
-  //private:
-
-  //  Node* nodeTable[MEMORY_SIZE];
-  //  Node* nodePool[MEMORY_MAX_NODES];
-  //  int nodeCount;
-
-  //public:
-  //  Memory() : nodeCount(0)
-  //  {
-  //    memset(nodeTable, 0, MEMORY_SIZE * sizeof(Node*));
-  //    for (int i = 0; i < MEMORY_MAX_NODES; ++i)
-  //    {
-  //      nodePool[i] = new Node();
-  //    }
-  //  }
-
-  //  ~Memory()
-  //  {
-  //    // delete all nodes in the table
-  //    for (int i = 0; i < MEMORY_SIZE; ++i)
-  //    {
-  //      Node* node = nodeTable[i];
-  //      while (node)
-  //      {
-  //        Node* next = node->next;
-  //        delete node;
-  //        node = next;
-  //      }
-  //    }
-
-  //    // delete all nodes that weren't allocated to the table
-  //    for (int i = nodeCount; MEMORY_MAX_NODES; ++i)
-  //    {
-  //      delete nodePool[i];
-  //    }
-  //  }
-
-  //  Node* get(K key)
-  //  {
-  //    uint32_t idx = hash(key) & (MEMORY_SIZE - 1);
-  //    Node* node = nodeTable[idx];
-  //    while (node && node->key != key)
-  //    {
-  //      node = node->next;
-  //    }
-
-  //    return node;
-  //  }
-
-  //  Node* put(K key)
-  //  {
-  //    if (nodeCount < MEMORY_MAX_NODES)
-  //    {
-  //      uint32_t idx = hash(key) & (MEMORY_SIZE - 1);
-  //      Node* node = nodeTable[idx];
-  //      if (node)
-  //      {
-  //        while (node->next)
-  //        {
-  //          node = node->next;
-  //        }
-  //        node->next = allocateNode(key);
-  //        node = node->next;
-  //      }
-  //      else
-  //      {
-  //        nodeTable[idx] = allocateNode(key);
-  //        node = nodeTable[idx];
-  //      }
-  //      return node;
-  //    }
-  //    return 0;
-  //  }
-
-  //  void remove(K key)
-  //  {
-  //    uint32_t idx = hash(key) & (MEMORY_SIZE - 1);
-  //    Node* prevNode = 0;
-  //    Node* node = nodeTable[idx];
-  //    while (node && node->key != key)
-  //    {
-  //      prevNode = node;
-  //      node = node->next;
-  //    }
-  //    if (node)
-  //    {
-  //      if (prevNode)
-  //      {
-  //        prevNode->next = node->next;
-  //      }
-  //      else
-  //      {
-  //        nodeTable[idx] = node->next;
-  //      }
-  //      deallocateNode(node);
-  //    }
-  //  }
-
-  //  int size() const { return nodeCount; }
-
-  //private:
-
-  //  uint32_t hash(float x)
-  //  {
-  //    //uint32_t ui;
-  //    //memcpy(&ui, &f, sizeof(float));
-  //    //return ui & 0xfffff000;
-
-  //    union
-  //    {
-  //      float f;
-  //      uint32_t u;
-  //    };
-  //    f = x;
-  //    return u;
-  //  }
-
-  //  uint32_t hash(int16_t x)
-  //  {
-  //    return int(x) + 32767;
-  //  }
-
-  //  uint32_t hash(ComplexShort x)
-  //  {
-  //    return hash(x.re) ^ hash(x.im);
-  //  }
-
-  //  Node* allocateNode(K key)
-  //  {
-  //    Node* node = nodePool[nodeCount];
-  //    nodePool[nodeCount] = 0;
-  //    node->key = key;
-  //    node->valuesLength = 0;
-  //    node->next = 0;
-  //    ++nodeCount;
-  //    return node;
-  //  }
-
-  //  void deallocateNode(Node* node)
-  //  {
-  //    // this is probably too slow
-  //    //for (int i = 0; i < nodeCount; ++i)
-  //    //{
-  //    //  if (nodePool[i] == node)
-  //    //  {
-  //    //    int swapIdx = nodeCount - 1;
-  //    //    nodePool[i] = nodePool[swapIdx];
-  //    //    nodePool[swapIdx] = node;
-  //    //    --nodeCount;
-  //    //    break;
-  //    //  }
-  //    //}
-  //    if (nodeCount > 0)
-  //    {
-  //      --nodeCount;
-  //      nodePool[nodeCount] = node;
-  //    }
-  //  }
-  //};
-
   class MemorySample
   {
-  public:
     int      values[MEMORY_PER_NODE];
     uint8_t  valuesLength;
 
+  public:
+
     MemorySample() : valuesLength(0)
     {
+    }
+
+    int get(int idx) const
+    {
+      return values[idx];
     }
 
     bool write(int value)
@@ -264,6 +55,8 @@ class MarkovChain
       }
       return false;
     }
+
+    int length() const { return valuesLength; }
   };
 
   typedef HashMap<Sample, MemorySample, MEMORY_SIZE, MEMORY_MAX_NODES> Memory;
@@ -398,20 +191,20 @@ public:
     MemoryNode* node = memory->get(prevSampleFrame.key());
     if (node)
     {
-      int prevLen = node->value.valuesLength;
+      int prevLen = node->value.length();
       if (node->value.erase(nextWritePosition))
       {
         nodeLengthCounts[prevLen] = nodeLengthCounts[prevLen] - 1;
 
         // never remove the zero node so we don't have to check for null
         // when falling back to zeroNode in generate.
-        if (node->value.valuesLength == 0 && node != zeroNode)
+        if (node->value.length() == 0 && node != zeroNode)
         {
           memory->remove(prevSampleFrame.key());
         }
         else
         {
-          nodeLengthCounts[node->value.valuesLength] = nodeLengthCounts[node->value.valuesLength] + 1;
+          nodeLengthCounts[node->value.length()] = nodeLengthCounts[node->value.length()] + 1;
         }
       }
     }
@@ -425,14 +218,14 @@ public:
     }
     if (node)
     {
-      int prevLen = node->value.valuesLength;
+      int prevLen = node->value.length();
       if (node->value.write(bufferWritePos))
       {
         // we don't keep track of zero length nodes because they get removed from memory
         if (prevLen != 0)
           nodeLengthCounts[prevLen] = nodeLengthCounts[prevLen] - 1;
 
-        nodeLengthCounts[node->value.valuesLength] = nodeLengthCounts[node->value.valuesLength] + 1;
+        nodeLengthCounts[node->value.length()] = nodeLengthCounts[node->value.length()] + 1;
       }
     }
     bufferWritePos = nextWritePosition;
@@ -453,7 +246,7 @@ public:
     {
       MemoryNode* node = memory->get(lastGenerate.key());
       if (!node) node = zeroNode;
-      switch (node->value.valuesLength)
+      switch (node->value.length())
       {
         // nothing follows, restart at zero
         case 0: 
@@ -465,7 +258,7 @@ public:
         // node has only one sample that follows it, do that unless it is the same value as the sample itself
         case 1: 
         {
-          int nextIdx = node->value.values[0];
+          int nextIdx = node->value.get(0);
           SampleFrame next = buffer[nextIdx];
           if (node->key != next.key())
           {
@@ -481,8 +274,8 @@ public:
 
         default:
         {
-          int idx = arm_rand32() % node->value.valuesLength;
-          int nextIdx = node->value.values[idx];
+          int idx = arm_rand32() % node->value.length();
+          int nextIdx = node->value.get(idx);
           if (nextIdx == currentWordBegin)
           {
             beginWordAtZero();
@@ -550,8 +343,8 @@ private:
     lastGenerate = SampleFrame(0);
     if (zeroNode->value.valuesLength > 0)
     {
-      int idx = arm_rand32() % zeroNode->value.valuesLength;
-      currentWordBegin = zeroNode->value.values[idx];
+      int idx = arm_rand32() % zeroNode->value.length();
+      currentWordBegin = zeroNode->value.get(idx);
     }
     else
     {
