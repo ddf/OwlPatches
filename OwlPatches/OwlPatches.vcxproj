@@ -138,6 +138,7 @@
     <ClInclude Include="GlitchLichPatch.hpp" />
     <ClInclude Include="Grain.hpp" />
     <ClInclude Include="GrainzPatch.hpp" />
+    <ClInclude Include="HashMap.h" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
     <ClInclude Include="MarkovChain.hpp" />
     <ClInclude Include="MarkovPatch.hpp" />
