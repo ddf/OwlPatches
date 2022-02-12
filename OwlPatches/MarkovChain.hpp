@@ -274,7 +274,7 @@ public:
 
         default:
         {
-          int idx = arm_rand32() % node->value.length();
+          int idx = rand() % node->value.length();
           int nextIdx = node->value.get(idx);
           if (nextIdx == currentWordBegin)
           {
@@ -343,13 +343,13 @@ private:
     lastGenerate = SampleFrame(0);
     if (zeroNode->value.length() > 0)
     {
-      int idx = arm_rand32() % zeroNode->value.length();
+      int idx = rand() % zeroNode->value.length();
       currentWordBegin = zeroNode->value.get(idx);
     }
     else
     {
       // pick a random position in the buffer, hope for the best?
-      currentWordBegin = arm_rand32() % bufferSize;
+      currentWordBegin = rand() % bufferSize;
     }
   }
 

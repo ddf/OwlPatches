@@ -38,7 +38,7 @@ DESCRIPTION:
     putting the patch into a kind of pure synthesis mode where word size 
     becomes less obvious.
 
-    The default word size with the word size parameter at 0. is half 
+    The default word size with the word size parameter at 0.5 is half 
     a second and can be increased to two seconds and decreased to 
     an eighth of a second. The word size can also be set by tapping 
     a tempo on Button 2 or by sending clock to Gate 2. While receiving 
