@@ -26,6 +26,8 @@ public:
     return input;
   }
 
+  using SignalProcessor::process;
+
 public:
   static BlurSignalProcessor<AXIS>* create(int maxTextureSize)
   {
