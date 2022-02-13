@@ -135,6 +135,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BitCrusher.hpp" />
+    <ClInclude Include="BlurPatch.hpp" />
+    <ClInclude Include="BlurSignalProcessor.h" />
+    <ClInclude Include="CircularTexture.h" />
     <ClInclude Include="GlitchLichPatch.hpp" />
     <ClInclude Include="Grain.hpp" />
     <ClInclude Include="GrainzPatch.hpp" />

@@ -25,6 +25,7 @@ DESCRIPTION:
 */
 
 #include "Patch.h"
+#include "BlurSignalProcessor.h"
 
 class BlurPatch : public Patch
 {
@@ -37,6 +38,15 @@ class BlurPatch : public Patch
 
   static const PatchParameterId outNoise1 = PARAMETER_F;
   static const PatchParameterId outNoise2 = PARAMETER_G;
+
+  static const int maxTextureSize = 512;
+
+  AudioBuffer* blurBuffer;
+
+  BlurSignalProcessor<AxisX>* blurLeftX;
+  BlurSignalProcessor<AxisY>* blurLeftY;
+  BlurSignalProcessor<AxisX>* blurRightX;
+  BlurSignalProcessor<AxisY>* blurRightY;
 
 public:
   BlurPatch()
@@ -56,24 +66,46 @@ public:
     setParameterValue(inWetDry, 1);
     setParameterValue(outNoise1, 0);
     setParameterValue(outNoise2, 0);
+
+    blurBuffer = AudioBuffer::create(2, getBlockSize());
+
+    blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize);
+    blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize);
+    blurRightX = BlurSignalProcessor<AxisX>::create(maxTextureSize);
+    blurRightY = BlurSignalProcessor<AxisY>::create(maxTextureSize);
   }
 
   ~BlurPatch()
   {
+    AudioBuffer::destroy(blurBuffer);
+
+    BlurSignalProcessor<AxisX>::destroy(blurLeftX);
+    BlurSignalProcessor<AxisX>::destroy(blurRightX);
+    BlurSignalProcessor<AxisY>::destroy(blurLeftY);
+    BlurSignalProcessor<AxisY>::destroy(blurRightY);
   }
 
   void processAudio(AudioBuffer& audio) override
   {
-    FloatArray left = audio.getSamples(0);
-    FloatArray right = audio.getSamples(1);
+    FloatArray inLeft = audio.getSamples(0);
+    FloatArray inRight = audio.getSamples(1);
+    FloatArray blurLeft = blurBuffer->getSamples(0);
+    FloatArray blurRight = blurBuffer->getSamples(1);
+
+    blurLeftX->process(inLeft, blurLeft);
+    blurLeftY->process(blurLeft, blurLeft);
+    blurRightX->process(inRight, blurRight);
+    blurRightY->process(blurRight, blurRight);
 
     // do wet/dry mix with original signal
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
-    left.multiply(dry);
-    right.multiply(dry);
-    //left.add(noise);
-    //right.add(noise);
+    inLeft.multiply(dry);
+    inRight.multiply(dry);
+    blurLeft.multiply(wet);
+    blurRight.multiply(wet);
+    inLeft.add(blurLeft);
+    inRight.add(blurRight);
 
     //setParameterValue(outNoise1, sampledNoise1);
     //setParameterValue(outNoise2, sampledNoise2);
