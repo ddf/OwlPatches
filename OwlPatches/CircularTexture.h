@@ -4,7 +4,7 @@ template<typename DataType, typename IndexType = size_t>
 class CircularTexture
 {
   CircularBuffer<DataType, IndexType> buffer;
-  DataType sizeX, sizeY
+  IndexType sizeX, sizeY;
 
 public:
   CircularTexture(DataType* data, IndexType sizeX, IndexType sizeY) 
