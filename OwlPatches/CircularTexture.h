@@ -32,7 +32,7 @@ public:
     return buffer.readAt(index);
   }
 
-  public float read(float u, float v)
+  DataType read(float u, float v)
   {
     float x = u * sizeX;
     IndexType x1 = IndexType(x);
