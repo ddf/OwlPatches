@@ -23,11 +23,6 @@ public:
   {
   }
 
-  ~BlurSignalProcessor()
-  {
-    ComplexFloatArray::destroy(sampleOffsetsAndWeights);
-  }
-
   void setKernel(BlurKernel kernel)
   {
     this->kernel = kernel;
