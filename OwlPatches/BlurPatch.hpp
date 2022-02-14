@@ -104,8 +104,8 @@ public:
     FloatArray blurLeft = blurBuffer->getSamples(0);
     FloatArray blurRight = blurBuffer->getSamples(1);
 
-    textureSize = Interpolator::linear(16, maxTextureSize, getParameterValue(inTextureSize));
-    blurSize = Interpolator::linear(0.0f, 0.5f, getParameterValue(inBlurSize));
+    textureSize       = roundf(Interpolator::linear(32, maxTextureSize, getParameterValue(inTextureSize)));
+    blurSize          = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
     standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
 
     dcFilter->process(audio, audio);
