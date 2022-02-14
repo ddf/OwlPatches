@@ -84,7 +84,7 @@ private:
     // normalize the weights so we don't have to do this during processing
     for (int s = 0; s < samples; ++s)
     {
-      sampleOffsetsAndWeights[s].im = sampleOffsetsAndWeights[s] / sum;
+      sampleOffsetsAndWeights[s].im = sampleOffsetsAndWeights[s].im / sum;
     }
   }
 
