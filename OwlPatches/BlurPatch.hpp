@@ -20,7 +20,7 @@ LICENSE:
 
 DESCRIPTION:
     Treats incoming audio as if it is square texture data and applies
-    a guassian blur to it.
+    a Gaussian blur to it.
 
 */
 
@@ -28,6 +28,7 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "Interpolator.h"
 #include "BlurSignalProcessor.h"
+#include <string.h>
 
 class BlurPatch : public Patch
 {
@@ -134,6 +135,15 @@ public:
 
     //setParameterValue(outNoise1, sampledNoise1);
     //setParameterValue(outNoise2, sampledNoise2);
+
+    char debugMsg[64];
+    char* debugCpy = stpcpy(debugMsg, "tex ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(textureSize, 10));
+    debugCpy = stpcpy(debugCpy, " size ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSize, 10));
+    debugCpy = stpcpy(debugCpy, " stDev ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviation, 10));
+    debugMessage(debugMsg);
   }
 
 
