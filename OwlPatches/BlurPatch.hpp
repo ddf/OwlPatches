@@ -57,6 +57,11 @@ class BlurPatch : public Patch
   SmoothFloat blurSize;
   SmoothFloat standardDeviation;
 
+  SmoothFloat inLeftRms;
+  SmoothFloat inRightRms;
+  SmoothFloat blurLeftRms;
+  SmoothFloat blurRightRms;
+
 public:
   BlurPatch()
   {
@@ -133,10 +138,10 @@ public:
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
-    float inLeftRms = inLeft.getRms();
-    float inRightRms = inRight.getRms();
-    float blurLeftRms = blurLeft.getRms();
-    float blurRightRms = blurRight.getRms();
+    inLeftRms = inLeft.getRms();
+    inRightRms = inRight.getRms();
+    blurLeftRms = blurLeft.getRms();
+    blurRightRms = blurRight.getRms();
     float leftGain = blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1;
     float rightGain = blurRightRms > 0.0f ? inRightRms / blurRightRms : 1;
     wet *= std::max(leftGain, rightGain);
