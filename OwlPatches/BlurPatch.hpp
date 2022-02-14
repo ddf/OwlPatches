@@ -137,8 +137,8 @@ public:
     float inRightRms = inRight.getRms();
     float blurLeftRms = blurLeft.getRms();
     float blurRightRms = blurRight.getRms();
-    float leftGain = blurLeftRms > 0.00001f ? inLeftRms / blurLeftRms : 1;
-    float rightGain = blurRightRms > 0.00001f ? inRightRms / blurRightRms : 1;
+    float leftGain = blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1;
+    float rightGain = blurRightRms > 0.0f ? inRightRms / blurRightRms : 1;
     wet *= std::max(leftGain, rightGain);
     for (int i = 0; i < getBlockSize(); ++i)
     {
