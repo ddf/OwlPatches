@@ -96,18 +96,17 @@ public:
 
     blurLeftX->process(inLeft, blurLeft);
     //blurLeftY->process(blurLeft, blurLeft);
-    //blurRightX->process(inRight, blurRight);
+    blurRightX->process(inRight, blurRight);
     //blurRightY->process(blurRight, blurRight);
 
     // do wet/dry mix with original signal
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
-    inLeft.multiply(dry);
-    inRight.multiply(dry);
-    blurLeft.multiply(wet);
-    blurRight.multiply(wet);
-    inLeft.add(blurLeft);
-    inRight.add(blurRight);
+    for (int i = 0; i < getBlockSize(); ++i)
+    {
+      inLeft[i] = inLeft[i] * dry + blurLeft[i] * wet;
+      inRight[i] = inRight[i] * dry + blurRight[i] * wet;
+    }
 
     //setParameterValue(outNoise1, sampledNoise1);
     //setParameterValue(outNoise2, sampledNoise2);
