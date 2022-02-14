@@ -25,10 +25,8 @@ public:
 
   DataType read(IndexType x, IndexType y)
   {
-    IndexType index = buffer.getWriteIndex() - 1 - (y*sizeX + x);
-
-    while (index < 0) index += buffer.getSize();
-
+    // add buffer size we don't have to worry about negative indices
+    IndexType index = buffer.getWriteIndex() + buffer.getSize() - 1 - (y*sizeX + x);
     return buffer.readAt(index);
   }
 

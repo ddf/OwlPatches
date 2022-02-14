@@ -95,9 +95,9 @@ public:
     blurBuffer->clear();
 
     blurLeftX->process(inLeft, blurLeft);
-    blurLeftY->process(blurLeft, blurLeft);
+    //blurLeftY->process(blurLeft, blurLeft);
     blurRightX->process(inRight, blurRight);
-    blurRightY->process(blurRight, blurRight);
+    //blurRightY->process(blurRight, blurRight);
 
     // do wet/dry mix with original signal
     float wet = getParameterValue(inWetDry);
