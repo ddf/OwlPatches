@@ -66,12 +66,12 @@ public:
   using SignalProcessor::process;
 
 public:
-  static BlurSignalProcessor<AXIS>* create(int maxTextureSize, BlurKernel kernal)
+  static BlurSignalProcessor<AXIS>* create(int maxTextureSize, BlurKernel blurKernel)
   {
     if (AXIS == AxisX)
-      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize], maxTextureSize, 1, kernal);
+      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize], maxTextureSize, 1, blurKernel);
     else
-      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, kernel);
+      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, blurKernel);
   }
 
   static void destroy(BlurSignalProcessor<AXIS>* blur)
