@@ -40,7 +40,7 @@ public:
 
   void setSizeAndStandardDeviation(float inSize, float inStandardDev)
   {
-    size = std::clamp(inSize, 0, 0.99);
+    size = std::clamp(inSize, 0, 0.99f);
     standardDev = std::max(inStandardDev, 0.01f);
     calculateSampleSettings();
   }
