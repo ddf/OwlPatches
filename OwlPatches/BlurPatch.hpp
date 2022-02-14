@@ -147,8 +147,8 @@ public:
     wet *= std::max(leftGain, rightGain);
     for (int i = 0; i < getBlockSize(); ++i)
     {
-      inLeft[i]  = inLeft[i] * dry + blurLeft[i] * wet;
-      inRight[i] = inRight[i] * dry + blurRight[i] * wet;
+      inLeft[i]  = tanhf(inLeft[i] * dry + blurLeft[i] * wet);
+      inRight[i] = tanhf(inRight[i] * dry + blurRight[i] * wet);
     }
 
     //setParameterValue(outNoise1, sampledNoise1);
