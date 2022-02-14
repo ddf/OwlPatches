@@ -45,6 +45,7 @@ class BlurPatch : public Patch
   static const int maxTextureSize = 512;
 
   AudioBuffer* blurBuffer;
+  BlurKernel blurKernel;
 
   StereoDcBlockingFilter*     dcFilter;
   BlurSignalProcessor<AxisX>* blurLeftX;
@@ -75,19 +76,21 @@ public:
     setParameterValue(outNoise1, 0);
     setParameterValue(outNoise2, 0);
 
-    blurBuffer = AudioBuffer::create(2, getBlockSize());
-
     dcFilter = StereoDcBlockingFilter::create();
 
-    blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize);
-    blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize);
-    blurRightX = BlurSignalProcessor<AxisX>::create(maxTextureSize);
-    blurRightY = BlurSignalProcessor<AxisY>::create(maxTextureSize);
+    blurBuffer = AudioBuffer::create(2, getBlockSize());
+    blurKernel = BlurKernel::create(8);
+
+    blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernel);
+    blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernel);
+    blurRightX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernel);
+    blurRightY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernel);
   }
 
   ~BlurPatch()
   {
     AudioBuffer::destroy(blurBuffer);
+    BlurKernel::destroy(blurKernel);
 
     StereoDcBlockingFilter::destroy(dcFilter);
 
@@ -108,23 +111,26 @@ public:
     blurSize          = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
     standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
 
+    blurKernel.setGauss(blurSize, standardDeviation);
+
     dcFilter->process(audio, audio);
 
+    blurLeftX->setKernel(blurKernel);
+    blurLeftY->setKernel(blurKernel);
+    blurRightX->setKernel(blurKernel);
+    blurRightY->setKernel(blurKernel);
+
     blurLeftX->setTextureSize(textureSize);
-    blurLeftX->setSizeAndStandardDeviation(blurSize, standardDeviation);
     blurLeftY->setTextureSize(textureSize);
-    blurLeftY->setSizeAndStandardDeviation(blurSize, standardDeviation);
     blurRightX->setTextureSize(textureSize);
-    blurRightX->setSizeAndStandardDeviation(blurSize, standardDeviation);
     blurRightY->setTextureSize(textureSize);
-    blurRightY->setSizeAndStandardDeviation(blurSize, standardDeviation);
 
     blurLeftX->process(inLeft, blurLeft);
     blurLeftY->process(blurLeft, blurLeft);
     blurRightX->process(inRight, blurRight);
     blurRightY->process(blurRight, blurRight);
 
-    // do wet/dry mix with original signal
+    // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
     for (int i = 0; i < getBlockSize(); ++i)

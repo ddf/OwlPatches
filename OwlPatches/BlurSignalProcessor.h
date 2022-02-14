@@ -1,5 +1,6 @@
 #include "SignalProcessor.h"
 #include "CircularTexture.h"
+#include "BlurKernel.h"
 #include "basicmaths.h"
 
 enum BlurAxis
@@ -13,25 +14,23 @@ class BlurSignalProcessor : public SignalProcessor
 {
 protected:
   CircularFloatTexture texture;
-
-private:
-  float size = 0.2f;
-  float standardDev = 0.02f;
-  int samples = 8;
-  ComplexFloatArray sampleOffsetsAndWeights;
+  BlurKernel kernel;
 
 public:
   BlurSignalProcessor() {}
-  BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY)
-    : texture(textureData, textureSizeX, textureSizeY)
+  BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, BlurKernel kernel)
+    : texture(textureData, textureSizeX, textureSizeY), kernel(kernel)
   {
-    sampleOffsetsAndWeights = ComplexFloatArray::create(samples);
-    calculateSampleSettings();
   }
 
   ~BlurSignalProcessor()
   {
     ComplexFloatArray::destroy(sampleOffsetsAndWeights);
+  }
+
+  void setKernel(BlurKernel kernel)
+  {
+    this->kernel = kernel;
   }
 
   void setTextureSize(int texSize)
@@ -46,31 +45,23 @@ public:
     }
   }
 
-  void setSizeAndStandardDeviation(float inSize, float inStandardDev)
-  {
-    size = std::clamp(inSize, 0.0f, 0.99f);
-    standardDev = std::max(inStandardDev, 0.01f);
-    calculateSampleSettings();
-  }
-
   float process(float input) override
   {
     texture.write(input);
 
-    float c = size * 0.5f;
+    float c = kernel.getBlurSize() * 0.5f;
     float v = 0;
-
+    int samples = kernel.getSize();
     for (int s = 0; s < samples; ++s)
     {
-      float offset = sampleOffsetsAndWeights[s].re;
-      float gaussWeight = sampleOffsetsAndWeights[s].im;
+      BlurKernelSample samp = kernel[s];
       if (AXIS == AxisX)
       {
-        v += texture.readBilinear(c + offset, 0) * gaussWeight;
+        v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
       }
       else
       {
-        v += texture.readBilinear(0, c + offset) * gaussWeight;
+        v += texture.readBilinear(0, c + samp.offset) * samp.weight;
       }
     }
 
@@ -79,35 +70,13 @@ public:
 
   using SignalProcessor::process;
 
-private:
-  void calculateSampleSettings()
-  {
-    float sum = 0;
-    float standardDevSq = standardDev * standardDev;
-    float gaussCoeff = 1.0f / sqrtf(2 * M_PI*standardDevSq);
-    
-    for (int s = 0; s < samples; ++s)
-    {
-      float offset = ((float)s / (samples - 1) - 0.5f)*size;
-      float gaussWeight = gaussCoeff * pow(M_E, -((offset*offset) / (2 * standardDevSq)));
-      sampleOffsetsAndWeights[s] = ComplexFloat(offset, gaussWeight);
-      sum += gaussWeight;
-    }
-
-    // normalize the weights so we don't have to do this during processing
-    for (int s = 0; s < samples; ++s)
-    {
-      sampleOffsetsAndWeights[s].im = sampleOffsetsAndWeights[s].im / sum;
-    }
-  }
-
 public:
-  static BlurSignalProcessor<AXIS>* create(int maxTextureSize)
+  static BlurSignalProcessor<AXIS>* create(int maxTextureSize, BlurKernel kernal)
   {
     if (AXIS == AxisX)
-      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize], maxTextureSize, 1);
+      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize], maxTextureSize, 1, kernal);
     else
-      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize);
+      return new BlurSignalProcessor<AXIS>(new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, kernel);
   }
 
   static void destroy(BlurSignalProcessor<AXIS>* blur)
