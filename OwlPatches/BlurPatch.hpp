@@ -49,7 +49,7 @@ class BlurPatch : public Patch
   BlurSignalProcessor<AxisX>* blurRightX;
   BlurSignalProcessor<AxisY>* blurRightY;
 
-  SmoothInt   textureSize;
+  SmoothFloat textureSize;
   SmoothFloat blurSize;
   SmoothFloat standardDeviation;
 
