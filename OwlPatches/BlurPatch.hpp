@@ -133,9 +133,16 @@ public:
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
+    float inLeftRms = inLeft.getRms();
+    float inRightRms = inRight.getRms();
+    float blurLeftRms = blurLeft.getRms();
+    float blurRightRms = blurRight.getRms();
+    float leftGain = blurLeftRms > 0.00001f ? inLeftRms / blurLeftRms : 1;
+    float rightGain = blurRightRms > 0.00001f ? inRightRms / blurRightRms : 1;
+    wet *= std::max(leftGain, rightGain);
     for (int i = 0; i < getBlockSize(); ++i)
     {
-      inLeft[i] = inLeft[i] * dry + blurLeft[i] * wet;
+      inLeft[i]  = inLeft[i] * dry + blurLeft[i] * wet;
       inRight[i] = inRight[i] * dry + blurRight[i] * wet;
     }
 
