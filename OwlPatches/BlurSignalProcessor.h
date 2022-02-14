@@ -13,27 +13,30 @@ class BlurSignalProcessor : public SignalProcessor
 {
 protected:
   CircularFloatTexture texture;
-  float size = 0.2f;
-  int samples = 10;
 
 private:
-  float standardDev;
-  float standardDevSq;
-  float gaussCoeff;
+  float size = 0.2f;
+  float standardDev = 0.02f;
+  ComplexFloatArray sampleOffsetsAndWeights;
 
 public:
   BlurSignalProcessor() {}
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY)
     : texture(textureData, textureSizeX, textureSizeY)
   {
-    setStandardDeviation(0.02f);
+    sampleOffsetsAndWeights = ComplexFloatArray::create(10);
+    calculateSampleSettings();
+  }
+
+  ~BlurSignalProcessor()
+  {
+    ComplexFloatArray::destroy(sampleOffsetsAndWeights);
   }
 
   void setStandardDeviation(float value)
   {
     standardDev = std::max(value, 0.01f);
-    standardDevSq = standardDev * standardDev;
-    gaussCoeff = 1.0f / sqrtf(2 * M_PI*standardDevSq);
+    calculateSampleSettings();
   }
 
   float process(float input) override
@@ -44,10 +47,10 @@ public:
     float c = size * 0.5f;
     float v = 0;
 
-    for (float s = 0; s < samples; ++s)
+    for (int s = 0; s < samples; ++s)
     {
-      float offset = (s / (samples - 1) - 0.5f)*size;
-      float gaussWeight = gaussCoeff * pow(M_E, -((offset*offset) / (2 * standardDevSq)));
+      float offset = sampleOffsetsAndWeights[s].re;
+      float gaussWeight = sampleOffsetsAndWeights[s].im;
       sum += gaussWeight;
       if (AXIS == AxisX)
       {
@@ -63,6 +66,19 @@ public:
   }
 
   using SignalProcessor::process;
+
+private:
+  void calculateSampleSettings()
+  {
+    float standardDevSq = standardDev * standardDev;
+    float gaussCoeff = 1.0f / sqrtf(2 * M_PI*standardDevSq);
+    for (int s = 0; s < samples; ++s)
+    {
+      float offset = ((float)s / (samples - 1) - 0.5f)*size;
+      float gaussWeight = gaussCoeff * pow(M_E, -((offset*offset) / (2 * standardDevSq)));
+      sampleOffsetsAndWeights[s] = ComplexFloat(offset, gaussWeight);
+    }
+  }
 
 public:
   static BlurSignalProcessor<AXIS>* create(int maxTextureSize)
