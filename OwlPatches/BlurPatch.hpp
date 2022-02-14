@@ -25,6 +25,7 @@ DESCRIPTION:
 */
 
 #include "Patch.h"
+#include "Interpolator.h"
 #include "BlurSignalProcessor.h"
 
 class BlurPatch : public Patch
@@ -32,9 +33,9 @@ class BlurPatch : public Patch
   static const PatchParameterId inTextureSize = PARAMETER_A;
   static const PatchParameterId inBlurSize    = PARAMETER_B;
   static const PatchParameterId inStandardDev = PARAMETER_C;
-  static const PatchParameterId inBlurSamples = PARAMETER_D;
 
   static const PatchParameterId inWetDry = PARAMETER_AA;
+  static const PatchParameterId inBlurSamples = PARAMETER_AB;
 
   static const PatchParameterId outNoise1 = PARAMETER_F;
   static const PatchParameterId outNoise2 = PARAMETER_G;
@@ -47,6 +48,10 @@ class BlurPatch : public Patch
   BlurSignalProcessor<AxisY>* blurLeftY;
   BlurSignalProcessor<AxisX>* blurRightX;
   BlurSignalProcessor<AxisY>* blurRightY;
+
+  SmoothInt   textureSize;
+  SmoothFloat blurSize;
+  SmoothFloat standardDeviation;
 
 public:
   BlurPatch()
@@ -92,7 +97,14 @@ public:
     FloatArray blurLeft = blurBuffer->getSamples(0);
     FloatArray blurRight = blurBuffer->getSamples(1);
 
-    blurBuffer->clear();
+    textureSize = Interpolator::linear(16, maxTextureSize, getParameterValue(inTextureSize));
+    blurSize = getParameterValue(inBlurSize);
+    standardDeviation = Interpolator::linear(0.01f, 0.3f, getParameterValue(inStandardDev));
+
+    blurLeftX->setSizeAndStandardDeviation(blurSize, standardDeviation);
+    blurLeftY->setSizeAndStandardDeviation(blurSize, standardDeviation);
+    blurRightX->setSizeAndStandardDeviation(blurSize, standardDeviation);
+    blurRightY->setSizeAndStandardDeviation(blurSize, standardDeviation);
 
     blurLeftX->process(inLeft, blurLeft);
     blurLeftY->process(blurLeft, blurLeft);

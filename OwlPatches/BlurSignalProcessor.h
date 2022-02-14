@@ -34,9 +34,14 @@ public:
     ComplexFloatArray::destroy(sampleOffsetsAndWeights);
   }
 
-  void setStandardDeviation(float value)
+  void setTextureSize(int texSizeX, int texSizeY)
   {
-    standardDev = std::max(value, 0.01f);
+  }
+
+  void setSizeAndStandardDeviation(float inSize, float inStandardDev)
+  {
+    size = std::clamp(inSize, 0, 0.99);
+    standardDev = std::max(inStandardDev, 0.01f);
     calculateSampleSettings();
   }
 
