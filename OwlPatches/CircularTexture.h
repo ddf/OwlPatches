@@ -25,7 +25,7 @@ public:
 
   DataType read(IndexType x, IndexType y)
   {
-    IndexType index = buffer.getWriteHead() - 1 - (y*sizeX + x);
+    IndexType index = buffer.getWriteIndex() - 1 - (y*sizeX + x);
 
     while (index < 0) index += buffer.getSize();
 
