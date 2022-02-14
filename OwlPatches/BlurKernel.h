@@ -66,7 +66,7 @@ public:
     return kernel;
   }
 
-  static BlurKernel destroy(BlurKernel kernel)
+  static void destroy(BlurKernel kernel)
   {
     delete[] kernel.data;
   }
