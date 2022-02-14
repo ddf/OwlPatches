@@ -20,7 +20,7 @@ public:
 
   void write(DataType value)
   {
-    buffer.write(value)
+    buffer.write(value);
   }
 
   DataType read(IndexType x, IndexType y)
@@ -32,7 +32,7 @@ public:
     return buffer.readAt(index);
   }
 
-  DataType read(float u, float v)
+  DataType readBilinear(float u, float v)
   {
     float x = u * sizeX;
     IndexType x1 = IndexType(x);

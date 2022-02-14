@@ -51,11 +51,11 @@ public:
       sum += gaussWeight;
       if (AXIS == AxisX)
       {
-        v += texture.read(c + offset, 0) * gaussWeight;
+        v += texture.readBilinear(c + offset, 0) * gaussWeight;
       }
       else
       {
-        v += texture.read(0, c + offset) * gaussWeight;
+        v += texture.readBilinear(0, c + offset) * gaussWeight;
       }
     }
 
