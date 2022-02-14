@@ -17,6 +17,7 @@ protected:
 private:
   float size = 0.2f;
   float standardDev = 0.02f;
+  int samples = 10;
   ComplexFloatArray sampleOffsetsAndWeights;
 
 public:
@@ -24,7 +25,7 @@ public:
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY)
     : texture(textureData, textureSizeX, textureSizeY)
   {
-    sampleOffsetsAndWeights = ComplexFloatArray::create(10);
+    sampleOffsetsAndWeights = ComplexFloatArray::create(samples);
     calculateSampleSettings();
   }
 
