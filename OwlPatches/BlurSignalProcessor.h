@@ -17,7 +17,7 @@ protected:
 private:
   float size = 0.2f;
   float standardDev = 0.02f;
-  int samples = 10;
+  int samples = 8;
   ComplexFloatArray sampleOffsetsAndWeights;
 
 public:
