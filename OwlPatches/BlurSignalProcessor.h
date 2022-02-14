@@ -34,8 +34,16 @@ public:
     ComplexFloatArray::destroy(sampleOffsetsAndWeights);
   }
 
-  void setTextureSize(int texSizeX, int texSizeY)
+  void setTextureSize(int texSize)
   {
+    if (AXIS == AxisX)
+    {
+      texture = texture.subtexture(texSize, 1);
+    }
+    else
+    {
+      texture = texture.subtexture(texSize, texSize);
+    }
   }
 
   void setSizeAndStandardDeviation(float inSize, float inStandardDev)

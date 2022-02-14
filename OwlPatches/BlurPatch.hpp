@@ -98,12 +98,16 @@ public:
     FloatArray blurRight = blurBuffer->getSamples(1);
 
     textureSize = Interpolator::linear(16, maxTextureSize, getParameterValue(inTextureSize));
-    blurSize = getParameterValue(inBlurSize);
-    standardDeviation = Interpolator::linear(0.01f, 0.3f, getParameterValue(inStandardDev));
+    blurSize = Interpolator::linear(0.0f, 0.5f, getParameterValue(inBlurSize));
+    standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
 
+    blurLeftX->setTextureSize(textureSize);
     blurLeftX->setSizeAndStandardDeviation(blurSize, standardDeviation);
+    blurLeftY->setTextureSize(textureSize);
     blurLeftY->setSizeAndStandardDeviation(blurSize, standardDeviation);
+    blurRightX->setTextureSize(textureSize);
     blurRightX->setSizeAndStandardDeviation(blurSize, standardDeviation);
+    blurRightY->setTextureSize(textureSize);
     blurRightY->setSizeAndStandardDeviation(blurSize, standardDeviation);
 
     blurLeftX->process(inLeft, blurLeft);

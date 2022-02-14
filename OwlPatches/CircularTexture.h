@@ -18,6 +18,14 @@ public:
     return buffer.getData();
   }
 
+  CircularTexture subtexture(int w, int h)
+  {
+    CircularTexture subTex = *this;
+    subTex.sizeX = w;
+    subTex.sizeY = h;
+    return subTex;
+  }
+
   void write(DataType value)
   {
     buffer.write(value);
