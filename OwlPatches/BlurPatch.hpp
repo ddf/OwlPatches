@@ -25,6 +25,7 @@ DESCRIPTION:
 */
 
 #include "Patch.h"
+#include "DcBlockingFilter.h"
 #include "Interpolator.h"
 #include "BlurSignalProcessor.h"
 
@@ -44,6 +45,7 @@ class BlurPatch : public Patch
 
   AudioBuffer* blurBuffer;
 
+  StereoDcBlockingFilter*     dcFilter;
   BlurSignalProcessor<AxisX>* blurLeftX;
   BlurSignalProcessor<AxisY>* blurLeftY;
   BlurSignalProcessor<AxisX>* blurRightX;
@@ -74,6 +76,8 @@ public:
 
     blurBuffer = AudioBuffer::create(2, getBlockSize());
 
+    dcFilter = StereoDcBlockingFilter::create();
+
     blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize);
     blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize);
     blurRightX = BlurSignalProcessor<AxisX>::create(maxTextureSize);
@@ -83,6 +87,8 @@ public:
   ~BlurPatch()
   {
     AudioBuffer::destroy(blurBuffer);
+
+    StereoDcBlockingFilter::destroy(dcFilter);
 
     BlurSignalProcessor<AxisX>::destroy(blurLeftX);
     BlurSignalProcessor<AxisX>::destroy(blurRightX);
