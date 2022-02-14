@@ -92,10 +92,12 @@ public:
     FloatArray blurLeft = blurBuffer->getSamples(0);
     FloatArray blurRight = blurBuffer->getSamples(1);
 
+    blurBuffer->clear();
+
     blurLeftX->process(inLeft, blurLeft);
-    blurLeftY->process(blurLeft, blurLeft);
-    blurRightX->process(inRight, blurRight);
-    blurRightY->process(blurRight, blurRight);
+    //blurLeftY->process(blurLeft, blurLeft);
+    //blurRightX->process(inRight, blurRight);
+    //blurRightY->process(blurRight, blurRight);
 
     // do wet/dry mix with original signal
     float wet = getParameterValue(inWetDry);
