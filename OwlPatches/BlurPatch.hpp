@@ -107,6 +107,8 @@ public:
     blurSize = Interpolator::linear(0.0f, 0.5f, getParameterValue(inBlurSize));
     standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
 
+    dcFilter->process(audio, audio);
+
     blurLeftX->setTextureSize(textureSize);
     blurLeftX->setSizeAndStandardDeviation(blurSize, standardDeviation);
     blurLeftY->setTextureSize(textureSize);
