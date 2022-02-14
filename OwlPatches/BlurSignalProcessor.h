@@ -44,7 +44,6 @@ public:
   {
     texture.write(input);
 
-    float sum = 0;
     float c = size * 0.5f;
     float v = 0;
 
@@ -52,7 +51,6 @@ public:
     {
       float offset = sampleOffsetsAndWeights[s].re;
       float gaussWeight = sampleOffsetsAndWeights[s].im;
-      sum += gaussWeight;
       if (AXIS == AxisX)
       {
         v += texture.readBilinear(c + offset, 0) * gaussWeight;
@@ -63,7 +61,7 @@ public:
       }
     }
 
-    return v / sum;
+    return v;
   }
 
   using SignalProcessor::process;
@@ -71,13 +69,22 @@ public:
 private:
   void calculateSampleSettings()
   {
+    float sum = 0;
     float standardDevSq = standardDev * standardDev;
     float gaussCoeff = 1.0f / sqrtf(2 * M_PI*standardDevSq);
+    
     for (int s = 0; s < samples; ++s)
     {
       float offset = ((float)s / (samples - 1) - 0.5f)*size;
       float gaussWeight = gaussCoeff * pow(M_E, -((offset*offset) / (2 * standardDevSq)));
       sampleOffsetsAndWeights[s] = ComplexFloat(offset, gaussWeight);
+      sum += gaussWeight;
+    }
+
+    // normalize the weights so we don't have to do this during processing
+    for (int s = 0; s < samples; ++s)
+    {
+      sampleOffsetsAndWeights[s].im = sampleOffsetsAndWeights[s] / sum;
     }
   }
 
