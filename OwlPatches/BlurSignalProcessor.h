@@ -66,16 +66,7 @@ public:
     return v / sum;
   }
 
-  void process(FloatArray input, FloatArray output) override
-  {
-    const int len = input.getSize();
-    texture.write(input.getData(), len);
-
-    for (int i = 0; i < len; ++i)
-    {
-      output[i] = process(input[i]);
-    }
-  }
+  using SignalProcessor::process;
 
 private:
   void calculateSampleSettings()

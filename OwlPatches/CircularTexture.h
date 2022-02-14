@@ -23,11 +23,6 @@ public:
     buffer.write(value);
   }
 
-  void write(DataType* source, IndexType len)
-  {
-    buffer.write(source, len);
-  }
-
   DataType read(IndexType x, IndexType y)
   {
     // add buffer size we don't have to worry about negative indices
