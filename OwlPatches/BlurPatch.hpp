@@ -139,8 +139,8 @@ public:
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
-    float stDevLeft = std::max(inLeft.getStandardDeviation(), 0.001f);
-    float stDevRight = std::max(inRight.getStandardDeviation(), 0.001f);
+    float stDevLeft = std::max(inLeft.getStandardDeviation(), 0.01f);
+    float stDevRight = std::max(inRight.getStandardDeviation(), 0.01f);
     blurKernelLeft.setGauss(blurSizeLeft, stDevLeft);
     blurKernelRight.setGauss(blurSizeRight, stDevRight);
 
@@ -178,8 +178,8 @@ public:
       inRight[i] = (inRight[i] * dry + blurRight[i] * rightGain);
     }
 
-    //setParameterValue(outNoise1, sampledNoise1);
-    //setParameterValue(outNoise2, sampledNoise2);
+    setParameterValue(outNoise1, stDevLeft);
+    setParameterValue(outNoise2, stDevRight);
 
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "tex ");
