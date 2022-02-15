@@ -47,6 +47,8 @@ class BlurPatch : public Patch
   static const int minTextureSize = 32;
   static const int maxTextureSize = 512;
 
+  const float minStandardDev = 0.01f;
+
   AudioBuffer* blurBuffer;
   BlurKernel blurKernelLeft;
   BlurKernel blurKernelRight;
@@ -60,7 +62,8 @@ class BlurPatch : public Patch
   SmoothFloat textureSize;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
-  SmoothFloat standardDeviation;
+  SmoothFloat standardDeviationLeft;
+  SmoothFloat standardDeviationRight;
 
   SmoothFloat inLeftRms;
   SmoothFloat inRightRms;
@@ -68,7 +71,9 @@ class BlurPatch : public Patch
   SmoothFloat blurRightRms;
 
 public:
-  BlurPatch() : textureSize(0.99f, minTextureSize)
+  BlurPatch() 
+    : textureSize(0.99f, minTextureSize)
+    , standardDeviationLeft(0.99f, minStandardDev), standardDeviationRight(0.99f, minStandardDev)
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
@@ -135,14 +140,14 @@ public:
     }
 
     textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
-    standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
+    //standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
-    float stDevLeft = std::max(inLeft.getStandardDeviation(), 0.01f);
-    float stDevRight = std::max(inRight.getStandardDeviation(), 0.01f);
-    blurKernelLeft.setGauss(blurSizeLeft, stDevLeft);
-    blurKernelRight.setGauss(blurSizeRight, stDevRight);
+    standardDeviationLeft = std::max(inLeft.getStandardDeviation(), minStandardDev);
+    standardDeviationRight = std::max(inRight.getStandardDeviation(), minStandardDev);
+    blurKernelLeft.setGauss(blurSizeLeft, standardDeviationLeft);
+    blurKernelRight.setGauss(blurSizeRight, standardDeviationRight);
 
     dcFilter->process(audio, audio);
 
@@ -178,8 +183,8 @@ public:
       inRight[i] = (inRight[i] * dry + blurRight[i] * rightGain);
     }
 
-    setParameterValue(outNoise1, stDevLeft);
-    setParameterValue(outNoise2, stDevRight);
+    setParameterValue(outNoise1, standardDeviationLeft);
+    setParameterValue(outNoise2, standardDeviationRight);
 
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "tex ");
@@ -189,9 +194,9 @@ public:
     debugCpy = stpcpy(debugCpy, " bR ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " stDevL ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(stDevLeft, 10));
+    debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationLeft, 10));
     debugCpy = stpcpy(debugCpy, " stDevR ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(stDevRight, 10));
+    debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationRight, 10));
     debugMessage(debugMsg);
   }
 
