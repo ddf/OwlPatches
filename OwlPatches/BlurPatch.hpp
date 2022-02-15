@@ -111,6 +111,7 @@ public:
     FloatArray inRight = audio.getSamples(1);
     FloatArray blurLeft = blurBuffer->getSamples(0);
     FloatArray blurRight = blurBuffer->getSamples(1);
+    const int blockSize = getBlockSize();
 
     textureSize       = roundf(Interpolator::linear(32, maxTextureSize, getParameterValue(inTextureSize)));
     blurSize          = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
@@ -130,10 +131,11 @@ public:
     blurRightX->setTextureSize(textureSize);
     blurRightY->setTextureSize(textureSize);
 
-    blurLeftX->process(inLeft, blurLeft);
-    blurLeftY->process(blurLeft, blurLeft);
-    blurRightX->process(inRight, blurRight);
-    blurRightY->process(blurRight, blurRight);
+    for (int i = 0; i < blockSize; ++i)
+    {
+      blurLeft[i] = blurLeftY->process(blurLeftX->process(inLeft[i]));
+      blurRight[i] = blurRightY->process(blurRightX->process(inRight[i]));
+    }
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
@@ -145,7 +147,7 @@ public:
     float leftGain = blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1;
     float rightGain = blurRightRms > 0.0f ? inRightRms / blurRightRms : 1;
     wet *= std::max(leftGain, rightGain);
-    for (int i = 0; i < getBlockSize(); ++i)
+    for (int i = 0; i < blockSize; ++i)
     {
       inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * wet);
       inRight[i] = (inRight[i] * dry + blurRight[i] * wet);
