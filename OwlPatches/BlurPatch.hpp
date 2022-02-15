@@ -144,8 +144,8 @@ public:
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
-    standardDeviationLeft = minStandardDev + inLeft.getStandardDeviation();
-    standardDeviationRight = minStandardDev + inRight.getStandardDeviation();
+    //standardDeviationLeft = minStandardDev + inLeft.getStandardDeviation();
+    //standardDeviationRight = minStandardDev + inRight.getStandardDeviation();
     blurKernelLeft.setGauss(blurSizeLeft, standardDeviationLeft);
     blurKernelRight.setGauss(blurSizeRight, standardDeviationRight);
 
