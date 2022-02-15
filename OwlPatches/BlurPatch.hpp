@@ -127,7 +127,7 @@ public:
     blurRightX->setKernel(blurKernel);
     blurRightY->setKernel(blurKernel);
 
-    int texSize = roundf(textureSize);
+    int texSize = int(textureSize);
     blurLeftX->setTextureSize(texSize);
     blurLeftY->setTextureSize(texSize);
     blurRightX->setTextureSize(texSize);
