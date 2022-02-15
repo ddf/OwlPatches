@@ -28,6 +28,7 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "Interpolator.h"
 #include "BlurSignalProcessor.h"
+#include "basicmaths.h"
 #include <string.h>
 
 class BlurPatch : public Patch
@@ -35,6 +36,7 @@ class BlurPatch : public Patch
   static const PatchParameterId inTextureSize = PARAMETER_A;
   static const PatchParameterId inBlurSize    = PARAMETER_B;
   static const PatchParameterId inStandardDev = PARAMETER_C;
+  static const PatchParameterId inBlurTilt    = PARAMETER_D;
 
   static const PatchParameterId inWetDry = PARAMETER_AA;
   static const PatchParameterId inBlurSamples = PARAMETER_AB;
@@ -46,7 +48,8 @@ class BlurPatch : public Patch
   static const int maxTextureSize = 512;
 
   AudioBuffer* blurBuffer;
-  BlurKernel blurKernel;
+  BlurKernel blurKernelLeft;
+  BlurKernel blurKernelRight;
 
   StereoDcBlockingFilter*     dcFilter;
   BlurSignalProcessor<AxisX>* blurLeftX;
@@ -55,7 +58,8 @@ class BlurPatch : public Patch
   BlurSignalProcessor<AxisY>* blurRightY;
 
   SmoothFloat textureSize;
-  SmoothFloat blurSize;
+  SmoothFloat blurSizeLeft;
+  SmoothFloat blurSizeRight;
   SmoothFloat standardDeviation;
 
   SmoothFloat inLeftRms;
@@ -70,6 +74,7 @@ public:
     registerParameter(inBlurSize, "Blur Size");
     registerParameter(inStandardDev, "Standard Deviation");
     registerParameter(inBlurSamples, "Blur Samples");
+    registerParameter(inBlurTilt, "Blur Tilt");
 
     registerParameter(outNoise1, "Noise 1>");
     registerParameter(outNoise2, "Noise 2>");
@@ -78,6 +83,7 @@ public:
     setParameterValue(inBlurSize,    0.2f);
     setParameterValue(inStandardDev, 0);
     setParameterValue(inBlurSamples, 0);
+    setParameterValue(inBlurTilt, 0.5f);
     setParameterValue(inWetDry, 1);
     setParameterValue(outNoise1, 0);
     setParameterValue(outNoise2, 0);
@@ -85,18 +91,20 @@ public:
     dcFilter = StereoDcBlockingFilter::create();
 
     blurBuffer = AudioBuffer::create(2, getBlockSize());
-    blurKernel = BlurKernel::create(8);
+    blurKernelLeft = BlurKernel::create(8);
+    blurKernelRight = BlurKernel::create(8);
 
-    blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernel);
-    blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernel);
-    blurRightX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernel);
-    blurRightY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernel);
+    blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernelLeft);
+    blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernelLeft);
+    blurRightX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernelRight);
+    blurRightY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernelRight);
   }
 
   ~BlurPatch()
   {
     AudioBuffer::destroy(blurBuffer);
-    BlurKernel::destroy(blurKernel);
+    BlurKernel::destroy(blurKernelLeft);
+    BlurKernel::destroy(blurKernelRight);
 
     StereoDcBlockingFilter::destroy(dcFilter);
 
@@ -114,18 +122,32 @@ public:
     FloatArray blurRight = blurBuffer->getSamples(1);
     const int blockSize = getBlockSize();
 
-    textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
-    blurSize          = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
-    standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
+    float blurSizeParam = getParameterValue(inBlurSize);
+    float blurTiltParam = getParameterValue(inBlurTilt);
+    float blurTilt = 0;
+    if (blurTiltParam >= 0.53f)
+    {
+      blurTilt = (blurTiltParam - 0.53f) * 1.06f;
+    }
+    else if (blurTiltParam <= 0.47f)
+    {
+      blurTilt = (0.47f - blurTiltParam) * -1.06f;
+    }
 
-    blurKernel.setGauss(blurSize, standardDeviation);
+    textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
+    standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
+    blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
+
+    blurKernelLeft.setGauss(blurSizeLeft, standardDeviation);
+    blurKernelRight.setGauss(blurSizeRight, standardDeviation);
 
     dcFilter->process(audio, audio);
 
-    blurLeftX->setKernel(blurKernel);
-    blurLeftY->setKernel(blurKernel);
-    blurRightX->setKernel(blurKernel);
-    blurRightY->setKernel(blurKernel);
+    blurLeftX->setKernel(blurKernelLeft);
+    blurLeftY->setKernel(blurKernelLeft);
+    blurRightX->setKernel(blurKernelRight);
+    blurRightY->setKernel(blurKernelRight);
 
     int texSize = int(textureSize);
     blurLeftX->setTextureSize(texSize);
