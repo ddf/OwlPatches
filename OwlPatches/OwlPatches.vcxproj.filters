@@ -60,5 +60,8 @@
     <ClInclude Include="CircularTexture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BlurKernel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
