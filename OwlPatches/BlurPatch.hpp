@@ -188,8 +188,10 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeLeft, 10));
     debugCpy = stpcpy(debugCpy, " bR ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
-    debugCpy = stpcpy(debugCpy, " stDev ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviation, 10));
+    debugCpy = stpcpy(debugCpy, " stDevL ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(stDevLeft, 10));
+    debugCpy = stpcpy(debugCpy, " stDevR ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(stDevRight, 10));
     debugMessage(debugMsg);
   }
 
