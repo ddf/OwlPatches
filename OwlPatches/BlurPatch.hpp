@@ -47,7 +47,7 @@ class BlurPatch : public Patch
   static const int minTextureSize = 32;
   static const int maxTextureSize = 512;
 
-  const float minStandardDev = 0.01f;
+  const float minStandardDev = 0.02f;
 
   AudioBuffer* blurBuffer;
   BlurKernel blurKernelLeft;
@@ -144,8 +144,8 @@ public:
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
-    standardDeviationLeft = std::max(inLeft.getStandardDeviation(), minStandardDev);
-    standardDeviationRight = std::max(inRight.getStandardDeviation(), minStandardDev);
+    standardDeviationLeft = minStandardDev + inLeft.getStandardDeviation();
+    standardDeviationRight = minStandardDev + inRight.getStandardDeviation();
     blurKernelLeft.setGauss(blurSizeLeft, standardDeviationLeft);
     blurKernelRight.setGauss(blurSizeRight, standardDeviationRight);
 
