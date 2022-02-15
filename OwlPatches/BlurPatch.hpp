@@ -168,13 +168,12 @@ public:
     inRightRms = inRight.getRms();
     blurLeftRms = blurLeft.getRms();
     blurRightRms = blurRight.getRms();
-    float leftGain = blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1;
-    float rightGain = blurRightRms > 0.0f ? inRightRms / blurRightRms : 1;
-    wet *= std::max(leftGain, rightGain);
+    float leftGain = (blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1) * wet;
+    float rightGain = (blurRightRms > 0.0f ? inRightRms / blurRightRms : 1) * wet;
     for (int i = 0; i < blockSize; ++i)
     {
-      inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * wet);
-      inRight[i] = (inRight[i] * dry + blurRight[i] * wet);
+      inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * leftGain);
+      inRight[i] = (inRight[i] * dry + blurRight[i] * rightGain);
     }
 
     //setParameterValue(outNoise1, sampledNoise1);
