@@ -64,7 +64,7 @@ class BlurPatch : public Patch
   SmoothFloat blurRightRms;
 
 public:
-  BlurPatch() : textureSize(0.1f, minTextureSize)
+  BlurPatch() : textureSize(0.99f, minTextureSize)
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
