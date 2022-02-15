@@ -114,7 +114,7 @@ public:
     FloatArray blurRight = blurBuffer->getSamples(1);
     const int blockSize = getBlockSize();
 
-    textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize)));
+    textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
     blurSize          = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
     standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
 
