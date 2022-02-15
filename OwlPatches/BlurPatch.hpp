@@ -54,7 +54,7 @@ class BlurPatch : public Patch
   BlurSignalProcessor<AxisX>* blurRightX;
   BlurSignalProcessor<AxisY>* blurRightY;
 
-  SmoothFloat textureSize;
+  int textureSize;
   SmoothFloat blurSize;
   SmoothFloat standardDeviation;
 
@@ -64,7 +64,7 @@ class BlurPatch : public Patch
   SmoothFloat blurRightRms;
 
 public:
-  BlurPatch() : textureSize(0.8f, minTextureSize)
+  BlurPatch() : textureSize(minTextureSize)
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
@@ -114,9 +114,9 @@ public:
     FloatArray blurRight = blurBuffer->getSamples(1);
     const int blockSize = getBlockSize();
 
-    textureSize       = roundf(Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize)));
-    blurSize          = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
-    standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
+    float newTextureSize = roundf(Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize)));
+    blurSize             = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
+    standardDeviation    = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
 
     blurKernel.setGauss(blurSize, standardDeviation);
 
@@ -127,16 +127,19 @@ public:
     blurRightX->setKernel(blurKernel);
     blurRightY->setKernel(blurKernel);
 
+    float tszStep = (newTextureSize - textureSize) / blockSize;
     for (int i = 0; i < blockSize; ++i)
     {
-      blurLeftX->setTextureSize(textureSize);
-      blurLeftY->setTextureSize(textureSize);
-      blurRightX->setTextureSize(textureSize);
-      blurRightY->setTextureSize(textureSize);
+      int texSize = roundf(textureSize + tszStep);
+      blurLeftX->setTextureSize(texSize);
+      blurLeftY->setTextureSize(texSize);
+      blurRightX->setTextureSize(texSize);
+      blurRightY->setTextureSize(texSize);
 
       blurLeft[i] = blurLeftY->process(blurLeftX->process(inLeft[i]));
       blurRight[i] = blurRightY->process(blurRightX->process(inRight[i]));
     }
+    textureSize = newTextureSize;
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
