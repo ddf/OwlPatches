@@ -42,6 +42,7 @@ class BlurPatch : public Patch
   static const PatchParameterId outNoise1 = PARAMETER_F;
   static const PatchParameterId outNoise2 = PARAMETER_G;
 
+  static const int minTextureSize = 32;
   static const int maxTextureSize = 512;
 
   AudioBuffer* blurBuffer;
@@ -63,7 +64,7 @@ class BlurPatch : public Patch
   SmoothFloat blurRightRms;
 
 public:
-  BlurPatch()
+  BlurPatch() : textureSize(0.8f, minTextureSize)
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
@@ -113,7 +114,7 @@ public:
     FloatArray blurRight = blurBuffer->getSamples(1);
     const int blockSize = getBlockSize();
 
-    textureSize       = roundf(Interpolator::linear(32, maxTextureSize, getParameterValue(inTextureSize)));
+    textureSize       = roundf(Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize)));
     blurSize          = Interpolator::linear(0.0f, 0.33f, getParameterValue(inBlurSize));
     standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
 
