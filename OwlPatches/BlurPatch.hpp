@@ -35,9 +35,10 @@ class BlurPatch : public Patch
 {
   static const PatchParameterId inTextureSize = PARAMETER_A;
   static const PatchParameterId inBlurSize    = PARAMETER_B;
-  static const PatchParameterId inBlurTilt    = PARAMETER_D;
+  static const PatchParameterId inBlurTilt    = PARAMETER_C;
+  static const PatchParameterId inFeedback    = PARAMETER_D;
 
-  static const PatchParameterId inWetDry = PARAMETER_AA;
+  static const PatchParameterId inWetDry      = PARAMETER_AA;
   static const PatchParameterId inStandardDev = PARAMETER_AB;
 
   static const PatchParameterId outNoise1 = PARAMETER_F;
@@ -60,6 +61,8 @@ class BlurPatch : public Patch
   const float maxStandardDev = 0.18f;
 
   AudioBuffer* blurBuffer;
+  AudioBuffer* feedbackBuffer;
+
   BlurKernel blurKernelLeft;
   BlurKernel blurKernelRight;
 
@@ -75,6 +78,7 @@ class BlurPatch : public Patch
   SmoothFloat standardDeviation;
   SmoothFloat standardDeviationLeft;
   SmoothFloat standardDeviationRight;
+  SmoothFloat feedback;
 
   SmoothFloat inLeftRms;
   SmoothFloat inRightRms;
@@ -89,6 +93,7 @@ public:
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
     registerParameter(inBlurTilt, "Blur Tilt");
+    registerParameter(inFeedback, "Feedback");
 
     registerParameter(inWetDry, "Dry/Wet");
     registerParameter(inStandardDev, "Standard Deviation");
@@ -97,9 +102,10 @@ public:
     registerParameter(outNoise2, "Noise 2>");
 
     setParameterValue(inTextureSize, 0);
-    setParameterValue(inBlurSize,    0.2f);
+    setParameterValue(inBlurSize,    0.0f);
     setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inBlurTilt, 0.5f);
+    setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
     setParameterValue(outNoise1, 0);
     setParameterValue(outNoise2, 0);
@@ -107,6 +113,8 @@ public:
     dcFilter = StereoDcBlockingFilter::create();
 
     blurBuffer = AudioBuffer::create(2, getBlockSize());
+    feedbackBuffer = AudioBuffer::create(2, getBlockSize());
+
     blurKernelLeft = BlurKernel::create(blurKernelSize);
     blurKernelRight = BlurKernel::create(blurKernelSize);
 
@@ -119,6 +127,8 @@ public:
   ~BlurPatch()
   {
     AudioBuffer::destroy(blurBuffer);
+    AudioBuffer::destroy(feedbackBuffer);
+
     BlurKernel::destroy(blurKernelLeft);
     BlurKernel::destroy(blurKernelRight);
 
@@ -136,6 +146,9 @@ public:
     FloatArray inRight = audio.getSamples(1);
     FloatArray blurLeft = blurBuffer->getSamples(0);
     FloatArray blurRight = blurBuffer->getSamples(1);
+    FloatArray feedLeft = feedbackBuffer->getSamples(0);
+    FloatArray feedRight = feedbackBuffer->getSamples(1);
+
     const int blockSize = getBlockSize();
 
     float blurSizeParam = getParameterValue(inBlurSize);
@@ -154,6 +167,7 @@ public:
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
+    feedback          = getParameterValue(inFeedback);
 
     standardDeviationLeft  = standardDeviation;
     standardDeviationRight = standardDeviation;
@@ -174,10 +188,13 @@ public:
     blurRightX->setTextureSize(texSize);
     blurRightY->setTextureSize(texSize);
 
+    feedLeft.multiply(feedback);
+    feedRight.multiply(feedback);
+
     for (int i = 0; i < blockSize; ++i)
     {
-      blurLeft[i] = blurLeftY->process(blurLeftX->process(inLeft[i]));
-      blurRight[i] = blurRightY->process(blurRightX->process(inRight[i]));
+      blurLeft[i] = blurLeftY->process(blurLeftX->process(inLeft[i] + feedLeft[i]));
+      blurRight[i] = blurRightY->process(blurRightX->process(inRight[i] + feedRight[i]));
     }
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
@@ -187,12 +204,16 @@ public:
     inRightRms = inRight.getRms();
     blurLeftRms = blurLeft.getRms();
     blurRightRms = blurRight.getRms();
-    float leftGain = (blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1) * wet;
-    float rightGain = (blurRightRms > 0.0f ? inRightRms / blurRightRms : 1) * wet;
+    float leftGain = (blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1);
+    float rightGain = (blurRightRms > 0.0f ? inRightRms / blurRightRms : 1);
+    blurLeft.multiply(leftGain);
+    blurLeft.copyTo(feedLeft);
+    blurRight.multiply(rightGain);
+    blurRight.copyTo(feedRight);
     for (int i = 0; i < blockSize; ++i)
     {
-      inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * leftGain);
-      inRight[i] = (inRight[i] * dry + blurRight[i] * rightGain);
+      inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * wet);
+      inRight[i] = (inRight[i] * dry + blurRight[i] * wet);
     }
 
     setParameterValue(outNoise1, standardDeviationLeft);
