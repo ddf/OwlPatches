@@ -48,6 +48,7 @@ class BlurPatch : public Patch
   static const int maxTextureSize = 512;
 
   const float minStandardDev = 0.05f;
+  const float maxStandardDev = 0.18f;
 
   AudioBuffer* blurBuffer;
   BlurKernel blurKernelLeft;
@@ -62,6 +63,7 @@ class BlurPatch : public Patch
   SmoothFloat textureSize;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
+  SmoothFloat standardDeviation;
   SmoothFloat standardDeviationLeft;
   SmoothFloat standardDeviationRight;
 
@@ -72,7 +74,7 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSize(0.99f, minTextureSize)
+    : textureSize(0.99f, minTextureSize), standardDeviation(0.99f, minStandardDev)
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
   {
     registerParameter(inTextureSize, "Texture Size");
@@ -86,7 +88,7 @@ public:
 
     setParameterValue(inTextureSize, 0);
     setParameterValue(inBlurSize,    0.2f);
-    setParameterValue(inStandardDev, 0);
+    setParameterValue(inStandardDev, 0.0f);
     setParameterValue(inBlurSamples, 0);
     setParameterValue(inBlurTilt, 0.5f);
     setParameterValue(inWetDry, 1);
@@ -140,7 +142,7 @@ public:
     }
 
     textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
-    //standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
+    standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
@@ -151,8 +153,8 @@ public:
     }
     else
     {
-      standardDeviationLeft = minStandardDev;
-      standardDeviationRight = minStandardDev;
+      standardDeviationLeft  = standardDeviation;
+      standardDeviationRight = standardDeviation;
     }
     blurKernelLeft.setGauss(blurSizeLeft, standardDeviationLeft);
     blurKernelRight.setGauss(blurSizeRight, standardDeviationRight);
