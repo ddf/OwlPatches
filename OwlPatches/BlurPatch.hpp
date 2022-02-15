@@ -136,8 +136,8 @@ public:
 
     textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
     standardDeviation = Interpolator::linear(0.01f, 0.1f, getParameterValue(inStandardDev));
-    blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
-    blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
+    blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
     blurKernelLeft.setGauss(blurSizeLeft, standardDeviation);
     blurKernelRight.setGauss(blurSizeRight, standardDeviation);
