@@ -139,8 +139,10 @@ public:
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
-    blurKernelLeft.setGauss(blurSizeLeft, standardDeviation);
-    blurKernelRight.setGauss(blurSizeRight, standardDeviation);
+    float stDevLeft = std::max(inLeft.getStandardDeviation(), 0.001f);
+    float stDevRight = std::max(inRight.getStandardDeviation(), 0.001f);
+    blurKernelLeft.setGauss(blurSizeLeft, stDevLeft);
+    blurKernelRight.setGauss(blurSizeRight, stDevRight);
 
     dcFilter->process(audio, audio);
 
