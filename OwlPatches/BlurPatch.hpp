@@ -47,7 +47,7 @@ class BlurPatch : public Patch
   static const int minTextureSize = 32;
   static const int maxTextureSize = 512;
 
-  const float minStandardDev = 0.02f;
+  const float minStandardDev = 0.05f;
 
   AudioBuffer* blurBuffer;
   BlurKernel blurKernelLeft;
@@ -73,7 +73,7 @@ class BlurPatch : public Patch
 public:
   BlurPatch() 
     : textureSize(0.99f, minTextureSize)
-    , standardDeviationLeft(0.99f, minStandardDev), standardDeviationRight(0.99f, minStandardDev)
+    , standardDeviationLeft(0.8f, minStandardDev), standardDeviationRight(0.8f, minStandardDev)
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
