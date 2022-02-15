@@ -35,11 +35,10 @@ class BlurPatch : public Patch
 {
   static const PatchParameterId inTextureSize = PARAMETER_A;
   static const PatchParameterId inBlurSize    = PARAMETER_B;
-  static const PatchParameterId inStandardDev = PARAMETER_C;
   static const PatchParameterId inBlurTilt    = PARAMETER_D;
 
   static const PatchParameterId inWetDry = PARAMETER_AA;
-  static const PatchParameterId inBlurSamples = PARAMETER_AB;
+  static const PatchParameterId inStandardDev = PARAMETER_AB;
 
   static const PatchParameterId outNoise1 = PARAMETER_F;
   static const PatchParameterId outNoise2 = PARAMETER_G;
@@ -47,7 +46,17 @@ class BlurPatch : public Patch
   static const int minTextureSize = 32;
   static const int maxTextureSize = 512;
 
-  const float minStandardDev = 0.05f;
+  static const int blurKernelSize = 8;
+
+  // maximum standard deviation was chosen based on the recommendation here:
+  // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
+  // where standard deviation should equal (sampleCount - 1)/4.
+  // With 8 samples that is 1.75 and since parameters don't go all the way to 1,
+  // we use 0.18f. The low end sounds about the same with smaller radii,
+  // it's really only at larger texture sizes combined with larger radii
+  // that you start to hear a difference when sweeping the standard deviation,
+  // with the maximum value giving the smoothest sounding results.
+  const float minStandardDev = 0.06f;
   const float maxStandardDev = 0.18f;
 
   AudioBuffer* blurBuffer;
@@ -79,17 +88,17 @@ public:
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
-    registerParameter(inStandardDev, "Standard Deviation");
-    registerParameter(inBlurSamples, "Blur Samples");
     registerParameter(inBlurTilt, "Blur Tilt");
+
+    registerParameter(inWetDry, "Dry/Wet");
+    registerParameter(inStandardDev, "Standard Deviation");
 
     registerParameter(outNoise1, "Noise 1>");
     registerParameter(outNoise2, "Noise 2>");
 
     setParameterValue(inTextureSize, 0);
     setParameterValue(inBlurSize,    0.2f);
-    setParameterValue(inStandardDev, 0.0f);
-    setParameterValue(inBlurSamples, 0);
+    setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inBlurTilt, 0.5f);
     setParameterValue(inWetDry, 1);
     setParameterValue(outNoise1, 0);
@@ -98,8 +107,8 @@ public:
     dcFilter = StereoDcBlockingFilter::create();
 
     blurBuffer = AudioBuffer::create(2, getBlockSize());
-    blurKernelLeft = BlurKernel::create(8);
-    blurKernelRight = BlurKernel::create(8);
+    blurKernelLeft = BlurKernel::create(blurKernelSize);
+    blurKernelRight = BlurKernel::create(blurKernelSize);
 
     blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernelLeft);
     blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernelLeft);
@@ -146,16 +155,9 @@ public:
     blurSizeRight     = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, 0.33f, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
 
-    if (isButtonPressed(BUTTON_1))
-    {
-      standardDeviationLeft = standardDeviation + inLeft.getStandardDeviation();
-      standardDeviationRight = standardDeviation + inRight.getStandardDeviation();
-    }
-    else
-    {
-      standardDeviationLeft  = standardDeviation;
-      standardDeviationRight = standardDeviation;
-    }
+    standardDeviationLeft  = standardDeviation;
+    standardDeviationRight = standardDeviation;
+
     blurKernelLeft.setGauss(blurSizeLeft, standardDeviationLeft);
     blurKernelRight.setGauss(blurSizeRight, standardDeviationRight);
 
