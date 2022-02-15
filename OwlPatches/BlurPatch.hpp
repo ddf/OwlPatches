@@ -191,17 +191,20 @@ public:
     feedLeft.multiply(feedback);
     feedRight.multiply(feedback);
 
+    feedLeft.add(inLeft);
+    feedRight.add(inRight);
+
     for (int i = 0; i < blockSize; ++i)
     {
-      blurLeft[i] = blurLeftY->process(blurLeftX->process(inLeft[i] + feedLeft[i]));
-      blurRight[i] = blurRightY->process(blurRightX->process(inRight[i] + feedRight[i]));
+      blurLeft[i] = blurLeftY->process(blurLeftX->process(feedLeft[i]));
+      blurRight[i] = blurRightY->process(blurRightX->process(feedRight[i]));
     }
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
-    inLeftRms = (inLeft.getRms() + feedLeft.getRms()) * 0.5f;
-    inRightRms = (inRight.getRms() + feedRight.getRms()) * 0.5f;
+    inLeftRms = feedLeft.getRms();
+    inRightRms = feedRight.getRms();
     blurLeftRms = blurLeft.getRms();
     blurRightRms = blurRight.getRms();
     float leftGain = (blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1);
