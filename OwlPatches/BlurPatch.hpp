@@ -127,13 +127,13 @@ public:
     blurRightX->setKernel(blurKernel);
     blurRightY->setKernel(blurKernel);
 
-    blurLeftX->setTextureSize(textureSize);
-    blurLeftY->setTextureSize(textureSize);
-    blurRightX->setTextureSize(textureSize);
-    blurRightY->setTextureSize(textureSize);
-
     for (int i = 0; i < blockSize; ++i)
     {
+      blurLeftX->setTextureSize(textureSize);
+      blurLeftY->setTextureSize(textureSize);
+      blurRightX->setTextureSize(textureSize);
+      blurRightY->setTextureSize(textureSize);
+
       blurLeft[i] = blurLeftY->process(blurLeftX->process(inLeft[i]));
       blurRight[i] = blurRightY->process(blurRightX->process(inRight[i]));
     }
