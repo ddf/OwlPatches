@@ -203,8 +203,8 @@ public:
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
-    inLeftRms = feedLeft.getRms();
-    inRightRms = feedRight.getRms();
+    inLeftRms = inLeft.getRms(); // feedLeft.getRms();
+    inRightRms = inRight.getRms(); // feedRight.getRms();
     blurLeftRms = blurLeft.getRms();
     blurRightRms = blurRight.getRms();
     float leftGain = (blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1);
