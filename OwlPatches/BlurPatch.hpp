@@ -183,8 +183,10 @@ public:
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "tex ");
     debugCpy = stpcpy(debugCpy, msg_itoa(textureSize, 10));
-    debugCpy = stpcpy(debugCpy, " size ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSize, 10));
+    debugCpy = stpcpy(debugCpy, " bL ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeLeft, 10));
+    debugCpy = stpcpy(debugCpy, " bR ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " stDev ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviation, 10));
     debugMessage(debugMsg);
