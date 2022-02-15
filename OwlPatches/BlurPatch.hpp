@@ -148,8 +148,8 @@ public:
 
     if (isButtonPressed(BUTTON_1))
     {
-      standardDeviationLeft = minStandardDev + inLeft.getStandardDeviation();
-      standardDeviationRight = minStandardDev + inRight.getStandardDeviation();
+      standardDeviationLeft = standardDeviation + inLeft.getStandardDeviation();
+      standardDeviationRight = standardDeviation + inRight.getStandardDeviation();
     }
     else
     {
