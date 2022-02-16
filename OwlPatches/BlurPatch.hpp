@@ -49,7 +49,7 @@ class BlurPatch : public Patch
   static const int minTextureSize = 32;
   static const int maxTextureSize = 512;
 
-  static const int blurKernelSize = 8;
+  static const int blurKernelSize = 7;
 
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
