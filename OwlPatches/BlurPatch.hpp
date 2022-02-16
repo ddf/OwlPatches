@@ -219,8 +219,6 @@ public:
       blurLeft[i] = blurLeftY->process(blurLeftX->process(left));
       blurRight[i] = blurRightY->process(blurRightX->process(right));
     }
-    blurLeft.copyTo(feedLeft);
-    blurRight.copyTo(feedRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
@@ -234,6 +232,8 @@ public:
     float rightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
     blurLeft.multiply(leftGain);
     blurRight.multiply(rightGain);
+    blurLeft.copyTo(feedLeft);
+    blurRight.copyTo(feedRight);
     for (int i = 0; i < blockSize; ++i)
     {
       inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * wet);
