@@ -277,8 +277,8 @@ public:
       inRight[i] = (inRight[i] * dry + blurRight[i] * wet);
     }
 
-    setParameterValue(outLeftFollow, inLeftRms);
-    setParameterValue(outRightFollow, inRightRms);
+    setParameterValue(outLeftFollow, inLeftRms*4);
+    setParameterValue(outRightFollow, inRightRms*4);
     setButton(BUTTON_1, textureSizeTiltLocked);
     setButton(BUTTON_2, blurSizeTiltLocked);
 
