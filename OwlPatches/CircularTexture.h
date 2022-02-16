@@ -18,7 +18,7 @@ public:
     return buffer.getData();
   }
 
-  CircularTexture subtexture(int w, int h)
+  CircularTexture subtexture(IndexType w, IndexType h)
   {
     CircularTexture subTex = *this;
     subTex.sizeX = w;
