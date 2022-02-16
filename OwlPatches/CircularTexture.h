@@ -21,7 +21,7 @@ public:
   IndexType getWidth() const { return sizeX; }
   IndexType getHeight() const { return sizeY; }
 
-  CircularTexture subtexture(IndexType w, IndexType h) const
+  CircularTexture subtexture(IndexType w, IndexType h)
   {
     CircularTexture subTex = *this;
     subTex.sizeX = w;
@@ -34,14 +34,14 @@ public:
     buffer.write(value);
   }
 
-  DataType read(IndexType x, IndexType y) const
+  DataType read(IndexType x, IndexType y)
   {
     // add buffer size we don't have to worry about negative indices
     IndexType index = buffer.getWriteIndex() + buffer.getSize() - 1 - (y*sizeX + x);
     return buffer.readAt(index);
   }
 
-  DataType readBilinear(float u, float v) const
+  DataType readBilinear(float u, float v)
   {
     float x = u * sizeX;
     IndexType x1 = IndexType(x);
