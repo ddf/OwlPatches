@@ -181,6 +181,7 @@ public:
     // such that at the smallest texture size we have a max blur of ~0.33
     float maxBlurL    = 11.0f / textureSizeLeft;
     float maxBlurR    = 11.0f / textureSizeRight;
+    blurTilt = 0;
     blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
     blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
