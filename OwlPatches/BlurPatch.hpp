@@ -174,8 +174,8 @@ public:
 
     textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
     // try scaling max blur down based on the current texture size,
-    // such that at the smallest texture size we have a max blur of ~0.5
-    float maxBlur = 16.0f / textureSize;
+    // such that at the smallest texture size we have a max blur of ~0.33
+    float maxBlur     = isButtonPressed(BUTTON_1) ? 11.0f / textureSize : 0.33f;
     blurSizeRight     = Interpolator::linear(0.0f, maxBlur, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     blurSizeLeft      = Interpolator::linear(0.0f, maxBlur, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
