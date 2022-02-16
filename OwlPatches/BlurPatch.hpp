@@ -252,10 +252,13 @@ public:
       feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
 
-    blurLeftX->process(feedLeft, blurLeft);
-    blurLeftY->process(blurLeft, blurLeft);
-    blurRightX->process(feedRight, blurRight);
-    blurRightY->process(blurRight, blurRight);
+    if (!(isButtonPressed(BUTTON_1) && isButtonPressed(BUTTON_2)))
+    {
+      blurLeftX->process(feedLeft, blurLeft);
+      blurLeftY->process(blurLeft, blurLeft);
+      blurRightX->process(feedRight, blurRight);
+      blurRightY->process(blurRight, blurRight);
+    }
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
