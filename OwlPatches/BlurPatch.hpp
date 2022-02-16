@@ -26,9 +26,11 @@ DESCRIPTION:
 
 #include "Patch.h"
 #include "DcBlockingFilter.h"
+#include "BiquadFilter.h"
 #include "Interpolator.h"
 #include "BlurSignalProcessor.h"
 #include "basicmaths.h"
+#include "custom_dsp.h" // for SoftLimit
 #include <string.h>
 
 class BlurPatch : public Patch
@@ -67,6 +69,9 @@ class BlurPatch : public Patch
   BlurKernel blurKernelRight;
 
   StereoDcBlockingFilter*     dcFilter;
+  BiquadFilter*               feedbackFilterLeft;
+  BiquadFilter*               feedbackFilterRight;
+
   BlurSignalProcessor<AxisX>* blurLeftX;
   BlurSignalProcessor<AxisY>* blurLeftY;
   BlurSignalProcessor<AxisX>* blurRightX;
@@ -111,6 +116,8 @@ public:
     setParameterValue(outNoise2, 0);
 
     dcFilter = StereoDcBlockingFilter::create();
+    feedbackFilterLeft = BiquadFilter::create(getSampleRate());
+    feedbackFilterRight = BiquadFilter::create(getSampleRate());
 
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
@@ -133,6 +140,8 @@ public:
     BlurKernel::destroy(blurKernelRight);
 
     StereoDcBlockingFilter::destroy(dcFilter);
+    BiquadFilter::destroy(feedbackFilterLeft);
+    BiquadFilter::destroy(feedbackFilterRight);
 
     BlurSignalProcessor<AxisX>::destroy(blurLeftX);
     BlurSignalProcessor<AxisX>::destroy(blurRightX);
@@ -194,10 +203,21 @@ public:
     feedLeft.add(inLeft);
     feedRight.add(inRight);
 
+    // Note: the way feedback is applied is based on how Clouds does it
+    float cutoff = (20.0f + 100.0f * feedback * feedback);
+    feedbackFilterLeft->setHighPass(cutoff, 1);
+    feedbackFilterLeft->process(feedLeft);
+    feedbackFilterRight->setHighPass(cutoff, 1);
+    feedbackFilterRight->process(feedRight);
+    float softLimitCoeff = feedback * 1.4f;
     for (int i = 0; i < blockSize; ++i)
     {
-      blurLeft[i] = blurLeftY->process(blurLeftX->process(feedLeft[i]));
-      blurRight[i] = blurRightY->process(blurRightX->process(feedRight[i]));
+      float left = inLeft[i];
+      float right = inRight[i];
+      left += feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
+      right += feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
+      blurLeft[i] = blurLeftY->process(blurLeftX->process(left));
+      blurRight[i] = blurRightY->process(blurRightX->process(right));
     }
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
