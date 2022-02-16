@@ -51,7 +51,8 @@ public:
 
   float process(float input) override
   {
-    texture.write(input);
+    // only need to write to textureA because textureB is just a different view on it
+    textureA.write(input);
 
     float c = kernel.getBlurSize() * 0.5f;
     float v = 0;
