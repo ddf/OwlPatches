@@ -56,7 +56,8 @@ public:
 
     float c = kernel.getBlurSize() * 0.5f;
     float v = 0;
-    int samples = kernel.getSize();
+    const int samples = kernel.getSize();
+    const float dimA = AXIS == AxisX ? textureA.getWidth() : textureA.getHeight();
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
@@ -64,7 +65,7 @@ public:
       if (AXIS == AxisX)
       {
         //v += textureA.readBilinear(c + samp.offset, 0) * samp.weight;
-        float x = (c + samp.offset)*textureA.getWidth();
+        float x = (c + samp.offset)*dimA;
         int x1 = int(x);
         int x2 = x1 + 1;
         float xt = x - x1;
@@ -83,7 +84,7 @@ public:
       else
       {
         //v += textureA.readBilinear(0, c + samp.offset) * samp.weight;
-        float y = (c + samp.offset)*textureA.getHeight();
+        float y = (c + samp.offset)*dimA;
         int y1 = int(y);
         int y2 = y1 + 1;
         float yt = y - y1;
