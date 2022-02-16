@@ -13,13 +13,18 @@ template<BlurAxis AXIS>
 class BlurSignalProcessor : public SignalProcessor 
 {
 protected:
-  CircularFloatTexture texture;
+  CircularFloatTexture textureA;
+  CircularFloatTexture textureB;
+  float textureBlend;
   BlurKernel kernel;
 
 public:
   BlurSignalProcessor() {}
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, BlurKernel kernel)
-    : texture(textureData, textureSizeX, textureSizeY), kernel(kernel)
+    : textureA(textureData, textureSizeX, textureSizeY)
+    , textureB(textureData, textureSizeX, textureSizeY)
+    , textureBlend(0)
+    , kernel(kernel)
   {
   }
 
@@ -28,15 +33,19 @@ public:
     this->kernel = kernel;
   }
 
-  void setTextureSize(int texSize)
+  void setTextureSize(float textureSize)
   {
+    int texSize = (int)textureSize;
+    textureBlend = textureSize - texSize;
     if (AXIS == AxisX)
     {
-      texture = texture.subtexture(texSize, 1);
+      textureA = textureA.subtexture(texSize, 1);
+      textureB = textureB.subtexture(texSize + 1, 1);
     }
     else
     {
-      texture = texture.subtexture(texSize, texSize);
+      textureA = textureA.subtexture(texSize, texSize);
+      textureB = textureB.subtexture(texSize + 1, texSize + 1);
     }
   }
 
@@ -54,20 +63,36 @@ public:
       if (AXIS == AxisX)
       {
         //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
-        float x = (c + samp.offset)*texture.getWidth();
+        float x = (c + samp.offset)*textureA.getWidth();
         int x1 = int(x);
         int x2 = x1 + 1;
         float xt = x - x1;
-        v += Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt);
+        float vA = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
+
+        x = (c + samp.offset)*textureB.getWidth();
+        x1 = int(x);
+        x2 = x1 + 1;
+        xt = x - x1;
+        float vB = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
+
+        v += Interpolator::linear(vA, vB, textureBlend);
       }
       else
       {
         //v += texture.readBilinear(0, c + samp.offset) * samp.weight;
-        float y = (c + samp.offset)*texture.getHeight();
+        float y = (c + samp.offset)*textureA.getHeight();
         int y1 = int(y);
         int y2 = y1 + 1;
         float yt = y - y1;
-        v += Interpolator::linear(texture.read(0, y1), texture.read(0, y2), yt);
+        float vA = Interpolator::linear(textureA.read(0, y1), textureA.read(0, y2), yt);
+
+        y = (c + samp.offset)*textureB.getHeight();
+        y1 = int(y);
+        y2 = y1 + 1;
+        yt = y - y1;
+        float vB = Interpolator::linear(textureB.read(0, y1), textureB.read(0, y2), yt);
+
+        v += Interpolator::linear(vA, vB, textureBlend);
       }
     }
 
@@ -87,7 +112,7 @@ public:
 
   static void destroy(BlurSignalProcessor<AXIS>* blur)
   {
-    delete[] blur->texture.getData();
+    delete[] blur->textureA.getData();
     delete blur;
   }
 };
