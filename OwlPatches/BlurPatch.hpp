@@ -214,8 +214,8 @@ public:
     {
       float left = inLeft[i];
       float right = inRight[i];
-      left += feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
-      right += feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
+      left += feedback * (daisysp::SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
+      right += feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
       blurLeft[i] = blurLeftY->process(blurLeftX->process(left));
       blurRight[i] = blurRightY->process(blurRightX->process(right));
     }
