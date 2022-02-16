@@ -68,9 +68,9 @@ public:
         int x1 = int(x);
         int x2 = x1 + 1;
         float xt = x - x1;
-        float vA = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
+        //float vA = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
 
-        v += vA * samp.weight;
+        v += Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt) * samp.weight;
 
         //x = (c + samp.offset)*textureB.getWidth();
         //x1 = int(x);
@@ -87,9 +87,9 @@ public:
         int y1 = int(y);
         int y2 = y1 + 1;
         float yt = y - y1;
-        float vA = Interpolator::linear(textureA.read(0, y1), textureA.read(0, y2), yt);
+        //float vA = Interpolator::linear(textureA.read(0, y1), textureA.read(0, y2), yt);
 
-        v += vA * samp.weight;
+        v += Interpolator::linear(textureA.read(0, y1), textureA.read(0, y2), yt) * samp.weight;
 
         //y = (c + samp.offset)*textureB.getHeight();
         //y1 = int(y);
