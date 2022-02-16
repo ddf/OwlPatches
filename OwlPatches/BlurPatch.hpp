@@ -77,10 +77,15 @@ class BlurPatch : public Patch
   BlurSignalProcessor<AxisX>* blurRightX;
   BlurSignalProcessor<AxisY>* blurRightY;
 
+  bool textureSizeTiltLocked;
+  bool blurSizeTiltLocked;
+
   SmoothFloat textureSizeLeft;
   SmoothFloat textureSizeRight;
+  SmoothFloat textureSizeTilt;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
+  SmoothFloat blurSizeTilt;
   SmoothFloat standardDeviation;
   SmoothFloat standardDeviationLeft;
   SmoothFloat standardDeviationRight;
@@ -94,6 +99,7 @@ class BlurPatch : public Patch
 public:
   BlurPatch() 
     : textureSizeLeft(0.99f, minTextureSize), textureSizeRight(0.99f, minTextureSize)
+    , textureSizeTiltLocked(false), blurSizeTiltLocked(false)
     , standardDeviation(0.99f, minStandardDev) 
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
   {
@@ -151,6 +157,19 @@ public:
     BlurSignalProcessor<AxisY>::destroy(blurRightY);
   }
 
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
+  {
+    if (bid == BUTTON_1 && value == ON)
+    {
+      textureSizeTiltLocked = !textureSizeTiltLocked;
+    }
+
+    if (bid == BUTTON_2 && value == ON)
+    {
+      blurSizeTiltLocked = !blurSizeTiltLocked;
+    }
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray inLeft = audio.getSamples(0);
@@ -165,24 +184,32 @@ public:
     float textureSizeParam = getParameterValue(inTextureSize);
     float blurSizeParam = getParameterValue(inBlurSize);
     float blurTiltParam = getParameterValue(inBlurTilt);
-    float blurTilt = 0;
+    float tilt = 0;
     if (blurTiltParam >= 0.53f)
     {
-      blurTilt = (blurTiltParam - 0.53f) * 1.06f;
+      tilt = (blurTiltParam - 0.53f) * 1.06f;
     }
     else if (blurTiltParam <= 0.47f)
     {
-      blurTilt = (0.47f - blurTiltParam) * -1.06f;
+      tilt = (0.47f - blurTiltParam) * -1.06f;
     }
 
-    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + blurTilt, 0.0f, 1.0f));
-    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - blurTilt, 0.0f, 1.0f));
+    if (!textureSizeTiltLocked)
+    {
+      textureSizeTilt = tilt;
+    }
+    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + textureSizeTilt, 0.0f, 1.0f));
+    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - textureSizeTilt, 0.0f, 1.0f));
     // try scaling max blur down based on the current texture size,
     // such that at the smallest texture size we have a max blur of ~0.33
     float maxBlurL    = 11.0f / textureSizeLeft;
     float maxBlurR    = 11.0f / textureSizeRight;
-    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
-    blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
+    if (!blurSizeTiltLocked)
+    {
+      blurSizeTilt = tilt;
+    }
+    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSizeParam - blurSizeTilt, 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSizeParam + blurSizeTilt, 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     feedback          = getParameterValue(inFeedback);
 
@@ -242,17 +269,8 @@ public:
     float rightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
     blurLeft.multiply(leftGain);
     blurRight.multiply(rightGain);
-    // ping-pong feedback when button down
-    if (isButtonPressed(BUTTON_2))
-    {
-      blurLeft.copyTo(feedRight);
-      blurRight.copyTo(feedLeft);
-    }
-    else
-    {
-      blurLeft.copyTo(feedLeft);
-      blurRight.copyTo(feedRight);
-    }
+    blurLeft.copyTo(feedLeft);
+    blurRight.copyTo(feedRight);
     for (int i = 0; i < blockSize; ++i)
     {
       inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * wet);
@@ -261,6 +279,8 @@ public:
 
     setParameterValue(outNoise1, standardDeviationLeft);
     setParameterValue(outNoise2, standardDeviationRight);
+    setButton(BUTTON_1, textureSizeTiltLocked);
+    setButton(BUTTON_2, blurSizeTiltLocked);
 
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "texL ");
@@ -277,11 +297,6 @@ public:
     debugCpy = stpcpy(debugCpy, " stDevR ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationRight, 10));
     debugMessage(debugMsg);
-  }
-
-
-  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
-  {
   }
 
 };
