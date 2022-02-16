@@ -242,8 +242,17 @@ public:
     float rightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
     blurLeft.multiply(leftGain);
     blurRight.multiply(rightGain);
-    blurLeft.copyTo(feedLeft);
-    blurRight.copyTo(feedRight);
+    // ping-pong feedback when button down
+    if (isButtonPressed(BUTTON_2))
+    {
+      blurLeft.copyTo(feedRight);
+      blurRight.copyTo(feedLeft);
+    }
+    else
+    {
+      blurLeft.copyTo(feedLeft);
+      blurRight.copyTo(feedRight);
+    }
     for (int i = 0; i < blockSize; ++i)
     {
       inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * wet);
