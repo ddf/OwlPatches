@@ -43,8 +43,8 @@ class BlurPatch : public Patch
   static const PatchParameterId inWetDry      = PARAMETER_AA;
   static const PatchParameterId inStandardDev = PARAMETER_AB;
 
-  static const PatchParameterId outNoise1 = PARAMETER_F;
-  static const PatchParameterId outNoise2 = PARAMETER_G;
+  static const PatchParameterId outLeftFollow = PARAMETER_F;
+  static const PatchParameterId outRightFollow = PARAMETER_G;
 
   static const int minTextureSize = 32;
   static const int maxTextureSize = 512;
@@ -111,8 +111,8 @@ public:
     registerParameter(inWetDry, "Dry/Wet");
     registerParameter(inStandardDev, "Standard Deviation");
 
-    registerParameter(outNoise1, "Noise 1>");
-    registerParameter(outNoise2, "Noise 2>");
+    registerParameter(outLeftFollow, "Left Follow>");
+    registerParameter(outRightFollow, "Right Follow>");
 
     setParameterValue(inTextureSize, 0);
     setParameterValue(inBlurSize,    0.0f);
@@ -120,8 +120,8 @@ public:
     setParameterValue(inBlurTilt, 0.5f);
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
-    setParameterValue(outNoise1, 0);
-    setParameterValue(outNoise2, 0);
+    setParameterValue(outLeftFollow, 0);
+    setParameterValue(outRightFollow, 0);
 
     dcFilter = StereoDcBlockingFilter::create();
     feedbackFilterLeft = BiquadFilter::create(getSampleRate());
@@ -277,8 +277,8 @@ public:
       inRight[i] = (inRight[i] * dry + blurRight[i] * wet);
     }
 
-    setParameterValue(outNoise1, standardDeviationLeft);
-    setParameterValue(outNoise2, standardDeviationRight);
+    setParameterValue(outLeftFollow, inLeftRms);
+    setParameterValue(outRightFollow, inRightRms);
     setButton(BUTTON_1, textureSizeTiltLocked);
     setButton(BUTTON_2, blurSizeTiltLocked);
 
