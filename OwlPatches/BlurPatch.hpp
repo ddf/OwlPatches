@@ -59,8 +59,8 @@ class BlurPatch : public Patch
   // it's really only at larger texture sizes combined with larger radii
   // that you start to hear a difference when sweeping the standard deviation,
   // with the maximum value giving the smoothest sounding results.
-  const float minStandardDev = 0.06f;
-  const float maxStandardDev = 0.18f;
+  const float maxStandardDev = (blurKernelSize - 1) / 4.0f;
+  const float minStandardDev = maxStandardDev / 3.0f;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
