@@ -47,7 +47,7 @@ class BlurPatch : public Patch
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
   static const int minTextureSize = 32;
-  static const int maxTextureSize = 512;
+  static const int maxTextureSize = 64;
 
   static const int blurKernelSize = 7;
 
