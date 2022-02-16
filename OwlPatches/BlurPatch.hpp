@@ -80,8 +80,8 @@ class BlurPatch : public Patch
   bool textureSizeTiltLocked;
   bool blurSizeTiltLocked;
 
-  SmoothFloat textureSizeLeft;
-  SmoothFloat textureSizeRight;
+  StiffFloat textureSizeLeft;
+  StiffFloat textureSizeRight;
   SmoothFloat textureSizeTilt;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
@@ -98,7 +98,7 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSizeLeft(0.99f, minTextureSize), textureSizeRight(0.99f, minTextureSize)
+    : textureSizeLeft(0.5f, minTextureSize), textureSizeRight(0.5f, minTextureSize)
     , textureSizeTiltLocked(false), blurSizeTiltLocked(false)
     , standardDeviation(0.99f, minStandardDev) 
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
