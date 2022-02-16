@@ -63,12 +63,14 @@ public:
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        v += textureA.readBilinear(c + samp.offset, 0) * samp.weight;
-        //float x = (c + samp.offset)*textureA.getWidth();
-        //int x1 = int(x);
-        //int x2 = x1 + 1;
-        //float xt = x - x1;
-        //float vA = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
+        //v += textureA.readBilinear(c + samp.offset, 0) * samp.weight;
+        float x = (c + samp.offset)*textureA.getWidth();
+        int x1 = int(x);
+        int x2 = x1 + 1;
+        float xt = x - x1;
+        float vA = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
+
+        v += vA * samp.weight;
 
         //x = (c + samp.offset)*textureB.getWidth();
         //x1 = int(x);
@@ -80,12 +82,14 @@ public:
       }
       else
       {
-        v += textureA.readBilinear(0, c + samp.offset) * samp.weight;
-        //float y = (c + samp.offset)*textureA.getHeight();
-        //int y1 = int(y);
-        //int y2 = y1 + 1;
-        //float yt = y - y1;
-        //float vA = Interpolator::linear(textureA.read(0, y1), textureA.read(0, y2), yt);
+        //v += textureA.readBilinear(0, c + samp.offset) * samp.weight;
+        float y = (c + samp.offset)*textureA.getHeight();
+        int y1 = int(y);
+        int y2 = y1 + 1;
+        float yt = y - y1;
+        float vA = Interpolator::linear(textureA.read(0, y1), textureA.read(0, y2), yt);
+
+        v += vA * samp.weight;
 
         //y = (c + samp.offset)*textureB.getHeight();
         //y1 = int(y);
