@@ -214,11 +214,13 @@ public:
     {
       float left = inLeft[i];
       float right = inRight[i];
-      feedLeft[i] = left + feedback * (daisysp::SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
-      feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
-      blurLeft[i] = blurLeftY->process(blurLeftX->process(feedLeft[i]));
-      blurRight[i] = blurRightY->process(blurRightX->process(feedRight[i]));
+      left += feedback * (daisysp::SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
+      right += feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
+      blurLeft[i] = blurLeftY->process(blurLeftX->process(left));
+      blurRight[i] = blurRightY->process(blurRightX->process(right));
     }
+    blurLeft.copyTo(feedLeft);
+    blurRight.copyTo(feedRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
@@ -227,12 +229,11 @@ public:
     inRightRms = feedRight.getRms();
     blurLeftRms = blurLeft.getRms();
     blurRightRms = blurRight.getRms();
-    float leftGain = (blurLeftRms > 0.0f ? inLeftRms / blurLeftRms : 1);
-    float rightGain = (blurRightRms > 0.0f ? inRightRms / blurRightRms : 1);
+    const float rmsThreshold = 0.0001f;
+    float leftGain  = (inLeftRms > rmsThreshold && blurLeftRms > rmsThreshold ? inLeftRms / blurLeftRms : 1);
+    float rightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
     blurLeft.multiply(leftGain);
-    blurLeft.copyTo(feedLeft);
     blurRight.multiply(rightGain);
-    blurRight.copyTo(feedRight);
     for (int i = 0; i < blockSize; ++i)
     {
       inLeft[i]  = (inLeft[i] * dry + blurLeft[i] * wet);
