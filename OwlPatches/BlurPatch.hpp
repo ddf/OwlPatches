@@ -214,11 +214,14 @@ public:
     {
       float left = inLeft[i];
       float right = inRight[i];
-      left += feedback * (daisysp::SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
-      right += feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
-      blurLeft[i] = blurLeftY->process(blurLeftX->process(left));
-      blurRight[i] = blurRightY->process(blurRightX->process(right));
+      feedLeft[i] = left + feedback * (daisysp::SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
+      feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
+
+    blurLeftX->process(feedLeft, blurLeft);
+    blurLeftY->process(blurLeft, blurLeft);
+    blurRightX->process(feedRight, blurRight);
+    blurRightY->process(blurRight, blurRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
