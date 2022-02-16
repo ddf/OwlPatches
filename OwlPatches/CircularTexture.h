@@ -18,6 +18,9 @@ public:
     return buffer.getData();
   }
 
+  IndexType getWidth() const { return sizeX; }
+  IndexType getHeight() const { return sizeY; }
+
   CircularTexture subtexture(IndexType w, IndexType h)
   {
     CircularTexture subTex = *this;

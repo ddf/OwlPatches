@@ -50,13 +50,24 @@ public:
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
+      // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
+        //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
+        float x = (c + samp.offset)*texture.getWidth();
+        int x1 = int(x);
+        int x2 = x1 + 1;
+        float xt = x - x1;
+        v += Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt);
       }
       else
       {
-        v += texture.readBilinear(0, c + samp.offset) * samp.weight;
+        //v += texture.readBilinear(0, c + samp.offset) * samp.weight;
+        float y = (c + samp.offset)*texture.getHeight();
+        int y1 = int(y);
+        int y2 = y1 + 1;
+        float yt = y - y1;
+        v += Interpolator::linear(texture.read(0, y1), texture.read(0, y2), yt);
       }
     }
 
