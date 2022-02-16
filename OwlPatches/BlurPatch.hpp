@@ -254,14 +254,17 @@ public:
     setParameterValue(outNoise2, standardDeviationRight);
 
     char debugMsg[64];
-    char* debugCpy = stpcpy(debugMsg, "tex ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(textureSize, 10));
+    char* debugCpy = stpcpy(debugMsg, "texL ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(textureSizeLeft, 10));
     debugCpy = stpcpy(debugCpy, " bL ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeLeft, 10));
-    debugCpy = stpcpy(debugCpy, " bR ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " stDevL ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationLeft, 10));
+
+    debugCpy = stpcpy(debugCpy, " texR ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(textureSizeRight, 10));
+    debugCpy = stpcpy(debugCpy, " bR ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " stDevR ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationRight, 10));
     debugMessage(debugMsg);
