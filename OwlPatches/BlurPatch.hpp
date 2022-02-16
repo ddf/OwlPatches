@@ -77,7 +77,8 @@ class BlurPatch : public Patch
   BlurSignalProcessor<AxisX>* blurRightX;
   BlurSignalProcessor<AxisY>* blurRightY;
 
-  SmoothFloat textureSize;
+  SmoothFloat textureSizeLeft;
+  SmoothFloat textureSizeRight;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
   SmoothFloat standardDeviation;
@@ -92,7 +93,8 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSize(0.99f, minTextureSize), standardDeviation(0.99f, minStandardDev)
+    : textureSizeLeft(0.99f, minTextureSize), textureSizeRight(0.99f, minTextureSize)
+    , standardDeviation(0.99f, minStandardDev) 
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
   {
     registerParameter(inTextureSize, "Texture Size");
@@ -160,6 +162,7 @@ public:
 
     const int blockSize = getBlockSize();
 
+    float textureSizeParam = getParameterValue(inTextureSize);
     float blurSizeParam = getParameterValue(inBlurSize);
     float blurTiltParam = getParameterValue(inBlurTilt);
     float blurTilt = 0;
@@ -172,12 +175,14 @@ public:
       blurTilt = (0.47f - blurTiltParam) * -1.06f;
     }
 
-    textureSize       = Interpolator::linear(minTextureSize, maxTextureSize, getParameterValue(inTextureSize));
+    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + blurTilt, 0.0f, 1.0f));
+    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - blurTilt, 0.0f, 1.0f));
     // try scaling max blur down based on the current texture size,
     // such that at the smallest texture size we have a max blur of ~0.33
-    float maxBlur     = 11.0f / textureSize;
-    blurSizeRight     = Interpolator::linear(0.0f, maxBlur, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
-    blurSizeLeft      = Interpolator::linear(0.0f, maxBlur, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
+    float maxBlurL    = 11.0f / textureSizeLeft;
+    float maxBlurR    = 11.0f / textureSizeRight;
+    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSizeParam - blurTilt, 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSizeParam + blurTilt, 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     feedback          = getParameterValue(inFeedback);
 
@@ -194,11 +199,10 @@ public:
     blurRightX->setKernel(blurKernelRight);
     blurRightY->setKernel(blurKernelRight);
 
-    int texSize = int(textureSize);
-    blurLeftX->setTextureSize(texSize);
-    blurLeftY->setTextureSize(texSize);
-    blurRightX->setTextureSize(texSize);
-    blurRightY->setTextureSize(texSize);
+    blurLeftX->setTextureSize(textureSizeLeft);
+    blurLeftY->setTextureSize(textureSizeLeft);
+    blurRightX->setTextureSize(textureSizeRight);
+    blurRightY->setTextureSize(textureSizeRight);
 
     feedLeft.multiply(feedback);
     feedRight.multiply(feedback);
