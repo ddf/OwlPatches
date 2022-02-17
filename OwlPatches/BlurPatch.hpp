@@ -47,7 +47,7 @@ class BlurPatch : public Patch
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
-  static const int blurKernelSize = 7;
+  static const int blurKernelSize     = 7;
   static const int blurResampleStages = 3;
   static const int blurResampleFactor = 2;
 
@@ -106,9 +106,9 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSizeLeft(0.99f, minTextureSize), textureSizeRight(0.99f, minTextureSize)
+    : textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
     , textureSizeTiltLocked(false), blurSizeTiltLocked(false)
-    , standardDeviation(0.99f, minStandardDev) 
+    , standardDeviation(0.9f, minStandardDev)
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
   {
     registerParameter(inTextureSize, "Texture Size");
