@@ -51,7 +51,8 @@ class BlurPatch : public Patch
   static const int maxTextureSize = 256;
 
   static const int blurKernelSize = 7;
-  static const int blurDownsampleFactor = 2;
+  static const int blurResampleStages = 3;
+  static const int blurResampleFactor = 2;
 
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
@@ -141,11 +142,11 @@ public:
     blurKernelLeft = BlurKernel::create(blurKernelSize);
     blurKernelRight = BlurKernel::create(blurKernelSize);
 
-    blurScratch   = FloatArray::create(getBlockSize() / blurDownsampleFactor);
-    blurDownLeft  = DownSampler::create(1, blurDownsampleFactor);
-    blurDownRight = DownSampler::create(1, blurDownsampleFactor);
-    blurUpLeft    = UpSampler::create(1, blurDownsampleFactor);
-    blurUpRight   = UpSampler::create(1, blurDownsampleFactor);
+    blurScratch   = FloatArray::create(getBlockSize() / blurResampleFactor);
+    blurDownLeft  = DownSampler::create(blurResampleStages, blurResampleFactor);
+    blurDownRight = DownSampler::create(blurResampleStages, blurResampleFactor);
+    blurUpLeft    = UpSampler::create(blurResampleStages, blurResampleFactor);
+    blurUpRight   = UpSampler::create(blurResampleStages, blurResampleFactor);
 
     blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernelLeft);
     blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernelLeft);
