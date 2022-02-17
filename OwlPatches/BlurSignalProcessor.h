@@ -82,7 +82,7 @@ public:
       }
       else
       {
-        v += Interpolator::linear(textureA.readBilinear(0, coord), textureB.readBilinear(0, coord), textureBlend) * samp.weight;
+        v += textureA.readBilinear(0, coord) * samp.weight;
         //float y = (c + samp.offset)*dimA;
         //int y1 = int(y);
         //int y2 = y1 + 1;
