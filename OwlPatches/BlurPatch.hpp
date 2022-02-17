@@ -274,13 +274,13 @@ public:
     }
 
     blurDownLeft->process(feedLeft, blurScratch);
-    //blurLeftX->process(blurScratch, blurScratch);
-    //blurLeftY->process(blurScratch, blurScratch);
+    blurLeftX->process(blurScratch, blurScratch);
+    blurLeftY->process(blurScratch, blurScratch);
     blurUpLeft->process(blurScratch, blurLeft);
 
     blurDownRight->process(feedRight, blurScratch);
-    //blurRightX->process(blurScratch, blurScratch);
-    //blurRightY->process(blurScratch, blurScratch);
+    blurRightX->process(blurScratch, blurScratch);
+    blurRightY->process(blurScratch, blurScratch);
     blurUpRight->process(blurScratch, blurRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
