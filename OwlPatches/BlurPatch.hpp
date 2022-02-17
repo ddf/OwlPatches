@@ -219,12 +219,12 @@ public:
     {
       textureSizeTilt = tilt;
     }
-    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + textureSizeTilt, 0.0f, 1.0f));
-    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - textureSizeTilt, 0.0f, 1.0f));
+    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + textureSizeTilt, 0.0f, 1.0f)) / blurResampleFactor;
+    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - textureSizeTilt, 0.0f, 1.0f)) / blurResampleFactor;
     // try scaling max blur down based on the current texture size,
     // such that at the smallest texture size we have a max blur of ~0.33
-    float maxBlurL    = 11.0f / textureSizeLeft;
-    float maxBlurR    = 11.0f / textureSizeRight;
+    float maxBlurL    = 11.0f / blurResampleFactor / textureSizeLeft;
+    float maxBlurR    = 11.0f / blurResampleFactor / textureSizeRight;
     if (!blurSizeTiltLocked)
     {
       blurSizeTilt = tilt;
