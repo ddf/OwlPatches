@@ -73,20 +73,23 @@ class BlurPatch : public Patch
   BiquadFilter*               feedbackFilterLeft;
   BiquadFilter*               feedbackFilterRight;
 
-  FloatArray   blurScratch;
+  FloatArray   blurScratchA;
+  FloatArray   blurScratchB;
   DownSampler* blurDownLeft;
   DownSampler* blurDownRight;
   UpSampler*   blurUpLeft;
   UpSampler*   blurUpRight;
 
-  GaussianBlurSignalProcessor* blurLeft;
-  GaussianBlurSignalProcessor* blurRight;
+  GaussianBlurSignalProcessor* blurLeftA;
+  GaussianBlurSignalProcessor* blurLeftB;
+  GaussianBlurSignalProcessor* blurRightA;
+  GaussianBlurSignalProcessor* blurRightB;
 
   bool textureSizeTiltLocked;
   bool blurSizeTiltLocked;
 
-  StiffFloat textureSizeLeft;
-  StiffFloat textureSizeRight;
+  SmoothFloat textureSizeLeft;
+  SmoothFloat textureSizeRight;
   SmoothFloat textureSizeTilt;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
@@ -103,7 +106,7 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSizeLeft(1.25f, minTextureSize), textureSizeRight(1., minTextureSize)
+    : textureSizeLeft(0.99f, minTextureSize), textureSizeRight(0.99f, minTextureSize)
     , textureSizeTiltLocked(false), blurSizeTiltLocked(false)
     , standardDeviation(0.99f, minStandardDev) 
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
@@ -135,14 +138,17 @@ public:
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    blurScratch   = FloatArray::create(getBlockSize() / blurResampleFactor);
+    blurScratchA  = FloatArray::create(getBlockSize() / blurResampleFactor);
+    blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurDownLeft  = DownSampler::create(blurResampleStages, blurResampleFactor);
     blurDownRight = DownSampler::create(blurResampleStages, blurResampleFactor);
     blurUpLeft    = UpSampler::create(blurResampleStages, blurResampleFactor);
     blurUpRight   = UpSampler::create(blurResampleStages, blurResampleFactor);
 
-    blurLeft = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
-    blurRight = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+    blurLeftA = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
+    blurLeftB = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
+    blurRightA = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+    blurRightB = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
   }
 
   ~BlurPatch()
@@ -150,7 +156,8 @@ public:
     AudioBuffer::destroy(blurBuffer);
     AudioBuffer::destroy(feedbackBuffer);
 
-    FloatArray::destroy(blurScratch);
+    FloatArray::destroy(blurScratchA);
+    FloatArray::destroy(blurScratchB);
     DownSampler::destroy(blurDownLeft);
     DownSampler::destroy(blurDownRight);
     UpSampler::destroy(blurUpLeft);
@@ -160,8 +167,10 @@ public:
     BiquadFilter::destroy(feedbackFilterLeft);
     BiquadFilter::destroy(feedbackFilterRight);
 
-    GaussianBlurSignalProcessor::destroy(blurLeft);
-    GaussianBlurSignalProcessor::destroy(blurRight);
+    GaussianBlurSignalProcessor::destroy(blurLeftA);
+    GaussianBlurSignalProcessor::destroy(blurLeftB);
+    GaussianBlurSignalProcessor::destroy(blurRightA);
+    GaussianBlurSignalProcessor::destroy(blurRightB);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -222,11 +231,23 @@ public:
     standardDeviationLeft  = standardDeviation;
     standardDeviationRight = standardDeviation;
 
-    blurLeft->setBlur(blurSizeLeft, standardDeviationLeft);
-    blurLeft->setTextureSize(textureSizeLeft);
+    int texLeftA = (int)textureSizeLeft;
+    int texLeftB = texLeftA + 1;
+    int texLeftBlend = textureSizeLeft - texLeftA;
 
-    blurRight->setBlur(blurSizeRight, standardDeviationRight);
-    blurRight->setTextureSize(textureSizeRight);
+    int texRightA = (int)textureSizeRight;
+    int texRightB = texRightB + 1;
+    int texRightBlend = textureSizeRight - texRightB;
+
+    blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft);
+    blurLeftA->setTextureSize(texLeftA);
+    blurLeftB->setBlur(blurSizeLeft, standardDeviationLeft);
+    blurLeftB->setTextureSize(texLeftB);
+
+    blurRightA->setBlur(blurSizeRight, standardDeviationRight);
+    blurRightA->setTextureSize(texRightA);
+    blurRightB->setBlur(blurSizeRight, standardDeviationRight);
+    blurRightB->setTextureSize(texRightB);
 
     dcFilter->process(audio, audio);
 
@@ -251,13 +272,37 @@ public:
       feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
 
-    blurDownLeft->process(feedLeft, blurScratch);
-    blurLeft->process(blurScratch, blurScratch);
-    blurUpLeft->process(blurScratch, outBlurLeft);
+    // downsample and copy
+    blurDownLeft->process(feedLeft, blurScratchA);
+    blurScratchA.copyTo(blurScratchB);
 
-    blurDownRight->process(feedRight, blurScratch);
-    blurRight->process(blurScratch, blurScratch);
-    blurUpRight->process(blurScratch, outBlurRight);
+    // process both texture sizes
+    blurLeftA->process(blurScratchA, blurScratchA);
+    blurLeftB->process(blurScratchB, blurScratchB);
+
+    // mix based on the blend
+    blurScratchA.multiply(1.0f - texLeftBlend);
+    blurScratchB.multiply(texLeftBlend);
+    blurScratchA.add(blurScratchB);
+
+    // upsample to the output
+    blurUpLeft->process(blurScratchA, outBlurLeft);
+
+    // downsample and copy
+    blurDownRight->process(feedRight, blurScratchA);
+    blurScratchA.copyTo(blurScratchB);
+
+    // process both texture sizes
+    blurRightA->process(blurScratchA, blurScratchA);
+    blurRightB->process(blurScratchB, blurScratchB);
+
+    // mix based on the blend
+    blurScratchA.multiply(1.0f - texRightBlend);
+    blurScratchB.multiply(texRightBlend);
+    blurScratchA.add(blurScratchB);
+
+    // upsample to the output
+    blurUpRight->process(blurScratchA, outBlurRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
@@ -286,14 +331,14 @@ public:
 
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "texL ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(textureSizeLeft, 10));
+    debugCpy = stpcpy(debugCpy, msg_ftoa(textureSizeLeft, 10));
     debugCpy = stpcpy(debugCpy, " bL ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeLeft, 10));
     debugCpy = stpcpy(debugCpy, " stDevL ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationLeft, 10));
 
     debugCpy = stpcpy(debugCpy, " texR ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(textureSizeRight, 10));
+    debugCpy = stpcpy(debugCpy, msg_ftoa(textureSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " bR ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " stDevR ");
