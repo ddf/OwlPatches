@@ -43,13 +43,11 @@ public:
 
   float process(float input) override
   {
-    // only need to write to textureA because textureB is just a different view on it
-    textureA.write(input);
+    texture.write(input);
 
     float c = kernel.getBlurSize() * 0.5f;
     float v = 0;
     const int samples = kernel.getSize();
-    const float dimX = textureA.getWidth() + textureBlend;
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
