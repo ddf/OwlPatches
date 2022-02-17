@@ -66,7 +66,7 @@ public:
       if (AXIS == AxisX)
       {
         //v += textureA.readBilinear(coord, 0) * samp.weight;
-        float x = (c + samp.offset)*dimX
+        float x = coord*dimX;
         int x1 = int(x);
         int x2 = x1 + 1;
         float xt = x - x1;
