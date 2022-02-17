@@ -233,11 +233,11 @@ public:
 
     int texLeftA = (int)textureSizeLeft;
     int texLeftB = texLeftA + 1;
-    int texLeftBlend = textureSizeLeft - texLeftA;
+    float texLeftBlend = textureSizeLeft - texLeftA;
 
     int texRightA = (int)textureSizeRight;
     int texRightB = texRightB + 1;
-    int texRightBlend = textureSizeRight - texRightB;
+    float texRightBlend = textureSizeRight - texRightB;
 
     blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft);
     blurLeftA->setTextureSize(texLeftA);
