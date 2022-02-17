@@ -47,12 +47,13 @@ class BlurPatch : public Patch
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
-  static const int minTextureSize = 32;
-  static const int maxTextureSize = 256;
-
   static const int blurKernelSize = 7;
   static const int blurResampleStages = 3;
   static const int blurResampleFactor = 2;
+
+  static const int minTextureSize = 32 / blurResampleFactor;
+  static const int maxTextureSize = 256 / blurResampleFactor;
+  const float maxBlurSamples = 11.0f / minTextureSize;
 
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
@@ -219,12 +220,11 @@ public:
     {
       textureSizeTilt = tilt;
     }
-    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + textureSizeTilt, 0.0f, 1.0f)) / blurResampleFactor;
-    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - textureSizeTilt, 0.0f, 1.0f)) / blurResampleFactor;
-    // try scaling max blur down based on the current texture size,
-    // such that at the smallest texture size we have a max blur of ~0.33
-    float maxBlurL    = 11.0f / blurResampleFactor / textureSizeLeft;
-    float maxBlurR    = 11.0f / blurResampleFactor / textureSizeRight;
+    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + textureSizeTilt, 0.0f, 1.0f));
+    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - textureSizeTilt, 0.0f, 1.0f));
+    // scale max blur down so we never blur more than a maximum number of samples away
+    float maxBlurL    = maxBlurSamples / textureSizeLeft;
+    float maxBlurR    = maxBlurSamples / textureSizeRight;
     if (!blurSizeTiltLocked)
     {
       blurSizeTilt = tilt;
