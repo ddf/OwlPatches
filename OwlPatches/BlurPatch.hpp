@@ -58,8 +58,7 @@ class BlurPatch : public Patch
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
   // where standard deviation should equal (sampleCount - 1)/4.
-  // With 8 samples that is 1.75 and since parameters don't go all the way to 1,
-  // we use 0.18f. The low end sounds about the same with smaller radii,
+  // The minimum value here sounds about the same with smaller radii,
   // it's really only at larger texture sizes combined with larger radii
   // that you start to hear a difference when sweeping the standard deviation,
   // with the maximum value giving the smoothest sounding results.
