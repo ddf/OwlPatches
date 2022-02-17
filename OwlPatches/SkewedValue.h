@@ -3,15 +3,22 @@
 class SkewedFloat
 {
   float value;
+  float center;
   float skew;
   bool enabled;
 
 public:
-  SkewedFloat() : value(0), skew(0), enabled(false) {}
+  SkewedFloat(float value) : value(value), center(0), skew(0), enabled(false) {}
 
   void toggleSkew()
   {
     enabled = !enabled;
+  }
+
+  void resetSkew()
+  {
+    center = value;
+    skew = 0;
   }
 
   bool skewEnabled() const
@@ -19,51 +26,33 @@ public:
     return enabled;
   }
 
-  void setValue(float v)
+  float getLeft() const
   {
-    value = v;
+    return center - skew;
   }
 
-  float getValue() const
+  float getRight() const
   {
-    return value;
+    return center + skew;
   }
 
-  void setSkew(float v)
+  void update(float v)
   {
-    skew = v;
-  }
-
-  float getSkew() const 
-  {
-    return skew;
-  }
-
-  float getMin() const
-  {
-    return getValue() - getSkew();
-  }
-
-  float getMax() const
-  {
-    return getValue() + getSkew();
-  }
-
-  void update(float delta)
-  {
+    float delta = v - value;
     if (enabled)
     {
       skew += delta;
     }
     else
     {
-      value += delta;
+      center += delta;
     }
+    value = v;
   }
 
-  SkewedFloat& operator+=(const float& other) 
+  SkewedFloat& operator=(const float& other) 
   {
-    update(value + other);
+    update(other);
     return *this;
   }
 };

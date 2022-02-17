@@ -86,8 +86,6 @@ class BlurPatch : public Patch
   GaussianBlurSignalProcessor* blurRightA;
   GaussianBlurSignalProcessor* blurRightB;
 
-  float       textureSizeParam;
-  float       blurSizeParam;
   SkewedFloat textureSize;
   SkewedFloat blurSize;
 
@@ -108,7 +106,7 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSizeParam(0), blurSizeParam(0)
+    : textureSize(0), blurSize(0)
     , textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
     , standardDeviation(0.9f, minStandardDev)
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
@@ -124,8 +122,8 @@ public:
     registerParameter(outLeftFollow, "Left Follow>");
     registerParameter(outRightFollow, "Right Follow>");
 
-    setParameterValue(inTextureSize, textureSizeParam);
-    setParameterValue(inBlurSize,    blurSizeParam);
+    setParameterValue(inTextureSize, 0.0f);
+    setParameterValue(inBlurSize,    0.0f);
     setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inBlurTilt, 0.5f);
     setParameterValue(inFeedback, 0.0f);
@@ -182,8 +180,7 @@ public:
       textureSize.toggleSkew();
       if (textureSize.skewEnabled())
       {
-        textureSize.setValue(getParameterValue(inTextureSize));
-        textureSize.setSkew(0);
+        textureSize.resetSkew();
       }
     }
 
@@ -192,8 +189,7 @@ public:
       blurSize.toggleSkew();
       if (blurSize.skewEnabled())
       {
-        blurSize.setValue(getParameterValue(inBlurSize));
-        blurSize.setSkew(0);
+        blurSize.resetSkew();
       }
     }
   }
@@ -209,21 +205,16 @@ public:
 
     const int blockSize = getBlockSize();
 
-    float textureSizeDelta = getParameterValue(inTextureSize) - textureSizeParam;
-    textureSize += textureSizeDelta;
-    textureSizeParam += textureSizeDelta;
+    textureSize = getParameterValue(inTextureSize);
+    blurSize = getParameterValue(inBlurSize);
 
-    float blurSizeDelta = getParameterValue(inBlurSize) - blurSizeParam;
-    blurSize += blurSizeDelta;
-    blurSizeParam += blurSizeDelta;
-
-    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getMin(), 0.0f, 1.0f));
-    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getMax(), 0.0f, 1.0f));
+    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
+    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
     float maxBlurL    = maxBlurSamples / textureSizeLeft;
     float maxBlurR    = maxBlurSamples / textureSizeRight;
-    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSize.getMin(), 0.0f, 1.0f));
-    blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSize.getMax(), 0.0f, 1.0f));
+    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     feedback          = getParameterValue(inFeedback);
 
