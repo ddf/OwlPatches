@@ -47,7 +47,7 @@ class BlurPatch : public Patch
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
   static const int minTextureSize = 32;
-  static const int maxTextureSize = 64;
+  static const int maxTextureSize = 256;
 
   static const int blurKernelSize = 7;
 
@@ -80,8 +80,8 @@ class BlurPatch : public Patch
   bool textureSizeTiltLocked;
   bool blurSizeTiltLocked;
 
-  SmoothFloat textureSizeLeft;
-  SmoothFloat textureSizeRight;
+  StiffFloat textureSizeLeft;
+  StiffFloat textureSizeRight;
   SmoothFloat textureSizeTilt;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
@@ -98,7 +98,7 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSizeLeft(0.99f, minTextureSize), textureSizeRight(0.99f, minTextureSize)
+    : textureSizeLeft(1.25f, minTextureSize), textureSizeRight(1., minTextureSize)
     , textureSizeTiltLocked(false), blurSizeTiltLocked(false)
     , standardDeviation(0.99f, minStandardDev) 
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
@@ -252,13 +252,10 @@ public:
       feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
 
-    if (!(isButtonPressed(BUTTON_1) && isButtonPressed(BUTTON_2)))
-    {
-      blurLeftX->process(feedLeft, blurLeft);
-      blurLeftY->process(blurLeft, blurLeft);
-      blurRightX->process(feedRight, blurRight);
-      blurRightY->process(blurRight, blurRight);
-    }
+    blurLeftX->process(feedLeft, blurLeft);
+    blurLeftY->process(blurLeft, blurLeft);
+    blurRightX->process(feedRight, blurRight);
+    blurRightY->process(blurRight, blurRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);

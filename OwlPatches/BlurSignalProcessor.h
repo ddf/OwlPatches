@@ -13,17 +13,13 @@ template<BlurAxis AXIS>
 class BlurSignalProcessor : public SignalProcessor 
 {
 protected:
-  CircularFloatTexture textureA;
-  CircularFloatTexture textureB;
-  float textureBlend;
+  CircularFloatTexture texture;
   BlurKernel kernel;
 
 public:
   BlurSignalProcessor() {}
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, BlurKernel kernel)
-    : textureA(textureData, textureSizeX, textureSizeY)
-    , textureB(textureData, textureSizeX, textureSizeY)
-    , textureBlend(0)
+    : texture(textureData, textureSizeX, textureSizeY)
     , kernel(kernel)
   {
   }
@@ -33,19 +29,15 @@ public:
     this->kernel = kernel;
   }
 
-  void setTextureSize(float textureSize)
+  void setTextureSize(int textureSize)
   {
-    int texSize = (int)textureSize;
-    textureBlend = textureSize - texSize;
     if (AXIS == AxisX)
     {
-      textureA = textureA.subtexture(texSize, 1);
-      textureB = textureB.subtexture(texSize + 1, 1);
+      texture = texture.subtexture(textureSize, 1);
     }
     else
     {
-      textureA = textureA.subtexture(texSize, texSize);
-      textureB = textureB.subtexture(texSize + 1, texSize + 1);
+      texture = texture.subtexture(textureSize, textureSize);
     }
   }
 
@@ -65,37 +57,11 @@ public:
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        //v += textureA.readBilinear(coord, 0) * samp.weight;
-        float x = coord*dimX;
-        int x1 = int(x);
-        int x2 = x1 + 1;
-        float xt = x - x1;
-        v += Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt) * samp.weight;
-
-        //x = (c + samp.offset)*textureB.getWidth();
-        //x1 = int(x);
-        //x2 = x1 + 1;
-        //xt = x - x1;
-        //float vB = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
-
-        //v += Interpolator::linear(vA, vB, textureBlend)* samp.weight;
+        v += texture.readBilinear(coord, 0) * samp.weight;
       }
       else
       {
-        v += textureA.readBilinear(0, coord) * samp.weight;
-        //float y = (c + samp.offset)*dimA;
-        //int y1 = int(y);
-        //int y2 = y1 + 1;
-        //float yt = y - y1;
-        //float vA = Interpolator::linear(textureA.read(0, y1), textureA.read(0, y2), yt);
-
-        //y = (c + samp.offset)*textureB.getHeight();
-        //y1 = int(y);
-        //y2 = y1 + 1;
-        //yt = y - y1;
-        //float vB = Interpolator::linear(textureB.read(0, y1), textureB.read(0, y2), yt);
-
-        //v += Interpolator::linear(vA, vB, textureBlend) * samp.weight;
+        v += texture.readBilinear(0, coord) * samp.weight;
       }
     }
 
