@@ -79,7 +79,7 @@ public:
 
   static void destroy(BlurSignalProcessor<AXIS>* blur)
   {
-    delete[] blur->textureA.getData();
+    delete[] blur->texture.getData();
     delete blur;
   }
 };
