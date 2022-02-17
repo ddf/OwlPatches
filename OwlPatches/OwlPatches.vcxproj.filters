@@ -63,5 +63,11 @@
     <ClInclude Include="BlurKernel.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GaussianBlurSignalProcessor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SkewedValue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

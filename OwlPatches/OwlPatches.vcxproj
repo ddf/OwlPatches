@@ -139,6 +139,7 @@
     <ClInclude Include="BlurPatch.hpp" />
     <ClInclude Include="BlurSignalProcessor.h" />
     <ClInclude Include="CircularTexture.h" />
+    <ClInclude Include="GaussianBlurSignalProcessor.h" />
     <ClInclude Include="GlitchLichPatch.hpp" />
     <ClInclude Include="Grain.hpp" />
     <ClInclude Include="GrainzPatch.hpp" />
@@ -149,6 +150,7 @@
     <ClInclude Include="Noise.hpp" />
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
+    <ClInclude Include="SkewedValue.h" />
     <ClInclude Include="TapTempo.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

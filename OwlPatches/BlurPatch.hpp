@@ -30,6 +30,7 @@ DESCRIPTION:
 #include "Resample.h"
 #include "Interpolator.h"
 #include "GaussianBlurSignalProcessor.h"
+#include "SkewedValue.h"
 #include "basicmaths.h"
 #include "custom_dsp.h" // for SoftLimit
 #include <string.h>
@@ -85,15 +86,14 @@ class BlurPatch : public Patch
   GaussianBlurSignalProcessor* blurRightA;
   GaussianBlurSignalProcessor* blurRightB;
 
-  bool textureSizeTiltLocked;
-  bool blurSizeTiltLocked;
+  SkewedFloat textureSize;
+  SkewedFloat blurSize;
 
+  // actual sizes used for textures based on size and tilt values
   SmoothFloat textureSizeLeft;
   SmoothFloat textureSizeRight;
-  SmoothFloat textureSizeTilt;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
-  SmoothFloat blurSizeTilt;
   SmoothFloat standardDeviation;
   SmoothFloat standardDeviationLeft;
   SmoothFloat standardDeviationRight;
@@ -107,7 +107,6 @@ class BlurPatch : public Patch
 public:
   BlurPatch() 
     : textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
-    , textureSizeTiltLocked(false), blurSizeTiltLocked(false)
     , standardDeviation(0.9f, minStandardDev)
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
   {
@@ -177,12 +176,34 @@ public:
   {
     if (bid == BUTTON_1 && value == ON)
     {
-      textureSizeTiltLocked = !textureSizeTiltLocked;
+      textureSize.toggleSkew();
+      if (textureSize.skewEnabled())
+      {
+        textureSize.setValue(getParameterValue(inTextureSize));
+        textureSize.setSkew(0);
+      }
     }
 
     if (bid == BUTTON_2 && value == ON)
     {
-      blurSizeTiltLocked = !blurSizeTiltLocked;
+      blurSize.toggleSkew();
+      if (blurSize.skewEnabled())
+      {
+        blurSize.setValue(getParameterValue(inBlurSize));
+        blurSize.setSkew(0);
+      }
+    }
+  }
+
+  void encoderChanged(PatchParameterId pid, int16_t delta, uint16_t samples) override
+  {
+    if (pid == inTextureSize)
+    {
+      textureSize += delta;
+    }
+    else if (pid == inBlurSize)
+    {
+      blurSize += delta;
     }
   }
 
@@ -197,34 +218,13 @@ public:
 
     const int blockSize = getBlockSize();
 
-    float textureSizeParam = getParameterValue(inTextureSize);
-    float blurSizeParam = getParameterValue(inBlurSize);
-    float blurTiltParam = getParameterValue(inBlurTilt);
-    float tilt = 0;
-    if (blurTiltParam >= 0.53f)
-    {
-      tilt = (blurTiltParam - 0.53f) * 1.06f;
-    }
-    else if (blurTiltParam <= 0.47f)
-    {
-      tilt = (0.47f - blurTiltParam) * -1.06f;
-    }
-
-    if (!textureSizeTiltLocked)
-    {
-      textureSizeTilt = tilt;
-    }
-    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam + textureSizeTilt, 0.0f, 1.0f));
-    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSizeParam - textureSizeTilt, 0.0f, 1.0f));
+    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getMin(), 0.0f, 1.0f));
+    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getMax(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
     float maxBlurL    = maxBlurSamples / textureSizeLeft;
     float maxBlurR    = maxBlurSamples / textureSizeRight;
-    if (!blurSizeTiltLocked)
-    {
-      blurSizeTilt = tilt;
-    }
-    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSizeParam - blurSizeTilt, 0.0f, 1.0f));
-    blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSizeParam + blurSizeTilt, 0.0f, 1.0f));
+    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurL, std::clamp(blurSize.getMin(), 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, maxBlurR, std::clamp(blurSize.getMax(), 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     feedback          = getParameterValue(inFeedback);
 
@@ -326,8 +326,8 @@ public:
 
     setParameterValue(outLeftFollow, inLeftRms*4);
     setParameterValue(outRightFollow, inRightRms*4);
-    setButton(BUTTON_1, textureSizeTiltLocked);
-    setButton(BUTTON_2, blurSizeTiltLocked);
+    setButton(BUTTON_1, textureSize.skewEnabled());
+    setButton(BUTTON_2, blurSize.skewEnabled());
 
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "texL ");
@@ -345,5 +345,4 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationRight, 10));
     debugMessage(debugMsg);
   }
-
 };
