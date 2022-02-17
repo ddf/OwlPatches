@@ -86,6 +86,8 @@ class BlurPatch : public Patch
   GaussianBlurSignalProcessor* blurRightA;
   GaussianBlurSignalProcessor* blurRightB;
 
+  float       textureSizeParam;
+  float       blurSizeParam;
   SkewedFloat textureSize;
   SkewedFloat blurSize;
 
@@ -106,7 +108,8 @@ class BlurPatch : public Patch
 
 public:
   BlurPatch() 
-    : textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
+    : textureSizeParam(0), blurSizeParam(0)
+    , textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
     , standardDeviation(0.9f, minStandardDev)
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
   {
@@ -121,8 +124,8 @@ public:
     registerParameter(outLeftFollow, "Left Follow>");
     registerParameter(outRightFollow, "Right Follow>");
 
-    setParameterValue(inTextureSize, 0);
-    setParameterValue(inBlurSize,    0.0f);
+    setParameterValue(inTextureSize, textureSizeParam);
+    setParameterValue(inBlurSize,    blurSizeParam);
     setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inBlurTilt, 0.5f);
     setParameterValue(inFeedback, 0.0f);
@@ -195,18 +198,6 @@ public:
     }
   }
 
-  void encoderChanged(PatchParameterId pid, int16_t delta, uint16_t samples) override
-  {
-    if (pid == inTextureSize)
-    {
-      textureSize += delta;
-    }
-    else if (pid == inBlurSize)
-    {
-      blurSize += delta;
-    }
-  }
-
   void processAudio(AudioBuffer& audio) override
   {
     FloatArray inLeft = audio.getSamples(0);
@@ -217,6 +208,14 @@ public:
     FloatArray feedRight = feedbackBuffer->getSamples(1);
 
     const int blockSize = getBlockSize();
+
+    float textureSizeDelta = getParameterValue(inTextureSize) - textureSizeParam;
+    textureSize += textureSizeDelta;
+    textureSizeParam += textureSizeDelta;
+
+    float blurSizeDelta = getParameterValue(inBlurSize) - blurSizeParam;
+    blurSize += blurSizeDelta;
+    blurSizeParam += blurSizeDelta;
 
     textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getMin(), 0.0f, 1.0f));
     textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getMax(), 0.0f, 1.0f));
