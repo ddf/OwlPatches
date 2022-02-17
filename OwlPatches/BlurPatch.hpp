@@ -107,7 +107,7 @@ class BlurPatch : public Patch
 public:
   BlurPatch() 
     : textureSize(0), blurSize(0)
-    , textureSizeLeft(0.999f, minTextureSize), textureSizeRight(0.999f, minTextureSize)
+    , textureSizeLeft(0.99f, minTextureSize), textureSizeRight(0.99f, minTextureSize)
     , standardDeviation(0.9f, minStandardDev)
     , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
   {
