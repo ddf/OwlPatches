@@ -57,6 +57,7 @@ public:
     float c = kernel.getBlurSize() * 0.5f;
     float v = 0;
     const int samples = kernel.getSize();
+    const float dimX = textureA.getWidth() + textureBlend;
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
@@ -64,12 +65,12 @@ public:
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        v += textureA.readBilinear(coord, 0) * samp.weight;
-        //float x = (c + samp.offset)*dimA;
-        //int x1 = int(x);
-        //int x2 = x1 + 1;
-        //float xt = x - x1;
-        //float vA = Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt);
+        //v += textureA.readBilinear(coord, 0) * samp.weight;
+        float x = (c + samp.offset)*dimX
+        int x1 = int(x);
+        int x2 = x1 + 1;
+        float xt = x - x1;
+        v += Interpolator::linear(textureA.read(x1, 0), textureA.read(x2, 0), xt) * samp.weight;
 
         //x = (c + samp.offset)*textureB.getWidth();
         //x1 = int(x);
