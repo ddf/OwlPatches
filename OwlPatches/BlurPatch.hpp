@@ -39,11 +39,10 @@ class BlurPatch : public Patch
 {
   static const PatchParameterId inTextureSize = PARAMETER_A;
   static const PatchParameterId inBlurSize    = PARAMETER_B;
-  static const PatchParameterId inBlurTilt    = PARAMETER_C;
-  static const PatchParameterId inFeedback    = PARAMETER_D;
+  static const PatchParameterId inFeedback    = PARAMETER_C;
+  static const PatchParameterId inWetDry      = PARAMETER_D;
 
-  static const PatchParameterId inWetDry      = PARAMETER_AA;
-  static const PatchParameterId inStandardDev = PARAMETER_AB;
+  static const PatchParameterId inStandardDev = PARAMETER_AA;
 
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
@@ -113,9 +112,7 @@ public:
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
-    registerParameter(inBlurTilt, "Blur Tilt");
     registerParameter(inFeedback, "Feedback");
-
     registerParameter(inWetDry, "Dry/Wet");
     registerParameter(inStandardDev, "Standard Deviation");
 
@@ -125,7 +122,6 @@ public:
     setParameterValue(inTextureSize, 0.0f);
     setParameterValue(inBlurSize,    0.0f);
     setParameterValue(inStandardDev, 1.0f);
-    setParameterValue(inBlurTilt, 0.5f);
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
     setParameterValue(outLeftFollow, 0);
