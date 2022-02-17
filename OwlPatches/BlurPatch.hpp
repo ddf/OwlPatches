@@ -27,6 +27,7 @@ DESCRIPTION:
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
+#include "Resample.h"
 #include "Interpolator.h"
 #include "BlurSignalProcessor.h"
 #include "basicmaths.h"
@@ -50,6 +51,7 @@ class BlurPatch : public Patch
   static const int maxTextureSize = 256;
 
   static const int blurKernelSize = 7;
+  static const int blurDownsampleFactor = 2;
 
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
@@ -71,6 +73,12 @@ class BlurPatch : public Patch
   StereoDcBlockingFilter*     dcFilter;
   BiquadFilter*               feedbackFilterLeft;
   BiquadFilter*               feedbackFilterRight;
+
+  FloatArray   blurScratch;
+  DownSampler* blurDownLeft;
+  DownSampler* blurDownRight;
+  UpSampler*   blurUpLeft;
+  UpSampler*   blurUpRight;
 
   BlurSignalProcessor<AxisX>* blurLeftX;
   BlurSignalProcessor<AxisY>* blurLeftY;
@@ -133,6 +141,12 @@ public:
     blurKernelLeft = BlurKernel::create(blurKernelSize);
     blurKernelRight = BlurKernel::create(blurKernelSize);
 
+    blurScratch   = FloatArray::create(getBlockSize() / blurDownsampleFactor);
+    blurDownLeft  = DownSampler::create(1, blurDownsampleFactor);
+    blurDownRight = DownSampler::create(1, blurDownsampleFactor);
+    blurUpLeft    = UpSampler::create(1, blurDownsampleFactor);
+    blurUpRight   = UpSampler::create(1, blurDownsampleFactor);
+
     blurLeftX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernelLeft);
     blurLeftY = BlurSignalProcessor<AxisY>::create(maxTextureSize, blurKernelLeft);
     blurRightX = BlurSignalProcessor<AxisX>::create(maxTextureSize, blurKernelRight);
@@ -146,6 +160,12 @@ public:
 
     BlurKernel::destroy(blurKernelLeft);
     BlurKernel::destroy(blurKernelRight);
+
+    FloatArray::destroy(blurScratch);
+    DownSampler::destroy(blurDownLeft);
+    DownSampler::destroy(blurDownRight);
+    UpSampler::destroy(blurUpLeft);
+    UpSampler::destroy(blurUpRight);
 
     StereoDcBlockingFilter::destroy(dcFilter);
     BiquadFilter::destroy(feedbackFilterLeft);
@@ -252,10 +272,15 @@ public:
       feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
 
-    blurLeftX->process(feedLeft, blurLeft);
-    blurLeftY->process(blurLeft, blurLeft);
-    blurRightX->process(feedRight, blurRight);
-    blurRightY->process(blurRight, blurRight);
+    blurDownLeft->process(feedLeft, blurScratch);
+    blurLeftX->process(blurScratch, blurScratch);
+    blurLeftY->process(blurScratch, blurScratch);
+    blurUpLeft->process(blurScratch, blurLeft);
+
+    blurDownRight->process(feedRight, blurScratch);
+    blurRightX->process(blurScratch, blurScratch);
+    blurRightY->process(blurScratch, blurScratch);
+    blurUpRight->process(blurScratch, blurRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
     float wet = getParameterValue(inWetDry);
