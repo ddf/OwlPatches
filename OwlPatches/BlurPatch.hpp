@@ -200,8 +200,8 @@ public:
 
     const int blockSize = getBlockSize();
 
-    textureSize = getParameterValue(inTextureSize);
-    blurSize = getParameterValue(inBlurSize);
+    textureSize = 0.0f; // getParameterValue(inTextureSize);
+    blurSize = 0.99f; // getParameterValue(inBlurSize);
 
     textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
     textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
@@ -209,7 +209,7 @@ public:
     blurSizeLeft      = Interpolator::linear(0.0f, maxBlurSamples / textureSizeLeft, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
     blurSizeRight     = Interpolator::linear(0.0f, maxBlurSamples / textureSizeRight, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
-    feedback          = getParameterValue(inFeedback);
+    feedback = 0.0f; // getParameterValue(inFeedback);
 
     standardDeviationLeft  = standardDeviation;
     standardDeviationRight = standardDeviation;
@@ -288,7 +288,7 @@ public:
     blurUpRight->process(blurScratchA, outBlurRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
-    float wet = getParameterValue(inWetDry);
+    float wet = 1.0f; // getParameterValue(inWetDry);
     float dry = 1.0f - wet;
     inLeftRms = inLeft.getRms();
     inRightRms = inRight.getRms();
