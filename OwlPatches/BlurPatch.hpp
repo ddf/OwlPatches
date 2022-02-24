@@ -201,7 +201,7 @@ public:
     const int blockSize = getBlockSize();
     
     textureSize = getParameterValue(inTextureSize);
-    blurSize = 0.5f; // getParameterValue(inBlurSize);
+    blurSize = getParameterValue(inBlurSize);
 
     textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
     textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
