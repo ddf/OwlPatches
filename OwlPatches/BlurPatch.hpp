@@ -43,6 +43,7 @@ class BlurPatch : public Patch
   static const PatchParameterId inWetDry      = PARAMETER_D;
 
   static const PatchParameterId inStandardDev = PARAMETER_AA;
+  static const PatchParameterId inBlurGain    = PARAMETER_AB; 
 
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
@@ -117,6 +118,7 @@ public:
     registerParameter(inFeedback, "Feedback");
     registerParameter(inWetDry, "Dry/Wet");
     registerParameter(inStandardDev, "Standard Deviation");
+    registerParameter(inBlurGain, "Blur Gain Compensation");
 
     registerParameter(outLeftFollow, "Left Follow>");
     registerParameter(outRightFollow, "Right Follow>");
@@ -126,6 +128,7 @@ public:
     setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
+    setParameterValue(inBlurGain, 1);
     setParameterValue(outLeftFollow, 0);
     setParameterValue(outRightFollow, 0);
 
@@ -300,8 +303,9 @@ public:
     const float rmsThreshold = 0.0001f;
     blurLeftGain  = (inLeftRms > rmsThreshold && blurLeftRms > rmsThreshold ? inLeftRms / blurLeftRms : 1);
     blurRightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
-    //outBlurLeft.multiply(blurLeftGain);
-    //outBlurRight.multiply(blurRightGain);
+    float gainAmount = getParameterValue(inBlurGain);
+    outBlurLeft.multiply(Interpolator::linear(1, blurLeftGain, gainAmount));
+    outBlurRight.multiply(Interpolator::linear(1, blurRightGain, gainAmount));
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
     for (int i = 0; i < blockSize; ++i)
