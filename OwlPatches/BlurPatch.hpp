@@ -266,7 +266,7 @@ public:
     // mix based on the blend
     blurScratchA.multiply(1.0f - texLeftBlend);
     blurScratchB.multiply(texLeftBlend);
-    //blurScratchA.add(blurScratchB);
+    blurScratchA.add(blurScratchB);
 
     // upsample to the output
     blurUpLeft->process(blurScratchA, outBlurLeft);
@@ -282,7 +282,7 @@ public:
     // mix based on the blend
     blurScratchA.multiply(1.0f - texRightBlend);
     blurScratchB.multiply(texRightBlend);
-    //blurScratchA.add(blurScratchB);
+    blurScratchA.add(blurScratchB);
 
     // upsample to the output
     blurUpRight->process(blurScratchA, outBlurRight);
