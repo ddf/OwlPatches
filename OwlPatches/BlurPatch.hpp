@@ -300,8 +300,8 @@ public:
     const float rmsThreshold = 0.0001f;
     blurLeftGain  = (inLeftRms > rmsThreshold && blurLeftRms > rmsThreshold ? inLeftRms / blurLeftRms : 1);
     blurRightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
-    outBlurLeft.multiply(blurLeftGain);
-    outBlurRight.multiply(blurRightGain);
+    //outBlurLeft.multiply(blurLeftGain);
+    //outBlurRight.multiply(blurRightGain);
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
     for (int i = 0; i < blockSize; ++i)
