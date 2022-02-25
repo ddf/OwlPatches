@@ -288,7 +288,7 @@ public:
     blurUpRight->process(blurScratchA, outBlurRight);
 
     // do wet/dry mix with original signal applying makeup gain to the blurred signal
-    float wet = 1.0f; // getParameterValue(inWetDry);
+    float wet = getParameterValue(inWetDry);
     float dry = 1.0f - wet;
     inLeftRms = inLeft.getRms();
     inRightRms = inRight.getRms();
