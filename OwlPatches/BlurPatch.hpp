@@ -322,8 +322,8 @@ public:
     float threshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
     blurLeftCompressor.SetThreshold(threshold);
     blurRightCompressor.SetThreshold(threshold);
-    blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
-    blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
+    blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, inLeft, blockSize);
+    blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, inRight, blockSize);
 
     for (int i = 0; i < blockSize; ++i)
     {
