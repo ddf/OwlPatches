@@ -33,7 +33,10 @@ DESCRIPTION:
 #include "SkewedValue.h"
 #include "basicmaths.h"
 #include "custom_dsp.h" // for SoftLimit
+#include "Dynamics/compressor.h"
 #include <string.h>
+
+typedef daisysp::Compressor Compressor;
 
 class BlurPatch : public Patch
 {
@@ -105,6 +108,9 @@ class BlurPatch : public Patch
   SmoothFloat blurLeftGain;
   SmoothFloat blurRightGain;
 
+  Compressor blurLeftCompressor;
+  Compressor blurRightCompressor;
+
 public:
   BlurPatch() 
     : textureSize(0), blurSize(0)
@@ -128,7 +134,7 @@ public:
     setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
-    setParameterValue(inBlurGain, 1);
+    setParameterValue(inBlurGain, 0);
     setParameterValue(outLeftFollow, 0);
     setParameterValue(outRightFollow, 0);
 
@@ -150,6 +156,9 @@ public:
     blurLeftB = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
     blurRightA = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
     blurRightB = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+
+    blurLeftCompressor.Init(getSampleRate());
+    blurRightCompressor.Init(getSampleRate());
   }
 
   ~BlurPatch()
@@ -298,21 +307,32 @@ public:
     float dry = 1.0f - wet;
     inLeftRms = inLeft.getRms();
     inRightRms = inRight.getRms();
-    blurLeftRms = outBlurLeft.getRms();
-    blurRightRms = outBlurRight.getRms();
-    const float rmsThreshold = 0.0001f;
-    blurLeftGain  = (inLeftRms > rmsThreshold && blurLeftRms > rmsThreshold ? inLeftRms / blurLeftRms : 1);
-    blurRightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
-    float gainAmount = getParameterValue(inBlurGain);
-    outBlurLeft.multiply(Interpolator::linear(1, blurLeftGain, gainAmount));
-    outBlurRight.multiply(Interpolator::linear(1, blurRightGain, gainAmount));
-    outBlurLeft.copyTo(feedLeft);
-    outBlurRight.copyTo(feedRight);
+
+    // attempt to match blur volume to input volume
+    //blurLeftRms = outBlurLeft.getRms();
+    //blurRightRms = outBlurRight.getRms();
+    //const float rmsThreshold = 0.0001f;
+    //blurLeftGain  = (inLeftRms > rmsThreshold && blurLeftRms > rmsThreshold ? inLeftRms / blurLeftRms : 1);
+    //blurRightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
+    //float gainAmount = getParameterValue(inBlurGain);
+    //outBlurLeft.multiply(Interpolator::linear(1, blurLeftGain, gainAmount));
+    //outBlurRight.multiply(Interpolator::linear(1, blurRightGain, gainAmount));
+
+    // apply compression
+    float threshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
+    blurLeftCompressor.SetThreshold(threshold);
+    blurRightCompressor.SetThreshold(threshold);
+    blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
+    blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
+
     for (int i = 0; i < blockSize; ++i)
     {
       inLeft[i]  = (inLeft[i] * dry + outBlurLeft[i] * wet);
       inRight[i] = (inRight[i] * dry + outBlurRight[i] * wet);
     }
+
+    outBlurLeft.copyTo(feedLeft);
+    outBlurRight.copyTo(feedRight);
 
     setParameterValue(outLeftFollow, inLeftRms*4);
     setParameterValue(outRightFollow, inRightRms*4);

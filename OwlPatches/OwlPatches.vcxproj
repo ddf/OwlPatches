@@ -70,16 +70,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>S:\dev\OwlProgram\Libraries\DaisySP\Source;S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>S:\dev\OwlProgram\Libraries\DaisySP\Source;S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>S:\dev\OwlProgram\Libraries\DaisySP\Source;S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>S:\dev\OwlProgram\Libraries\DaisySP\Source;S:\dev\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
