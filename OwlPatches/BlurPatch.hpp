@@ -302,9 +302,6 @@ public:
     // upsample to the output
     blurUpRight->process(blurScratchA, outBlurRight);
 
-    // do wet/dry mix with original signal applying makeup gain to the blurred signal
-    float wet = getParameterValue(inWetDry);
-    float dry = 1.0f - wet;
     inLeftRms = inLeft.getRms();
     inRightRms = inRight.getRms();
 
@@ -322,17 +319,27 @@ public:
     float threshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
     blurLeftCompressor.SetThreshold(threshold);
     blurRightCompressor.SetThreshold(threshold);
-    blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, inLeft, blockSize);
-    blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, inRight, blockSize);
-
-    for (int i = 0; i < blockSize; ++i)
-    {
-      inLeft[i]  = (inLeft[i] * dry + outBlurLeft[i] * wet);
-      inRight[i] = (inRight[i] * dry + outBlurRight[i] * wet);
-    }
+    blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
+    blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
 
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
+    
+    // do wet/dry mix with original signal
+    float wet = getParameterValue(inWetDry);
+    float dry = 1.0f - wet;
+    inLeft.multiply(dry);
+    inRight.multiply(dry);
+    outBlurLeft.multiply(wet);
+    outBlurRight.multiply(wet);
+    inLeft.add(outBlurLeft);
+    inRight.add(outBlurRight);
+
+    //for (int i = 0; i < blockSize; ++i)
+    //{
+    //  inLeft[i]  = (inLeft[i] * dry + outBlurLeft[i] * wet);
+    //  inRight[i] = (inRight[i] * dry + outBlurRight[i] * wet);
+    //}
 
     setParameterValue(outLeftFollow, inLeftRms*4);
     setParameterValue(outRightFollow, inRightRms*4);
