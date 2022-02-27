@@ -270,8 +270,8 @@ public:
     textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
     textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
-    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurSamples / textureSizeLeft, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
-    blurSizeRight     = Interpolator::linear(0.0f, maxBlurSamples / textureSizeRight, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
+    blurSizeLeft      = Interpolator::linear(0.0f, 0.5f /* maxBlurSamples / textureSizeLeft */, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, 0.5f /* maxBlurSamples / textureSizeRight */, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     feedback          = getParameterValue(inFeedback);
 
