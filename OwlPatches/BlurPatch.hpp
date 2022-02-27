@@ -237,7 +237,7 @@ public:
     blurRightCompressor.SetRatio(compressionRatio);
 
     const float blurGainMax = compressionRatio;
-    const float rmsMin = pow10f(-blurGainMax / 20.f);
+    const float rmsMin = pow10f(-compressorRatioMax / 20.f);
 
     inLeftRms = max(inLeft.getRms(), rmsMin);
     inRightRms = max(inRight.getRms(), rmsMin);
