@@ -46,8 +46,9 @@ class BlurPatch : public Patch
   static const PatchParameterId inWetDry      = PARAMETER_D;
 
   static const PatchParameterId inStandardDev = PARAMETER_AA;
-  static const PatchParameterId inBlurGain    = PARAMETER_AB; 
+  static const PatchParameterId inCompressionThreshold    = PARAMETER_AB; 
   static const PatchParameterId inCompressionRatio = PARAMETER_AC;
+  static const PatchParameterId inCompensationSpeed = PARAMETER_AD;
 
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
@@ -73,6 +74,10 @@ class BlurPatch : public Patch
   const float compressorRatioMin = 1.0f;
   const float compressorRatioMax = 40.0f;
   const float compressorRatioDefault = 20.0f;
+
+  const float compesationSpeedMin = 0.99f;
+  const float compensationSpeedDefault = 0.95f;
+  const float compensationSpeedMax = 0.9f;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
@@ -129,8 +134,9 @@ public:
     registerParameter(inFeedback, "Feedback");
     registerParameter(inWetDry, "Dry/Wet");
     registerParameter(inStandardDev, "Standard Deviation");
-    registerParameter(inBlurGain, "Blur Gain Compensation");
+    registerParameter(inCompressionThreshold, "Blur Gain Compensation");
     registerParameter(inCompressionRatio, "Blur Compressor Ratio");
+    registerParameter(inCompensationSpeed, "Blur Gain Compensation Speed");
 
     registerParameter(outLeftFollow, "Left Follow>");
     registerParameter(outRightFollow, "Right Follow>");
@@ -140,8 +146,9 @@ public:
     setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
-    setParameterValue(inBlurGain, 0);
+    setParameterValue(inCompressionThreshold, 0);
     setParameterValue(inCompressionRatio, (compressorRatioDefault - compressorRatioMin) / (compressorRatioMax  - compressorRatioMin));
+    setParameterValue(inCompensationSpeed, (compensationSpeedDefault - compesationSpeedMin) / (compensationSpeedMax - compesationSpeedMin));
     setParameterValue(outLeftFollow, 0);
     setParameterValue(outRightFollow, 0);
 
@@ -260,13 +267,17 @@ public:
     blurRightB->setBlur(blurSizeRight, standardDeviationRight);
     blurRightB->setTextureSize(texRightB);
 
-    const float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
+    const float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inCompressionThreshold));
     blurLeftCompressor.SetThreshold(compressionThreshold);
     blurRightCompressor.SetThreshold(compressionThreshold);
 
     const float compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
     blurLeftCompressor.SetRatio(compressionRatio);
     blurRightCompressor.SetRatio(compressionRatio);
+
+    const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
+    blurLeftGain.lambda = compensationSpeed;
+    blurRightGain.lambda = compensationSpeed;
 
     dcFilter->process(audio, audio);
 
