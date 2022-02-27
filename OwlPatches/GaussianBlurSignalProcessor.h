@@ -9,7 +9,7 @@ class GaussianBlurSignalProcessor : SignalProcessor
   BlurKernel kernelX, kernelY;
 
 public:
-  GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>* blurX, BlurSignalProcessor<AxisY>* blurY, BlurKernel kernelX, kernelY)
+  GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>* blurX, BlurSignalProcessor<AxisY>* blurY, BlurKernel kernelX, BlurKernel kernelY)
     : blurX(blurX), blurY(blurY), kernelX(kernelX), kernelY(kernelY)
   {
 
