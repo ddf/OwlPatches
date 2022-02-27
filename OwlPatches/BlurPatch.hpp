@@ -36,8 +36,15 @@ DESCRIPTION:
 #include "Dynamics/compressor.h"
 #include <string.h>
 
+#define FRACTIONAL_TEXTURE_SIZE
+
 typedef daisysp::Compressor Compressor;
+
+#ifdef FRACTIONAL_TEXTURE_SIZE
+typedef GaussianBlurSignalProcessor<float> GaussianBlur;
+#else
 typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
+#endif
 
 class BlurPatch : public Patch
 {
@@ -87,17 +94,20 @@ class BlurPatch : public Patch
   BiquadFilter*               feedbackFilterLeft;
   BiquadFilter*               feedbackFilterRight;
 
-  FloatArray   blurScratchA;
-  FloatArray   blurScratchB;
   DownSampler* blurDownLeft;
   DownSampler* blurDownRight;
   UpSampler*   blurUpLeft;
   UpSampler*   blurUpRight;
 
+  FloatArray   blurScratchA;
   GaussianBlur* blurLeftA;
-  GaussianBlur* blurLeftB;
   GaussianBlur* blurRightA;
+
+#ifndef FRACTIONAL_TEXTURE_SIZE
+  FloatArray   blurScratchB;
+  GaussianBlur* blurLeftB;
   GaussianBlur* blurRightB;
+#endif
 
   SkewedFloat textureSize;
   SkewedFloat blurSize;
@@ -161,17 +171,20 @@ public:
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    blurScratchA  = FloatArray::create(getBlockSize() / blurResampleFactor);
-    blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurDownLeft  = DownSampler::create(blurResampleStages, blurResampleFactor);
     blurDownRight = DownSampler::create(blurResampleStages, blurResampleFactor);
     blurUpLeft    = UpSampler::create(blurResampleStages, blurResampleFactor);
     blurUpRight   = UpSampler::create(blurResampleStages, blurResampleFactor);
 
+    blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurLeftA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
-    blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
     blurRightA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+
+#ifndef FRACTIONAL_TEXTURE_SIZE
+    blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
+    blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
     blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+#endif
 
     blurLeftCompressor.Init(getSampleRate());
     blurRightCompressor.Init(getSampleRate());
@@ -185,8 +198,6 @@ public:
     AudioBuffer::destroy(blurBuffer);
     AudioBuffer::destroy(feedbackBuffer);
 
-    FloatArray::destroy(blurScratchA);
-    FloatArray::destroy(blurScratchB);
     DownSampler::destroy(blurDownLeft);
     DownSampler::destroy(blurDownRight);
     UpSampler::destroy(blurUpLeft);
@@ -196,10 +207,15 @@ public:
     BiquadFilter::destroy(feedbackFilterLeft);
     BiquadFilter::destroy(feedbackFilterRight);
 
+    FloatArray::destroy(blurScratchA);
     GaussianBlur::destroy(blurLeftA);
-    GaussianBlur::destroy(blurLeftB);
     GaussianBlur::destroy(blurRightA);
+
+#ifndef FRACTIONAL_TEXTURE_SIZE
+    FloatArray::destroy(blurScratchB);
+    GaussianBlur::destroy(blurLeftB);
     GaussianBlur::destroy(blurRightB);
+#endif
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -248,6 +264,13 @@ public:
     standardDeviationLeft  = standardDeviation;
     standardDeviationRight = standardDeviation;
 
+#ifdef FRACTIONAL_TEXTURE_SIZE
+    blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft);
+    blurLeftA->setTextureSize(textureSizeLeft);
+
+    blurRightA->setBlur(blurSizeRight, standardDeviationRight);
+    blurRightA->setTextureSize(textureSizeRight);
+#else
     int texLeftA = (int)textureSizeLeft;
     int texLeftB = texLeftA + 1;
     float texLeftBlend = textureSizeLeft - texLeftA;
@@ -265,6 +288,7 @@ public:
     blurRightA->setTextureSize(texRightA);
     blurRightB->setBlur(blurSizeRight, standardDeviationRight, texRightBlend);
     blurRightB->setTextureSize(texRightB);
+#endif
 
     const float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inCompressionThreshold));
     blurLeftCompressor.SetThreshold(compressionThreshold);
@@ -298,52 +322,66 @@ public:
       feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
 
-    // downsample and copy
-    blurDownLeft->process(feedLeft, blurScratchA);
+    // left channel blur
+    {
+      // downsample and copy
+      blurDownLeft->process(feedLeft, blurScratchA);
 
-    // process both texture sizes
-    blurLeftB->process(blurScratchA, blurScratchB);
-    blurLeftA->process(blurScratchA, blurScratchA);
+#ifdef FRACTIONAL_TEXTURE_SIZE
+      blurLeftA->process(blurScratchA, blurScratchA);
+#else
+      // process both texture sizes
+      blurLeftB->process(blurScratchA, blurScratchB);
+      blurLeftA->process(blurScratchA, blurScratchA);
 
-    // mix 
-    blurScratchA.add(blurScratchB);
+      // mix 
+      blurScratchA.add(blurScratchB);
+#endif
 
-    // compress
-    //blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      // compress
+      //blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
-    // attempt to match blur volume to input volume
-    blurLeftRms = max(blurScratchA.getRms(), rmsMin);
-    float leftGain = min(pow10f(log10f(max(inLeftRms.getValue(), rmsMin)) - log10f(blurLeftRms)), blurGainMax);
-    // set reactiveness based on how much the gain changed
-    blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurLeftGain - leftGain) / blurGainMax);
-    blurLeftGain = leftGain;
-    blurScratchA.multiply(blurLeftGain);
+      // attempt to match blur volume to input volume
+      blurLeftRms = max(blurScratchA.getRms(), rmsMin);
+      float leftGain = min(pow10f(log10f(max(inLeftRms.getValue(), rmsMin)) - log10f(blurLeftRms)), blurGainMax);
+      // set reactiveness based on how much the gain changed
+      blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurLeftGain - leftGain) / blurGainMax);
+      blurLeftGain = leftGain;
+      blurScratchA.multiply(blurLeftGain);
 
-    // upsample to the output
-    blurUpLeft->process(blurScratchA, outBlurLeft);
+      // upsample to the output
+      blurUpLeft->process(blurScratchA, outBlurLeft);
+    }
 
-    // downsample and copy
-    blurDownRight->process(feedRight, blurScratchA);
+    // right channel blur
+    {
+      // downsample and copy
+      blurDownRight->process(feedRight, blurScratchA);
 
-    // process both texture sizes
-    blurRightB->process(blurScratchA, blurScratchB);
-    blurRightA->process(blurScratchA, blurScratchA);
+#ifdef FRACTIONAL_TEXTURE_SIZE
+      blurRightA->process(blurScratchA, blurScratchA);
+#else
+      // process both texture sizes
+      blurRightB->process(blurScratchA, blurScratchB);
+      blurRightA->process(blurScratchA, blurScratchA);
 
-    // mix
-    blurScratchA.add(blurScratchB);
+      // mix
+      blurScratchA.add(blurScratchB);
+#endif
 
-    // compress
-    //blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      // compress
+      //blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
-    // attempt to match blur volume to input volume
-    blurRightRms = max(blurScratchA.getRms(), rmsMin);
-    float rightGain = min(pow10f(log10f(max(inRightRms.getValue(), rmsMin)) - log10f(blurRightRms)), blurGainMax);
-    blurRightGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurRightGain - rightGain) / blurGainMax);
-    blurRightGain = rightGain;
-    blurScratchA.multiply(blurRightGain);
+      // attempt to match blur volume to input volume
+      blurRightRms = max(blurScratchA.getRms(), rmsMin);
+      float rightGain = min(pow10f(log10f(max(inRightRms.getValue(), rmsMin)) - log10f(blurRightRms)), blurGainMax);
+      blurRightGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurRightGain - rightGain) / blurGainMax);
+      blurRightGain = rightGain;
+      blurScratchA.multiply(blurRightGain);
 
-    // upsample to the output
-    blurUpRight->process(blurScratchA, outBlurRight);
+      // upsample to the output
+      blurUpRight->process(blurScratchA, outBlurRight);
+    }
 
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
