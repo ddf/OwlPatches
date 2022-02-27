@@ -50,14 +50,14 @@ public:
   }
 
 public:
-  static GaussianBlurSignalProcessor<TextureSizeType>* create(size_t maxTextureSize, float blurSize, float standardDeviation, int kernelSize)
+  static GaussianBlurSignalProcessor<TextureSizeType>* create(size_t maxTextureSize, float maxBlurSize, float standardDeviation, int kernelSize)
   {
     BlurKernel kernelX = BlurKernel::create(kernelSize);
-    kernelX.setGauss(blurSize, standardDeviation);
+    kernelX.setGauss(0.0f, standardDeviation);
     BlurKernel kernelY = BlurKernel::create(kernelSize);
-    kernelY.setGauss(blurSize, standardDeviation);
-    return new GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX, TextureSizeType>::create(maxTextureSize, kernelX),
-                                           BlurSignalProcessor<AxisY, TextureSizeType>::create(maxTextureSize, kernelY));
+    kernelY.setGauss(0.0f, standardDeviation);
+    return new GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX, TextureSizeType>::create(maxTextureSize, maxBlurSize, kernelX),
+                                           BlurSignalProcessor<AxisY, TextureSizeType>::create(maxTextureSize, maxBlurSize, kernelY));
   }
 
   static void destroy(GaussianBlurSignalProcessor<TextureSizeType>* processor)

@@ -19,10 +19,11 @@ public:
   BlurKernel kernel;
 
   BlurSignalProcessor() {}
-  BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, BlurKernel kernel)
+  BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, float maxBlurSize, BlurKernel kernel)
     : texture(textureData, textureSizeX, textureSizeY)
     , kernel(kernel)
   {
+    texture.setReadOffset(texture.getDataSize() * maxBlurSize * 0.5f);
   }
 
   void setTextureSize(TextureSizeType textureSize)
@@ -82,12 +83,12 @@ public:
   }
 
 public:
-  static BlurSignalProcessor<AXIS, TextureSizeType>* create(size_t maxTextureSize, BlurKernel blurKernel)
+  static BlurSignalProcessor<AXIS, TextureSizeType>* create(size_t maxTextureSize, float maxBlurSize, BlurKernel blurKernel)
   {
     if (AXIS == AxisX)
-      return new BlurSignalProcessor<AXIS, TextureSizeType>(new float[maxTextureSize], maxTextureSize, 1, blurKernel);
+      return new BlurSignalProcessor<AXIS, TextureSizeType>(new float[maxTextureSize], maxTextureSize, 1, maxBlurSize, blurKernel);
     else
-      return new BlurSignalProcessor<AXIS, TextureSizeType>(new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, blurKernel);
+      return new BlurSignalProcessor<AXIS, TextureSizeType>(new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, maxBlurSize, blurKernel);
   }
 
   static void destroy(BlurSignalProcessor<AXIS, TextureSizeType>* blur)

@@ -80,6 +80,11 @@ public:
     return buffer.getData();
   }
 
+  size_t getDataSize() const
+  {
+    return buffer.getSize();
+  }
+
   float getWidth() const { return sizeX; }
   size_t getHeight() const { return sizeY; }
 
@@ -94,6 +99,11 @@ public:
   void write(float value)
   {
     buffer.write(value);
+  }
+
+  void setReadOffset(float offset)
+  {
+    readOffset = offset;
   }
 
   float read(float x, size_t y)

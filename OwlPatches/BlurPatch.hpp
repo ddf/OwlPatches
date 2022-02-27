@@ -68,6 +68,7 @@ class BlurPatch : public Patch
   static const int minTextureSize = 32 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
   const  float maxBlurSamples     = 31.0f / blurResampleFactor;
+  const  float maxBlurSize        = 0.5f;
 
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
@@ -270,8 +271,8 @@ public:
     textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
     textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
-    blurSizeLeft      = Interpolator::linear(0.0f, 0.9f /* maxBlurSamples / textureSizeLeft */, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
-    blurSizeRight     = Interpolator::linear(0.0f, 0.9f /* maxBlurSamples / textureSizeRight */, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
+    blurSizeLeft      = Interpolator::linear(0.0f, maxBlurSize /* maxBlurSamples / textureSizeLeft */, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
+    blurSizeRight     = Interpolator::linear(0.0f, maxBlurSize /* maxBlurSamples / textureSizeRight */, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
     standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     feedback          = getParameterValue(inFeedback);
 
