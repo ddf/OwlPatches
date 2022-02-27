@@ -29,7 +29,7 @@ public:
 
   float getBlurSize() const
   {
-    return blurX->blurSize;
+    return blurX->kernel.blurSize;
   }
 
   BlurKernelSample getKernelSample(int i)
