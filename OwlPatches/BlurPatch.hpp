@@ -78,6 +78,9 @@ class BlurPatch : public Patch
   const float compesationSpeedMin = 0.99f;
   const float compensationSpeedDefault = 0.85f;
   const float compensationSpeedMax = 0.1f;
+
+  const float rmsMin = 0.0001f;
+
   const float blurGainMax = 40.0f;
 
   AudioBuffer* blurBuffer;
@@ -233,8 +236,8 @@ public:
 
     const int blockSize = getBlockSize();
 
-    inLeftRms = inLeft.getRms();
-    inRightRms = inRight.getRms();
+    inLeftRms = max(inLeft.getRms(), rmsMin);
+    inRightRms = max(inRight.getRms(), rmsMin);
     
     textureSize = getParameterValue(inTextureSize);
     blurSize = getParameterValue(inBlurSize);
@@ -312,7 +315,7 @@ public:
     //blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
     // attempt to match blur volume to input volume
-    blurLeftRms = blurScratchA.getRms();
+    blurLeftRms = max(blurScratchA.getRms(), rmsMin);
     float leftGain = min(pow10f(log10f(inLeftRms) - log10f(blurLeftRms)), blurGainMax);
     // set reactiveness based on how much the gain changed
     blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurLeftGain - leftGain) / blurGainMax);
@@ -339,7 +342,7 @@ public:
     //blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
     // attempt to match blur volume to input volume
-    blurRightRms = blurScratchA.getRms();
+    blurRightRms = max(blurScratchA.getRms(), rmsMin);
     float rightGain = min(pow10f(log10f(inRightRms) - log10f(blurRightRms)), blurGainMax);
     blurRightGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurRightGain - rightGain) / blurGainMax);
     blurRightGain = rightGain;
