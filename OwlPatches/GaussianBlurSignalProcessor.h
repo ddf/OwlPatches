@@ -27,6 +27,11 @@ public:
     blurY->kernel.setGauss(size, standardDeviation, brightness);
   }
 
+  float getBlurSize() const
+  {
+    return blurX->blurSize;
+  }
+
   BlurKernelSample getKernelSample(int i)
   {
     return blurX->kernel[i];

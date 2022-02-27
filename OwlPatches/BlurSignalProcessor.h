@@ -77,6 +77,7 @@ public:
         kernel[s].offset += kernelStep[s].offset;
         kernel[s].weight += kernelStep[s].weight;
       }
+      kernel.blurSize += kernelStep.blurSize;
     }
   }
 

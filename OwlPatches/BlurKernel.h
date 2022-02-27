@@ -18,9 +18,10 @@ struct BlurKernelSample
 
 class BlurKernel : public SimpleArray<BlurKernelSample>
 {
-  float blurSize;
 
 public:
+  float blurSize;
+
   BlurKernel() : blurSize(0) {}
   BlurKernel(BlurKernelSample* data, size_t size) :
     SimpleArray(data, size), blurSize(0) {}

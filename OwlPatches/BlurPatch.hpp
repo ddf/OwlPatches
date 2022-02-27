@@ -338,6 +338,7 @@ public:
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
       blurKernelStep.setGauss(blurSizeLeft, standardDeviationLeft);
+      blurKernelStep.blurSize = (blurSizeLeft - blurLeftA->getBlurSize()) / blockSize;
       for (int i = 0; i < blurKernelSize; ++i)
       {
         BlurKernelSample to = blurKernelStep[i];
@@ -377,6 +378,7 @@ public:
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
       blurKernelStep.setGauss(blurSizeRight, standardDeviationRight);
+      blurKernelStep.blurSize = (blurSizeRight - blurRightA->getBlurSize()) / blockSize;
       for (int i = 0; i < blurKernelSize; ++i)
       {
         BlurKernelSample to = blurKernelStep[i];
