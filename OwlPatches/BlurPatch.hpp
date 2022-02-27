@@ -232,16 +232,6 @@ public:
     FloatArray feedRight = feedbackBuffer->getSamples(1);
 
     const int blockSize = getBlockSize();
-
-    compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
-    blurLeftCompressor.SetRatio(compressionRatio);
-    blurRightCompressor.SetRatio(compressionRatio);
-
-    const float blurGainMax = compressionRatio;
-    const float rmsMin = pow10f(-compressorRatioMax / 20.f);
-
-    inLeftRms = inLeft.getRms();
-    inRightRms = inRight.getRms();
     
     textureSize = getParameterValue(inTextureSize);
     blurSize = getParameterValue(inBlurSize);
@@ -279,9 +269,18 @@ public:
     blurLeftCompressor.SetThreshold(compressionThreshold);
     blurRightCompressor.SetThreshold(compressionThreshold);
 
+    compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
+    blurLeftCompressor.SetRatio(compressionRatio);
+    blurRightCompressor.SetRatio(compressionRatio);
+
+    const float blurGainMax = compressionRatio;
+    const float rmsMin = pow10f(-compressorRatioMax / 20.f);
     const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
 
     dcFilter->process(audio, audio);
+
+    inLeftRms = inLeft.getRms();
+    inRightRms = inRight.getRms();
 
     // Note: the way feedback is applied is based on how Clouds does it
     float cutoff = (20.0f + 100.0f * feedback * feedback);
