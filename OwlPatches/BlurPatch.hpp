@@ -351,7 +351,7 @@ public:
 
     setParameterValue(outLeftFollow, inLeftRms*4);
     //setParameterValue(outRightFollow, inRightRms*4);
-    setParameterValue(outRightFollow, pow10f(blurLeftCompressor.GetGain() / 20.0f));
+    setParameterValue(outRightFollow, pow10f(blurLeftCompressor.GetGain() / 20.0f) * 0.25f);
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
