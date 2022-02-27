@@ -77,7 +77,7 @@ class BlurPatch : public Patch
 
   const float compesationSpeedMin = 0.99f;
   const float compensationSpeedDefault = 0.95f;
-  const float compensationSpeedMax = 0.9f;
+  const float compensationSpeedMax = 0.8f;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
@@ -367,7 +367,7 @@ public:
 
     setParameterValue(outLeftFollow, inLeftRms*4);
     //setParameterValue(outRightFollow, inRightRms*4);
-    setParameterValue(outRightFollow, blurLeftGain * 0.1f);
+    setParameterValue(outRightFollow, blurLeftGain * 0.05f);
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
