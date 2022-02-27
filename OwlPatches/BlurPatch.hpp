@@ -37,7 +37,7 @@ DESCRIPTION:
 #include <string.h>
 
 typedef daisysp::Compressor Compressor;
-typedef GaussianBlurSignalProcessor<size_t> GaussianBlurSignalProcessor;
+typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
 
 class BlurPatch : public Patch
 {
@@ -94,10 +94,10 @@ class BlurPatch : public Patch
   UpSampler*   blurUpLeft;
   UpSampler*   blurUpRight;
 
-  GaussianBlurSignalProcessor* blurLeftA;
-  GaussianBlurSignalProcessor* blurLeftB;
-  GaussianBlurSignalProcessor* blurRightA;
-  GaussianBlurSignalProcessor* blurRightB;
+  GaussianBlur* blurLeftA;
+  GaussianBlur* blurLeftB;
+  GaussianBlur* blurRightA;
+  GaussianBlur* blurRightB;
 
   SkewedFloat textureSize;
   SkewedFloat blurSize;
@@ -168,10 +168,10 @@ public:
     blurUpLeft    = UpSampler::create(blurResampleStages, blurResampleFactor);
     blurUpRight   = UpSampler::create(blurResampleStages, blurResampleFactor);
 
-    blurLeftA = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
-    blurLeftB = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
-    blurRightA = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
-    blurRightB = GaussianBlurSignalProcessor::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+    blurLeftA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
+    blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
+    blurRightA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+    blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
 
     blurLeftCompressor.Init(getSampleRate());
     blurRightCompressor.Init(getSampleRate());
@@ -196,10 +196,10 @@ public:
     BiquadFilter::destroy(feedbackFilterLeft);
     BiquadFilter::destroy(feedbackFilterRight);
 
-    GaussianBlurSignalProcessor::destroy(blurLeftA);
-    GaussianBlurSignalProcessor::destroy(blurLeftB);
-    GaussianBlurSignalProcessor::destroy(blurRightA);
-    GaussianBlurSignalProcessor::destroy(blurRightB);
+    GaussianBlur::destroy(blurLeftA);
+    GaussianBlur::destroy(blurLeftB);
+    GaussianBlur::destroy(blurRightA);
+    GaussianBlur::destroy(blurRightB);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
