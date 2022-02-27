@@ -247,6 +247,10 @@ public:
     blurRightB->setBlur(blurSizeRight, standardDeviationRight);
     blurRightB->setTextureSize(texRightB);
 
+    float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
+    blurLeftCompressor.SetThreshold(compressionThreshold);
+    blurRightCompressor.SetThreshold(compressionThreshold);
+
     dcFilter->process(audio, audio);
 
     // Note: the way feedback is applied is based on how Clouds does it
@@ -277,6 +281,9 @@ public:
     blurScratchB.multiply(texLeftBlend);
     blurScratchA.add(blurScratchB);
 
+    // compress
+    blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+
     // upsample to the output
     blurUpLeft->process(blurScratchA, outBlurLeft);
 
@@ -292,6 +299,9 @@ public:
     blurScratchA.multiply(1.0f - texRightBlend);
     blurScratchB.multiply(texRightBlend);
     blurScratchA.add(blurScratchB);
+
+    // compress
+    blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
     // upsample to the output
     blurUpRight->process(blurScratchA, outBlurRight);
@@ -317,11 +327,8 @@ public:
     //outBlurRight.multiply(Interpolator::linear(1, blurRightGain, gainAmount));
 
     // apply compression
-    float threshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
-    blurLeftCompressor.SetThreshold(threshold);
-    blurRightCompressor.SetThreshold(threshold);
-    blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
-    blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
+    //blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
+    //blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
 
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
@@ -343,7 +350,8 @@ public:
     //}
 
     setParameterValue(outLeftFollow, inLeftRms*4);
-    setParameterValue(outRightFollow, inRightRms*4);
+    //setParameterValue(outRightFollow, inRightRms*4);
+    setParameterValue(outRightFollow, pow10f(blurLeftCompressor.GetGain() / 20.0f));
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
