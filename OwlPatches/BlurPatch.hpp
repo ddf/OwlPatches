@@ -46,7 +46,7 @@ class BlurPatch : public Patch
   static const PatchParameterId inWetDry      = PARAMETER_D;
 
   static const PatchParameterId inStandardDev = PARAMETER_AA;
-  static const PatchParameterId inCompressionThreshold    = PARAMETER_AB; 
+  static const PatchParameterId inCompressionThreshold = PARAMETER_AB;
   static const PatchParameterId inCompressionRatio = PARAMETER_AC;
   static const PatchParameterId inCompensationSpeed = PARAMETER_AD;
 
@@ -299,11 +299,10 @@ public:
 
     // downsample and copy
     blurDownLeft->process(feedLeft, blurScratchA);
-    blurScratchA.copyTo(blurScratchB);
 
     // process both texture sizes
+    blurLeftB->process(blurScratchA, blurScratchB);
     blurLeftA->process(blurScratchA, blurScratchA);
-    blurLeftB->process(blurScratchB, blurScratchB);
 
     // mix 
     blurScratchA.add(blurScratchB);
@@ -324,11 +323,10 @@ public:
 
     // downsample and copy
     blurDownRight->process(feedRight, blurScratchA);
-    blurScratchA.copyTo(blurScratchB);
 
     // process both texture sizes
+    blurRightB->process(blurScratchA, blurScratchB);
     blurRightA->process(blurScratchA, blurScratchA);
-    blurRightB->process(blurScratchB, blurScratchB);
 
     // mix
     blurScratchA.add(blurScratchB);
