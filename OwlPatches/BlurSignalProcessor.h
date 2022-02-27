@@ -41,7 +41,7 @@ public:
   {
     texture.write(input);
 
-    float c = kernel.getBlurSize() * 0.5f;
+    float c = 0.5f;
     float v = 0;
     const int samples = kernel.getSize();
     for (int s = 0; s < samples; ++s)
