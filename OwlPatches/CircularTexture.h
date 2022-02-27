@@ -1,4 +1,5 @@
 #include "CircularBuffer.h"
+#include "InterpolatingCircularBuffer.h"
 #include "Interpolator.h"
 
 template<typename DataType, typename IndexType = size_t>
@@ -55,6 +56,62 @@ public:
 
     float xv1 = Interpolator::linear(read(x1, y1), read(x2, y1), xt);
     float xv2 = Interpolator::linear(read(x1, y2), read(x2, y2), xt);
+    return Interpolator::linear(xv1, xv2, yt);
+  }
+};
+
+template<>
+class CircularTexture<float, float>
+{
+  InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION> buffer;
+  float  sizeX;
+  size_t sizeY;
+
+public:
+  CircularTexture(float* data, float sizeX, size_t sizeY)
+    : buffer(data, sizeX*sizeY), sizeX(sizeX), sizeY(sizeY)
+  {
+  }
+
+  float* getData()
+  {
+    return buffer.getData();
+  }
+
+  float getWidth() const { return sizeX; }
+  size_t getHeight() const { return sizeY; }
+
+  CircularTexture subtexture(float w, size_t h)
+  {
+    CircularTexture subTex = *this;
+    subTex.sizeX = w;
+    subTex.sizeY = h;
+    return subTex;
+  }
+
+  void write(float value)
+  {
+    buffer.write(value);
+  }
+
+  float read(float x, size_t y)
+  {
+    // add buffer size we don't have to worry about negative indices
+    float index = buffer.getWriteIndex() + buffer.getSize() - 1 - (y*sizeX + x);
+    return buffer.readAt(index);
+  }
+
+  float readBilinear(float u, float v)
+  {
+    float x = u * sizeX;
+
+    float y = v * sizeY;
+    size_t y1 = size_t(y);
+    size_t y2 = y1 + 1;
+    float yt = y - y1;
+
+    float xv1 = read(x, y1);
+    float xv2 = read(x, y2);
     return Interpolator::linear(xv1, xv2, yt);
   }
 };

@@ -37,6 +37,7 @@ DESCRIPTION:
 #include <string.h>
 
 typedef daisysp::Compressor Compressor;
+typedef GaussianBlurSignalProcessor<size_t> GaussianBlurSignalProcessor;
 
 class BlurPatch : public Patch
 {

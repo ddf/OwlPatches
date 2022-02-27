@@ -2,19 +2,20 @@
 #include "BlurSignalProcessor.h"
 
 // performs a 2D Gaussian blur on the input signal
+template<typename TextureSizeType = size_t>
 class GaussianBlurSignalProcessor : SignalProcessor
 {
-  BlurSignalProcessor<AxisX>* blurX;
-  BlurSignalProcessor<AxisY>* blurY;
+  BlurSignalProcessor<AxisX, TextureSizeType>* blurX;
+  BlurSignalProcessor<AxisY, TextureSizeType>* blurY;
 
 public:
-  GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>* blurX, BlurSignalProcessor<AxisY>* blurY)
+  GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX, TextureSizeType>* blurX, BlurSignalProcessor<AxisY, TextureSizeType>* blurY)
     : blurX(blurX), blurY(blurY)
   {
 
   }
 
-  void setTextureSize(int textureSize)
+  void setTextureSize(TextureSizeType textureSize)
   {
     blurX->setTextureSize(textureSize);
     blurY->setTextureSize(textureSize);
@@ -33,21 +34,21 @@ public:
   }
 
 public:
-  static GaussianBlurSignalProcessor* create(int maxTextureSize, float blurSize, float standardDeviation, int kernelSize)
+  static GaussianBlurSignalProcessor<TextureSizeType>* create(size_t maxTextureSize, float blurSize, float standardDeviation, int kernelSize)
   {
     BlurKernel kernelX = BlurKernel::create(kernelSize);
     kernelX.setGauss(blurSize, standardDeviation);
     BlurKernel kernelY = BlurKernel::create(kernelSize);
     kernelY.setGauss(blurSize, standardDeviation);
-    return new GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>::create(maxTextureSize, kernelX),
-                                           BlurSignalProcessor<AxisY>::create(maxTextureSize, kernelY));
+    return new GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX, TextureSizeType>::create(maxTextureSize, kernelX),
+                                           BlurSignalProcessor<AxisY, TextureSizeType>::create(maxTextureSize, kernelY));
   }
 
-  static void destroy(GaussianBlurSignalProcessor* processor)
+  static void destroy(GaussianBlurSignalProcessor<TextureSizeType>* processor)
   {
     BlurKernel::destroy(processor->blurX->kernel);
     BlurKernel::destroy(processor->blurY->kernel);
-    BlurSignalProcessor<AxisX>::destroy(processor->blurX);
-    BlurSignalProcessor<AxisY>::destroy(processor->blurY);
+    BlurSignalProcessor<AxisX, TextureSizeType>::destroy(processor->blurX);
+    BlurSignalProcessor<AxisY, TextureSizeType>::destroy(processor->blurY);
   }
 };
