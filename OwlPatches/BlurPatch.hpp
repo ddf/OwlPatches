@@ -103,7 +103,9 @@ class BlurPatch : public Patch
   GaussianBlur* blurLeftA;
   GaussianBlur* blurRightA;
 
-#ifndef FRACTIONAL_TEXTURE_SIZE
+#ifdef FRACTIONAL_TEXTURE_SIZE
+  FloatArray textureSizeRamp;
+#else
   FloatArray   blurScratchB;
   GaussianBlur* blurLeftB;
   GaussianBlur* blurRightB;
@@ -184,6 +186,8 @@ public:
     blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
     blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+#else
+    textureSizeRamp = FloatArray::create(getBlockSize() / blurResampleFactor);
 #endif
 
     blurLeftCompressor.Init(getSampleRate());
@@ -215,6 +219,8 @@ public:
     FloatArray::destroy(blurScratchB);
     GaussianBlur::destroy(blurLeftB);
     GaussianBlur::destroy(blurRightB);
+#else
+    FloatArray::destroy(textureSizeRamp);
 #endif
   }
 
@@ -253,6 +259,11 @@ public:
     textureSize = getParameterValue(inTextureSize);
     blurSize = getParameterValue(inBlurSize);
 
+#ifdef FRACTIONAL_TEXTURE_SIZE
+    float prevTexLeft = textureSizeLeft;
+    float prevTexRight = textureSizeRight;
+#endif
+
     textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
     textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
@@ -266,10 +277,7 @@ public:
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
     blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft);
-    blurLeftA->setTextureSize(textureSizeLeft);
-
     blurRightA->setBlur(blurSizeRight, standardDeviationRight);
-    blurRightA->setTextureSize(textureSizeRight);
 #else
     int texLeftA = (int)textureSizeLeft;
     int texLeftB = texLeftA + 1;
@@ -328,7 +336,8 @@ public:
       blurDownLeft->process(feedLeft, blurScratchA);
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
-      blurLeftA->process(blurScratchA, blurScratchA);
+      textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
+      blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp);
 #else
       // process both texture sizes
       blurLeftB->process(blurScratchA, blurScratchB);
@@ -359,7 +368,8 @@ public:
       blurDownRight->process(feedRight, blurScratchA);
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
-      blurRightA->process(blurScratchA, blurScratchA);
+      textureSizeRamp.ramp(prevTexRight, textureSizeRight);
+      blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp);
 #else
       // process both texture sizes
       blurRightB->process(blurScratchA, blurScratchB);

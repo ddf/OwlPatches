@@ -33,6 +33,21 @@ public:
     blurY->process(output, output);
   }
 
+  void process(FloatArray input, FloatArray output, SimpleArray<TextureSizeType> textureSize)
+  {
+    const int size = input.getSize();
+    for (int i = 0; i < size; ++i)
+    {
+      blurX->setTextureSize(textureSize[i]);
+      output[i] = blurX->process(input[i]);
+    }
+    for (int i = 0; i < size; ++i)
+    {
+      blurY->setTextureSize(textureSize[i]);
+      output[i] = blurY->process(output[i]);
+    }
+  }
+
 public:
   static GaussianBlurSignalProcessor<TextureSizeType>* create(size_t maxTextureSize, float blurSize, float standardDeviation, int kernelSize)
   {
