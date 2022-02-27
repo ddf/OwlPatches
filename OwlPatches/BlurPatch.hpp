@@ -47,6 +47,7 @@ class BlurPatch : public Patch
 
   static const PatchParameterId inStandardDev = PARAMETER_AA;
   static const PatchParameterId inBlurGain    = PARAMETER_AB; 
+  static const PatchParameterId inCompressionRatio = PARAMETER_AC;
 
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
@@ -69,7 +70,9 @@ class BlurPatch : public Patch
   const float maxStandardDev = (blurKernelSize - 1) / 4.0f;
   const float minStandardDev = maxStandardDev / 3.0f;
 
-  const float compressorRatio = 20.0f;
+  const float compressorRatioMin = 1.0f;
+  const float compressorRatioMax = 40.0f;
+  const float compressorRatioDefault = 20.0f;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
@@ -127,6 +130,7 @@ public:
     registerParameter(inWetDry, "Dry/Wet");
     registerParameter(inStandardDev, "Standard Deviation");
     registerParameter(inBlurGain, "Blur Gain Compensation");
+    registerParameter(inCompressionRatio, "Blur Compressor Ratio");
 
     registerParameter(outLeftFollow, "Left Follow>");
     registerParameter(outRightFollow, "Right Follow>");
@@ -137,6 +141,7 @@ public:
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
     setParameterValue(inBlurGain, 0);
+    setParameterValue(inCompressionRatio, (compressorRatioDefault - compressorRatioMin) / (compressorRatioMax  - compressorRatioMin));
     setParameterValue(outLeftFollow, 0);
     setParameterValue(outRightFollow, 0);
 
@@ -162,8 +167,8 @@ public:
     blurLeftCompressor.Init(getSampleRate());
     blurRightCompressor.Init(getSampleRate());
 
-    blurLeftCompressor.SetRatio(compressorRatio);
-    blurRightCompressor.SetRatio(compressorRatio);
+    blurLeftCompressor.SetRatio(compressorRatioDefault);
+    blurRightCompressor.SetRatio(compressorRatioDefault);
   }
 
   ~BlurPatch()
@@ -252,9 +257,13 @@ public:
     blurRightB->setBlur(blurSizeRight, standardDeviationRight);
     blurRightB->setTextureSize(texRightB);
 
-    float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
+    const float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
     blurLeftCompressor.SetThreshold(compressionThreshold);
     blurRightCompressor.SetThreshold(compressionThreshold);
+
+    const float compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
+    blurLeftCompressor.SetRatio(compressionRatio);
+    blurRightCompressor.SetRatio(compressionRatio);
 
     dcFilter->process(audio, audio);
 
