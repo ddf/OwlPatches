@@ -73,14 +73,11 @@ class BlurPatch : public Patch
 
   const float compressorRatioMin = 1.0f;
   const float compressorRatioMax = 40.0f;
-  const float compressorRatioDefault = 20.0f;
+  const float compressorRatioDefault = compressorRatioMax;
 
   const float compesationSpeedMin = 0.99f;
   const float compensationSpeedMax = 0.1f;
   const float compensationSpeedDefault = compensationSpeedMax;
-
-  const float blurGainMax = 40.0f;
-  const float rmsMin = pow10f(-blurGainMax / 20.f);
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
@@ -235,6 +232,13 @@ public:
 
     const int blockSize = getBlockSize();
 
+    const float compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
+    blurLeftCompressor.SetRatio(compressionRatio);
+    blurRightCompressor.SetRatio(compressionRatio);
+
+    const float blurGainMax = compressionRatio;
+    const float rmsMin = pow10f(-blurGainMax / 20.f);
+
     inLeftRms = max(inLeft.getRms(), rmsMin);
     inRightRms = max(inRight.getRms(), rmsMin);
     
@@ -273,10 +277,6 @@ public:
     const float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inCompressionThreshold));
     blurLeftCompressor.SetThreshold(compressionThreshold);
     blurRightCompressor.SetThreshold(compressionThreshold);
-
-    const float compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
-    blurLeftCompressor.SetRatio(compressionRatio);
-    blurRightCompressor.SetRatio(compressionRatio);
 
     const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
 
