@@ -300,14 +300,14 @@ public:
     inRightRms = inRight.getRms();
 
     // attempt to match blur volume to input volume
-    blurLeftRms = outBlurLeft.getRms();
-    blurRightRms = outBlurRight.getRms();
+    //blurLeftRms = outBlurLeft.getRms();
+    //blurRightRms = outBlurRight.getRms();
 
-    float leftdbDelta = 20*log10f(inLeftRms) - 20*log10f(blurLeftRms);
-    float rightdbDelta = 20*log10f(inRightRms) - 20*log10f(blurRightRms);
+    //float leftdbDelta = 20*log10f(inLeftRms) - 20*log10f(blurLeftRms);
+    //float rightdbDelta = 20*log10f(inRightRms) - 20*log10f(blurRightRms);
   
-    outBlurLeft.multiply(pow10f(leftdbDelta / 20));
-    outBlurRight.multiply(pow10f(rightdbDelta / 20));
+    //outBlurLeft.multiply(pow10f(leftdbDelta / 20));
+    //outBlurRight.multiply(pow10f(rightdbDelta / 20));
 
     //const float rmsThreshold = 0.0001f;
     //blurLeftGain  = (inLeftRms > rmsThreshold && blurLeftRms > rmsThreshold ? inLeftRms / blurLeftRms : 1);
@@ -317,11 +317,11 @@ public:
     //outBlurRight.multiply(Interpolator::linear(1, blurRightGain, gainAmount));
 
     // apply compression
-    //float threshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
-    //blurLeftCompressor.SetThreshold(threshold);
-    //blurRightCompressor.SetThreshold(threshold);
-    //blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
-    //blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
+    float threshold = Interpolator::linear(0, -80, getParameterValue(inBlurGain));
+    blurLeftCompressor.SetThreshold(threshold);
+    blurRightCompressor.SetThreshold(threshold);
+    blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
+    blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
 
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
