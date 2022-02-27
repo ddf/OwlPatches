@@ -69,6 +69,8 @@ class BlurPatch : public Patch
   const float maxStandardDev = (blurKernelSize - 1) / 4.0f;
   const float minStandardDev = maxStandardDev / 3.0f;
 
+  const float compressorRatio = 20.0f;
+
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
 
@@ -159,6 +161,9 @@ public:
 
     blurLeftCompressor.Init(getSampleRate());
     blurRightCompressor.Init(getSampleRate());
+
+    blurLeftCompressor.SetRatio(compressorRatio);
+    blurRightCompressor.SetRatio(compressorRatio);
   }
 
   ~BlurPatch()
