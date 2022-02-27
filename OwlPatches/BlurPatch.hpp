@@ -234,12 +234,6 @@ public:
 
     dcFilter->process(audio, audio);
 
-    feedLeft.multiply(feedback);
-    feedRight.multiply(feedback);
-
-    feedLeft.add(inLeft);
-    feedRight.add(inRight);
-
     // Note: the way feedback is applied is based on how Clouds does it
     float cutoff = (20.0f + 100.0f * feedback * feedback);
     feedbackFilterLeft->setHighPass(cutoff, 1);
