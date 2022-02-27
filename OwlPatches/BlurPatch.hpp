@@ -76,8 +76,8 @@ class BlurPatch : public Patch
   const float compressorRatioDefault = 20.0f;
 
   const float compesationSpeedMin = 0.99f;
-  const float compensationSpeedDefault = 0.85f;
   const float compensationSpeedMax = 0.1f;
+  const float compensationSpeedDefault = compensationSpeedMax;
 
   const float blurGainMax = 40.0f;
   const float rmsMin = pow10f(-blurGainMax / 20.f);
@@ -139,7 +139,7 @@ public:
     registerParameter(inStandardDev, "Standard Deviation");
     registerParameter(inCompressionThreshold, "Blur Gain Compensation");
     registerParameter(inCompressionRatio, "Blur Compressor Ratio");
-    registerParameter(inCompensationSpeed, "Blur Gain Compensation Speed");
+    registerParameter(inCompensationSpeed, "Blur Gain Max Compensation Speed");
 
     registerParameter(outLeftFollow, "Left Follow>");
     registerParameter(outRightFollow, "Right Follow>");
