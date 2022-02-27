@@ -66,11 +66,13 @@ class CircularTexture<float, float>
   InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION> buffer;
   float  sizeX;
   size_t sizeY;
+  float  readOffset;
 
 public:
   CircularTexture(float* data, float sizeX, size_t sizeY)
     : buffer(data, sizeX*sizeY), sizeX(sizeX), sizeY(sizeY)
   {
+    readOffset = buffer.getSize() * 0.5f;
   }
 
   float* getData()
@@ -96,8 +98,7 @@ public:
 
   float read(float x, size_t y)
   {
-    // add buffer size we don't have to worry about negative indices
-    float index = buffer.getWriteIndex() + buffer.getSize() - 1 - (y*sizeX + x);
+    float index = buffer.getWriteIndex() + buffer.getSize() - readOffset + y*sizeX + x;
     return buffer.readAt(index);
   }
 
