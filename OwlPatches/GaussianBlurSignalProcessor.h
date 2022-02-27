@@ -6,11 +6,10 @@ class GaussianBlurSignalProcessor : SignalProcessor
 {
   BlurSignalProcessor<AxisX>* blurX;
   BlurSignalProcessor<AxisY>* blurY;
-  BlurKernel kernelX, kernelY;
 
 public:
-  GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>* blurX, BlurSignalProcessor<AxisY>* blurY, BlurKernel kernelX, BlurKernel kernelY)
-    : blurX(blurX), blurY(blurY), kernelX(kernelX), kernelY(kernelY)
+  GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>* blurX, BlurSignalProcessor<AxisY>* blurY)
+    : blurX(blurX), blurY(blurY)
   {
 
   }
@@ -21,12 +20,10 @@ public:
     blurY->setTextureSize(textureSize);
   }
 
-  void setBlur(float size, float standardDeviation, float scale = 1.0f)
+  void setBlur(float size, float standardDeviation, float brightness = 1.0f)
   {
-    kernelX.setGauss(size, standardDeviation);
-    kernelY.setGauss(size, standardDeviation, scale);
-    blurX->setKernel(kernelX);
-    blurY->setKernel(kernelY);
+    blurX->kernel.setGauss(size, standardDeviation);
+    blurY->kernel.setGauss(size, standardDeviation, brightness);
   }
 
   void process(FloatArray input, FloatArray output) override
@@ -43,14 +40,13 @@ public:
     BlurKernel kernelY = BlurKernel::create(kernelSize);
     kernelY.setGauss(blurSize, standardDeviation);
     return new GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>::create(maxTextureSize, kernelX)
-      , BlurSignalProcessor<AxisY>::create(maxTextureSize, kernelY)
-      , kernelX, kernelY);
+      , BlurSignalProcessor<AxisY>::create(maxTextureSize, kernelY));
   }
 
   static void destroy(GaussianBlurSignalProcessor* processor)
   {
-    BlurKernel::destroy(processor->kernelX);
-    BlurKernel::destroy(processor->kernelY);
+    BlurKernel::destroy(processor->blurX->kernel);
+    BlurKernel::destroy(processor->blurY->kernel);
     BlurSignalProcessor<AxisX>::destroy(processor->blurX);
     BlurSignalProcessor<AxisY>::destroy(processor->blurY);
   }

@@ -14,19 +14,15 @@ class BlurSignalProcessor : public SignalProcessor
 {
 protected:
   CircularFloatTexture texture;
-  BlurKernel kernel;
 
 public:
+  BlurKernel kernel;
+
   BlurSignalProcessor() {}
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, BlurKernel kernel)
     : texture(textureData, textureSizeX, textureSizeY)
     , kernel(kernel)
   {
-  }
-
-  void setKernel(BlurKernel kernel)
-  {
-    this->kernel = kernel;
   }
 
   void setTextureSize(int textureSize)
