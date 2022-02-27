@@ -117,6 +117,7 @@ class BlurPatch : public Patch
   SmoothFloat blurRightRms;
   SmoothFloat blurLeftGain;
   SmoothFloat blurRightGain;
+  SmoothFloat compressionRatio;
 
   Compressor blurLeftCompressor;
   Compressor blurRightCompressor;
@@ -232,7 +233,7 @@ public:
 
     const int blockSize = getBlockSize();
 
-    const float compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
+    compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
     blurLeftCompressor.SetRatio(compressionRatio);
     blurRightCompressor.SetRatio(compressionRatio);
 
