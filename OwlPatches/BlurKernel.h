@@ -40,7 +40,7 @@ public:
 
     for (int s = 0; s < size; ++s)
     {
-      float offset = ((float)s / (size - 1))*blurSize*0.5f;
+      float offset = ((float)s / (size - 1) - 0.5f)*blurSize;
       float gaussWeight = gaussCoeff * pow(M_E, -((offset*offset) / (2 * standardDevSq)));
       data[s] = BlurKernelSample(offset, gaussWeight);
       sum += gaussWeight;
