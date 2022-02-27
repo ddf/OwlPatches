@@ -76,7 +76,7 @@ class BlurPatch : public Patch
   const float compressorRatioDefault = 20.0f;
 
   const float compesationSpeedMin = 0.99f;
-  const float compensationSpeedDefault = 0.95f;
+  const float compensationSpeedDefault = 0.85f;
   const float compensationSpeedMax = 0.0f;
 
   AudioBuffer* blurBuffer;
@@ -314,8 +314,8 @@ public:
 
     // attempt to match blur volume to input volume
     blurLeftRms = blurScratchA.getRms();
-    float leftdbDelta = 20*log10f(inLeftRms) - 20*log10f(blurLeftRms);
-    blurLeftGain = pow10f(leftdbDelta / 20);
+    float leftdbDelta = log10f(inLeftRms) - log10f(blurLeftRms);
+    blurLeftGain = pow10f(leftdbDelta);
     blurScratchA.multiply(blurLeftGain);
 
     // upsample to the output
@@ -339,8 +339,8 @@ public:
 
     // attempt to match blur volume to input volume
     blurRightRms = blurScratchA.getRms();
-    float rightdbDelta = 20 * log10f(inLeftRms) - 20 * log10f(blurRightRms);
-    blurRightGain = pow10f(rightdbDelta / 20);
+    float rightdbDelta = log10f(inLeftRms) - log10f(blurRightRms);
+    blurRightGain = pow10f(rightdbDelta);
     blurScratchA.multiply(blurRightGain);
 
     // upsample to the output
