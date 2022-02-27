@@ -27,7 +27,7 @@ public:
 
   float getBlurSize() const { return blurSize; }
 
-  void setGauss(float blurSize, float standardDeviation)
+  void setGauss(float blurSize, float standardDeviation, float scale = 1.0f)
   {
     this->blurSize = std::clamp(blurSize, 0.0f, 0.99f);
     standardDeviation = std::max(standardDeviation, 0.01f);
@@ -44,10 +44,10 @@ public:
       sum += gaussWeight;
     }
 
-    // normalize the weights so we don't have to do this during processing
+    // normalize the weights so we don't have to do this during processing and apply the scale
     for (int s = 0; s < size; ++s)
     {
-      data[s].weight /= sum;
+      data[s].weight = (data[s].weight/sum) * scale;
     }
   }
 

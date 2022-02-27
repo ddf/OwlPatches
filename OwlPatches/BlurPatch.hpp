@@ -260,14 +260,14 @@ public:
     int texRightB = texRightA + 1;
     float texRightBlend = textureSizeRight - texRightA;
 
-    blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft);
+    blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft, (1.0f - texLeftBlend));
     blurLeftA->setTextureSize(texLeftA);
-    blurLeftB->setBlur(blurSizeLeft, standardDeviationLeft);
+    blurLeftB->setBlur(blurSizeLeft, standardDeviationLeft, texLeftBlend);
     blurLeftB->setTextureSize(texLeftB);
 
-    blurRightA->setBlur(blurSizeRight, standardDeviationRight);
+    blurRightA->setBlur(blurSizeRight, standardDeviationRight, (1.0f - texRightBlend));
     blurRightA->setTextureSize(texRightA);
-    blurRightB->setBlur(blurSizeRight, standardDeviationRight);
+    blurRightB->setBlur(blurSizeRight, standardDeviationRight, texRightBlend);
     blurRightB->setTextureSize(texRightB);
 
     const float compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inCompressionThreshold));
@@ -305,9 +305,7 @@ public:
     blurLeftA->process(blurScratchA, blurScratchA);
     blurLeftB->process(blurScratchB, blurScratchB);
 
-    // mix based on the blend
-    blurScratchA.multiply(1.0f - texLeftBlend);
-    blurScratchB.multiply(texLeftBlend);
+    // mix 
     blurScratchA.add(blurScratchB);
 
     // compress
@@ -332,9 +330,7 @@ public:
     blurRightA->process(blurScratchA, blurScratchA);
     blurRightB->process(blurScratchB, blurScratchB);
 
-    // mix based on the blend
-    blurScratchA.multiply(1.0f - texRightBlend);
-    blurScratchB.multiply(texRightBlend);
+    // mix
     blurScratchA.add(blurScratchB);
 
     // compress

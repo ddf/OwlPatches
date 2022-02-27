@@ -21,9 +21,9 @@ public:
     blurY->setTextureSize(textureSize);
   }
 
-  void setBlur(float size, float standardDeviation)
+  void setBlur(float size, float standardDeviation, float scale = 1.0f)
   {
-    kernel.setGauss(size, standardDeviation);
+    kernel.setGauss(size, standardDeviation, scale);
     blurX->setKernel(kernel);
     blurY->setKernel(kernel);
   }
