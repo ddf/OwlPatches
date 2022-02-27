@@ -319,7 +319,8 @@ public:
     // set reactiveness based on how much the gain changed
     blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurLeftGain - leftGain) / blurGainMax);
     blurLeftGain = leftGain;
-    blurScratchA.multiply(blurLeftGain);
+    float unityAdjust = max(1.0f / blurLeftRms, 0.0f);
+    blurScratchA.multiply(blurLeftGain - unityAdjust);
 
     // upsample to the output
     blurUpLeft->process(blurScratchA, outBlurLeft);
