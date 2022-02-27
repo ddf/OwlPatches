@@ -232,11 +232,6 @@ public:
 
     const int blockSize = getBlockSize();
 
-    const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
-
-    inLeftRms.lambda = compensationSpeed;
-    inRightRms.lambda = compensationSpeed;
-
     inLeftRms = inLeft.getRms();
     inRightRms = inRight.getRms();
     
@@ -280,6 +275,7 @@ public:
     blurLeftCompressor.SetRatio(compressionRatio);
     blurRightCompressor.SetRatio(compressionRatio);
 
+    const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
     blurLeftGain.lambda = compensationSpeed;
     blurRightGain.lambda = compensationSpeed;
 
@@ -380,15 +376,14 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(textureSizeLeft, 10));
     debugCpy = stpcpy(debugCpy, " bL ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeLeft, 10));
-    debugCpy = stpcpy(debugCpy, " stDevL ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationLeft, 10));
 
     debugCpy = stpcpy(debugCpy, " texR ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(textureSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " bR ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
-    debugCpy = stpcpy(debugCpy, " stDevR ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(standardDeviationRight, 10));
+    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10))
+      ;
+    debugCpy = stpcpy(debugCpy, " comp ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(compensationSpeed, 10));
     debugMessage(debugMsg);
   }
 };
