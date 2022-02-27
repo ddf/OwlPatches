@@ -77,7 +77,8 @@ class BlurPatch : public Patch
 
   const float compesationSpeedMin = 0.99f;
   const float compensationSpeedDefault = 0.85f;
-  const float compensationSpeedMax = 0.0f;
+  const float compensationSpeedMax = 0.5f;
+  const float blurGainMax = 40.0f;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
@@ -314,8 +315,10 @@ public:
 
     // attempt to match blur volume to input volume
     blurLeftRms = blurScratchA.getRms();
-    float leftdbDelta = log10f(inLeftRms) - log10f(blurLeftRms);
-    blurLeftGain = pow10f(leftdbDelta);
+    float leftGain = min(pow10f(log10f(inLeftRms) - log10f(blurLeftRms)), blurGainMax);
+    // set reactiveness based on how much the gain changed
+    blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, fabsf(blurLeftGain - leftGain) / blurGainMax);
+    blurLeftGain = leftGain;
     blurScratchA.multiply(blurLeftGain);
 
     // upsample to the output
@@ -339,8 +342,9 @@ public:
 
     // attempt to match blur volume to input volume
     blurRightRms = blurScratchA.getRms();
-    float rightdbDelta = log10f(inLeftRms) - log10f(blurRightRms);
-    blurRightGain = pow10f(rightdbDelta);
+    float rightGain = min(pow10f(log10f(inRightRms) - log10f(blurRightRms)), blurGainMax);
+    blurRightGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, fabsf(blurRightGain - rightGain) / blurGainMax);
+    blurRightGain = rightGain;
     blurScratchA.multiply(blurRightGain);
 
     // upsample to the output
@@ -367,7 +371,7 @@ public:
 
     setParameterValue(outLeftFollow, inLeftRms*4);
     //setParameterValue(outRightFollow, inRightRms*4);
-    setParameterValue(outRightFollow, blurLeftGain * 0.05f);
+    setParameterValue(outRightFollow, blurLeftGain / blurGainMax);
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
