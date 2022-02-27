@@ -105,6 +105,7 @@ class BlurPatch : public Patch
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
   FloatArray textureSizeRamp;
+  BlurKernel blurKernelStep;
 #else
   FloatArray   blurScratchB;
   GaussianBlur* blurLeftB;
@@ -188,6 +189,7 @@ public:
     blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
 #else
     textureSizeRamp = FloatArray::create(getBlockSize() / blurResampleFactor);
+    blurKernelStep = BlurKernel::create(blurKernelSize);
 #endif
 
     blurLeftCompressor.Init(getSampleRate());
@@ -221,6 +223,7 @@ public:
     GaussianBlur::destroy(blurRightB);
 #else
     FloatArray::destroy(textureSizeRamp);
+    BlurKernel::destroy(blurKernelStep);
 #endif
   }
 
@@ -275,10 +278,7 @@ public:
     standardDeviationLeft  = standardDeviation;
     standardDeviationRight = standardDeviation;
 
-#ifdef FRACTIONAL_TEXTURE_SIZE
-    blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft);
-    blurRightA->setBlur(blurSizeRight, standardDeviationRight);
-#else
+#ifndef FRACTIONAL_TEXTURE_SIZE
     int texLeftA = (int)textureSizeLeft;
     int texLeftB = texLeftA + 1;
     float texLeftBlend = textureSizeLeft - texLeftA;
@@ -337,7 +337,14 @@ public:
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
-      blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp);
+      blurKernelStep.setGauss(blurSizeLeft, standardDeviationLeft);
+      for (int i = 0; i < blurKernelSize; ++i)
+      {
+        BlurKernelSample to = blurKernelStep[i];
+        BlurKernelSample from = blurLeftA->getKernelSample(i);
+        blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
+      }
+      blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       // process both texture sizes
       blurLeftB->process(blurScratchA, blurScratchB);
@@ -369,7 +376,14 @@ public:
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
-      blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp);
+      blurKernelStep.setGauss(blurSizeRight, standardDeviationRight);
+      for (int i = 0; i < blurKernelSize; ++i)
+      {
+        BlurKernelSample to = blurKernelStep[i];
+        BlurKernelSample from = blurRightA->getKernelSample(i);
+        blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
+      }
+      blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       // process both texture sizes
       blurRightB->process(blurScratchA, blurScratchB);

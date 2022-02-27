@@ -27,25 +27,21 @@ public:
     blurY->kernel.setGauss(size, standardDeviation, brightness);
   }
 
+  BlurKernelSample getKernelSample(int i)
+  {
+    return blurX->kernel[i];
+  }
+
   void process(FloatArray input, FloatArray output) override
   {
     blurX->process(input, output);
     blurY->process(output, output);
   }
 
-  void process(FloatArray input, FloatArray output, SimpleArray<TextureSizeType> textureSize)
+  void process(FloatArray input, FloatArray output, SimpleArray<TextureSizeType> textureSize, BlurKernel kernelStep)
   {
-    const int size = input.getSize();
-    for (int i = 0; i < size; ++i)
-    {
-      blurX->setTextureSize(textureSize[i]);
-      output[i] = blurX->process(input[i]);
-    }
-    for (int i = 0; i < size; ++i)
-    {
-      blurY->setTextureSize(textureSize[i]);
-      output[i] = blurY->process(output[i]);
-    }
+    blurX->process(input, output, textureSize, kernelStep);
+    blurY->process(output, output, textureSize, kernelStep);
   }
 
 public:

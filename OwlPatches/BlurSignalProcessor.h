@@ -64,6 +64,22 @@ public:
 
   using SignalProcessor::process;
 
+  void process(FloatArray input, FloatArray output, SimpleArray<TextureSizeType> textureSize, BlurKernel kernelStep)
+  {
+    const int size = input.getSize();
+    const int samples = kernel.getSize();
+    for (int i = 0; i < size; ++i)
+    {
+      setTextureSize(textureSize[i]);
+      output[i] = process(input[i]);
+      for (int s = 0; s < samples; ++s)
+      {
+        kernel[s].offset += kernelStep[s].offset;
+        kernel[s].weight += kernelStep[s].weight;
+      }
+    }
+  }
+
 public:
   static BlurSignalProcessor<AXIS, TextureSizeType>* create(size_t maxTextureSize, BlurKernel blurKernel)
   {
