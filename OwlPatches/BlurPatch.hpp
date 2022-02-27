@@ -232,6 +232,11 @@ public:
 
     const int blockSize = getBlockSize();
 
+    const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
+
+    inLeftRms.lambda = compensationSpeed;
+    inRightRms.lambda = compensationSpeed;
+
     inLeftRms = inLeft.getRms();
     inRightRms = inRight.getRms();
     
@@ -275,7 +280,6 @@ public:
     blurLeftCompressor.SetRatio(compressionRatio);
     blurRightCompressor.SetRatio(compressionRatio);
 
-    const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
     blurLeftGain.lambda = compensationSpeed;
     blurRightGain.lambda = compensationSpeed;
 
