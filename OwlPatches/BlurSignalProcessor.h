@@ -72,14 +72,14 @@ public:
     for (int i = 0; i < size; ++i)
     {
       setTextureSize(textureSize[i]);
-      if (AXIS == AxisX)
-      {
-        texture.setReadOffset(textureSize[i] * kernel.blurSize * 0.5f);
-      }
-      else
-      {
-        texture.setReadOffset(textureSize[i] * textureSize[i] * kernel.blurSize * 0.5f);
-      }
+      //if (AXIS == AxisX)
+      //{
+      //  texture.setReadOffset(textureSize[i] * kernel.blurSize * 0.5f);
+      //}
+      //else
+      //{
+      //  texture.setReadOffset(textureSize[i] * textureSize[i] * kernel.blurSize * 0.5f);
+      //}
       output[i] = process(input[i]);
       for (int s = 0; s < samples; ++s)
       {
@@ -88,6 +88,7 @@ public:
       }
       kernel.blurSize += kernelStep.blurSize;
     }
+    texture.setReadOffset(texture.getWidth()*texture.getHeight() * kernel.blurSize * 0.5f);
   }
 
 public:
