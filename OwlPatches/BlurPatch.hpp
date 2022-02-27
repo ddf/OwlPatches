@@ -68,8 +68,8 @@ class BlurPatch : public Patch
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
   const  float maxBlurSamples     = 31.0f / blurResampleFactor;
-  const  float minBlurSize        = 0.2f;
-  const  float maxBlurSize        = 0.98f;
+  const  float minBlurSize        = 0.15f;
+  const  float maxBlurSize        = 0.95f;
 
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
