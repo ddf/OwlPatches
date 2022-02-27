@@ -277,8 +277,6 @@ public:
     blurRightCompressor.SetRatio(compressionRatio);
 
     const float compensationSpeed = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, getParameterValue(inCompensationSpeed));
-    blurLeftGain.lambda = compensationSpeed;
-    blurRightGain.lambda = compensationSpeed;
 
     dcFilter->process(audio, audio);
 
@@ -317,7 +315,7 @@ public:
     blurLeftRms = blurScratchA.getRms();
     float leftGain = min(pow10f(log10f(inLeftRms) - log10f(blurLeftRms)), blurGainMax);
     // set reactiveness based on how much the gain changed
-    blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, fabsf(blurLeftGain - leftGain) / blurGainMax);
+    blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurLeftGain - leftGain) / blurGainMax);
     blurLeftGain = leftGain;
     blurScratchA.multiply(blurLeftGain);
 
@@ -343,7 +341,7 @@ public:
     // attempt to match blur volume to input volume
     blurRightRms = blurScratchA.getRms();
     float rightGain = min(pow10f(log10f(inRightRms) - log10f(blurRightRms)), blurGainMax);
-    blurRightGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeedMax, fabsf(blurRightGain - rightGain) / blurGainMax);
+    blurRightGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurRightGain - rightGain) / blurGainMax);
     blurRightGain = rightGain;
     blurScratchA.multiply(blurRightGain);
 
@@ -384,10 +382,13 @@ public:
     debugCpy = stpcpy(debugCpy, " texR ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(textureSizeRight, 10));
     debugCpy = stpcpy(debugCpy, " bR ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10))
-      ;
-    debugCpy = stpcpy(debugCpy, " comp ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
+
+    debugCpy = stpcpy(debugCpy, " cP ");
     debugCpy = stpcpy(debugCpy, msg_ftoa(compensationSpeed, 10));
+
+    debugCpy = stpcpy(debugCpy, " csL ");
+    debugCpy = stpcpy(debugCpy, msg_ftoa(blurLeftGain.lambda, 10));
     debugMessage(debugMsg);
   }
 };
