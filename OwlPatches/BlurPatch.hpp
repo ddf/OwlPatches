@@ -240,8 +240,8 @@ public:
     const float blurGainMax = compressionRatio;
     const float rmsMin = pow10f(-compressorRatioMax / 20.f);
 
-    inLeftRms = max(inLeft.getRms(), rmsMin);
-    inRightRms = max(inRight.getRms(), rmsMin);
+    inLeftRms = inLeft.getRms();
+    inRightRms = inRight.getRms();
     
     textureSize = getParameterValue(inTextureSize);
     blurSize = getParameterValue(inBlurSize);
@@ -313,7 +313,7 @@ public:
 
     // attempt to match blur volume to input volume
     blurLeftRms = max(blurScratchA.getRms(), rmsMin);
-    float leftGain = min(pow10f(log10f(inLeftRms) - log10f(blurLeftRms)), blurGainMax);
+    float leftGain = min(pow10f(log10f(max(inLeftRms, rmsMin)) - log10f(blurLeftRms)), blurGainMax);
     // set reactiveness based on how much the gain changed
     blurLeftGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurLeftGain - leftGain) / blurGainMax);
     blurLeftGain = leftGain;
@@ -337,7 +337,7 @@ public:
 
     // attempt to match blur volume to input volume
     blurRightRms = max(blurScratchA.getRms(), rmsMin);
-    float rightGain = min(pow10f(log10f(inRightRms) - log10f(blurRightRms)), blurGainMax);
+    float rightGain = min(pow10f(log10f(max(inRightRms, rmsMin)) - log10f(blurRightRms)), blurGainMax);
     blurRightGain.lambda = Interpolator::linear(compesationSpeedMin, compensationSpeed, fabsf(blurRightGain - rightGain) / blurGainMax);
     blurRightGain = rightGain;
     blurScratchA.multiply(blurRightGain);
