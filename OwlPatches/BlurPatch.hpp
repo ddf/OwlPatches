@@ -77,7 +77,7 @@ class BlurPatch : public Patch
 
   const float compesationSpeedMin = 0.99f;
   const float compensationSpeedDefault = 0.95f;
-  const float compensationSpeedMax = 0.8f;
+  const float compensationSpeedMax = 0.0f;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
