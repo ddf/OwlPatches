@@ -103,7 +103,7 @@ public:
 
   void setReadOffset(float offset)
   {
-    readOffset = offset - 2;
+    readOffset = offset;
   }
 
   float read(float x, size_t y)

@@ -68,7 +68,7 @@ class BlurPatch : public Patch
   static const int minTextureSize = 32 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
   const  float maxBlurSamples     = 31.0f / blurResampleFactor;
-  const  float minBlurSize        = 0.01f;
+  const  float minBlurSize        = 0.02f;
   const  float maxBlurSize        = 0.5f;
 
   // maximum standard deviation was chosen based on the recommendation here:
