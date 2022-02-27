@@ -39,8 +39,8 @@ public:
     kernelX.setGauss(blurSize, standardDeviation);
     BlurKernel kernelY = BlurKernel::create(kernelSize);
     kernelY.setGauss(blurSize, standardDeviation);
-    return new GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>::create(maxTextureSize, kernelX)
-      , BlurSignalProcessor<AxisY>::create(maxTextureSize, kernelY));
+    return new GaussianBlurSignalProcessor(BlurSignalProcessor<AxisX>::create(maxTextureSize, kernelX),
+                                           BlurSignalProcessor<AxisY>::create(maxTextureSize, kernelY));
   }
 
   static void destroy(GaussianBlurSignalProcessor* processor)
