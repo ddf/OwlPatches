@@ -224,6 +224,9 @@ public:
     FloatArray feedRight = feedbackBuffer->getSamples(1);
 
     const int blockSize = getBlockSize();
+
+    inLeftRms = inLeft.getRms();
+    inRightRms = inRight.getRms();
     
     textureSize = getParameterValue(inTextureSize);
     blurSize = getParameterValue(inBlurSize);
@@ -296,7 +299,13 @@ public:
     blurScratchA.add(blurScratchB);
 
     // compress
-    blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+    //blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+
+    // attempt to match blur volume to input volume
+    blurLeftRms = blurScratchA.getRms();
+    float leftdbDelta = 20*log10f(inLeftRms) - 20*log10f(blurLeftRms);
+    blurLeftGain = pow10f(leftdbDelta / 20);
+    blurScratchA.multiply(blurLeftGain);
 
     // upsample to the output
     blurUpLeft->process(blurScratchA, outBlurLeft);
@@ -315,34 +324,16 @@ public:
     blurScratchA.add(blurScratchB);
 
     // compress
-    blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+    //blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+
+    // attempt to match blur volume to input volume
+    blurRightRms = blurScratchA.getRms();
+    float rightdbDelta = 20 * log10f(inLeftRms) - 20 * log10f(blurRightRms);
+    blurRightGain = pow10f(rightdbDelta / 20);
+    blurScratchA.multiply(blurRightGain);
 
     // upsample to the output
     blurUpRight->process(blurScratchA, outBlurRight);
-
-    inLeftRms = inLeft.getRms();
-    inRightRms = inRight.getRms();
-
-    // attempt to match blur volume to input volume
-    //blurLeftRms = outBlurLeft.getRms();
-    //blurRightRms = outBlurRight.getRms();
-
-    //float leftdbDelta = 20*log10f(inLeftRms) - 20*log10f(blurLeftRms);
-    //float rightdbDelta = 20*log10f(inRightRms) - 20*log10f(blurRightRms);
-  
-    //outBlurLeft.multiply(pow10f(leftdbDelta / 20));
-    //outBlurRight.multiply(pow10f(rightdbDelta / 20));
-
-    //const float rmsThreshold = 0.0001f;
-    //blurLeftGain  = (inLeftRms > rmsThreshold && blurLeftRms > rmsThreshold ? inLeftRms / blurLeftRms : 1);
-    //blurRightGain = (inRightRms > rmsThreshold && blurRightRms > rmsThreshold ? inRightRms / blurRightRms : 1);
-    //float gainAmount = getParameterValue(inBlurGain);
-    //outBlurLeft.multiply(Interpolator::linear(1, blurLeftGain, gainAmount));
-    //outBlurRight.multiply(Interpolator::linear(1, blurRightGain, gainAmount));
-
-    // apply compression
-    //blurLeftCompressor.ProcessBlock(outBlurLeft, outBlurLeft, blockSize);
-    //blurRightCompressor.ProcessBlock(outBlurRight, outBlurRight, blockSize);
 
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
@@ -365,7 +356,7 @@ public:
 
     setParameterValue(outLeftFollow, inLeftRms*4);
     //setParameterValue(outRightFollow, inRightRms*4);
-    setParameterValue(outRightFollow, pow10f(blurLeftCompressor.GetGain() / 20.0f) * 0.25f);
+    setParameterValue(outRightFollow, blurLeftGain * 0.1f);
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
