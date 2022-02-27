@@ -30,7 +30,8 @@ public:
 
   void setGauss(float blurSize, float standardDeviation, float scale = 1.0f)
   {
-    this->blurSize = std::clamp(blurSize, 0.0f, 0.99f);
+    blurSize = std::clamp(blurSize, 0.0f, 0.99f);
+    this->blurSize = blurSize;
     standardDeviation = std::max(standardDeviation, 0.01f);
 
     float sum = 0;
@@ -39,7 +40,7 @@ public:
 
     for (int s = 0; s < size; ++s)
     {
-      float offset = ((float)s / (size - 1))*blurSize;
+      float offset = ((float)s / (size - 1))*blurSize*0.5f;
       float gaussWeight = gaussCoeff * pow(M_E, -((offset*offset) / (2 * standardDevSq)));
       data[s] = BlurKernelSample(offset, gaussWeight);
       sum += gaussWeight;
