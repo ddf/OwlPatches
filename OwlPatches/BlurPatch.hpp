@@ -53,10 +53,12 @@ class BlurPatch : public Patch
   static const PatchParameterId inFeedback    = PARAMETER_C;
   static const PatchParameterId inWetDry      = PARAMETER_D;
 
-  static const PatchParameterId inStandardDev = PARAMETER_AA;
   static const PatchParameterId inCompressionThreshold = PARAMETER_AB;
   static const PatchParameterId inCompressionRatio = PARAMETER_AC;
   static const PatchParameterId inCompensationSpeed = PARAMETER_AD;
+
+  // unused, but keeping it around in case I want to quickly hook it up and tweak it for some reason
+  static const PatchParameterId inStandardDev = PARAMETER_AH;
 
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
@@ -123,8 +125,6 @@ class BlurPatch : public Patch
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
   SmoothFloat standardDeviation;
-  SmoothFloat standardDeviationLeft;
-  SmoothFloat standardDeviationRight;
   SmoothFloat feedback;
 
   SmoothFloat inLeftRms;
@@ -143,30 +143,32 @@ public:
     : textureSize(0), blurSize(0)
     , textureSizeLeft(0.1f, minTextureSize), textureSizeRight(0.1f, minTextureSize)
     , blurSizeLeft(0.1f, 0.0f), blurSizeRight(0.1f, 0.0f)
-    , standardDeviation(0.9f, minStandardDev)
-    , standardDeviationLeft(0.75f, minStandardDev), standardDeviationRight(0.75f, minStandardDev)
+    , standardDeviation(0.9f, maxStandardDev)
     , blurLeftGain(0.99f, 1), blurRightGain(0.99f, 1), compressionRatio(0.9f, compressorRatioDefault)
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
     registerParameter(inFeedback, "Feedback");
     registerParameter(inWetDry, "Dry/Wet");
-    registerParameter(inStandardDev, "Standard Deviation");
     registerParameter(inCompressionThreshold, "Blur Gain Compensation");
     registerParameter(inCompressionRatio, "Blur Compressor Ratio");
     registerParameter(inCompensationSpeed, "Blur Gain Max Compensation Speed");
+
+    //registerParameter(inStandardDev, "Standard Deviation");
 
     registerParameter(outLeftFollow, "Left Follow>");
     registerParameter(outRightFollow, "Right Follow>");
 
     setParameterValue(inTextureSize, 0.0f);
     setParameterValue(inBlurSize,    0.0f);
-    setParameterValue(inStandardDev, 1.0f);
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
     setParameterValue(inCompressionThreshold, 0);
     setParameterValue(inCompressionRatio, (compressorRatioDefault - compressorRatioMin) / (compressorRatioMax  - compressorRatioMin));
     setParameterValue(inCompensationSpeed, (compensationSpeedDefault - compesationSpeedMin) / (compensationSpeedMax - compesationSpeedMin));
+
+    //setParameterValue(inStandardDev, 1.0f);
+
     setParameterValue(outLeftFollow, 0);
     setParameterValue(outRightFollow, 0);
 
@@ -183,13 +185,13 @@ public:
     blurUpRight   = UpSampler::create(blurResampleStages, blurResampleFactor);
 
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
-    blurLeftA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
-    blurRightA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+    blurLeftA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
+    blurRightA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
     blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
-    blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationLeft, blurKernelSize);
-    blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviationRight, blurKernelSize);
+    blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
+    blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
 #else
     textureSizeRamp = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurKernelStep = BlurKernel::create(blurKernelSize);
@@ -277,11 +279,9 @@ public:
     const float rightBlurScale = minTextureSize / textureSizeRight;
     blurSizeLeft      = Interpolator::linear(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
     blurSizeRight     = Interpolator::linear(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
-    standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
     feedback          = getParameterValue(inFeedback);
 
-    standardDeviationLeft  = standardDeviation;
-    standardDeviationRight = standardDeviation;
+    //standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
     int texLeftA = (int)textureSizeLeft;
@@ -292,14 +292,14 @@ public:
     int texRightB = texRightA + 1;
     float texRightBlend = textureSizeRight - texRightA;
 
-    blurLeftA->setBlur(blurSizeLeft, standardDeviationLeft, (1.0f - texLeftBlend));
+    blurLeftA->setBlur(blurSizeLeft, standardDeviation, (1.0f - texLeftBlend));
     blurLeftA->setTextureSize(texLeftA);
-    blurLeftB->setBlur(blurSizeLeft, standardDeviationLeft, texLeftBlend);
+    blurLeftB->setBlur(blurSizeLeft, standardDeviation, texLeftBlend);
     blurLeftB->setTextureSize(texLeftB);
 
-    blurRightA->setBlur(blurSizeRight, standardDeviationRight, (1.0f - texRightBlend));
+    blurRightA->setBlur(blurSizeRight, standardDeviation, (1.0f - texRightBlend));
     blurRightA->setTextureSize(texRightA);
-    blurRightB->setBlur(blurSizeRight, standardDeviationRight, texRightBlend);
+    blurRightB->setBlur(blurSizeRight, standardDeviation, texRightBlend);
     blurRightB->setTextureSize(texRightB);
 #endif
 
@@ -342,7 +342,7 @@ public:
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
-      blurKernelStep.setGauss(blurSizeLeft, standardDeviationLeft);
+      blurKernelStep.setGauss(blurSizeLeft, standardDeviation);
       blurKernelStep.blurSize = (blurSizeLeft - blurLeftA->getBlurSize()) / blockSize;
       for (int i = 0; i < blurKernelSize; ++i)
       {
@@ -382,7 +382,7 @@ public:
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
-      blurKernelStep.setGauss(blurSizeRight, standardDeviationRight);
+      blurKernelStep.setGauss(blurSizeRight, standardDeviation);
       blurKernelStep.blurSize = (blurSizeRight - blurRightA->getBlurSize()) / blockSize;
       for (int i = 0; i < blurKernelSize; ++i)
       {
