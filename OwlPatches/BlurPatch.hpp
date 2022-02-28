@@ -53,10 +53,12 @@ class BlurPatch : public Patch
   static const PatchParameterId inFeedback    = PARAMETER_C;
   static const PatchParameterId inWetDry      = PARAMETER_D;
 
-  static const PatchParameterId inCompressionThreshold  = PARAMETER_AA;
-  static const PatchParameterId inCompressionRatio      = PARAMETER_AB;
-  static const PatchParameterId inCompressionResponse   = PARAMETER_AC;
-  static const PatchParameterId inCompressionMakeupGain = PARAMETER_AD;
+  static const PatchParameterId inBlurBrightness = PARAMETER_AA;
+
+  static const PatchParameterId inCompressionThreshold  = PARAMETER_AB;
+  static const PatchParameterId inCompressionRatio      = PARAMETER_AC;
+  static const PatchParameterId inCompressionResponse   = PARAMETER_AD;
+  static const PatchParameterId inCompressionMakeupGain = PARAMETER_AE;
 
   // unused, but keeping it around in case I want to quickly hook it up and tweak it for some reason
   static const PatchParameterId inStandardDev = PARAMETER_AH;
@@ -84,17 +86,21 @@ class BlurPatch : public Patch
   const float maxStandardDev = (blurKernelSize - 1) / 4.0f;
   const float minStandardDev = maxStandardDev / 3.0f;
 
+  const float blurBrightnessMin = 0.5f;
+  const float blurBrightnessMax = 2.0f;
+  const float blurBrightnessDefault = 1.0f;
+
   const float compressorThresholdMin = 0.0f;
   const float compressorThresholdMax = -80.0f;
   const float compressorThresholdDefault = compressorThresholdMin;
 
   const float compressorRatioMin = 1.0f;
   const float compressorRatioMax = 40.0f;
-  const float compressorRatioDefault = compressorRatioMin;
+  const float compressorRatioDefault = 1.5f;
 
   const float compressorResponseMin = 0.001f;
   const float compressorResponseMax = 10.0f;
-  const float compressorResponseDefault = compressorResponseMin;
+  const float compressorResponseDefault = 0.01f;
 
   const float compressorMakeupGainMin = 0.0f;
   const float compressorMakeupGainMax = 80.0f;
@@ -160,6 +166,7 @@ public:
     registerParameter(inBlurSize, "Blur Size");
     registerParameter(inFeedback, "Feedback");
     registerParameter(inWetDry, "Dry/Wet");
+    registerParameter(inBlurBrightness, "Blur Brightness");
     registerParameter(inCompressionThreshold, "Blur Compressor Threshold");
     registerParameter(inCompressionRatio, "Blur Compressor Ratio");
     registerParameter(inCompressionResponse, "Blur Compressor Response");
@@ -174,6 +181,7 @@ public:
     setParameterValue(inBlurSize,    0.0f);
     setParameterValue(inFeedback, 0.0f);
     setParameterValue(inWetDry, 1);
+    setParameterValue(inBlurBrightness, (blurBrightnessDefault - blurBrightnessMin) / (blurBrightnessMax - blurBrightnessMin));
     setParameterValue(inCompressionThreshold, (compressorThresholdDefault - compressorThresholdMin) / (compressorThresholdMax - compressorThresholdMin));
     setParameterValue(inCompressionRatio, (compressorRatioDefault - compressorRatioMin) / (compressorRatioMax  - compressorRatioMin));
     setParameterValue(inCompressionResponse, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
@@ -306,6 +314,9 @@ public:
     const float rightBlurScale = minTextureSize / textureSizeRight;
     blurSizeLeft      = Interpolator::linear(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
     blurSizeRight     = Interpolator::linear(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
+
+    const float blurBrightness = Interpolator::linear(blurBrightnessMin, blurBrightnessMax, getParameterValue(inBlurBrightness));
+
     feedback          = getParameterValue(inFeedback);
 
     //standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
@@ -375,7 +386,7 @@ public:
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
-      blurKernelStep.setGauss(blurSizeLeft, standardDeviation);
+      blurKernelStep.setGauss(blurSizeLeft, standardDeviation, blurBrightness);
       blurKernelStep.blurSize = (blurSizeLeft - blurLeftA->getBlurSize()) / blockSize;
       for (int i = 0; i < blurKernelSize; ++i)
       {
@@ -407,7 +418,7 @@ public:
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
-      blurKernelStep.setGauss(blurSizeRight, standardDeviation);
+      blurKernelStep.setGauss(blurSizeRight, standardDeviation, blurBrightness);
       blurKernelStep.blurSize = (blurSizeRight - blurRightA->getBlurSize()) / blockSize;
       for (int i = 0; i < blurKernelSize; ++i)
       {
