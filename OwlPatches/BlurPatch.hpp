@@ -53,12 +53,15 @@ class BlurPatch : public Patch
   static const PatchParameterId inFeedback    = PARAMETER_C;
   static const PatchParameterId inWetDry      = PARAMETER_D;
 
+  // attenuate or boost the input signal during the blur
   static const PatchParameterId inBlurBrightness = PARAMETER_AA;
 
+  // compressor parameters, which work as you'd expect
   static const PatchParameterId inCompressionThreshold  = PARAMETER_AB;
   static const PatchParameterId inCompressionRatio      = PARAMETER_AC;
-  static const PatchParameterId inCompressionResponse   = PARAMETER_AD;
-  static const PatchParameterId inCompressionMakeupGain = PARAMETER_AE;
+  static const PatchParameterId inCompressionMakeupGain = PARAMETER_AD;
+  static const PatchParameterId inCompressionAttack     = PARAMETER_AE;
+  static const PatchParameterId inCompressionRelease    = PARAMETER_AF;
 
   // unused, but keeping it around in case I want to quickly hook it up and tweak it for some reason
   static const PatchParameterId inStandardDev = PARAMETER_AH;
@@ -147,7 +150,8 @@ class BlurPatch : public Patch
 
   SmoothFloat compressionThreshold;
   SmoothFloat compressionRatio;
-  SmoothFloat compressionResponse;
+  SmoothFloat compressionAttack;
+  SmoothFloat compressionRelease;
   SmoothFloat compressionMakeupGain;
 
   Compressor blurLeftCompressor;
@@ -160,7 +164,8 @@ public:
     , blurSizeLeft(0.1f, 0.0f), blurSizeRight(0.1f, 0.0f)
     , standardDeviation(0.9f, maxStandardDev)
     , compressionThreshold(0.9f, compressorThresholdDefault), compressionRatio(0.9f, compressorRatioDefault)
-    , compressionResponse(0.9f, compressorResponseDefault), compressionMakeupGain(0.9f, compressorMakeupGainDefault)
+    , compressionAttack(0.9f, compressorResponseDefault), compressionRelease(0.9f, compressorResponseDefault)
+    , compressionMakeupGain(0.9f, compressorMakeupGainDefault)
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
@@ -169,7 +174,8 @@ public:
     registerParameter(inBlurBrightness, "Blur Brightness");
     registerParameter(inCompressionThreshold, "Blur Compressor Threshold");
     registerParameter(inCompressionRatio, "Blur Compressor Ratio");
-    registerParameter(inCompressionResponse, "Blur Compressor Response");
+    registerParameter(inCompressionAttack, "Blur Compressor Attack");
+    registerParameter(inCompressionRelease, "Blur Compressor Release");
     registerParameter(inCompressionMakeupGain, "Blur Compressor Makeup Gain");
 
     //registerParameter(inStandardDev, "Standard Deviation");
@@ -184,7 +190,8 @@ public:
     setParameterValue(inBlurBrightness, (blurBrightnessDefault - blurBrightnessMin) / (blurBrightnessMax - blurBrightnessMin));
     setParameterValue(inCompressionThreshold, (compressorThresholdDefault - compressorThresholdMin) / (compressorThresholdMax - compressorThresholdMin));
     setParameterValue(inCompressionRatio, (compressorRatioDefault - compressorRatioMin) / (compressorRatioMax  - compressorRatioMin));
-    setParameterValue(inCompressionResponse, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
+    setParameterValue(inCompressionAttack, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
+    setParameterValue(inCompressionRelease, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
     setParameterValue(inCompressionMakeupGain, (compressorMakeupGainDefault - compressorMakeupGainMin) / (compressorMakeupGainMax - compressorMakeupGainMin));
 
     //setParameterValue(inStandardDev, 1.0f);
@@ -226,11 +233,11 @@ public:
     blurLeftCompressor.SetRatio(compressionRatio);
     blurRightCompressor.SetRatio(compressionRatio);
 
-    blurLeftCompressor.SetAttack(compressionResponse);
-    blurRightCompressor.SetAttack(compressionResponse);
+    blurLeftCompressor.SetAttack(compressionAttack);
+    blurRightCompressor.SetAttack(compressionAttack);
 
-    blurLeftCompressor.SetRelease(compressionResponse);
-    blurRightCompressor.SetRelease(compressionResponse);
+    blurLeftCompressor.SetRelease(compressionAttack);
+    blurRightCompressor.SetRelease(compressionAttack);
 
     blurLeftCompressor.AutoMakeup(false);
     blurLeftCompressor.SetMakeup(compressionMakeupGain);
@@ -358,11 +365,13 @@ public:
     blurLeftCompressor.SetRatio(compressionRatio);
     blurRightCompressor.SetRatio(compressionRatio);
 
-    compressionResponse = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(inCompressionResponse));
-    blurLeftCompressor.SetAttack(compressionResponse);
-    blurLeftCompressor.SetRelease(compressionResponse);
-    blurRightCompressor.SetAttack(compressionResponse);
-    blurRightCompressor.SetRelease(compressionResponse);
+    compressionAttack = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(inCompressionAttack));
+    blurLeftCompressor.SetAttack(compressionAttack);
+    blurRightCompressor.SetAttack(compressionAttack);
+
+    compressionRelease = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(inCompressionRelease));
+    blurLeftCompressor.SetRelease(compressionRelease);
+    blurRightCompressor.SetRelease(compressionRelease);
 
     compressionMakeupGain = Interpolator::linear(compressorMakeupGainMin, compressorMakeupGainMax, getParameterValue(inCompressionMakeupGain));
     blurLeftCompressor.SetMakeup(compressionMakeupGain);
@@ -488,7 +497,7 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(blurSizeRight, 10));
 
     debugCpy = stpcpy(debugCpy, " cR ");
-    debugCpy = stpcpy(debugCpy, msg_ftoa(compressionResponse, 10));
+    debugCpy = stpcpy(debugCpy, msg_ftoa(compressionAttack, 10));
 
     debugMessage(debugMsg);
   }
