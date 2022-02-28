@@ -26,8 +26,6 @@ public:
   BlurKernel(BlurKernelSample* data, size_t size) :
     SimpleArray(data, size), blurSize(0) {}
 
-  float getBlurSize() const { return blurSize; }
-
   void setGauss(float blurSize, float standardDeviation, float scale = 1.0f)
   {
     blurSize = std::clamp(blurSize, 0.0f, 0.99f);

@@ -42,21 +42,19 @@ public:
   {
     texture.write(input);
 
-    float c = 0.0;
     float v = 0;
     const int samples = kernel.getSize();
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
-      const float coord = c + samp.offset;
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        v += texture.readBilinear(coord, 0) * samp.weight;
+        v += texture.readBilinear(samp.offset, 0) * samp.weight;
       }
       else
       {
-        v += texture.readBilinear(0, coord) * samp.weight;
+        v += texture.readBilinear(0, samp.offset) * samp.weight;
       }
     }
 
