@@ -344,6 +344,10 @@ public:
     blurRightCompressor.SetAttack(compressionResponse);
     blurRightCompressor.SetRelease(compressionResponse);
 
+    compressionMakeupGain = Interpolator::linear(compressorMakeupGainMin, compressorMakeupGainMax, getParameterValue(inCompressionMakeupGain));
+    blurLeftCompressor.SetMakeup(compressionMakeupGain);
+    blurRightCompressor.SetMakeup(compressionMakeupGain);
+
     dcFilter->process(audio, audio);
 
     inLeftRms = inLeft.getRms();
