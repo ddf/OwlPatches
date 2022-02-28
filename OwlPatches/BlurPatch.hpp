@@ -224,11 +224,11 @@ public:
     blurLeftCompressor.SetRelease(compressionResponse);
     blurRightCompressor.SetRelease(compressionResponse);
 
-    //blurLeftCompressor.AutoMakeup(false);
-    //blurLeftCompressor.SetMakeup(compressionMakeupGain);
+    blurLeftCompressor.AutoMakeup(false);
+    blurLeftCompressor.SetMakeup(compressionMakeupGain);
 
-    //blurRightCompressor.AutoMakeup(false);
-    //blurRightCompressor.SetMakeup(compressionMakeupGain);
+    blurRightCompressor.AutoMakeup(false);
+    blurRightCompressor.SetMakeup(compressionMakeupGain);
   }
 
   ~BlurPatch()
@@ -345,8 +345,8 @@ public:
     blurRightCompressor.SetRelease(compressionResponse);
 
     compressionMakeupGain = Interpolator::linear(compressorMakeupGainMin, compressorMakeupGainMax, getParameterValue(inCompressionMakeupGain));
-    //blurLeftCompressor.SetMakeup(compressionMakeupGain);
-    //blurRightCompressor.SetMakeup(compressionMakeupGain);
+    blurLeftCompressor.SetMakeup(compressionMakeupGain);
+    blurRightCompressor.SetMakeup(compressionMakeupGain);
 
     dcFilter->process(audio, audio);
 
