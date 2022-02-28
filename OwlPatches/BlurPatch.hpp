@@ -315,7 +315,16 @@ public:
     blurSizeLeft      = Interpolator::linear(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
     blurSizeRight     = Interpolator::linear(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
 
-    const float blurBrightness = Interpolator::linear(blurBrightnessMin, blurBrightnessMax, getParameterValue(inBlurBrightness));
+    float brightnessParam = getParameterValue(inBlurBrightness);
+    float blurBrightness = blurBrightnessDefault;
+    if (brightnessParam >= 0.53f)
+    {
+      blurBrightness = Interpolator::linear(blurBrightnessDefault, blurBrightnessMax, (brightnessParam - 0.53f) * 2.12f);
+    }
+    else if (brightnessParam <= 0.47f)
+    {
+      blurBrightness = Interpolator::linear(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
+    }
 
     feedback          = getParameterValue(inFeedback);
 
@@ -361,8 +370,8 @@ public:
 
     dcFilter->process(audio, audio);
 
-    inLeftRms = inLeft.getRms();
-    inRightRms = inRight.getRms();
+    inLeftRms = inLeft.getRms() * blurBrightness;
+    inRightRms = inRight.getRms() * blurBrightness;
 
     // Note: the way feedback is applied is based on how Clouds does it
     float cutoff = (20.0f + 100.0f * feedback * feedback);
@@ -462,9 +471,8 @@ public:
     //  inRight[i] = (inRight[i] * dry + outBlurRight[i] * wet);
     //}
 
-    setParameterValue(outLeftFollow, inLeftRms*4);
-    //setParameterValue(outRightFollow, inRightRms*4);
-    setParameterValue(outRightFollow, blurLeftCompressor.GetGain() / 4);
+    setParameterValue(outLeftFollow, inLeftRms);
+    setParameterValue(outRightFollow, inRightRms);
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
