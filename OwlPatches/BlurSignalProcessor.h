@@ -44,6 +44,7 @@ public:
 
     float v = 0;
     float c = kernel.blurSize * 0.5f;
+    float w = texture.getWidth();
     const int samples = kernel.getSize();
     for (int s = 0; s < samples; ++s)
     {
@@ -51,7 +52,8 @@ public:
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
+        //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
+        v += texture.read((c + samp.offset) * w, 0) * samp.weight;
       }
       else
       {
@@ -71,14 +73,14 @@ public:
     for (int i = 0; i < size; ++i)
     {
       setTextureSize(textureSize[i]);
-      if (AXIS == AxisX)
-      {
-        texture.setReadOffset(textureSize[i] * kernel.blurSize * 0.5f);
-      }
-      else
-      {
-        texture.setReadOffset(textureSize[i] * textureSize[i] * kernel.blurSize * 0.5f);
-      }
+      //if (AXIS == AxisX)
+      //{
+      //  texture.setReadOffset(textureSize[i] * kernel.blurSize * 0.5f);
+      //}
+      //else
+      //{
+      //  texture.setReadOffset(textureSize[i] * textureSize[i] * kernel.blurSize * 0.5f);
+      //}
       output[i] = process(input[i]);
       for (int s = 0; s < samples; ++s)
       {
