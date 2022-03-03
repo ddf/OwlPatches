@@ -14,6 +14,7 @@ class BlurSignalProcessor : public SignalProcessor
 {
 protected:
   CircularTexture<float, size_t> texture;
+  CircularTexture<float, size_t> textureB;
   float texSize;
   size_t texSizeLow, texSizeHi;
   float texSizeBlend;
@@ -23,7 +24,7 @@ public:
 
   BlurSignalProcessor() {}
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, float maxBlurSize, BlurKernel kernel)
-    : texture(textureData, textureSizeX, textureSizeY)
+    : texture(textureData, textureSizeX, textureSizeY), textureB(textureData, textureSizeX, textureSizeY)
     , kernel(kernel), texSize(textureSizeX)
     , texSizeLow(textureSizeX), texSizeHi(textureSizeX), texSizeBlend(0)
   {
@@ -44,6 +45,7 @@ public:
     else
     {
       texture = texture.subtexture(texSizeLow, texSizeLow);
+      textureB = texture.subtexture(texSizeHi, texSizeHi);
     }
   }
 
@@ -73,7 +75,7 @@ public:
       }
       else
       {
-        v += texture.readBilinear(0, coord) * samp.weight;
+        v += Interpolator::linear(texture.readBilinear(0, coord), textureB.readBilinear(0, coord), texSizeBlend) * samp.weight;
       }
     }
 
