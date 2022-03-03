@@ -161,7 +161,7 @@ public:
   BlurPatch()
     : textureSize(0), blurSize(0)
     , textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
-    , blurSizeLeft(0.1f, 0.0f), blurSizeRight(0.1f, 0.0f)
+    , blurSizeLeft(0.9f, 0.0f), blurSizeRight(0.9f, 0.0f)
     , standardDeviation(0.9f, maxStandardDev)
     , compressionThreshold(0.9f, compressorThresholdDefault), compressionRatio(0.9f, compressorRatioDefault)
     , compressionAttack(0.9f, compressorResponseDefault), compressionRelease(0.9f, compressorResponseDefault)
