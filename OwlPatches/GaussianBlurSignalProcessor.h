@@ -46,7 +46,7 @@ public:
   void process(FloatArray input, FloatArray output, SimpleArray<TextureSizeType> textureSize, BlurKernel kernelStep)
   {
     blurX->process(input, output, textureSize, kernelStep);
-    blurY->process(output, output, textureSize, kernelStep);
+    //blurY->process(output, output, textureSize, kernelStep);
   }
 
 public:
