@@ -59,7 +59,22 @@ public:
       if (AXIS == AxisX)
       {
         //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
-        v += Interpolator::linear(texture.read(coord * texSizeLow, 0), texture.read(coord * texSizeHi), texSizeBlend);
+
+        float x = coord * texSizeLow;
+        size_t x1 = (size_t)x;
+        size_t x2 = x1 + 1;
+        float xt = x - x1;
+
+        float vL = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt);
+
+        x = coord * texSizeHi;
+        x1 = (size_t)x;
+        x2 = x1 + 1;
+        xt = x - x1;
+
+        float vH = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt);
+
+        v += Interpolator::linear(vL, vH, texSizeBlend);
       }
       else
       {
