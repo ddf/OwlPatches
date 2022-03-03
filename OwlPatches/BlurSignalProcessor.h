@@ -13,7 +13,9 @@ template<BlurAxis AXIS, typename TextureSizeType = size_t>
 class BlurSignalProcessor : public SignalProcessor 
 {
 protected:
-  CircularTexture<float, TextureSizeType> texture;
+  CircularTexture<float, size_t> texture;
+  size_t texSizeLow, texSizeHi;
+  float texSizeBlend;
 
 public:
   BlurKernel kernel;
@@ -22,6 +24,7 @@ public:
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, float maxBlurSize, BlurKernel kernel)
     : texture(textureData, textureSizeX, textureSizeY)
     , kernel(kernel)
+    , texSizeLow(textureSizeX), texSizeHi(textureSizeX), texSizeBlend(0)
   {
     texture.setReadOffset(texture.getDataSize() * maxBlurSize * 0.5f);
   }
@@ -30,7 +33,9 @@ public:
   {
     if (AXIS == AxisX)
     {
-      texture = texture.subtexture(textureSize, 1);
+      texSizeLow = (size_t)textureSize;
+      texSizeHi = texSizeLow + 1;
+      texSizeBlend - textureSize - texSizeLow;
     }
     else
     {
@@ -49,11 +54,12 @@ public:
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
+      const float coord = c + samp.offset;
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
         //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
-        v += texture.read((c + samp.offset) * w, 0) * samp.weight;
+        v += Interpolator::linear(texture.read(coord * texSizeLow, 0), texture.read(coord * texSizeHi), texSizeBlend);
       }
       else
       {
