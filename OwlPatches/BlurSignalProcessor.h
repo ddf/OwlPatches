@@ -13,7 +13,7 @@ template<BlurAxis AXIS, typename TextureSizeType = size_t>
 class BlurSignalProcessor : public SignalProcessor 
 {
 protected:
-  CircularTexture<float, size_t> texture;
+  CircularTexture<float, TextureSizeType> texture;
   size_t texSizeLow, texSizeHi;
   float texSizeBlend;
 
@@ -36,6 +36,8 @@ public:
       texSizeLow = (size_t)textureSize;
       texSizeHi = texSizeLow + 1;
       texSizeBlend - textureSize - texSizeLow;
+
+      texture = texture.subtexture(textureSize, 1);
     }
     else
     {
@@ -58,23 +60,23 @@ public:
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
+        v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
 
-        float x = coord * texSizeLow;
-        size_t x1 = (size_t)x;
-        size_t x2 = x1 + 1;
-        float xt = x - x1;
+        //float x = coord * texSizeLow;
+        //size_t x1 = (size_t)x;
+        //size_t x2 = x1 + 1;
+        //float xt = x - x1;
 
-        float vL = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
+        //float vL = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
 
-        x = coord * texSizeHi;
-        x1 = (size_t)x;
-        x2 = x1 + 1;
-        xt = x - x1;
+        //x = coord * texSizeHi;
+        //x1 = (size_t)x;
+        //x2 = x1 + 1;
+        //xt = x - x1;
 
-        float vH = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
+        //float vH = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
 
-        v += Interpolator::linear(vL, vH, texSizeBlend);
+        //v += Interpolator::linear(vL, vH, texSizeBlend);
       }
       else
       {
