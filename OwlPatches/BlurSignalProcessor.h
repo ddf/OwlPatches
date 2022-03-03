@@ -26,7 +26,7 @@ public:
     , kernel(kernel)
     , texSizeLow(textureSizeX), texSizeHi(textureSizeX), texSizeBlend(0)
   {
-    texture.setReadOffset(texture.getDataSize() * maxBlurSize * 0.5f);
+    //texture.setReadOffset(texture.getDataSize() * maxBlurSize * 0.5f);
   }
 
   void setTextureSize(TextureSizeType textureSize)
