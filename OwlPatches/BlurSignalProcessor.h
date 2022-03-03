@@ -13,7 +13,8 @@ template<BlurAxis AXIS, typename TextureSizeType = size_t>
 class BlurSignalProcessor : public SignalProcessor 
 {
 protected:
-  CircularTexture<float, TextureSizeType> texture;
+  CircularTexture<float, size_t> texture;
+  float texSize;
   size_t texSizeLow, texSizeHi;
   float texSizeBlend;
 
@@ -23,7 +24,7 @@ public:
   BlurSignalProcessor() {}
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, float maxBlurSize, BlurKernel kernel)
     : texture(textureData, textureSizeX, textureSizeY)
-    , kernel(kernel)
+    , kernel(kernel), texSize(textureSizeX)
     , texSizeLow(textureSizeX), texSizeHi(textureSizeX), texSizeBlend(0)
   {
     //texture.setReadOffset(texture.getDataSize() * maxBlurSize * 0.5f);
@@ -33,11 +34,12 @@ public:
   {
     if (AXIS == AxisX)
     {
+      texSize = textureSize;
       texSizeLow = (size_t)textureSize;
       texSizeHi = texSizeLow + 1;
       texSizeBlend - textureSize - texSizeLow;
 
-      texture = texture.subtexture(textureSize, 1);
+      //texture = texture.subtexture(textureSize, 1);
     }
     else
     {
@@ -60,23 +62,14 @@ public:
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
+        //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
 
-        //float x = coord * texSizeLow;
-        //size_t x1 = (size_t)x;
-        //size_t x2 = x1 + 1;
-        //float xt = x - x1;
+        float x = coord * texSize;
+        size_t x1 = (size_t)x;
+        size_t x2 = x1 + 1;
+        float xt = x - x1;
 
-        //float vL = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
-
-        //x = coord * texSizeHi;
-        //x1 = (size_t)x;
-        //x2 = x1 + 1;
-        //xt = x - x1;
-
-        //float vH = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
-
-        //v += Interpolator::linear(vL, vH, texSizeBlend);
+        v += Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
       }
       else
       {
