@@ -55,7 +55,6 @@ public:
 
     float v = 0;
     float c = kernel.blurSize * 0.5f;
-    float w = texture.getWidth();
     const int samples = kernel.getSize();
     for (int s = 0; s < samples; ++s)
     {
