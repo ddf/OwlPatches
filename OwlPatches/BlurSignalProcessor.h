@@ -36,7 +36,7 @@ public:
     texSize = textureSize;
     texSizeLow = (size_t)textureSize;
     texSizeHi = texSizeLow + 1;
-    texSizeBlend - textureSize - texSizeLow;
+    texSizeBlend = textureSize - texSizeLow;
 
     if (AXIS == AxisX)
     {
