@@ -108,7 +108,7 @@ public:
 
   float read(float x, float y)
   {
-    float index = buffer.getWriteIndex() + buffer.getSize() - readOffset + y*sizeX + x;
+    float index = buffer.getWriteIndex() + buffer.getSize() - 1 - (y*sizeX + x);
     return buffer.readAt(index);
   }
 

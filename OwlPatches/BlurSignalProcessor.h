@@ -43,6 +43,7 @@ public:
     texture.write(input);
 
     float v = 0;
+    float c = kernel.blurSize * 0.5f;
     const int samples = kernel.getSize();
     for (int s = 0; s < samples; ++s)
     {
@@ -50,11 +51,11 @@ public:
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
-        v += texture.readBilinear(samp.offset, 0) * samp.weight;
+        v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
       }
       else
       {
-        v += texture.readBilinear(0, samp.offset) * samp.weight;
+        v += texture.readBilinear(0, c + samp.offset) * samp.weight;
       }
     }
 
