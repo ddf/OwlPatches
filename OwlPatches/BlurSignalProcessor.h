@@ -65,14 +65,14 @@ public:
         size_t x2 = x1 + 1;
         float xt = x - x1;
 
-        float vL = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt);
+        float vL = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
 
         x = coord * texSizeHi;
         x1 = (size_t)x;
         x2 = x1 + 1;
         xt = x - x1;
 
-        float vH = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt);
+        float vH = Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
 
         v += Interpolator::linear(vL, vH, texSizeBlend);
       }
