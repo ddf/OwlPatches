@@ -32,18 +32,18 @@ public:
 
   void setTextureSize(TextureSizeType textureSize)
   {
+    texSize = textureSize;
+    texSizeLow = (size_t)textureSize;
+    texSizeHi = texSizeLow + 1;
+    texSizeBlend - textureSize - texSizeLow;
+
     if (AXIS == AxisX)
     {
-      texSize = textureSize;
-      texSizeLow = (size_t)textureSize;
-      texSizeHi = texSizeLow + 1;
-      texSizeBlend - textureSize - texSizeLow;
-
       //texture = texture.subtexture(textureSize, 1);
     }
     else
     {
-      texture = texture.subtexture(textureSize, textureSize);
+      texture = texture.subtexture(texSizeLow, texSizeLow);
     }
   }
 
@@ -73,7 +73,7 @@ public:
       }
       else
       {
-        v += texture.readBilinear(0, c + samp.offset) * samp.weight;
+        v += texture.readBilinear(0, coord) * samp.weight;
       }
     }
 
