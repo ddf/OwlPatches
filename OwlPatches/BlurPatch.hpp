@@ -423,7 +423,7 @@ public:
 #endif
 
       // compress
-      blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      //blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
       // upsample to the output
       blurUpLeft->process(blurScratchA, outBlurLeft);
@@ -455,7 +455,7 @@ public:
 #endif
 
       // compress
-      blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      //blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
       // upsample to the output
       blurUpRight->process(blurScratchA, outBlurRight);
