@@ -206,10 +206,10 @@ public:
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    blurDownLeft  = DownSampler::create(blurResampleStages, blurResampleFactor);
-    blurDownRight = DownSampler::create(blurResampleStages, blurResampleFactor);
-    blurUpLeft    = UpSampler::create(blurResampleStages, blurResampleFactor);
-    blurUpRight   = UpSampler::create(blurResampleStages, blurResampleFactor);
+    blurDownLeft  = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+    blurDownRight = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+    blurUpLeft    = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+    blurUpRight   = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
 
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurLeftA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
