@@ -56,19 +56,18 @@ public:
     float v = 0;
     const float c = kernel.blurSize * 0.5f;
     const int samples = kernel.getSize();
-    const float readOffset = AXIS == AxisY ? texSize * texSize * kernel.blurSize + 1: 0.0f;
+    const float readOffset = AXIS == AxisY ? texSize * texSize * c + 1: 0.0f;
     //const float u1 = AXIS == AxisY ? c * (texSize + 1 - texSizeLow) / texSizeLow : 0.0f;
     //const float u2 = AXIS == AxisY ? c * (texSize + 1 - texSizeHi) / texSizeHi : 0.0f;
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
-      const float coord = c + samp.offset;
       // read with linear interp across the axis we care about
       if (AXIS == AxisX)
       {
         //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
 
-        float x = coord * texSize;
+        float x = (c + samp.offset) * texSize;
         size_t x1 = (size_t)x;
         size_t x2 = x1 + 1;
         float xt = x - x1;
@@ -79,12 +78,12 @@ public:
       {
         //v += Interpolator::linear(texture.readBilinear(u1, coord), textureB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
         
-        float ya = coord * texSizeLow;
+        float ya = samp.offset * texSizeLow;
         size_t ya1 = (size_t)ya;
         size_t ya2 = ya1 + 1;
         float yat = ya - ya1;
 
-        float yb = coord * texSizeHi;
+        float yb = samp.offset * texSizeHi;
         size_t yb1 = (size_t)yb;
         size_t yb2 = yb1 + 1;
         float ybt = yb + yb1;
