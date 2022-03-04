@@ -46,7 +46,7 @@ public:
   {
     float index = buffer.getWriteIndex() + buffer.getSize() - readOffset - (y*sizeX + x);
     IndexType idx1 = IndexType(index);
-    IndexType idx2 = idx1 + idx2;
+    IndexType idx2 = idx1 + 1;
     float t = index - idx1;
     return Interpolator::linear(buffer.readAt(idx1), buffer.readAt(idx2), t);
   }
