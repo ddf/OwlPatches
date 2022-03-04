@@ -90,7 +90,7 @@ public:
         float ybt = yb + yb1;
 
         float va = Interpolator::linear(texture.read(0, ya1, readOffset), texture.read(0, ya2, readOffset), yat);
-        float vb = Interpolator::linear(textureB.read(0, yb1, readOffset), texture.read(0, yb2, readOffset), ybt);
+        float vb = Interpolator::linear(textureB.read(0, yb1, readOffset), textureB.read(0, yb2, readOffset), ybt);
 
         v += Interpolator::linear(va, vb, texSizeBlend) * samp.weight;
       }
