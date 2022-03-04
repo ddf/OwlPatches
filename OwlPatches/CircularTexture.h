@@ -42,6 +42,15 @@ public:
     return buffer.readAt(index);
   }
 
+  DataType read(IndexType x, IndexType y, float readOffset)
+  {
+    float index = buffer.getWriteIndex() + buffer.getSize() - readOffset - (y*sizeX + x);
+    IndexType idx1 = IndexType(index);
+    IndexType idx2 = idx1 + idx2;
+    float t = index - idx1;
+    return Interpolator::linear(buffer.readAt(idx1), buffer.readAt(idx2), t);
+  }
+
   DataType readBilinear(float u, float v)
   {
     float x = u * sizeX;

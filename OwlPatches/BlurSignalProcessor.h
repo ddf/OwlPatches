@@ -56,8 +56,9 @@ public:
     float v = 0;
     const float c = kernel.blurSize * 0.5f;
     const int samples = kernel.getSize();
-    const float u1 = AXIS == AxisY ? c * (texSize + 1 - texSizeLow) / texSizeLow : 0.0f;
-    const float u2 = AXIS == AxisY ? c * (texSize + 1 - texSizeHi) / texSizeHi : 0.0f;
+    const float readOffset = AXIS == AxisY ? texSize * texSize * c + 1: 0.0f;
+    //const float u1 = AXIS == AxisY ? c * (texSize + 1 - texSizeLow) / texSizeLow : 0.0f;
+    //const float u2 = AXIS == AxisY ? c * (texSize + 1 - texSizeHi) / texSizeHi : 0.0f;
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
@@ -76,7 +77,22 @@ public:
       }
       else
       {
-        v += Interpolator::linear(texture.readBilinear(u1, coord), textureB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
+        //v += Interpolator::linear(texture.readBilinear(u1, coord), textureB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
+        
+        float ya = coord * texSizeLow;
+        size_t ya1 = (size_t)ya;
+        size_t ya2 = ya1 + 1;
+        float yat = ya - ya1;
+
+        float yb = coord * texSizeHi;
+        size_t yb1 = (size_t)yb;
+        size_t yb2 = yb1 + 1;
+        float ybt = yb + yb1;
+
+        float va = Interpolator::linear(texture.read(0, ya1, readOffset), texture.read(0, ya2, readOffset), yat);
+        float vb = Interpolator::linear(textureB.read(0, yb1, readOffset), texture.read(0, yb2, readOffset), ybt);
+
+        v += Interpolator::linear(va, vb, texSizeBlend) * samp.weight;
       }
     }
 
