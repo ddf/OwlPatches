@@ -71,7 +71,7 @@ class BlurPatch : public Patch
 
   static const int blurKernelSize     = 7;
   static const int blurResampleStages = 3;
-  static const int blurResampleFactor = 2;
+  static const int blurResampleFactor = 4;
 
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
