@@ -54,8 +54,10 @@ public:
     texture.write(input);
 
     float v = 0;
-    float c = kernel.blurSize * 0.5f;
+    const float c = kernel.blurSize * 0.5f;
     const int samples = kernel.getSize();
+    const float u1 = AXIS == AxisY ? c * (texSizeBlend) / texSizeLow : 0.0f;
+    const float u2 = AXIS == AxisY ? c * (1 - texSizeBlend) / texSizeHi : 0.0f;
     for (int s = 0; s < samples; ++s)
     {
       BlurKernelSample samp = kernel[s];
@@ -74,7 +76,7 @@ public:
       }
       else
       {
-        v += Interpolator::linear(texture.readBilinear(0, coord), textureB.readBilinear(0, coord), texSizeBlend) * samp.weight;
+        v += Interpolator::linear(texture.readBilinear(u1, coord), textureB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
       }
     }
 
