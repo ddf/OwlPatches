@@ -56,7 +56,7 @@ public:
     float v = 0;
     const float c = kernel.blurSize * 0.5f;
     const int samples = kernel.getSize();
-    const float readOffset = AXIS == AxisY ? texSize * texSize * c + 1: 0.0f;
+    const float readOffset = AXIS == AxisY ? texSize * texSize * kernel.blurSize + 1: 0.0f;
     //const float u1 = AXIS == AxisY ? c * (texSize + 1 - texSizeLow) / texSizeLow : 0.0f;
     //const float u2 = AXIS == AxisY ? c * (texSize + 1 - texSizeHi) / texSizeHi : 0.0f;
     for (int s = 0; s < samples; ++s)
