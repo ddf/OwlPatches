@@ -73,8 +73,8 @@ class BlurPatch : public Patch
   static const int blurResampleStages = 3;
   static const int blurResampleFactor = 4;
 
-  static const int minTextureSize = 32 / blurResampleFactor;
-  static const int maxTextureSize = 64 / blurResampleFactor;
+  static const int minTextureSize = 16 / blurResampleFactor;
+  static const int maxTextureSize = 32 / blurResampleFactor;
   const  float maxBlurSamples     = 31.0f / blurResampleFactor;
   const  float minBlurSize        = 0.15f;
   const  float maxBlurSize        = 0.95f;
@@ -412,7 +412,7 @@ public:
         BlurKernelSample from = blurLeftA->getKernelSample(i);
         blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
       }
-      blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
+      //blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       // process both texture sizes
       blurLeftB->process(blurScratchA, blurScratchB);
@@ -444,7 +444,7 @@ public:
         BlurKernelSample from = blurRightA->getKernelSample(i);
         blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
       }
-      blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
+      //blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       // process both texture sizes
       blurRightB->process(blurScratchA, blurScratchB);
