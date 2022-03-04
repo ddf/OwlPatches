@@ -70,7 +70,7 @@ class BlurPatch : public Patch
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
   static const int blurKernelSize     = 7;
-  static const int blurResampleStages = 1;
+  static const int blurResampleStages = 2;
   static const int blurResampleFactor = 4;
 
   static const int minTextureSize = 16 / blurResampleFactor;
