@@ -13,10 +13,9 @@ template<BlurAxis AXIS, typename TextureSizeType = size_t>
 class BlurSignalProcessor : public SignalProcessor 
 {
 protected:
-  CircularTexture<float, size_t> texture;
-  CircularTexture<float, size_t> textureB;
+  CircularTexture<float, int> texture;
   float texSize;
-  size_t texSizeLow, texSizeHi;
+  int   texSizeLow, texSizeHi;
   float texSizeBlend;
 
 public:
@@ -24,29 +23,18 @@ public:
 
   BlurSignalProcessor() {}
   BlurSignalProcessor(float* textureData, int textureSizeX, int textureSizeY, float maxBlurSize, BlurKernel kernel)
-    : texture(textureData, textureSizeX, textureSizeY), textureB(textureData, textureSizeX, textureSizeY)
+    : texture(textureData, textureSizeX*textureSizeY, textureSizeX, textureSizeY)
     , kernel(kernel), texSize(textureSizeX)
     , texSizeLow(textureSizeX), texSizeHi(textureSizeX), texSizeBlend(0)
   {
-    //texture.setReadOffset(texture.getDataSize() * maxBlurSize * 0.5f);
   }
 
   void setTextureSize(TextureSizeType textureSize)
   {
     texSize = textureSize;
-    texSizeLow = (size_t)textureSize;
+    texSizeLow = (int)textureSize;
     texSizeHi = texSizeLow + 1;
     texSizeBlend = textureSize - texSizeLow;
-
-    if (AXIS == AxisX)
-    {
-      //texture = texture.subtexture(textureSize, 1);
-    }
-    else
-    {
-      texture = texture.subtexture(texSizeLow, texSizeLow);
-      textureB = texture.subtexture(texSizeHi, texSizeHi);
-    }
   }
 
   float process(float input) override
@@ -56,43 +44,50 @@ public:
     float v = 0;
     const float c = kernel.blurSize * 0.5f;
     const int samples = kernel.getSize();
-    const float readOffset = AXIS == AxisY ? texSize * texSize * c + 1: 0.0f;
-    //const float u1 = AXIS == AxisY ? c * (texSize + 1 - texSizeLow) / texSizeLow : 0.0f;
-    //const float u2 = AXIS == AxisY ? c * (texSize + 1 - texSizeHi) / texSizeHi : 0.0f;
-    for (int s = 0; s < samples; ++s)
+    if (AXIS == AxisX)
     {
-      BlurKernelSample samp = kernel[s];
-      // read with linear interp across the axis we care about
-      if (AXIS == AxisX)
+      for (int s = 0; s < samples; ++s)
       {
+        BlurKernelSample samp = kernel[s];
+
         //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
 
         float x = (c + samp.offset) * texSize;
-        size_t x1 = (size_t)x;
-        size_t x2 = x1 + 1;
+        int x1 = (int)x;
+        int x2 = x1 + 1;
         float xt = x - x1;
 
         v += Interpolator::linear(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
       }
-      else
+    }
+    else
+    {
+      // read from our two integral texture sizes centered on the same position in the big texture
+      // adding texSize to the blur-based offset prevents reading past the write head,
+      // which introduces a delay-like echo.
+      const float readOffset = (texSize) * (texSize) * c + texSize;
+      CircularTexture texA = texture.subtexture(texSizeLow, texSizeLow);
+      CircularTexture texB = texture.subtexture(texSizeHi, texSizeHi);
+      for (int s = 0; s < samples; ++s)
       {
-        //v += Interpolator::linear(texture.readBilinear(u1, coord), textureB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
-        
+        BlurKernelSample samp = kernel[s];
+
+        //v += Interpolator::linear(texA.readBilinear(u1, coord), texB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
+
         float ya = samp.offset * texSizeLow;
-        size_t ya1 = (size_t)ya;
-        size_t ya2 = ya1 + 1;
+        int ya1 = ya < 0 ? (int)ya - 1 : (int)ya;
+        int ya2 = ya1 + 1;
         float yat = ya - ya1;
 
         float yb = samp.offset * texSizeHi;
-        size_t yb1 = (size_t)yb;
-        size_t yb2 = yb1 + 1;
-        float ybt = yb + yb1;
+        int yb1 = yb < 0 ? (int)yb - 1 : (int)yb;
+        int yb2 = yb1 + 1;
+        float ybt = yb - yb1;
 
-        float va = Interpolator::linear(texture.read(0, ya1, readOffset), texture.read(0, ya2, readOffset), yat);
-        float vb = Interpolator::linear(textureB.read(0, yb1, readOffset), textureB.read(0, yb2, readOffset), ybt);
+        float va = Interpolator::linear(texA.read(0, ya1, readOffset), texA.read(0, ya2, readOffset), yat);
+        float vb = Interpolator::linear(texB.read(0, yb1, readOffset), texB.read(0, yb2, readOffset), ybt);
 
-        //v += Interpolator::linear(va, vb, texSizeBlend) * samp.weight;
-        v += va * samp.weight;
+        v += Interpolator::linear(va, vb, texSizeBlend) * samp.weight;
       }
     }
 
@@ -108,14 +103,6 @@ public:
     for (int i = 0; i < size; ++i)
     {
       setTextureSize(textureSize[i]);
-      //if (AXIS == AxisX)
-      //{
-      //  texture.setReadOffset(textureSize[i] * kernel.blurSize * 0.5f);
-      //}
-      //else
-      //{
-      //  texture.setReadOffset(textureSize[i] * textureSize[i] * kernel.blurSize * 0.5f);
-      //}
       output[i] = process(input[i]);
       for (int s = 0; s < samples; ++s)
       {
@@ -129,6 +116,8 @@ public:
 public:
   static BlurSignalProcessor<AXIS, TextureSizeType>* create(size_t maxTextureSize, float maxBlurSize, BlurKernel blurKernel)
   {
+    // HACK: extra memory to ensure we don't read outside the bounds
+    maxTextureSize += 2;
     if (AXIS == AxisX)
       return new BlurSignalProcessor<AXIS, TextureSizeType>(new float[maxTextureSize], maxTextureSize, 1, maxBlurSize, blurKernel);
     else

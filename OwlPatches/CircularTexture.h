@@ -9,8 +9,8 @@ class CircularTexture
   IndexType sizeX, sizeY;
 
 public:
-  CircularTexture(DataType* data, IndexType sizeX, IndexType sizeY) 
-    : buffer(data,sizeX*sizeY), sizeX(sizeX), sizeY(sizeY)
+  CircularTexture(DataType* data, IndexType dataSize,  IndexType sizeX, IndexType sizeY) 
+    : buffer(data,dataSize), sizeX(sizeX), sizeY(sizeY)
   {
   }
 
@@ -24,10 +24,10 @@ public:
 
   CircularTexture subtexture(IndexType w, IndexType h)
   {
-    CircularTexture subTex = *this;
-    subTex.sizeX = w;
-    subTex.sizeY = h;
-    return subTex;
+    CircularTexture sub = CircularTexture(buffer.getData(), buffer.getSize(), w, h);
+    // have to do this because the CircularBuffer constructor initializes writepos to 0.
+    sub.buffer.setWriteIndex(buffer.getWriteIndex());
+    return sub;
   }
 
   void write(DataType value)
@@ -37,13 +37,14 @@ public:
 
   DataType read(IndexType x, IndexType y)
   {
-    // add buffer size we don't have to worry about negative indices
+    // add buffer size so we don't have to worry about negative indices
     IndexType index = buffer.getWriteIndex() + buffer.getSize() - 1 - (y*sizeX + x);
     return buffer.readAt(index);
   }
 
   DataType read(IndexType x, IndexType y, float readOffset)
   {
+    // add buffer size so we don't have to worry about negative indices
     float index = buffer.getWriteIndex() + buffer.getSize() - readOffset - (y*sizeX + x);
     IndexType idx1 = IndexType(index);
     IndexType idx2 = idx1 + 1;

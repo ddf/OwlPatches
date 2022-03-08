@@ -70,11 +70,11 @@ class BlurPatch : public Patch
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
   static const int blurKernelSize     = 7;
-  static const int blurResampleStages = 3;
+  static const int blurResampleStages = 4;
   static const int blurResampleFactor = 4;
 
   static const int minTextureSize = 16 / blurResampleFactor;
-  static const int maxTextureSize = 32 / blurResampleFactor;
+  static const int maxTextureSize = 256 / blurResampleFactor;
   const  float maxBlurSamples     = 31.0f / blurResampleFactor;
   const  float minBlurSize        = 0.15f;
   const  float maxBlurSize        = 0.95f;
@@ -212,8 +212,11 @@ public:
     blurUpRight   = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
 
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
-    blurLeftA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
-    blurRightA = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
+    blurLeftA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
+    blurRightA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
+
+    blurLeftA->setBlur(minBlurSize, standardDeviation);
+    blurRightA->setBlur(minBlurSize, standardDeviation);
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
     blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
@@ -317,10 +320,10 @@ public:
     textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
     textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
-    const float leftBlurScale = minTextureSize / textureSizeLeft;
+    const float leftBlurScale  = minTextureSize / textureSizeLeft;
     const float rightBlurScale = minTextureSize / textureSizeRight;
-    blurSizeLeft      = Interpolator::linear(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
-    blurSizeRight     = Interpolator::linear(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
+    blurSizeLeft  = Interpolator::linear(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
+    blurSizeRight = Interpolator::linear(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
 
     float brightnessParam = getParameterValue(inBlurBrightness);
     float blurBrightness = blurBrightnessDefault;
@@ -397,6 +400,9 @@ public:
       feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
 
+    // scale down brightness to compensate for over amplification by the resampling filter
+    blurBrightness *= 0.375f;
+
     // left channel blur
     {
       // downsample and copy
@@ -412,7 +418,9 @@ public:
         BlurKernelSample from = blurLeftA->getKernelSample(i);
         blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
       }
-      //blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
+      blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
+      //blurLeftA->setTextureSize(textureSizeLeft);
+      //blurLeftA->process(blurScratchA, blurScratchA);
 #else
       // process both texture sizes
       blurLeftB->process(blurScratchA, blurScratchB);
@@ -423,7 +431,7 @@ public:
 #endif
 
       // compress
-      //blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
       // upsample to the output
       blurUpLeft->process(blurScratchA, outBlurLeft);
@@ -444,7 +452,9 @@ public:
         BlurKernelSample from = blurRightA->getKernelSample(i);
         blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
       }
-      //blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
+      blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
+      //blurRightA->setTextureSize(textureSizeRight);
+      //blurRightA->process(blurScratchA, blurScratchA);
 #else
       // process both texture sizes
       blurRightB->process(blurScratchA, blurScratchB);
@@ -455,7 +465,7 @@ public:
 #endif
 
       // compress
-      //blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
 
       // upsample to the output
       blurUpRight->process(blurScratchA, outBlurRight);
@@ -482,6 +492,8 @@ public:
 
     setParameterValue(outLeftFollow, inLeftRms);
     setParameterValue(outRightFollow, inRightRms);
+    //setParameterValue(outLeftFollow, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize));
+    //setParameterValue(outRightFollow, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize));
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
