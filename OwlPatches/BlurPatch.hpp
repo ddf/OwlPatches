@@ -37,6 +37,7 @@ DESCRIPTION:
 #include <string.h>
 
 #define FRACTIONAL_TEXTURE_SIZE
+#define SMOOTH_ACROSS_BLOCK
 
 typedef daisysp::Compressor Compressor;
 
@@ -409,6 +410,7 @@ public:
       blurDownLeft->process(feedLeft, blurScratchA);
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
       blurKernelStep.setGauss(blurSizeLeft, standardDeviation, blurBrightness);
       blurKernelStep.blurSize = (blurSizeLeft - blurLeftA->getBlurSize()) / blockSize;
@@ -419,8 +421,11 @@ public:
         blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
       }
       blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
-      //blurLeftA->setTextureSize(textureSizeLeft);
-      //blurLeftA->process(blurScratchA, blurScratchA);
+#else
+      blurLeftA->setTextureSize(textureSizeLeft);
+      blurLeftA->setBlur(blurSizeLeft, standardDeviation);
+      blurLeftA->process(blurScratchA, blurScratchA);
+#endif
 #else
       // process both texture sizes
       blurLeftB->process(blurScratchA, blurScratchB);
@@ -443,6 +448,7 @@ public:
       blurDownRight->process(feedRight, blurScratchA);
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
       blurKernelStep.setGauss(blurSizeRight, standardDeviation, blurBrightness);
       blurKernelStep.blurSize = (blurSizeRight - blurRightA->getBlurSize()) / blockSize;
@@ -453,8 +459,11 @@ public:
         blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
       }
       blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
-      //blurRightA->setTextureSize(textureSizeRight);
-      //blurRightA->process(blurScratchA, blurScratchA);
+#else
+      blurRightA->setTextureSize(textureSizeRight);
+      blurRightA->setBlur(blurSizeRight, standardDeviation);
+      blurRightA->process(blurScratchA, blurScratchA);
+#endif
 #else
       // process both texture sizes
       blurRightB->process(blurScratchA, blurScratchB);
