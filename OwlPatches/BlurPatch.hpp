@@ -116,6 +116,7 @@ class BlurPatch : public Patch
   AudioBuffer* feedbackBuffer;
 
   StereoDcBlockingFilter*     dcFilter;
+  StereoBiquadFilter*         blurFilter;
   BiquadFilter*               feedbackFilterLeft;
   BiquadFilter*               feedbackFilterRight;
 
@@ -205,6 +206,10 @@ public:
     dcFilter = StereoDcBlockingFilter::create();
     feedbackFilterLeft = BiquadFilter::create(getSampleRate());
     feedbackFilterRight = BiquadFilter::create(getSampleRate());
+
+    blurFilter = StereoBiquadFilter::create(getSampleRate());
+    // cutoff at half our downsampled sample rate to remove aliasing introduced by resampling
+    blurFilter->setLowPass(getSampleRate() / blurResampleFactor * 0.5f, 1.0f);
 
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
@@ -484,6 +489,8 @@ public:
       // upsample to the output
       blurUpRight->process(blurScratchA, outBlurRight);
     }
+
+    blurFilter->process(*blurBuffer, *blurBuffer);
 
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
