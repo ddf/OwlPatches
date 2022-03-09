@@ -36,7 +36,7 @@ DESCRIPTION:
 #include "Dynamics/compressor.h"
 #include <string.h>
 
-//#define DEBUG
+#define DEBUG
 
 typedef daisysp::Compressor Compressor;
 
