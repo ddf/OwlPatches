@@ -71,8 +71,8 @@ class BlurPatch : public Patch
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
   static const int blurKernelSize     = 7;
-  static const int blurResampleStages = 4;
-  static const int blurResampleFactor = 4;
+  static const int blurResampleStages = 3;
+  static const int blurResampleFactor = 2;
 
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
@@ -401,8 +401,11 @@ public:
       feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
     }
 
-    // scale down brightness to compensate for over amplification by the resampling filter
-    blurBrightness *= 0.375f;
+    if (blurResampleFactor == 4)
+    {
+      // scale down brightness to compensate for over amplification by the resampling filter
+      blurBrightness *= 0.375f;
+    }
 
     // left channel blur
     {
