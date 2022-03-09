@@ -187,6 +187,7 @@ public:
     registerParameter(inCompressionAttack, "Blur Compressor Attack");
     registerParameter(inCompressionRelease, "Blur Compressor Release");
     registerParameter(inCompressionMakeupGain, "Blur Compressor Makeup Gain");
+    registerParameter(inCompressionBlend, "Blur Compressor Blend");
 
     //registerParameter(inStandardDev, "Standard Deviation");
 
@@ -203,6 +204,7 @@ public:
     setParameterValue(inCompressionAttack, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
     setParameterValue(inCompressionRelease, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
     setParameterValue(inCompressionMakeupGain, (compressorMakeupGainDefault - compressorMakeupGainMin) / (compressorMakeupGainMax - compressorMakeupGainMin));
+    setParameterValue(inCompressionBlend, 1.0f);
 
     //setParameterValue(inStandardDev, 1.0f);
 
