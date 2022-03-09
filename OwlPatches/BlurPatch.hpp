@@ -71,8 +71,11 @@ class BlurPatch : public Patch
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
   static const int blurKernelSize     = 7;
-  static const int blurResampleStages = 3;
-  static const int blurResampleFactor = 2;
+
+  // Lich isn't fast enough to do processing at 2x downsampled,
+  // we must use a downsample factor of 4, which requires 4 stages to prevent too much aliasing.
+  static const int blurResampleFactor = 4;
+  static const int blurResampleStages = 4;
 
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
