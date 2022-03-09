@@ -37,7 +37,7 @@ DESCRIPTION:
 #include <string.h>
 
 #define FRACTIONAL_TEXTURE_SIZE
-#define SMOOTH_ACROSS_BLOCK
+//#define SMOOTH_ACROSS_BLOCK
 
 typedef daisysp::Compressor Compressor;
 
@@ -423,7 +423,7 @@ public:
       blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       blurLeftA->setTextureSize(textureSizeLeft);
-      blurLeftA->setBlur(blurSizeLeft, standardDeviation);
+      blurLeftA->setBlur(blurSizeLeft, standardDeviation, blurBrightness);
       blurLeftA->process(blurScratchA, blurScratchA);
 #endif
 #else
@@ -461,7 +461,7 @@ public:
       blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       blurRightA->setTextureSize(textureSizeRight);
-      blurRightA->setBlur(blurSizeRight, standardDeviation);
+      blurRightA->setBlur(blurSizeRight, standardDeviation, blurBrightness);
       blurRightA->process(blurScratchA, blurScratchA);
 #endif
 #else
