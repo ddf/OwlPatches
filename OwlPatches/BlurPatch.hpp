@@ -35,6 +35,7 @@ DESCRIPTION:
 #include "custom_dsp.h" // for SoftLimit
 #include "Dynamics/compressor.h"
 #include <string.h>
+#include "Debug.h"
 
 typedef daisysp::Compressor Compressor;
 
@@ -516,8 +517,9 @@ public:
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
-    //setParameterValue(outLeftFollow, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize));
-    //setParameterValue(outRightFollow, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize));
+#ifdef DEBUG
+    setParameterValue(outLeftFollow, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize));
+    setParameterValue(outRightFollow, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize));
 
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "texL ");
@@ -534,5 +536,6 @@ public:
     debugCpy = stpcpy(debugCpy, msg_ftoa(compressionAttack, 10));
 
     debugMessage(debugMsg);
+#endif
   }
 };
