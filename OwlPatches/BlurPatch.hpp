@@ -72,7 +72,7 @@ class BlurPatch : public Patch
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
 
-  static const int blurKernelSize     = 9;
+  static const int blurKernelSize     = 11;
 
   // Lich isn't fast enough to do processing at 2x downsampled,
   // we must use a downsample factor of 4, which requires 4 stages to prevent too much aliasing.
