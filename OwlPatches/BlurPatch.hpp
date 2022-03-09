@@ -36,12 +36,12 @@ DESCRIPTION:
 #include "Dynamics/compressor.h"
 #include <string.h>
 
-#define FRACTIONAL_TEXTURE_SIZE
-#define SMOOTH_ACROSS_BLOCK
-
 typedef daisysp::Compressor Compressor;
 
+#define FRACTIONAL_TEXTURE_SIZE
+
 #ifdef FRACTIONAL_TEXTURE_SIZE
+#define SMOOTH_ACROSS_BLOCK
 typedef GaussianBlurSignalProcessor<float> GaussianBlur;
 #else
 typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
@@ -129,10 +129,12 @@ class BlurPatch : public Patch
   GaussianBlur* blurLeftA;
   GaussianBlur* blurRightA;
 
-#ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef SMOOTH_ACROSS_BLOCK
   FloatArray textureSizeRamp;
   BlurKernel blurKernelStep;
-#else
+#endif
+
+#ifndef FRACTIONAL_TEXTURE_SIZE
   FloatArray   blurScratchB;
   GaussianBlur* blurLeftB;
   GaussianBlur* blurRightB;
@@ -230,7 +232,9 @@ public:
     blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
     blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
-#else
+#endif
+
+#ifdef SMOOTH_ACROSS_BLOCK
     textureSizeRamp = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurKernelStep = BlurKernel::create(blurKernelSize);
 #endif
@@ -279,7 +283,9 @@ public:
     FloatArray::destroy(blurScratchB);
     GaussianBlur::destroy(blurLeftB);
     GaussianBlur::destroy(blurRightB);
-#else
+#endif
+
+#ifdef SMOOTH_ACROSS_BLOCK
     FloatArray::destroy(textureSizeRamp);
     BlurKernel::destroy(blurKernelStep);
 #endif
@@ -320,7 +326,7 @@ public:
     textureSize = getParameterValue(inTextureSize);
     blurSize = getParameterValue(inBlurSize);
 
-#ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef SMOOTH_ACROSS_BLOCK
     float prevTexLeft = textureSizeLeft;
     float prevTexRight = textureSizeRight;
 #endif
@@ -347,26 +353,6 @@ public:
     feedback          = getParameterValue(inFeedback);
 
     //standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
-
-#ifndef FRACTIONAL_TEXTURE_SIZE
-    int texLeftA = (int)textureSizeLeft;
-    int texLeftB = texLeftA + 1;
-    float texLeftBlend = textureSizeLeft - texLeftA;
-
-    int texRightA = (int)textureSizeRight;
-    int texRightB = texRightA + 1;
-    float texRightBlend = textureSizeRight - texRightA;
-
-    blurLeftA->setBlur(blurSizeLeft, standardDeviation, (1.0f - texLeftBlend));
-    blurLeftA->setTextureSize(texLeftA);
-    blurLeftB->setBlur(blurSizeLeft, standardDeviation, texLeftBlend);
-    blurLeftB->setTextureSize(texLeftB);
-
-    blurRightA->setBlur(blurSizeRight, standardDeviation, (1.0f - texRightBlend));
-    blurRightA->setTextureSize(texRightA);
-    blurRightB->setBlur(blurSizeRight, standardDeviation, texRightBlend);
-    blurRightB->setTextureSize(texRightB);
-#endif
 
     compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inCompressionThreshold));
     blurLeftCompressor.SetThreshold(compressionThreshold);
@@ -413,6 +399,26 @@ public:
       // scale down brightness to compensate for over amplification by the resampling filter
       blurBrightness *= 0.375f;
     }
+
+#ifndef FRACTIONAL_TEXTURE_SIZE
+    int texLeftA = (int)textureSizeLeft;
+    int texLeftB = texLeftA + 1;
+    float texLeftBlend = textureSizeLeft - texLeftA;
+
+    int texRightA = (int)textureSizeRight;
+    int texRightB = texRightA + 1;
+    float texRightBlend = textureSizeRight - texRightA;
+
+    blurLeftA->setBlur(blurSizeLeft, standardDeviation, (1.0f - texLeftBlend)*blurBrightness);
+    blurLeftA->setTextureSize(texLeftA);
+    blurLeftB->setBlur(blurSizeLeft, standardDeviation, texLeftBlend*blurBrightness);
+    blurLeftB->setTextureSize(texLeftB);
+
+    blurRightA->setBlur(blurSizeRight, standardDeviation, (1.0f - texRightBlend)*blurBrightness);
+    blurRightA->setTextureSize(texRightA);
+    blurRightB->setBlur(blurSizeRight, standardDeviation, texRightBlend*blurBrightness);
+    blurRightB->setTextureSize(texRightB);
+#endif
 
     // left channel blur
     {
