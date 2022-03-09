@@ -37,7 +37,7 @@ DESCRIPTION:
 #include <string.h>
 
 #define FRACTIONAL_TEXTURE_SIZE
-//#define SMOOTH_ACROSS_BLOCK
+#define SMOOTH_ACROSS_BLOCK
 
 typedef daisysp::Compressor Compressor;
 
