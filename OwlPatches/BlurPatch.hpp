@@ -79,7 +79,6 @@ class BlurPatch : public Patch
 
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
-  const  float maxBlurSamples     = 31.0f / blurResampleFactor;
   const  float minBlurSize        = 0.15f;
   const  float maxBlurSize        = 0.95f;
 
@@ -499,18 +498,13 @@ public:
     inLeft.add(outBlurLeft);
     inRight.add(outBlurRight);
 
-    //for (int i = 0; i < blockSize; ++i)
-    //{
-    //  inLeft[i]  = (inLeft[i] * dry + outBlurLeft[i] * wet);
-    //  inRight[i] = (inRight[i] * dry + outBlurRight[i] * wet);
-    //}
-
     setParameterValue(outLeftFollow, inLeftRms);
     setParameterValue(outRightFollow, inRightRms);
-    //setParameterValue(outLeftFollow, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize));
-    //setParameterValue(outRightFollow, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize));
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
+
+    //setParameterValue(outLeftFollow, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize));
+    //setParameterValue(outRightFollow, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize));
 
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "texL ");
