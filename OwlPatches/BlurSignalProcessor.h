@@ -66,6 +66,9 @@ public:
       // adding texSize to the blur-based offset prevents reading past the write head,
       // which introduces a delay-like echo.
       const float readOffset = (texSize) * (texSize) * c + texSize;
+      const int x1 = (int)readOffset;
+      const int x2 = x1 + 1;
+      const float xt = readOffset - x1;
       CircularTexture texA = texture.subtexture(texSizeLow, texSizeLow);
       CircularTexture texB = texture.subtexture(texSizeHi, texSizeHi);
       for (int s = 0; s < samples; ++s)
@@ -74,6 +77,10 @@ public:
 
         //v += Interpolator::linear(texA.readBilinear(u1, coord), texB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
 
+        // this is essentially the same as the line commented out above,
+        // but instead of generating two different u coordinates that align the reads,
+        // we just calculate the x offset, which will be bigger than the texture dimension,
+        // so the y coordinate can be +/- around that.
         float ya = samp.offset * texSizeLow;
         int ya1 = ya < 0 ? (int)ya - 1 : (int)ya;
         int ya2 = ya1 + 1;
@@ -84,8 +91,13 @@ public:
         int yb2 = yb1 + 1;
         float ybt = yb - yb1;
 
-        float va = Interpolator::linear(texA.read(0, ya1, readOffset), texA.read(0, ya2, readOffset), yat);
-        float vb = Interpolator::linear(texB.read(0, yb1, readOffset), texB.read(0, yb2, readOffset), ybt);
+        float xa1 = Interpolator::linear(texA.read(x1, ya1), texA.read(x2, ya1), xt);
+        float xa2 = Interpolator::linear(texA.read(x1, ya2), texA.read(x2, ya2), xt);
+        float va  = Interpolator::linear(xa1, xa2, yat);
+
+        float xb1 = Interpolator::linear(texB.read(x1, yb1), texB.read(x2, yb1), xt);
+        float xb2 = Interpolator::linear(texB.read(x1, yb2), texB.read(x2, yb2), xt);
+        float vb  = Interpolator::linear(xb1, xb2, ybt);
 
         v += Interpolator::linear(va, vb, texSizeBlend) * samp.weight;
       }
