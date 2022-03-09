@@ -65,6 +65,7 @@ class BlurPatch : public Patch
   static const PatchParameterId inCompressionMakeupGain = PARAMETER_AD;
   static const PatchParameterId inCompressionAttack     = PARAMETER_AE;
   static const PatchParameterId inCompressionRelease    = PARAMETER_AF;
+  static const PatchParameterId inCompressionBlend      = PARAMETER_AG;
 
   // unused, but keeping it around in case I want to quickly hook it up and tweak it for some reason
   static const PatchParameterId inStandardDev = PARAMETER_AH;
@@ -128,6 +129,7 @@ class BlurPatch : public Patch
   UpSampler*   blurUpRight;
 
   FloatArray   blurScratchA;
+  FloatArray   blurScratchB;
   GaussianBlur* blurLeftA;
   GaussianBlur* blurRightA;
 
@@ -137,7 +139,6 @@ class BlurPatch : public Patch
 #endif
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
-  FloatArray   blurScratchB;
   GaussianBlur* blurLeftB;
   GaussianBlur* blurRightB;
 #endif
@@ -161,6 +162,7 @@ class BlurPatch : public Patch
   SmoothFloat compressionAttack;
   SmoothFloat compressionRelease;
   SmoothFloat compressionMakeupGain;
+  SmoothFloat compressionBlend;
 
   Compressor blurLeftCompressor;
   Compressor blurRightCompressor;
@@ -224,6 +226,8 @@ public:
     blurUpRight   = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
 
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
+    blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
+
     blurLeftA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
     blurRightA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
 
@@ -231,7 +235,6 @@ public:
     blurRightA->setBlur(minBlurSize, standardDeviation);
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
-    blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurLeftB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
     blurRightB = GaussianBlur::create(maxTextureSize, 0.0f, standardDeviation, blurKernelSize);
 #endif
@@ -278,11 +281,12 @@ public:
     BiquadFilter::destroy(feedbackFilterRight);
 
     FloatArray::destroy(blurScratchA);
+    FloatArray::destroy(blurScratchB);
+
     GaussianBlur::destroy(blurLeftA);
     GaussianBlur::destroy(blurRightA);
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
-    FloatArray::destroy(blurScratchB);
     GaussianBlur::destroy(blurLeftB);
     GaussianBlur::destroy(blurRightB);
 #endif
@@ -376,6 +380,8 @@ public:
     blurLeftCompressor.SetMakeup(compressionMakeupGain);
     blurRightCompressor.SetMakeup(compressionMakeupGain);
 
+    compressionBlend = getParameterValue(inCompressionBlend);
+
     dcFilter->process(audio, audio);
 
     inLeftRms = inLeft.getRms() * blurBrightness;
@@ -454,7 +460,10 @@ public:
 #endif
 
       // compress
-      blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchB, blurScratchA.getSize());
+      blurScratchA.multiply(1.0f - compressionBlend);
+      blurScratchB.multiply(compressionBlend);
+      blurScratchA.add(blurScratchB);
 
       // upsample to the output
       blurUpLeft->process(blurScratchA, outBlurLeft);
@@ -492,7 +501,10 @@ public:
 #endif
 
       // compress
-      blurRightCompressor.ProcessBlock(blurScratchA, blurScratchA, blurScratchA.getSize());
+      blurRightCompressor.ProcessBlock(blurScratchA, blurScratchB, blurScratchA.getSize());
+      blurScratchA.multiply(1.0f - compressionBlend);
+      blurScratchB.multiply(compressionBlend);
+      blurScratchA.add(blurScratchB);
 
       // upsample to the output
       blurUpRight->process(blurScratchA, outBlurRight);
