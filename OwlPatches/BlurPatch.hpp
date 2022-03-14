@@ -384,7 +384,7 @@ public:
 
     compressionBlend = getParameterValue(inCompressionBlend);
 
-    dcFilter->process(audio, audio);
+    //dcFilter->process(audio, audio);
 
     inLeftRms = inLeft.getRms() * blurBrightness;
     inRightRms = inRight.getRms() * blurBrightness;
