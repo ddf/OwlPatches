@@ -409,7 +409,7 @@ public:
       // HACK: adjust brightness to compensate for signal strength changes from resampling
       // eventually, with correct resampling code, we shouldn't need to adjust signal strength
       //blurBrightness *= 0.375f; // for upsampling that boosted the signal too much
-      blurBrightness *= 2.5f; // for upsampling that doesn't boost the signal at all
+      blurBrightness *= 2.25f; // for upsampling that doesn't boost the signal at all
     }
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
