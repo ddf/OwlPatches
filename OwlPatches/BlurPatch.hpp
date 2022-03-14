@@ -82,7 +82,7 @@ class BlurPatch : public Patch
 
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
-  const  float minBlurSize        = 0.15f;
+  const  float minBlurSize        = 0.0f;
   const  float maxBlurSize        = 0.95f;
 
   // maximum standard deviation was chosen based on the recommendation here:
@@ -406,8 +406,10 @@ public:
 
     if (blurResampleFactor == 4)
     {
-      // scale down brightness to compensate for over amplification by the resampling filter
-      blurBrightness *= 0.375f;
+      // HACK: adjust brightness to compensate for signal strength changes from resampling
+      // eventually, with correct resampling code, we shouldn't need to adjust signal strength
+      //blurBrightness *= 0.375f; // for upsampling that boosted the signal too much
+      blurBrightness *= 2.5f; // for upsampling that doesn't boost the signal at all
     }
 
 #ifndef FRACTIONAL_TEXTURE_SIZE
