@@ -53,8 +53,9 @@ class BlurPatch : public Patch
 {
   static const PatchParameterId inTextureSize = PARAMETER_A;
   static const PatchParameterId inBlurSize    = PARAMETER_B;
-  static const PatchParameterId inFeedback    = PARAMETER_C;
+  static const PatchParameterId inFeedMag     = PARAMETER_C;
   static const PatchParameterId inWetDry      = PARAMETER_D;
+  static const PatchParameterId inFeedAngle   = PARAMETER_AH;
 
   // attenuate or boost the input signal during the blur
   static const PatchParameterId inBlurBrightness = PARAMETER_AA;
@@ -68,7 +69,7 @@ class BlurPatch : public Patch
   static const PatchParameterId inCompressionBlend      = PARAMETER_AG;
 
   // unused, but keeping it around in case I want to quickly hook it up and tweak it for some reason
-  static const PatchParameterId inStandardDev = PARAMETER_AH;
+  static const PatchParameterId inStandardDev = PARAMETER_BA;
 
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
@@ -152,7 +153,8 @@ class BlurPatch : public Patch
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
   SmoothFloat standardDeviation;
-  SmoothFloat feedback;
+  SmoothFloat feedbackMagnitude;
+  SmoothFloat feedbackAngle;
 
   SmoothFloat inLeftRms;
   SmoothFloat inRightRms;
@@ -179,7 +181,8 @@ public:
   {
     registerParameter(inTextureSize, "Texture Size");
     registerParameter(inBlurSize, "Blur Size");
-    registerParameter(inFeedback, "Feedback");
+    registerParameter(inFeedMag, "Feedback Strength");
+    registerParameter(inFeedAngle, "Feedback Angle");
     registerParameter(inWetDry, "Dry/Wet");
     registerParameter(inBlurBrightness, "Blur Brightness");
     registerParameter(inCompressionThreshold, "Blur Compressor Threshold");
@@ -196,7 +199,8 @@ public:
 
     setParameterValue(inTextureSize, 0.0f);
     setParameterValue(inBlurSize,    0.0f);
-    setParameterValue(inFeedback, 0.0f);
+    setParameterValue(inFeedMag, 0.0f);
+    setParameterValue(inFeedAngle, 0.5f);
     setParameterValue(inWetDry, 1);
     setParameterValue(inBlurBrightness, (blurBrightnessDefault - blurBrightnessMin) / (blurBrightnessMax - blurBrightnessMin));
     setParameterValue(inCompressionThreshold, (compressorThresholdDefault - compressorThresholdMin) / (compressorThresholdMax - compressorThresholdMin));
@@ -358,7 +362,8 @@ public:
       blurBrightness = Interpolator::linear(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
     }
 
-    feedback          = getParameterValue(inFeedback);
+    feedbackMagnitude = getParameterValue(inFeedMag);
+    feedbackAngle = Interpolator::linear(0.0f, M_PI_2, getParameterValue(inFeedAngle));
 
     //standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
 
@@ -389,19 +394,25 @@ public:
     inLeftRms = inLeft.getRms() * blurBrightness;
     inRightRms = inRight.getRms() * blurBrightness;
 
+    const float feedStrL = feedbackMagnitude * cosf(feedbackAngle);
+    const float feedStrR = feedbackMagnitude * sinf(feedbackAngle);
+
     // Note: the way feedback is applied is based on how Clouds does it
-    float cutoff = (20.0f + 100.0f * feedback * feedback);
-    feedbackFilterLeft->setHighPass(cutoff, 1);
+    const float cutoffL = (20.0f + 100.0f * feedStrL * feedStrL);
+    const float cutoffR = (20.0f + 100.0f * feedStrR * feedStrR);
+    const float softLimitCoeffL = feedStrL * 1.4f;
+    const float softLimitCoeffR = feedStrR * 1.4f;
+
+    feedbackFilterLeft->setHighPass(cutoffL, 1);
     feedbackFilterLeft->process(feedLeft);
-    feedbackFilterRight->setHighPass(cutoff, 1);
+    feedbackFilterRight->setHighPass(cutoffR, 1);
     feedbackFilterRight->process(feedRight);
-    float softLimitCoeff = feedback * 1.4f;
     for (int i = 0; i < blockSize; ++i)
     {
       float left = inLeft[i];
       float right = inRight[i];
-      feedLeft[i] = left + feedback * (daisysp::SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
-      feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
+      feedLeft[i] = left + feedStrL * (daisysp::SoftLimit(softLimitCoeffL * feedLeft[i] + left) - left);
+      feedRight[i] = right + feedStrR * (daisysp::SoftLimit(softLimitCoeffR * feedRight[i] + right) - right);
     }
 
     if (blurResampleFactor == 4)
