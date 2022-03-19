@@ -41,12 +41,21 @@ DESCRIPTION:
 typedef daisysp::Compressor Compressor;
 
 #define FRACTIONAL_TEXTURE_SIZE
+#define USE_BLUR_FEEDBACK
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
 #define SMOOTH_ACROSS_BLOCK
+#ifdef USE_BLUR_FEEDBACK
+typedef GaussianBlurWithFeedback<float> GaussianBlur;
+#else
 typedef GaussianBlurSignalProcessor<float> GaussianBlur;
+#endif
+#else
+#ifdef USE_BLUR_FEEDBACK
+typedef GaussianBlurWithFeedback<size_t> GaussianBlur;
 #else
 typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
+#endif
 #endif
 
 class BlurPatch : public Patch
@@ -200,7 +209,11 @@ public:
     setParameterValue(inTextureSize, 0.0f);
     setParameterValue(inBlurSize,    0.0f);
     setParameterValue(inFeedMag, 0.0f);
+#ifdef USE_BLUR_FEEDBACK
+    setParameterValue(inFeedAngle, 0.125f);
+#else
     setParameterValue(inFeedAngle, 0.5f);
+#endif
     setParameterValue(inWetDry, 1);
     setParameterValue(inBlurBrightness, (blurBrightnessDefault - blurBrightnessMin) / (blurBrightnessMax - blurBrightnessMin));
     setParameterValue(inCompressionThreshold, (compressorThresholdDefault - compressorThresholdMin) / (compressorThresholdMax - compressorThresholdMin));
@@ -234,8 +247,13 @@ public:
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
 
+#ifdef USE_BLUR_FEEDBACK
+    blurLeftA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize, getSampleRate() / blurResampleFactor, getBlockSize() / blurResampleFactor);
+    blurRightA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize, getSampleRate() / blurResampleFactor, getBlockSize() / blurResampleFactor);
+#else
     blurLeftA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
     blurRightA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
+#endif
 
     blurLeftA->setBlur(minBlurSize, standardDeviation);
     blurRightA->setBlur(minBlurSize, standardDeviation);
@@ -363,7 +381,11 @@ public:
     }
 
     feedbackMagnitude = getParameterValue(inFeedMag);
+#ifdef USE_BLUR_FEEDBACK
+    feedbackAngle = Interpolator::linear(0.0f, M_PI * 2, getParameterValue(inFeedAngle));
+#else
     feedbackAngle = Interpolator::linear(0.0f, M_PI_2, getParameterValue(inFeedAngle));
+#endif
 
     //standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
 
@@ -394,6 +416,10 @@ public:
     inLeftRms = inLeft.getRms() * blurBrightness;
     inRightRms = inRight.getRms() * blurBrightness;
 
+#ifdef USE_BLUR_FEEDBACK
+    inLeft.copyTo(feedLeft);
+    inRight.copyTo(feedRight);
+#else
     const float feedStrL = feedbackMagnitude * cosf(feedbackAngle);
     const float feedStrR = feedbackMagnitude * sinf(feedbackAngle);
 
@@ -414,6 +440,7 @@ public:
       feedLeft[i] = left + feedStrL * (daisysp::SoftLimit(softLimitCoeffL * feedLeft[i] + left) - left);
       feedRight[i] = right + feedStrR * (daisysp::SoftLimit(softLimitCoeffR * feedRight[i] + right) - right);
     }
+#endif
 
     if (blurResampleFactor == 4)
     {
@@ -445,10 +472,14 @@ public:
 
     // left channel blur
     {
+
       // downsample and copy
       blurDownLeft->process(feedLeft, blurScratchA);
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef USE_BLUR_FEEDBACK
+      blurLeftA->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
 #ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
       blurKernelStep.setGauss(blurSizeLeft, standardDeviation, blurBrightness);
@@ -466,6 +497,10 @@ public:
       blurLeftA->process(blurScratchA, blurScratchA);
 #endif
 #else
+#ifdef USE_BLUR_FEEDBACK
+      blurLeftA->setFeedback(feedbackMagnitude, feedbackAngle);
+      blurLeftB->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
       // process both texture sizes
       blurLeftB->process(blurScratchA, blurScratchB);
       blurLeftA->process(blurScratchA, blurScratchA);
@@ -490,6 +525,9 @@ public:
       blurDownRight->process(feedRight, blurScratchA);
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef USE_BLUR_FEEDBACK
+      blurRightA->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
 #ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
       blurKernelStep.setGauss(blurSizeRight, standardDeviation, blurBrightness);
@@ -507,6 +545,10 @@ public:
       blurRightA->process(blurScratchA, blurScratchA);
 #endif
 #else
+#ifdef USE_BLUR_FEEDBACK
+      blurRightA->setFeedback(feedbackMagnitude, feedbackAngle);
+      blurRightB->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
       // process both texture sizes
       blurRightB->process(blurScratchA, blurScratchB);
       blurRightA->process(blurScratchA, blurScratchA);
@@ -527,8 +569,10 @@ public:
 
     blurFilter->process(*blurBuffer, *blurBuffer);
 
+#ifndef USE_BLUR_FEEDBACK
     outBlurLeft.copyTo(feedLeft);
     outBlurRight.copyTo(feedRight);
+#endif
     
     // do wet/dry mix with original signal
     float wet = getParameterValue(inWetDry);
