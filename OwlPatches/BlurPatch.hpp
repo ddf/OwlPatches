@@ -58,6 +58,7 @@ typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
 #endif
 #endif
 
+template<int blurKernelSize, int blurResampleFactor, int blurResampleStages>
 class BlurPatch : public Patch
 {
   static const PatchParameterId inTextureSize = PARAMETER_A;
@@ -82,13 +83,6 @@ class BlurPatch : public Patch
 
   static const PatchParameterId outLeftFollow = PARAMETER_F;
   static const PatchParameterId outRightFollow = PARAMETER_G;
-
-  static const int blurKernelSize     = 11;
-
-  // Lich isn't fast enough to do processing at 2x downsampled,
-  // we must use a downsample factor of 4, which requires 4 stages to prevent too much aliasing.
-  static const int blurResampleFactor = 4;
-  static const int blurResampleStages = 4;
 
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
