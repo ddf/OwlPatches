@@ -88,7 +88,8 @@ public:
     : GaussianBlurSignalProcessor<TextureSizeType>(blurX, blurY)
     , feedX(dataX, dataSize), feedY(dataY, dataSize), filterX(filterX), filterY(filterY)
   {
-
+    feedX.clear();
+    feedY.clear();
   }
 
   void setFeedback(float mag, float phase)

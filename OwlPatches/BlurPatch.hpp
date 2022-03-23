@@ -41,7 +41,7 @@ DESCRIPTION:
 typedef daisysp::Compressor Compressor;
 
 #define FRACTIONAL_TEXTURE_SIZE
-#define USE_BLUR_FEEDBACK
+//#define USE_BLUR_FEEDBACK
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
 #define SMOOTH_ACROSS_BLOCK
@@ -123,7 +123,6 @@ class BlurPatch : public Patch
   AudioBuffer* feedbackBuffer;
 
   StereoDcBlockingFilter*     dcFilter;
-  StereoBiquadFilter*         blurFilter;
   BiquadFilter*               feedbackFilterLeft;
   BiquadFilter*               feedbackFilterRight;
 
@@ -131,6 +130,7 @@ class BlurPatch : public Patch
   DownSampler* blurDownRight;
   UpSampler*   blurUpLeft;
   UpSampler*   blurUpRight;
+  StereoBiquadFilter* blurFilter;
 
   FloatArray   blurScratchA;
   FloatArray   blurScratchB;
@@ -226,19 +226,20 @@ public:
     feedbackFilterLeft = BiquadFilter::create(getSampleRate());
     feedbackFilterRight = BiquadFilter::create(getSampleRate());
 
-    blurFilter = StereoBiquadFilter::create(getSampleRate());
-    // cutoff at half our downsampled sample rate to remove aliasing introduced by resampling
-    blurFilter->setLowPass(getSampleRate() / blurResampleFactor * 0.5f, 1.0f);
-
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    if (blurResampleFactor > 1)
+    if (downsamplingEnabled())
     {
       blurDownLeft = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
       blurDownRight = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
       blurUpLeft = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
       blurUpRight = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+
+      // final filter after upsampling to address aliasing
+      blurFilter = StereoBiquadFilter::create(getSampleRate());
+      // cutoff at half our downsampled sample rate to remove aliasing introduced by resampling
+      blurFilter->setLowPass(getSampleRate() / blurResampleFactor * 0.5f, 1.0f);
     }
 
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
@@ -292,7 +293,7 @@ public:
     AudioBuffer::destroy(blurBuffer);
     AudioBuffer::destroy(feedbackBuffer);
 
-    if (blurResampleFactor > 1)
+    if (downsamplingEnabled())
     {
       DownSampler::destroy(blurDownLeft);
       DownSampler::destroy(blurDownRight);
@@ -474,7 +475,7 @@ public:
     {
 
       // downsample and copy
-      if (blurResampleFactor > 1)
+      if (downsamplingEnabled())
       {
         blurDownLeft->process(feedLeft, blurScratchA);
       }
@@ -523,7 +524,7 @@ public:
       blurScratchA.add(blurScratchB);
 
       // upsample to the output
-      if (blurResampleFactor > 1)
+      if (downsamplingEnabled())
       {
         blurUpLeft->process(blurScratchA, outBlurLeft);
       }
@@ -536,7 +537,7 @@ public:
     // right channel blur
     {
       // downsample and copy
-      if (blurResampleFactor > 1)
+      if (downsamplingEnabled())
       {
         blurDownRight->process(feedRight, blurScratchA);
       }
@@ -585,7 +586,7 @@ public:
       blurScratchA.add(blurScratchB);
 
       // upsample to the output
-      if (blurResampleFactor > 1)
+      if (downsamplingEnabled())
       {
         blurUpRight->process(blurScratchA, outBlurRight);
       }
@@ -595,7 +596,10 @@ public:
       }
     }
 
-    blurFilter->process(*blurBuffer, *blurBuffer);
+    if (downsamplingEnabled())
+    {
+      blurFilter->process(*blurBuffer, *blurBuffer);
+    }
 
 #ifndef USE_BLUR_FEEDBACK
     outBlurLeft.copyTo(feedLeft);
@@ -638,4 +642,12 @@ public:
     debugMessage(debugMsg);
 #endif
   }
+private:
+
+  bool downsamplingEnabled() const
+  {
+    return blurResampleFactor > 1;
+  }
+
+
 };
