@@ -233,10 +233,13 @@ public:
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    blurDownLeft  = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
-    blurDownRight = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
-    blurUpLeft    = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
-    blurUpRight   = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+    if (blurResampleFactor > 1)
+    {
+      blurDownLeft = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+      blurDownRight = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+      blurUpLeft = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+      blurUpRight = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+    }
 
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
@@ -289,10 +292,13 @@ public:
     AudioBuffer::destroy(blurBuffer);
     AudioBuffer::destroy(feedbackBuffer);
 
-    DownSampler::destroy(blurDownLeft);
-    DownSampler::destroy(blurDownRight);
-    UpSampler::destroy(blurUpLeft);
-    UpSampler::destroy(blurUpRight);
+    if (blurResampleFactor > 1)
+    {
+      DownSampler::destroy(blurDownLeft);
+      DownSampler::destroy(blurDownRight);
+      UpSampler::destroy(blurUpLeft);
+      UpSampler::destroy(blurUpRight);
+    }
 
     StereoDcBlockingFilter::destroy(dcFilter);
     BiquadFilter::destroy(feedbackFilterLeft);
@@ -468,7 +474,14 @@ public:
     {
 
       // downsample and copy
-      blurDownLeft->process(feedLeft, blurScratchA);
+      if (blurResampleFactor > 1)
+      {
+        blurDownLeft->process(feedLeft, blurScratchA);
+      }
+      else
+      {
+        feedLeft.copyTo(blurScratchA);
+      }
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
 #ifdef USE_BLUR_FEEDBACK
@@ -510,13 +523,27 @@ public:
       blurScratchA.add(blurScratchB);
 
       // upsample to the output
-      blurUpLeft->process(blurScratchA, outBlurLeft);
+      if (blurResampleFactor > 1)
+      {
+        blurUpLeft->process(blurScratchA, outBlurLeft);
+      }
+      else
+      {
+        blurScratchA.copyTo(outBlurLeft);
+      }
     }
 
     // right channel blur
     {
       // downsample and copy
-      blurDownRight->process(feedRight, blurScratchA);
+      if (blurResampleFactor > 1)
+      {
+        blurDownRight->process(feedRight, blurScratchA);
+      }
+      else
+      {
+        feedRight.copyTo(blurScratchA);
+      }
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
 #ifdef USE_BLUR_FEEDBACK
@@ -558,7 +585,14 @@ public:
       blurScratchA.add(blurScratchB);
 
       // upsample to the output
-      blurUpRight->process(blurScratchA, outBlurRight);
+      if (blurResampleFactor > 1)
+      {
+        blurUpRight->process(blurScratchA, outBlurRight);
+      }
+      else
+      {
+        blurScratchA.copyTo(outBlurRight);
+      }
     }
 
     blurFilter->process(*blurBuffer, *blurBuffer);
