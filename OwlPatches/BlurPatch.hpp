@@ -64,7 +64,7 @@ class BlurPatch : public Patch
   static const PatchParameterId inBlurSize    = PARAMETER_B;
   static const PatchParameterId inFeedMag     = PARAMETER_C;
   static const PatchParameterId inWetDry      = PARAMETER_D;
-  static const PatchParameterId inFeedAngle   = PARAMETER_AH;
+  static const PatchParameterId inFeedAngle   = PARAMETER_E;
 
   // attenuate or boost the input signal during the blur
   static const PatchParameterId inBlurBrightness = PARAMETER_AA;
