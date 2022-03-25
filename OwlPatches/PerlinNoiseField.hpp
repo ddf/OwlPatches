@@ -29,22 +29,22 @@ public:
 
   void setFrequency(float freq)
   {
-    frequency = max(1, freq);
+    frequency = max(1.0f, freq);
   }
 
   void setDepth(unsigned int depth)
   {
-    octaves = max(1, depth);
+    octaves = max((unsigned)1, depth);
   }
 
   void setOffsetX(float offset)
   {
-    offsetX = max(0, offset);
+    offsetX = max(0.0f, offset);
   }
 
   void setOffsetY(float offset)
   {
-    offsetY = max(0, offset);
+    offsetY = max(0.0f, offset);
   }
 
   void process(AudioBuffer& input, AudioBuffer& output) override
