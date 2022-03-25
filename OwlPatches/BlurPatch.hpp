@@ -192,23 +192,23 @@ public:
     , compressionAttack(0.9f, compressorResponseDefault), compressionRelease(0.9f, compressorResponseDefault)
     , compressionMakeupGain(0.9f, compressorMakeupGainDefault)
   {
-    registerParameter(inTextureSize, "Texture Size");
+    registerParameter(inTextureSize, "Tex Size");
     registerParameter(inBlurSize, "Blur Size");
-    registerParameter(inFeedMag, "Feedback Strength");
-    registerParameter(inFeedAngle, "Feedback Angle");
+    registerParameter(inFeedMag, "Fdbk Amt");
+    registerParameter(inFeedAngle, "Fdbk Tilt");
     registerParameter(inWetDry, "Dry/Wet");
-    registerParameter(inBlurBrightness, "Blur Brightness");
-    registerParameter(inCompressionThreshold, "Blur Compressor Threshold");
-    registerParameter(inCompressionRatio, "Blur Compressor Ratio");
-    registerParameter(inCompressionAttack, "Blur Compressor Attack");
-    registerParameter(inCompressionRelease, "Blur Compressor Release");
-    registerParameter(inCompressionMakeupGain, "Blur Compressor Makeup Gain");
-    registerParameter(inCompressionBlend, "Blur Compressor Blend");
+    registerParameter(inBlurBrightness, "Blur Gain");
+    registerParameter(inCompressionThreshold, "Comp Thrsh");
+    registerParameter(inCompressionRatio, "Comp Ratio");
+    registerParameter(inCompressionAttack, "Comp Att");
+    registerParameter(inCompressionRelease, "Comp Rel");
+    registerParameter(inCompressionMakeupGain, "Comp Mkup");
+    registerParameter(inCompressionBlend, "Comp Blend");
 
     //registerParameter(inStandardDev, "Standard Deviation");
 
-    registerParameter(outLeftFollow, "Left Follow>");
-    registerParameter(outRightFollow, "Right Follow>");
+    registerParameter(outLeftFollow, "L Env>");
+    registerParameter(outRightFollow, "R Env>");
 
     setParameterValue(inTextureSize, 0.0f);
     setParameterValue(inBlurSize,    0.0f);
