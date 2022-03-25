@@ -24,12 +24,12 @@ public:
 
   void setBitRate(float rate)
   {
-    bitRate = max(1, rate) / sampleRate;
+    bitRate = max(1.0f, rate) / sampleRate;
   }
 
   void setBitDepth(float bits)
   {
-    bitDepth = min(max(2, bits), MAX_BITS);
+    bitDepth = min(max(2.0f, bits), (float)MAX_BITS);
     bitsVal = powf(2, bitDepth) - 1;
   }
 
