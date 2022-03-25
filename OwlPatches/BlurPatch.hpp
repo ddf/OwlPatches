@@ -58,8 +58,8 @@ typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
 #endif
 #endif
 
-template<int blurKernelSize, int blurResampleFactor, int blurResampleStages>
-class BlurPatch : public Patch
+template<int blurKernelSize, int blurResampleFactor, int blurResampleStages, typename PatchClass = Patch>
+class BlurPatch : public PatchClass
 {
   static const PatchParameterId inTextureSize = PARAMETER_A;
   static const PatchParameterId inBlurSize    = PARAMETER_B;
@@ -147,6 +147,10 @@ class BlurPatch : public Patch
   GaussianBlur* blurRightB;
 #endif
 
+  Compressor blurLeftCompressor;
+  Compressor blurRightCompressor;
+
+protected:
   SkewedFloat textureSize;
   SkewedFloat blurSize;
 
@@ -169,8 +173,14 @@ class BlurPatch : public Patch
   SmoothFloat compressionMakeupGain;
   SmoothFloat compressionBlend;
 
-  Compressor blurLeftCompressor;
-  Compressor blurRightCompressor;
+  // because our base class is a template parameter, 
+  // we need using statements for all base-class methods we call.
+  using PatchClass::registerParameter;
+  using PatchClass::setParameterValue;
+  using PatchClass::getParameterValue;
+  using PatchClass::getBlockSize;
+  using PatchClass::getSampleRate;
+  using PatchClass::setButton;
 
 public:
   BlurPatch()
@@ -324,7 +334,7 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (bid == BUTTON_1 && value == ON)
+    if (bid == BUTTON_1 && value == Patch::ON)
     {
       textureSize.toggleSkew();
       if (textureSize.skewEnabled())
@@ -333,7 +343,7 @@ public:
       }
     }
 
-    if (bid == BUTTON_2 && value == ON)
+    if (bid == BUTTON_2 && value == Patch::ON)
     {
       blurSize.toggleSkew();
       if (blurSize.skewEnabled())
