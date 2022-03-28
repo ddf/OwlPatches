@@ -164,6 +164,8 @@ protected:
   SmoothFloat blurSizeRight;
   SmoothFloat feedbackMagnitude;
   SmoothFloat feedbackAngle;
+  SmoothFloat feedbackAmtLeft;
+  SmoothFloat feedbackAmtRight;
 
   SmoothFloat inLeftRms;
   SmoothFloat inRightRms;
@@ -225,7 +227,7 @@ public:
 #ifdef USE_BLUR_FEEDBACK
     setParameterValue(pid.inFeedTilt, 0.125f);
 #else
-    setParameterValue(pid.inFeedTilt, 0.5f);
+    setParameterValue(pid.inFeedTilt, 0);
 #endif
     setParameterValue(pid.inWetDry, 1);
     setParameterValue(pid.inBlurBrightness, (blurBrightnessDefault - blurBrightnessMin) / (blurBrightnessMax - blurBrightnessMin));
@@ -410,7 +412,7 @@ public:
 #ifdef USE_BLUR_FEEDBACK
     feedbackAngle = Interpolator::linear(0.0f, M_PI * 2, getParameterValue(pid.inFeedTilt));
 #else
-    feedbackAngle = Interpolator::linear(0.0f, M_PI_2, getParameterValue(pid.inFeedTilt));
+    feedbackAngle = getParameterValue(pid.inFeedTilt); // Interpolator::linear(0.0f, M_PI_2, getParameterValue(pid.inFeedTilt));
 #endif
 
     compressionThreshold = Interpolator::linear(0, -80, getParameterValue(pid.inCompressionThreshold));
@@ -444,14 +446,14 @@ public:
     inLeft.copyTo(feedLeft);
     inRight.copyTo(feedRight);
 #else
-    const float feedStrL = feedbackMagnitude * cosf(feedbackAngle);
-    const float feedStrR = feedbackMagnitude * sinf(feedbackAngle);
+    feedbackAmtLeft = feedbackMagnitude;// *cosf(feedbackAngle);
+    feedbackAmtRight = feedbackMagnitude; // *sinf(feedbackAngle);
 
     // Note: the way feedback is applied is based on how Clouds does it
-    const float cutoffL = (20.0f + 100.0f * feedStrL * feedStrL);
-    const float cutoffR = (20.0f + 100.0f * feedStrR * feedStrR);
-    const float softLimitCoeffL = feedStrL * 1.4f;
-    const float softLimitCoeffR = feedStrR * 1.4f;
+    const float cutoffL = (20.0f + 100.0f * feedbackAmtLeft * feedbackAmtLeft);
+    const float cutoffR = (20.0f + 100.0f * feedbackAmtRight * feedbackAmtRight);
+    const float softLimitCoeffL = feedbackAmtLeft * 1.4f;
+    const float softLimitCoeffR = feedbackAmtRight * 1.4f;
 
     feedbackFilterLeft->setHighPass(cutoffL, 1);
     feedbackFilterLeft->process(feedLeft);
@@ -461,8 +463,8 @@ public:
     {
       float left = inLeft[i];
       float right = inRight[i];
-      feedLeft[i] = left + feedStrL * (daisysp::SoftLimit(softLimitCoeffL * feedLeft[i] + left) - left);
-      feedRight[i] = right + feedStrR * (daisysp::SoftLimit(softLimitCoeffR * feedRight[i] + right) - right);
+      feedLeft[i] = left + feedbackAmtLeft * (daisysp::SoftLimit(softLimitCoeffL * feedLeft[i] + left) - left);
+      feedRight[i] = right + feedbackAmtRight * (daisysp::SoftLimit(softLimitCoeffR * feedRight[i] + right) - right);
     }
 #endif
 
@@ -625,8 +627,16 @@ public:
     }
 
 #ifndef USE_BLUR_FEEDBACK
-    outBlurLeft.copyTo(feedLeft);
-    outBlurRight.copyTo(feedRight);
+    //outBlurLeft.copyTo(feedLeft);
+    //outBlurRight.copyTo(feedRight);
+
+    float feedSame = (1.0f - feedbackAngle)*M_PI_2;
+    float feedCross = feedbackAngle*M_PI_2;
+    for (int i = 0; i < blockSize; ++i)
+    {
+      feedLeft[i] = outBlurLeft[i] * feedSame + outBlurRight[i] * feedCross;
+      feedRight[i] = outBlurLeft[i] * feedCross + outBlurRight[i] * feedSame;
+    }
 #endif
     
     // do wet/dry mix with original signal
