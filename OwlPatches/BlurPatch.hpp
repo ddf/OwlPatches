@@ -87,8 +87,7 @@ struct BlurPatchParameterIds
 template<int blurKernelSize, int blurResampleFactor, int blurResampleStages, typename PatchClass = Patch>
 class BlurPatch : public PatchClass
 {
-  const BlurPatchParameterIds pid;
-
+protected:
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
   const  float minBlurSize        = 0.0f;
@@ -118,6 +117,10 @@ class BlurPatch : public PatchClass
   const float compressorMakeupGainMin = 0.0f;
   const float compressorMakeupGainMax = 80.0f;
   const float compressorMakeupGainDefault = compressorMakeupGainMin;
+
+private:
+
+  const BlurPatchParameterIds pid;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;

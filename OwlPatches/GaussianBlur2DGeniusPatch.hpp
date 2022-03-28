@@ -1,5 +1,6 @@
 #include "MonochromeScreenPatch.h"
 #include "BlurPatch.hpp"
+#include "Noise.hpp"
 
 static const BlurPatchParameterIds geniusBlurParams =
 {
@@ -35,26 +36,53 @@ static const BlurPatchParameterIds geniusBlurParams =
 class GaussianBlur2DGeniusPatch : public BlurPatch<11, 4, 4, MonochromeScreenPatch>
 {
 public:
-  GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams) {}
+  GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams)
+  {
+  }
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    if (textureSize.skewEnabled())
-    {
-      screen.fillRectangle(screen.getWidth() / 4 - 4, screen.getHeight() / 2 - 4, 8, 8, WHITE);
-    }
-    else
-    {
-      screen.drawRectangle(screen.getWidth() / 4 - 4, screen.getHeight() / 2 - 4, 8, 8, WHITE);
-    }
+    const int displayHeight = screen.getHeight() - 18;
+    const int cy = displayHeight / 2;
+    const int cxL = screen.getWidth() / 4;
+    const int cxR = screen.getWidth() - screen.getWidth() / 4;
+    const int txLeft = roundf(Interpolator::linear(2, displayHeight, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize)));
+    const int txRight = roundf(Interpolator::linear(2, displayHeight, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize)));
+    const int blurR = roundf(txRight * blurSizeRight);
 
-    if (blurSize.skewEnabled())
+    drawTexture(screen, cxL, cy, txLeft, blurSizeLeft);
+    drawTexture(screen, cxR, cy, txRight, blurSizeRight);
+  }
+
+  void drawTexture(MonochromeScreenBuffer &screen, const int cx, const int cy, const int texDim, const float blurSize)
+  {
+    const int tx = cx - texDim / 2;
+    const int ty = cy - texDim / 2;
+    screen.drawRectangle(tx, ty, texDim, texDim, WHITE);
+    for (int x = 0, y = 0; x < texDim; x+=2, y+=2)
     {
-      screen.fillRectangle(screen.getWidth() - screen.getWidth() / 4 - 4, screen.getHeight() / 2 - 4, 8, 8, WHITE);
+      screen.drawLine(tx, ty + y, tx+x, ty, WHITE);
+      screen.drawLine(tx + texDim - 1, ty + texDim - y - 1, tx + texDim - x - 1, ty + texDim - 1, WHITE);
     }
-    else
+    for (int x = 2; x < texDim - 2; ++x)
     {
-      screen.drawRectangle(screen.getWidth() - screen.getWidth() / 4 - 4, screen.getHeight() / 2 - 4, 8, 8, WHITE);
+      for (int y = 2; y < texDim - 2; ++y)
+      {
+        if (perlin2d(x, y, texDim / 4, 1) + 0.001f < blurSize*2)
+        {
+          screen.invertPixel(tx + x - 1, ty + y - 1);
+          screen.invertPixel(tx + x - 1, ty + y);
+          screen.invertPixel(tx + x - 1, ty + y + 1);
+
+          screen.invertPixel(tx + x, ty + y - 1);
+          screen.invertPixel(tx + x, ty + y);
+          screen.invertPixel(tx + x, ty + y + 1);
+
+          screen.invertPixel(tx + x + 1, ty + y - 1);
+          screen.invertPixel(tx + x + 1, ty + y);
+          screen.invertPixel(tx + x + 1, ty + y + 1);
+        }
+      }
     }
   }
 
