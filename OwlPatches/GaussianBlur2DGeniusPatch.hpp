@@ -1,6 +1,7 @@
 #include "MonochromeScreenPatch.h"
 #include "BlurPatch.hpp"
 #include "Noise.hpp"
+#include "Effects/reverbsc.h"
 
 static const BlurPatchParameterIds geniusBlurParams =
 {
@@ -20,9 +21,12 @@ static const BlurPatchParameterIds geniusBlurParams =
   .inCompressionMakeupGain = PARAMETER_AE,
   .inCompressionBlend = PARAMETER_AF,
 
-  .outLeftFollow = PARAMETER_AG,
-  .outRightFollow = PARAMETER_AH
+  .outLeftFollow = PARAMETER_BA,
+  .outRightFollow = PARAMETER_BB
 };
+
+typedef BlurPatch<11, 4, 4, MonochromeScreenPatch> GeniusBlurPatchBase;
+typedef daisysp::ReverbSc Reverb;
 
 // It turns out that when running without downsampling,
 // the volume of the blurred signal gets much quieter at higher blur amounts
@@ -33,11 +37,55 @@ static const BlurPatchParameterIds geniusBlurParams =
 // but with 4x downsampling it runs at ~20%.
 // This means we could run with downsampling and add a basic reverb,
 // which would be a nice addition to this patch.
-class GaussianBlur2DGeniusPatch : public BlurPatch<11, 4, 4, MonochromeScreenPatch>
+class GaussianBlur2DGeniusPatch : public GeniusBlurPatchBase
 {
-public:
-  GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams) {}
+  static const PatchParameterId inReverbFeedback = PARAMETER_AG;
+  static const PatchParameterId inReverbCutoff = PARAMETER_AH;
 
+  Reverb reverb;
+  SmoothFloat reverbFbdk;
+  SmoothFloat reverbCutoff;
+
+public:
+  GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams) 
+  {
+    registerParameter(inReverbFeedback, "Verb Amt");
+    registerParameter(inReverbCutoff, "Verb Tone");
+
+    setParameterValue(inReverbFeedback, 0);
+    setParameterValue(inReverbCutoff, 1);
+
+    reverb.Init(getSampleRate());
+    reverb.SetLpFreq(getSampleRate() / 2.0);
+  }
+
+protected:
+  void processBlurPostFeedback(AudioBuffer& blurBuffer) override
+  {
+    GeniusBlurPatchBase::processBlurPostFeedback(blurBuffer);
+
+    // gets real nasty and glitches out when set to max
+    reverbFbdk = getParameterValue(inReverbFeedback)*0.9f;
+    reverbCutoff = Interpolator::linear(100.0f, getSampleRate() / 4.0f, getParameterValue(inReverbCutoff));
+
+    reverb.SetFeedback(reverbFbdk.getValue());
+    reverb.SetLpFreq(reverbCutoff.getValue());
+
+    float* left = blurBuffer.getSamples(0);
+    float* right = blurBuffer.getSamples(1);
+    int size = blurBuffer.getSize();
+    while (size--)
+    {
+      const float l = *left;
+      const float r = *right;
+      // this essentially replaces the dry signal, we have to mix it back in
+      reverb.Process(l, r, left, right);
+      *left++ += l;
+      *right++ += r;
+    }
+  }
+
+public:
   void processScreen(MonochromeScreenBuffer& screen) override
   {
     const int displayHeight = screen.getHeight() - 18;

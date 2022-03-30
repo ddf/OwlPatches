@@ -635,10 +635,7 @@ public:
       }
     }
 
-    if (downsamplingEnabled())
-    {
-      blurFilter->process(*blurBuffer, *blurBuffer);
-    }
+    processBlurPreFeedback(*blurBuffer);
 
 #ifndef USE_BLUR_FEEDBACK
     float feedSame = (1.0f - feedbackAngle);
@@ -649,6 +646,8 @@ public:
       feedRight[i] = outBlurLeft[i] * feedCross + outBlurRight[i] * feedSame;
     }
 #endif
+
+    processBlurPostFeedback(*blurBuffer);
     
     // do wet/dry mix with original signal
     float wet = getParameterValue(pid.inWetDry);
@@ -686,12 +685,22 @@ public:
     debugMessage(debugMsg);
 #endif
   }
-private:
 
+protected:
   bool downsamplingEnabled() const
   {
     return blurResampleFactor > 1;
   }
 
+  virtual void processBlurPreFeedback(AudioBuffer& audio)
+  {
+    if (downsamplingEnabled())
+    {
+      blurFilter->process(audio, audio);
+    }
+  }
 
+  virtual void processBlurPostFeedback(AudioBuffer& audio)
+  {
+  }
 };
