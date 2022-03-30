@@ -164,8 +164,6 @@ protected:
   SmoothFloat blurSizeRight;
   SmoothFloat feedbackMagnitude;
   SmoothFloat feedbackAngle;
-  SmoothFloat feedbackAmtLeft;
-  SmoothFloat feedbackAmtRight;
 
   SmoothFloat inLeftRms;
   SmoothFloat inRightRms;
@@ -462,8 +460,8 @@ public:
     inLeft.copyTo(feedLeft);
     inRight.copyTo(feedRight);
 #else
-    feedbackAmtLeft = feedbackMagnitude;
-    feedbackAmtRight = feedbackMagnitude;
+    float feedbackAmtLeft = feedbackMagnitude;
+    float feedbackAmtRight = feedbackMagnitude;
 
     // Note: the way feedback is applied is based on how Clouds does it
     const float cutoffL = (20.0f + 100.0f * feedbackAmtLeft * feedbackAmtLeft);
@@ -643,9 +641,6 @@ public:
     }
 
 #ifndef USE_BLUR_FEEDBACK
-    //outBlurLeft.copyTo(feedLeft);
-    //outBlurRight.copyTo(feedRight);
-
     float feedSame = (1.0f - feedbackAngle);
     float feedCross = feedbackAngle;
     for (int i = 0; i < blockSize; ++i)
