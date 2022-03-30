@@ -408,11 +408,13 @@ public:
       blurBrightness = Interpolator::linear(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
     }
 
-    feedbackMagnitude = getParameterValue(pid.inFeedMag);
+    // quadratic ease out so we get nice ringing feedback coming in at around 0.5
+    float feedParam = getParameterValue(pid.inFeedMag);
+    feedbackMagnitude = 1.0f - (1.0f - feedParam) * (1.0f - feedParam);
 #ifdef USE_BLUR_FEEDBACK
     feedbackAngle = Interpolator::linear(0.0f, M_PI * 2, getParameterValue(pid.inFeedTilt));
 #else
-    feedbackAngle = getParameterValue(pid.inFeedTilt); // Interpolator::linear(0.0f, M_PI_2, getParameterValue(pid.inFeedTilt));
+    feedbackAngle = getParameterValue(pid.inFeedTilt);
 #endif
 
     compressionThreshold = Interpolator::linear(0, -80, getParameterValue(pid.inCompressionThreshold));
@@ -446,8 +448,8 @@ public:
     inLeft.copyTo(feedLeft);
     inRight.copyTo(feedRight);
 #else
-    feedbackAmtLeft = feedbackMagnitude;// *cosf(feedbackAngle);
-    feedbackAmtRight = feedbackMagnitude; // *sinf(feedbackAngle);
+    feedbackAmtLeft = feedbackMagnitude;
+    feedbackAmtRight = feedbackMagnitude;
 
     // Note: the way feedback is applied is based on how Clouds does it
     const float cutoffL = (20.0f + 100.0f * feedbackAmtLeft * feedbackAmtLeft);
@@ -630,8 +632,8 @@ public:
     //outBlurLeft.copyTo(feedLeft);
     //outBlurRight.copyTo(feedRight);
 
-    float feedSame = (1.0f - feedbackAngle)*M_PI_2;
-    float feedCross = feedbackAngle*M_PI_2;
+    float feedSame = (1.0f - feedbackAngle);
+    float feedCross = feedbackAngle;
     for (int i = 0; i < blockSize; ++i)
     {
       feedLeft[i] = outBlurLeft[i] * feedSame + outBlurRight[i] * feedCross;

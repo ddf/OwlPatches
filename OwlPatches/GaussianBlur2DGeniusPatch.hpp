@@ -36,16 +36,14 @@ static const BlurPatchParameterIds geniusBlurParams =
 class GaussianBlur2DGeniusPatch : public BlurPatch<11, 4, 4, MonochromeScreenPatch>
 {
 public:
-  GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams)
-  {
-  }
+  GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams) {}
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
     const int displayHeight = screen.getHeight() - 18;
     const int cy = displayHeight / 2;
-    const int cxL = screen.getWidth() / 4;
-    const int cxR = screen.getWidth() - screen.getWidth() / 4;
+    const int cxL = screen.getWidth() / 4 - 4;
+    const int cxR = screen.getWidth() - screen.getWidth() / 4 + 4;
     const int txLeft = roundf(Interpolator::linear(2, displayHeight, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize)));
     const int txRight = roundf(Interpolator::linear(2, displayHeight, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize)));
     const int blurR = roundf(txRight * blurSizeRight);   
@@ -54,10 +52,8 @@ public:
 
     drawTexture(screen, cxL, cy, txLeft, blurSizeLeft);
     drawTexture(screen, cxR, cy, txRight, blurSizeRight);
-    drawFeedback<false>(screen, 0, displayHeight, feedWidth, feedbackAmtLeft - feedCross);
-    drawFeedback<true>(screen, screen.getWidth() - feedWidth - 1, displayHeight, feedWidth, feedbackAmtRight - feedCross);
-    drawCrossFeedback<false>(screen, screen.getWidth()/2 - feedWidth - 1, displayHeight, feedWidth, feedCross);
-    drawCrossFeedback<true>(screen, screen.getWidth()/2 + 1, displayHeight, feedWidth, feedCross);
+    drawFeedback<true>(screen, screen.getWidth()/2 - feedWidth - 2, displayHeight-1, feedWidth, feedbackMagnitude - feedCross);
+    drawCrossFeedback(screen, screen.getWidth()/2 + 2, displayHeight-1, feedWidth, feedCross);
   }
 
   void drawTexture(MonochromeScreenBuffer& screen, const int cx, const int cy, const int texDim, const float blurSize)
@@ -95,7 +91,7 @@ public:
   template<bool pointLeft>
   void drawFeedback(MonochromeScreenBuffer& screen, const int x, const int y, const int iconDim, const float amt)
   {
-    const int iconY = y - 2;
+    const int iconY = y;
     screen.drawLine(x, iconY, x, iconY - iconDim, WHITE);
     screen.drawLine(x, iconY - iconDim, x + iconDim, iconY - iconDim, WHITE);
     screen.drawLine(x + iconDim, iconY - iconDim, x + iconDim, iconY, WHITE);
@@ -112,29 +108,25 @@ public:
       screen.drawLine(x + iconDim - 2, iconY, x + iconDim - 4, iconY + 2, WHITE);
     }
 
-    const int barHeight = 37;
+    const int barHeight = 38;
     screen.drawRectangle(x, iconY - iconDim - barHeight - 1, iconDim+1, barHeight, WHITE);
     screen.fillRectangle(x, iconY - iconDim - barHeight*amt - 1, iconDim + 1, barHeight*amt, WHITE);
   }
 
-  template<bool pointLeft>
   void drawCrossFeedback(MonochromeScreenBuffer& screen, const int x, const int y, const int iconDim, const float amt)
   {
-    const int iconY = y - iconDim/2;
-    screen.drawLine(x, iconY, x+iconDim, iconY, WHITE);
-    if (pointLeft)
-    {
-      screen.drawLine(x, iconY, x + 2, iconY - 2, WHITE);
-      screen.drawLine(x, iconY, x + 2, iconY + 2, WHITE);
-    }
-    else
-    {
-      screen.drawLine(x + iconDim, iconY, x + iconDim - 2, iconY - 2, WHITE);
-      screen.drawLine(x + iconDim, iconY, x + iconDim - 2, iconY + 2, WHITE);
-    }
+    const int arrowLY = y - iconDim/2 - 1;
+    const int arrowRY = y;
+    screen.drawLine(x, arrowLY, x+iconDim, arrowLY, WHITE);
+    screen.drawLine(x, arrowLY, x + 2, arrowLY - 2, WHITE);
+    screen.drawLine(x, arrowLY, x + 2, arrowLY + 2, WHITE);
 
-    const int barHeight = 37;
-    screen.drawRectangle(x, iconY - iconDim/2 - barHeight - 1, iconDim + 1, barHeight, WHITE);
-    screen.fillRectangle(x, iconY - iconDim/2 - barHeight * amt - 1, iconDim + 1, barHeight*amt, WHITE);
+    screen.drawLine(x, arrowRY, x + iconDim, arrowRY, WHITE);
+    screen.drawLine(x + iconDim, arrowRY, x + iconDim - 2, arrowRY - 2, WHITE);
+    screen.drawLine(x + iconDim, arrowRY, x + iconDim - 2, arrowRY + 2, WHITE);
+
+    const int barHeight = 38;
+    screen.drawRectangle(x, y - iconDim - barHeight - 1, iconDim + 1, barHeight, WHITE);
+    screen.fillRectangle(x, y - iconDim - barHeight * amt - 1, iconDim + 1, barHeight*amt, WHITE);
   }
 };
