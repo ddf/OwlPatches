@@ -343,21 +343,35 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (pid.inTextureSize == pid.inTextureTilt && bid == BUTTON_1 && value == Patch::ON)
+    if (bid == BUTTON_1 && value == Patch::ON)
     {
-      textureSize.toggleSkew();
-      if (textureSize.skewEnabled())
+      if (pid.inTextureSize == pid.inTextureTilt)
       {
-        textureSize.resetSkew();
+        textureSize.toggleSkew();
+        if (textureSize.skewEnabled())
+        {
+          textureSize.resetSkew();
+        }
+      }
+      else
+      {
+        setParameterValue(pid.inTextureTilt, 0.5f);
       }
     }
 
-    if (pid.inBlurSize == pid.inBlurTilt && bid == BUTTON_2 && value == Patch::ON)
+    if (bid == BUTTON_2 && value == Patch::ON)
     {
-      blurSize.toggleSkew();
-      if (blurSize.skewEnabled())
+      if (pid.inBlurSize == pid.inBlurTilt)
       {
-        blurSize.resetSkew();
+        blurSize.toggleSkew();
+        if (blurSize.skewEnabled())
+        {
+          blurSize.resetSkew();
+        }
+      }
+      else
+      {
+        setParameterValue(pid.inBlurTilt, 0.5f);
       }
     }
   }
