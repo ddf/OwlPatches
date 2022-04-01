@@ -50,7 +50,7 @@ class GaussianBlur2DGeniusPatch : public GeniusBlurPatchBase
   SmoothFloat reverbFbdk;
   SmoothFloat reverbCutoff;
 
-  const float reverbFdbkMax = 0.98f;
+  const float reverbFdbkMax = 0.99f;
 
 public:
   GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams) 
@@ -83,11 +83,17 @@ protected:
     return fdbk < thresh ? 1.0f : 1.0f - ((fdbk - thresh) / (reverbFdbkMax - thresh))*0.6f;
   }
 
+  // Note: experimented with mixing some of the reverb output into the blur feedback path,
+  // but with even small amounts mixed into the feedback path, it tends to cause a ringing tone
+  // to totally overtake everything else and I'd rather people be able to enjoy very long reverb
+  // without having to worry about that.
   float reverbPreFeedbackAmount()
   {
-    const float thresh = 0.9f;
-    float fdbk = reverbFbdk.getValue();
-    return fdbk < thresh ? 0.0f : ((fdbk - thresh) / (reverbFdbkMax - thresh))*0.333f;
+    return 0.0f;
+
+    //const float thresh = 0.9f;
+    //float fdbk = reverbFbdk.getValue();
+    //return fdbk < thresh ? 0.0f : ((fdbk - thresh) / (reverbFdbkMax - thresh))*0.1f;
   }
 
   void processBlurPreFeedback(AudioBuffer& blurBuffer) override
@@ -107,8 +113,7 @@ protected:
     float* verbRight = reverbBuffer->getSamples(1);
     int size = blurBuffer.getSize();
     float inputGain = reverbInputGain();
-    float outputGain = 1.0f;// / inputGain;
-    float mixAmt = reverbPreFeedbackAmount() * outputGain;
+    float mixAmt = reverbPreFeedbackAmount();
 
     for (int i = 0; i < size; ++i)
     {
@@ -136,8 +141,7 @@ protected:
     float* verbLeft = reverbBuffer->getSamples(0);
     float* verbRight = reverbBuffer->getSamples(1);
     int size = blurBuffer.getSize();
-    float outputGain = 1.0f; // / reverbInputGain();
-    float mixAmt = (1.0f - reverbPreFeedbackAmount()) * outputGain;
+    float mixAmt = (1.0f - reverbPreFeedbackAmount());
     for(int i = 0; i < size; ++i)
     {
       blurLeft[i] = daisysp::SoftLimit(blurLeft[i] + verbLeft[i] * mixAmt);
