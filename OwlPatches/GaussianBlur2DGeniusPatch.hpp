@@ -43,8 +43,14 @@ class GaussianBlur2DGeniusPatch : public GeniusBlurPatchBase
   static const PatchParameterId inReverbCutoff = PARAMETER_AH;
 
   Reverb reverb;
+  // at high feedback values this reverb introduces a DC offset that results in distortion
+  StereoDcBlockingFilter* reverbFilter;
+
+  AudioBuffer* reverbBuffer;
   SmoothFloat reverbFbdk;
   SmoothFloat reverbCutoff;
+
+  const float reverbFdbkMax = 0.98f;
 
 public:
   GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams) 
@@ -57,31 +63,85 @@ public:
 
     reverb.Init(getSampleRate());
     reverb.SetLpFreq(getSampleRate() / 2.0);
+
+    reverbFilter = StereoDcBlockingFilter::create();
+    reverbBuffer = AudioBuffer::create(2, getBlockSize());
+  }
+
+  ~GaussianBlur2DGeniusPatch()
+  {
+    StereoDcBlockingFilter::destroy(reverbFilter);
+    AudioBuffer::destroy(reverbBuffer);
   }
 
 protected:
-  void processBlurPostFeedback(AudioBuffer& blurBuffer) override
+
+  float reverbInputGain()
   {
-    GeniusBlurPatchBase::processBlurPostFeedback(blurBuffer);
+    const float thresh = 0.9f;
+    float fdbk = reverbFbdk.getValue();
+    return fdbk < thresh ? 1.0f : 1.0f - ((fdbk - thresh) / (reverbFdbkMax - thresh))*0.6f;
+  }
+
+  float reverbPreFeedbackAmount()
+  {
+    const float thresh = 0.9f;
+    float fdbk = reverbFbdk.getValue();
+    return fdbk < thresh ? 0.0f : ((fdbk - thresh) / (reverbFdbkMax - thresh))*0.333f;
+  }
+
+  void processBlurPreFeedback(AudioBuffer& blurBuffer) override
+  {
+    GeniusBlurPatchBase::processBlurPreFeedback(blurBuffer);
 
     // gets real nasty and glitches out when set to max
-    reverbFbdk = getParameterValue(inReverbFeedback)*0.9f;
+    reverbFbdk = getParameterValue(inReverbFeedback)*reverbFdbkMax;
     reverbCutoff = Interpolator::linear(100.0f, getSampleRate() / 4.0f, getParameterValue(inReverbCutoff));
 
     reverb.SetFeedback(reverbFbdk.getValue());
     reverb.SetLpFreq(reverbCutoff.getValue());
 
-    float* left = blurBuffer.getSamples(0);
-    float* right = blurBuffer.getSamples(1);
+    float* blurLeft = blurBuffer.getSamples(0);
+    float* blurRight = blurBuffer.getSamples(1);
+    float* verbLeft = reverbBuffer->getSamples(0);
+    float* verbRight = reverbBuffer->getSamples(1);
     int size = blurBuffer.getSize();
-    while (size--)
+    float inputGain = reverbInputGain();
+    float outputGain = 1.0f;// / inputGain;
+    float mixAmt = reverbPreFeedbackAmount() * outputGain;
+
+    for (int i = 0; i < size; ++i)
     {
-      const float l = *left;
-      const float r = *right;
+      const float l = blurLeft[i] * inputGain;
+      const float r = blurRight[i] * inputGain;
       // this essentially replaces the dry signal, we have to mix it back in
-      reverb.Process(l, r, left, right);
-      *left++ += l;
-      *right++ += r;
+      reverb.Process(l, r, verbLeft + i, verbRight + i);
+    }
+
+    reverbFilter->process(*reverbBuffer, *reverbBuffer);
+
+    for(int i = 0; i < size; ++i)
+    {
+      blurLeft[i]  += verbLeft[i] * mixAmt;
+      blurRight[i] += verbRight[i] * mixAmt;
+    }
+  }
+
+  void processBlurPostFeedback(AudioBuffer& blurBuffer) override
+  {
+    GeniusBlurPatchBase::processBlurPostFeedback(blurBuffer);
+
+    float* blurLeft = blurBuffer.getSamples(0);
+    float* blurRight = blurBuffer.getSamples(1);
+    float* verbLeft = reverbBuffer->getSamples(0);
+    float* verbRight = reverbBuffer->getSamples(1);
+    int size = blurBuffer.getSize();
+    float outputGain = 1.0f; // / reverbInputGain();
+    float mixAmt = (1.0f - reverbPreFeedbackAmount()) * outputGain;
+    for(int i = 0; i < size; ++i)
+    {
+      blurLeft[i] = daisysp::SoftLimit(blurLeft[i] + verbLeft[i] * mixAmt);
+      blurRight[i] = daisysp::SoftLimit(blurRight[i] + verbRight[i] * mixAmt);
     }
   }
 
