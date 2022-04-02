@@ -139,6 +139,8 @@
     <ClInclude Include="BlurPatch.hpp" />
     <ClInclude Include="BlurSignalProcessor.h" />
     <ClInclude Include="CircularTexture.h" />
+    <ClInclude Include="GaussianBlur2DGeniusPatch.hpp" />
+    <ClInclude Include="GaussianBlur2DLichPatch.hpp" />
     <ClInclude Include="GaussianBlurSignalProcessor.h" />
     <ClInclude Include="GlitchLichPatch.hpp" />
     <ClInclude Include="Grain.hpp" />

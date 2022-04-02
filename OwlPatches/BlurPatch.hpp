@@ -1,4 +1,4 @@
-/**
+ /**
 
 AUTHOR:
     (c) 2022 Damien Quartz
@@ -41,45 +41,53 @@ DESCRIPTION:
 typedef daisysp::Compressor Compressor;
 
 #define FRACTIONAL_TEXTURE_SIZE
+//#define USE_BLUR_FEEDBACK
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
 #define SMOOTH_ACROSS_BLOCK
+#ifdef USE_BLUR_FEEDBACK
+typedef GaussianBlurWithFeedback<float> GaussianBlur;
+#else
 typedef GaussianBlurSignalProcessor<float> GaussianBlur;
+#endif
+#else
+#ifdef USE_BLUR_FEEDBACK
+typedef GaussianBlurWithFeedback<size_t> GaussianBlur;
 #else
 typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
 #endif
+#endif
 
-class BlurPatch : public Patch
+struct BlurPatchParameterIds
 {
-  static const PatchParameterId inTextureSize = PARAMETER_A;
-  static const PatchParameterId inBlurSize    = PARAMETER_B;
-  static const PatchParameterId inFeedback    = PARAMETER_C;
-  static const PatchParameterId inWetDry      = PARAMETER_D;
+  const PatchParameterId inTextureSize; // PARAMETER_A;
+  const PatchParameterId inBlurSize; // PARAMETER_B;
+  const PatchParameterId inFeedMag; // PARAMETER_C;
+  const PatchParameterId inWetDry; // PARAMETER_D;
+
+  const PatchParameterId inTextureTilt;
+  const PatchParameterId inBlurTilt;
+  const PatchParameterId inFeedTilt; // PARAMETER_E;
 
   // attenuate or boost the input signal during the blur
-  static const PatchParameterId inBlurBrightness = PARAMETER_AA;
+  const PatchParameterId inBlurBrightness; // PARAMETER_AA;
 
   // compressor parameters, which work as you'd expect
-  static const PatchParameterId inCompressionThreshold  = PARAMETER_AB;
-  static const PatchParameterId inCompressionRatio      = PARAMETER_AC;
-  static const PatchParameterId inCompressionMakeupGain = PARAMETER_AD;
-  static const PatchParameterId inCompressionAttack     = PARAMETER_AE;
-  static const PatchParameterId inCompressionRelease    = PARAMETER_AF;
-  static const PatchParameterId inCompressionBlend      = PARAMETER_AG;
+  const PatchParameterId inCompressionThreshold; // PARAMETER_AB;
+  const PatchParameterId inCompressionRatio; // PARAMETER_AC;
+  const PatchParameterId inCompressionAttack; // PARAMETER_AE;
+  const PatchParameterId inCompressionRelease; // PARAMETER_AF;
+  const PatchParameterId inCompressionMakeupGain; // PARAMETER_AD;
+  const PatchParameterId inCompressionBlend; // PARAMETER_AG;
 
-  // unused, but keeping it around in case I want to quickly hook it up and tweak it for some reason
-  static const PatchParameterId inStandardDev = PARAMETER_AH;
+  const PatchParameterId outLeftFollow; // PARAMETER_F;
+  const PatchParameterId outRightFollow; // PARAMETER_G;
+};
 
-  static const PatchParameterId outLeftFollow = PARAMETER_F;
-  static const PatchParameterId outRightFollow = PARAMETER_G;
-
-  static const int blurKernelSize     = 11;
-
-  // Lich isn't fast enough to do processing at 2x downsampled,
-  // we must use a downsample factor of 4, which requires 4 stages to prevent too much aliasing.
-  static const int blurResampleFactor = 4;
-  static const int blurResampleStages = 4;
-
+template<int blurKernelSize, int blurResampleFactor, int blurResampleStages, typename PatchClass = Patch>
+class BlurPatch : public PatchClass
+{
+protected:
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
   const  float minBlurSize        = 0.0f;
@@ -88,12 +96,7 @@ class BlurPatch : public Patch
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
   // where standard deviation should equal (sampleCount - 1)/4.
-  // The minimum value here sounds about the same with smaller radii,
-  // it's really only at larger texture sizes combined with larger radii
-  // that you start to hear a difference when sweeping the standard deviation,
-  // with the maximum value giving the smoothest sounding results.
-  const float maxStandardDev = (blurKernelSize - 1) / 4.0f;
-  const float minStandardDev = maxStandardDev / 3.0f;
+  const float standardDeviation = (blurKernelSize - 1) / 4.0f;
 
   const float blurBrightnessMin = 0.5f;
   const float blurBrightnessMax = 2.0f;
@@ -115,11 +118,14 @@ class BlurPatch : public Patch
   const float compressorMakeupGainMax = 80.0f;
   const float compressorMakeupGainDefault = compressorMakeupGainMin;
 
+private:
+
+  const BlurPatchParameterIds pid;
+
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
 
   StereoDcBlockingFilter*     dcFilter;
-  StereoBiquadFilter*         blurFilter;
   BiquadFilter*               feedbackFilterLeft;
   BiquadFilter*               feedbackFilterRight;
 
@@ -127,6 +133,7 @@ class BlurPatch : public Patch
   DownSampler* blurDownRight;
   UpSampler*   blurUpLeft;
   UpSampler*   blurUpRight;
+  StereoBiquadFilter* blurFilter;
 
   FloatArray   blurScratchA;
   FloatArray   blurScratchB;
@@ -143,6 +150,10 @@ class BlurPatch : public Patch
   GaussianBlur* blurRightB;
 #endif
 
+  Compressor blurLeftCompressor;
+  Compressor blurRightCompressor;
+
+protected:
   SkewedFloat textureSize;
   SkewedFloat blurSize;
 
@@ -151,8 +162,8 @@ class BlurPatch : public Patch
   SmoothFloat textureSizeRight;
   SmoothFloat blurSizeLeft;
   SmoothFloat blurSizeRight;
-  SmoothFloat standardDeviation;
-  SmoothFloat feedback;
+  SmoothFloat feedbackMagnitude;
+  SmoothFloat feedbackAngle;
 
   SmoothFloat inLeftRms;
   SmoothFloat inRightRms;
@@ -164,74 +175,100 @@ class BlurPatch : public Patch
   SmoothFloat compressionMakeupGain;
   SmoothFloat compressionBlend;
 
-  Compressor blurLeftCompressor;
-  Compressor blurRightCompressor;
+  // because our base class is a template parameter, 
+  // we need using statements for all base-class methods we call.
+  using PatchClass::registerParameter;
+  using PatchClass::setParameterValue;
+  using PatchClass::getParameterValue;
+  using PatchClass::getBlockSize;
+  using PatchClass::getSampleRate;
+  using PatchClass::setButton;
 
 public:
-  BlurPatch()
-    : textureSize(0), blurSize(0)
+  BlurPatch(BlurPatchParameterIds params)
+    : pid(params), textureSize(0), blurSize(0)
     , textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
     , blurSizeLeft(0.9f, 0.0f), blurSizeRight(0.9f, 0.0f)
-    , standardDeviation(0.9f, maxStandardDev)
     , compressionThreshold(0.9f, compressorThresholdDefault), compressionRatio(0.9f, compressorRatioDefault)
     , compressionAttack(0.9f, compressorResponseDefault), compressionRelease(0.9f, compressorResponseDefault)
     , compressionMakeupGain(0.9f, compressorMakeupGainDefault)
   {
-    registerParameter(inTextureSize, "Texture Size");
-    registerParameter(inBlurSize, "Blur Size");
-    registerParameter(inFeedback, "Feedback");
-    registerParameter(inWetDry, "Dry/Wet");
-    registerParameter(inBlurBrightness, "Blur Brightness");
-    registerParameter(inCompressionThreshold, "Blur Compressor Threshold");
-    registerParameter(inCompressionRatio, "Blur Compressor Ratio");
-    registerParameter(inCompressionAttack, "Blur Compressor Attack");
-    registerParameter(inCompressionRelease, "Blur Compressor Release");
-    registerParameter(inCompressionMakeupGain, "Blur Compressor Makeup Gain");
-    registerParameter(inCompressionBlend, "Blur Compressor Blend");
+    registerParameter(pid.inTextureSize, "Tex Size");
+    if (pid.inTextureSize != pid.inTextureTilt)
+    {
+      registerParameter(pid.inTextureTilt, "Tex Tilt");
+      setParameterValue(pid.inTextureTilt, 0.5f);
+    }
+    registerParameter(pid.inBlurSize, "Blur Size");
+    if (pid.inBlurSize != pid.inBlurTilt)
+    {
+      registerParameter(pid.inBlurTilt, "Blur Tilt");
+      setParameterValue(pid.inBlurTilt, 0.5f);
+    }
+    registerParameter(pid.inFeedMag, "Fdbk Amt");
+    registerParameter(pid.inFeedTilt, "Fdbk Tilt");
+    registerParameter(pid.inWetDry, "Dry/Wet");
+    registerParameter(pid.inBlurBrightness, "Blur Gain");
+    registerParameter(pid.inCompressionThreshold, "Comp Thrsh");
+    registerParameter(pid.inCompressionRatio, "Comp Ratio");
+    registerParameter(pid.inCompressionAttack, "Comp Att");
+    registerParameter(pid.inCompressionRelease, "Comp Rel");
+    registerParameter(pid.inCompressionMakeupGain, "Comp Mkup");
+    registerParameter(pid.inCompressionBlend, "Comp Blend");
 
-    //registerParameter(inStandardDev, "Standard Deviation");
+    registerParameter(pid.outLeftFollow, "L Env>");
+    registerParameter(pid.outRightFollow, "R Env>");
 
-    registerParameter(outLeftFollow, "Left Follow>");
-    registerParameter(outRightFollow, "Right Follow>");
+    setParameterValue(pid.inTextureSize, 0.0f);
+    setParameterValue(pid.inBlurSize,    0.0f);
+    setParameterValue(pid.inFeedMag, 0.0f);
+#ifdef USE_BLUR_FEEDBACK
+    setParameterValue(pid.inFeedTilt, 0.125f);
+#else
+    setParameterValue(pid.inFeedTilt, 0);
+#endif
+    setParameterValue(pid.inWetDry, 1);
+    setParameterValue(pid.inBlurBrightness, (blurBrightnessDefault - blurBrightnessMin) / (blurBrightnessMax - blurBrightnessMin));
+    setParameterValue(pid.inCompressionThreshold, (compressorThresholdDefault - compressorThresholdMin) / (compressorThresholdMax - compressorThresholdMin));
+    setParameterValue(pid.inCompressionRatio, (compressorRatioDefault - compressorRatioMin) / (compressorRatioMax  - compressorRatioMin));
+    setParameterValue(pid.inCompressionAttack, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
+    setParameterValue(pid.inCompressionRelease, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
+    setParameterValue(pid.inCompressionMakeupGain, (compressorMakeupGainDefault - compressorMakeupGainMin) / (compressorMakeupGainMax - compressorMakeupGainMin));
+    setParameterValue(pid.inCompressionBlend, 1.0f);
 
-    setParameterValue(inTextureSize, 0.0f);
-    setParameterValue(inBlurSize,    0.0f);
-    setParameterValue(inFeedback, 0.0f);
-    setParameterValue(inWetDry, 1);
-    setParameterValue(inBlurBrightness, (blurBrightnessDefault - blurBrightnessMin) / (blurBrightnessMax - blurBrightnessMin));
-    setParameterValue(inCompressionThreshold, (compressorThresholdDefault - compressorThresholdMin) / (compressorThresholdMax - compressorThresholdMin));
-    setParameterValue(inCompressionRatio, (compressorRatioDefault - compressorRatioMin) / (compressorRatioMax  - compressorRatioMin));
-    setParameterValue(inCompressionAttack, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
-    setParameterValue(inCompressionRelease, (compressorResponseDefault - compressorResponseMin) / (compressorResponseMax - compressorResponseMin));
-    setParameterValue(inCompressionMakeupGain, (compressorMakeupGainDefault - compressorMakeupGainMin) / (compressorMakeupGainMax - compressorMakeupGainMin));
-    setParameterValue(inCompressionBlend, 1.0f);
-
-    //setParameterValue(inStandardDev, 1.0f);
-
-    setParameterValue(outLeftFollow, 0);
-    setParameterValue(outRightFollow, 0);
+    setParameterValue(pid.outLeftFollow, 0);
+    setParameterValue(pid.outRightFollow, 0);
 
     dcFilter = StereoDcBlockingFilter::create();
     feedbackFilterLeft = BiquadFilter::create(getSampleRate());
     feedbackFilterRight = BiquadFilter::create(getSampleRate());
 
-    blurFilter = StereoBiquadFilter::create(getSampleRate());
-    // cutoff at half our downsampled sample rate to remove aliasing introduced by resampling
-    blurFilter->setLowPass(getSampleRate() / blurResampleFactor * 0.5f, 1.0f);
-
     blurBuffer = AudioBuffer::create(2, getBlockSize());
     feedbackBuffer = AudioBuffer::create(2, getBlockSize());
 
-    blurDownLeft  = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
-    blurDownRight = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
-    blurUpLeft    = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
-    blurUpRight   = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+    if (downsamplingEnabled())
+    {
+      blurDownLeft = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+      blurDownRight = DownSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+      blurUpLeft = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+      blurUpRight = UpSampler::create(getSampleRate(), blurResampleStages, blurResampleFactor);
+
+      // final filter after upsampling to address aliasing
+      blurFilter = StereoBiquadFilter::create(getSampleRate());
+      // cutoff at half our downsampled sample rate to remove aliasing introduced by resampling
+      blurFilter->setLowPass(getSampleRate() / blurResampleFactor * 0.5f, 1.0f);
+    }
 
     blurScratchA = FloatArray::create(getBlockSize() / blurResampleFactor);
     blurScratchB = FloatArray::create(getBlockSize() / blurResampleFactor);
 
+#ifdef USE_BLUR_FEEDBACK
+    blurLeftA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize, getSampleRate() / blurResampleFactor, getBlockSize() / blurResampleFactor);
+    blurRightA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize, getSampleRate() / blurResampleFactor, getBlockSize() / blurResampleFactor);
+#else
     blurLeftA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
     blurRightA = GaussianBlur::create(maxTextureSize, maxBlurSize, standardDeviation, blurKernelSize);
+#endif
 
     blurLeftA->setBlur(minBlurSize, standardDeviation);
     blurRightA->setBlur(minBlurSize, standardDeviation);
@@ -273,10 +310,13 @@ public:
     AudioBuffer::destroy(blurBuffer);
     AudioBuffer::destroy(feedbackBuffer);
 
-    DownSampler::destroy(blurDownLeft);
-    DownSampler::destroy(blurDownRight);
-    UpSampler::destroy(blurUpLeft);
-    UpSampler::destroy(blurUpRight);
+    if (downsamplingEnabled())
+    {
+      DownSampler::destroy(blurDownLeft);
+      DownSampler::destroy(blurDownRight);
+      UpSampler::destroy(blurUpLeft);
+      UpSampler::destroy(blurUpRight);
+    }
 
     StereoDcBlockingFilter::destroy(dcFilter);
     BiquadFilter::destroy(feedbackFilterLeft);
@@ -301,21 +341,35 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (bid == BUTTON_1 && value == ON)
+    if (bid == BUTTON_1 && value == Patch::ON)
     {
-      textureSize.toggleSkew();
-      if (textureSize.skewEnabled())
+      if (pid.inTextureSize == pid.inTextureTilt)
       {
-        textureSize.resetSkew();
+        textureSize.toggleSkew();
+        if (textureSize.skewEnabled())
+        {
+          textureSize.resetSkew();
+        }
+      }
+      else
+      {
+        setParameterValue(pid.inTextureTilt, 0.5f);
       }
     }
 
-    if (bid == BUTTON_2 && value == ON)
+    if (bid == BUTTON_2 && value == Patch::ON)
     {
-      blurSize.toggleSkew();
-      if (blurSize.skewEnabled())
+      if (pid.inBlurSize == pid.inBlurTilt)
       {
-        blurSize.resetSkew();
+        blurSize.toggleSkew();
+        if (blurSize.skewEnabled())
+        {
+          blurSize.resetSkew();
+        }
+      }
+      else
+      {
+        setParameterValue(pid.inBlurTilt, 0.5f);
       }
     }
   }
@@ -331,8 +385,16 @@ public:
 
     const int blockSize = getBlockSize();
     
-    textureSize = getParameterValue(inTextureSize);
-    blurSize = getParameterValue(inBlurSize);
+    textureSize = getParameterValue(pid.inTextureSize);
+    if (pid.inTextureSize != pid.inTextureTilt)
+    {
+      textureSize.setSkew(getParameterValue(pid.inTextureTilt) * 2 - 1);
+    }
+    blurSize = getParameterValue(pid.inBlurSize);
+    if (pid.inBlurSize != pid.inBlurTilt)
+    {
+      blurSize.setSkew(getParameterValue(pid.inBlurTilt) * 2 - 1);
+    }
 
 #ifdef SMOOTH_ACROSS_BLOCK
     float prevTexLeft = textureSizeLeft;
@@ -347,7 +409,7 @@ public:
     blurSizeLeft  = Interpolator::linear(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
     blurSizeRight = Interpolator::linear(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
 
-    float brightnessParam = getParameterValue(inBlurBrightness);
+    float brightnessParam = getParameterValue(pid.inBlurBrightness);
     float blurBrightness = blurBrightnessDefault;
     if (brightnessParam >= 0.53f)
     {
@@ -358,51 +420,67 @@ public:
       blurBrightness = Interpolator::linear(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
     }
 
-    feedback          = getParameterValue(inFeedback);
+    // quadratic ease out so we get nice ringing feedback coming in at around 0.5
+    float feedParam = getParameterValue(pid.inFeedMag);
+    feedbackMagnitude = 1.0f - (1.0f - feedParam) * (1.0f - feedParam);
+#ifdef USE_BLUR_FEEDBACK
+    feedbackAngle = Interpolator::linear(0.0f, M_PI * 2, getParameterValue(pid.inFeedTilt));
+#else
+    feedbackAngle = getParameterValue(pid.inFeedTilt);
+#endif
 
-    //standardDeviation = Interpolator::linear(minStandardDev, maxStandardDev, getParameterValue(inStandardDev));
-
-    compressionThreshold = Interpolator::linear(0, -80, getParameterValue(inCompressionThreshold));
+    compressionThreshold = Interpolator::linear(0, -80, getParameterValue(pid.inCompressionThreshold));
     blurLeftCompressor.SetThreshold(compressionThreshold);
     blurRightCompressor.SetThreshold(compressionThreshold);
 
-    compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(inCompressionRatio));
+    compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(pid.inCompressionRatio));
     blurLeftCompressor.SetRatio(compressionRatio);
     blurRightCompressor.SetRatio(compressionRatio);
 
-    compressionAttack = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(inCompressionAttack));
+    compressionAttack = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(pid.inCompressionAttack));
     blurLeftCompressor.SetAttack(compressionAttack);
     blurRightCompressor.SetAttack(compressionAttack);
 
-    compressionRelease = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(inCompressionRelease));
+    compressionRelease = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(pid.inCompressionRelease));
     blurLeftCompressor.SetRelease(compressionRelease);
     blurRightCompressor.SetRelease(compressionRelease);
 
-    compressionMakeupGain = Interpolator::linear(compressorMakeupGainMin, compressorMakeupGainMax, getParameterValue(inCompressionMakeupGain));
+    compressionMakeupGain = Interpolator::linear(compressorMakeupGainMin, compressorMakeupGainMax, getParameterValue(pid.inCompressionMakeupGain));
     blurLeftCompressor.SetMakeup(compressionMakeupGain);
     blurRightCompressor.SetMakeup(compressionMakeupGain);
 
-    compressionBlend = getParameterValue(inCompressionBlend);
+    compressionBlend = getParameterValue(pid.inCompressionBlend);
 
     //dcFilter->process(audio, audio);
 
     inLeftRms = inLeft.getRms() * blurBrightness;
     inRightRms = inRight.getRms() * blurBrightness;
 
+#ifdef USE_BLUR_FEEDBACK
+    inLeft.copyTo(feedLeft);
+    inRight.copyTo(feedRight);
+#else
+    float feedbackAmtLeft = feedbackMagnitude;
+    float feedbackAmtRight = feedbackMagnitude;
+
     // Note: the way feedback is applied is based on how Clouds does it
-    float cutoff = (20.0f + 100.0f * feedback * feedback);
-    feedbackFilterLeft->setHighPass(cutoff, 1);
+    const float cutoffL = (20.0f + 100.0f * feedbackAmtLeft * feedbackAmtLeft);
+    const float cutoffR = (20.0f + 100.0f * feedbackAmtRight * feedbackAmtRight);
+    const float softLimitCoeffL = feedbackAmtLeft * 1.4f;
+    const float softLimitCoeffR = feedbackAmtRight * 1.4f;
+
+    feedbackFilterLeft->setHighPass(cutoffL, 1);
     feedbackFilterLeft->process(feedLeft);
-    feedbackFilterRight->setHighPass(cutoff, 1);
+    feedbackFilterRight->setHighPass(cutoffR, 1);
     feedbackFilterRight->process(feedRight);
-    float softLimitCoeff = feedback * 1.4f;
     for (int i = 0; i < blockSize; ++i)
     {
       float left = inLeft[i];
       float right = inRight[i];
-      feedLeft[i] = left + feedback * (daisysp::SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
-      feedRight[i] = right + feedback * (daisysp::SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
+      feedLeft[i] = left + feedbackAmtLeft * (daisysp::SoftLimit(softLimitCoeffL * feedLeft[i] + left) - left);
+      feedRight[i] = right + feedbackAmtRight * (daisysp::SoftLimit(softLimitCoeffR * feedRight[i] + right) - right);
     }
+#endif
 
     if (blurResampleFactor == 4)
     {
@@ -434,10 +512,21 @@ public:
 
     // left channel blur
     {
+
       // downsample and copy
-      blurDownLeft->process(feedLeft, blurScratchA);
+      if (downsamplingEnabled())
+      {
+        blurDownLeft->process(feedLeft, blurScratchA);
+      }
+      else
+      {
+        feedLeft.copyTo(blurScratchA);
+      }
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef USE_BLUR_FEEDBACK
+      blurLeftA->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
 #ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
       blurKernelStep.setGauss(blurSizeLeft, standardDeviation, blurBrightness);
@@ -455,6 +544,10 @@ public:
       blurLeftA->process(blurScratchA, blurScratchA);
 #endif
 #else
+#ifdef USE_BLUR_FEEDBACK
+      blurLeftA->setFeedback(feedbackMagnitude, feedbackAngle);
+      blurLeftB->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
       // process both texture sizes
       blurLeftB->process(blurScratchA, blurScratchB);
       blurLeftA->process(blurScratchA, blurScratchA);
@@ -470,15 +563,32 @@ public:
       blurScratchA.add(blurScratchB);
 
       // upsample to the output
-      blurUpLeft->process(blurScratchA, outBlurLeft);
+      if (downsamplingEnabled())
+      {
+        blurUpLeft->process(blurScratchA, outBlurLeft);
+      }
+      else
+      {
+        blurScratchA.copyTo(outBlurLeft);
+      }
     }
 
     // right channel blur
     {
       // downsample and copy
-      blurDownRight->process(feedRight, blurScratchA);
+      if (downsamplingEnabled())
+      {
+        blurDownRight->process(feedRight, blurScratchA);
+      }
+      else
+      {
+        feedRight.copyTo(blurScratchA);
+      }
 
 #ifdef FRACTIONAL_TEXTURE_SIZE
+#ifdef USE_BLUR_FEEDBACK
+      blurRightA->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
 #ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
       blurKernelStep.setGauss(blurSizeRight, standardDeviation, blurBrightness);
@@ -496,6 +606,10 @@ public:
       blurRightA->process(blurScratchA, blurScratchA);
 #endif
 #else
+#ifdef USE_BLUR_FEEDBACK
+      blurRightA->setFeedback(feedbackMagnitude, feedbackAngle);
+      blurRightB->setFeedback(feedbackMagnitude, feedbackAngle);
+#endif
       // process both texture sizes
       blurRightB->process(blurScratchA, blurScratchB);
       blurRightA->process(blurScratchA, blurScratchA);
@@ -511,16 +625,32 @@ public:
       blurScratchA.add(blurScratchB);
 
       // upsample to the output
-      blurUpRight->process(blurScratchA, outBlurRight);
+      if (downsamplingEnabled())
+      {
+        blurUpRight->process(blurScratchA, outBlurRight);
+      }
+      else
+      {
+        blurScratchA.copyTo(outBlurRight);
+      }
     }
 
-    blurFilter->process(*blurBuffer, *blurBuffer);
+    processBlurPreFeedback(*blurBuffer);
 
-    outBlurLeft.copyTo(feedLeft);
-    outBlurRight.copyTo(feedRight);
+#ifndef USE_BLUR_FEEDBACK
+    float feedSame = (1.0f - feedbackAngle);
+    float feedCross = feedbackAngle;
+    for (int i = 0; i < blockSize; ++i)
+    {
+      feedLeft[i] = outBlurLeft[i] * feedSame + outBlurRight[i] * feedCross;
+      feedRight[i] = outBlurLeft[i] * feedCross + outBlurRight[i] * feedSame;
+    }
+#endif
+
+    processBlurPostFeedback(*blurBuffer);
     
     // do wet/dry mix with original signal
-    float wet = getParameterValue(inWetDry);
+    float wet = getParameterValue(pid.inWetDry);
     float dry = 1.0f - wet;
     inLeft.multiply(dry);
     inRight.multiply(dry);
@@ -529,8 +659,8 @@ public:
     inLeft.add(outBlurLeft);
     inRight.add(outBlurRight);
 
-    setParameterValue(outLeftFollow, inLeftRms);
-    setParameterValue(outRightFollow, inRightRms);
+    setParameterValue(pid.outLeftFollow, inLeftRms);
+    setParameterValue(pid.outRightFollow, inRightRms);
     setButton(BUTTON_1, textureSize.skewEnabled());
     setButton(BUTTON_2, blurSize.skewEnabled());
 
@@ -554,5 +684,23 @@ public:
 
     debugMessage(debugMsg);
 #endif
+  }
+
+protected:
+  bool downsamplingEnabled() const
+  {
+    return blurResampleFactor > 1;
+  }
+
+  virtual void processBlurPreFeedback(AudioBuffer& audio)
+  {
+    if (downsamplingEnabled())
+    {
+      blurFilter->process(audio, audio);
+    }
+  }
+
+  virtual void processBlurPostFeedback(AudioBuffer& audio)
+  {
   }
 };

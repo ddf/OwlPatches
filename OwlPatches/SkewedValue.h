@@ -8,11 +8,16 @@ class SkewedFloat
   bool enabled;
 
 public:
-  SkewedFloat(float value) : value(value), center(0), skew(0), enabled(false) {}
+  SkewedFloat(float value) : value(value), center(value), skew(0), enabled(false) {}
 
   void toggleSkew()
   {
     enabled = !enabled;
+  }
+
+  void setSkew(float s)
+  {
+    skew = s;
   }
 
   void resetSkew()

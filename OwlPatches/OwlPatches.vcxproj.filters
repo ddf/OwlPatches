@@ -69,5 +69,11 @@
     <ClInclude Include="SkewedValue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GaussianBlur2DLichPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GaussianBlur2DGeniusPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
