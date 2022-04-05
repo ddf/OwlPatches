@@ -3,7 +3,8 @@
 #include "Frequency.h"
 #include "Interpolator.h"
 
-class SpectralHarpPatch : public Patch
+template<int spectrumSize, typename PatchClass>
+class SpectralHarpPatch : public PatchClass
 {
 protected:
   static const PatchParameterId inPitch = PARAMETER_A;
@@ -19,6 +20,8 @@ protected:
   const float decayDefault = 0.5f;
   const int   densityMin = 12.0f;
   const int   densityMax = 240.0f;
+  const float lowBandFreq = 64;
+  const float hiBandFreq = 13000;
 
   SpectralSignalGenerator* spectralGen;
 
@@ -30,9 +33,16 @@ protected:
   SmoothFloat bandDensity;
 
 public:
-  SpectralHarpPatch() : Patch()
+
+  using PatchClass::registerParameter;
+  using PatchClass::getParameterValue;
+  using PatchClass::setParameterValue;
+  using PatchClass::getSampleRate;
+  using PatchClass::isButtonPressed;
+
+  SpectralHarpPatch() : PatchClass()
   {
-    spectralGen = SpectralSignalGenerator::create(4096, getSampleRate());
+    spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
 
     registerParameter(inPitch, "Pitch");
     registerParameter(inSpread, "Spread");
@@ -99,10 +109,8 @@ protected:
 private:
   void pluck(SpectralSignalGenerator* spectrum, float location)
   {
-    const float lowBand = 64;
-    const float hiBand = 13000;
     const int   band = Interpolator::linear(0, bandDensity, location) + 0.5f;
-    const float freq = frequencyOfString(band, bandDensity, lowBand, hiBand, linLogLerp);
+    const float freq = frequencyOfString(band, bandDensity, lowBandFreq, hiBandFreq, linLogLerp);
     spectrum->pluck(freq, 1);
   }
 
