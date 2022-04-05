@@ -44,7 +44,7 @@ public:
                           float* outputData, int outputSize)
     : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate)
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f))
-    , overlapSize(blockSize/2), spectralMagnitude(blockSize / 32)
+    , overlapSize(blockSize/2), spectralMagnitude(blockSize / 64)
     , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
     , output(outputData, outputSize), outIndex(0), phaseIdx(0)
@@ -72,6 +72,21 @@ public:
     complex.clear();
     inverse.clear();
     output.clear();
+  }
+
+  void setSpread(float hz)
+  {
+    spread = hz;
+  }
+
+  void setDecay(float inSeconds)
+  {
+    decaySeconds = inSeconds;
+  }
+
+  void setBrightness(float amt)
+  {
+    brightness = amt;
   }
 
   void pluck(float freq, float amp)

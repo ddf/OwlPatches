@@ -5,18 +5,44 @@
 
 class SpectralHarpPatch : public Patch
 {
-  static const PatchParameterId inTune = PARAMETER_A;
+protected:
+  static const PatchParameterId inPitch = PARAMETER_A;
+  static const PatchParameterId inSpread = PARAMETER_B;
+  static const PatchParameterId inDecay = PARAMETER_C;
+  static const PatchParameterId inBrightness = PARAMETER_D;
+  static const PatchParameterId inTuning = PARAMETER_E;
+  static const PatchParameterId inDensity = PARAMETER_F;
+
+  const float spreadMax = 13000.0f;
+  const float decayMin = 0.150f;
+  const float decayMax = 5.0f;
+  const float decayDefault = 0.5f;
+  const int   densityMin = 12.0f;
+  const int   densityMax = 240.0f;
 
   SpectralSignalGenerator* spectralGen;
 
-  SmoothFloat pluckCenter;
+  float       pluckCenter;
+  SmoothFloat spread;
+  SmoothFloat decay;
+  SmoothFloat brightness;
+  SmoothFloat linLogLerp;
+  SmoothFloat bandDensity;
 
 public:
   SpectralHarpPatch() : Patch()
   {
     spectralGen = SpectralSignalGenerator::create(4096, getSampleRate());
 
-    registerParameter(inTune, "Tune");
+    registerParameter(inPitch, "Pitch");
+    registerParameter(inSpread, "Spread");
+    registerParameter(inDecay, "Decay");
+    registerParameter(inBrightness, "Brightness");
+    registerParameter(inTuning, "Tuning");
+    registerParameter(inDensity, "Density");
+
+    setParameterValue(inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
+    setParameterValue(inDensity, 1.0f);
   }
 
   ~SpectralHarpPatch()
@@ -30,7 +56,16 @@ public:
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
 
-    pluckCenter = getParameterValue(inTune);
+    pluckCenter = getParameterValue(inPitch);
+    spread = getParameterValue(inSpread)*spreadMax;
+    decay = Interpolator::linear(decayMin, decayMax, getParameterValue(inDecay));
+    brightness = getParameterValue(inBrightness);
+    linLogLerp = getParameterValue(inTuning);
+    bandDensity = Interpolator::linear(densityMin, densityMax, getParameterValue(inDensity));
+
+    spectralGen->setSpread(spread);
+    spectralGen->setDecay(decay);
+    spectralGen->setBrightness(brightness);
 
     if (isButtonPressed(BUTTON_1))
     {
@@ -64,22 +99,11 @@ protected:
 private:
   void pluck(SpectralSignalGenerator* spectrum, float location)
   {
-    const float numBands = 288;
-    if (numBands > 0)
-    {
-      const float lowBand = 64;
-      const float hiBand = 13000;
-      const float linLogLerp = 1.0f;
-      for (int b = 0; b < numBands; ++b)
-      {
-        const float freq = frequencyOfString(b, numBands, lowBand, hiBand, linLogLerp);
-        const float normBand = (float)b / numBands;
-        if (fabsf(normBand - location) < 0.002f)
-        {
-          spectrum->pluck(freq, 1);
-        }
-      }
-    }
+    const float lowBand = 64;
+    const float hiBand = 13000;
+    const int   band = Interpolator::linear(0, bandDensity, location) + 0.5f;
+    const float freq = frequencyOfString(band, bandDensity, lowBand, hiBand, linLogLerp);
+    spectrum->pluck(freq, 1);
   }
 
 };
