@@ -1,12 +1,23 @@
 #include "MonoChromeScreenPatch.h"
 #include "SpectralHarpPatch.hpp"
 
-class SpectralHarpGeniusPatch : public SpectralHarpPatch<4096, MonochromeScreenPatch>
+typedef SpectralHarpPatch<4096, MonochromeScreenPatch> BasePatch;
+
+class SpectralHarpGeniusPatch : public BasePatch
 {
   const int padding = 4;
   float stringAnimation = 0;
 
 public:
+  void processAudio(AudioBuffer& audio) override
+  {
+    // have to invert audio input on Genius
+    audio.getSamples(0).multiply(-1);
+    audio.getSamples(1).multiply(-1);
+
+    BasePatch::processAudio(audio);
+  }
+
   void processScreen(MonochromeScreenBuffer& screen) override
   {
     const int height = screen.getHeight() - 18;
@@ -40,7 +51,7 @@ public:
       for (int y = 2; y < height - 1; ++y)
       {
         float s1 = (float)y / height * M_PI * band.amplitude * 24 + band.phase;
-        if (fabsf(band.amplitude*sinf(s1)) > 0.5f)
+        if (fabsf(band.amplitude*sinf(s1)) > 0.25f)
         {
           screen.setPixel(x, y, WHITE);
         }

@@ -79,11 +79,13 @@ public:
 
     if (isButtonPressed(BUTTON_1))
     {
-      pluck(spectralGen, pluckCenter);
-      //for (int i = 0; i < blockSize; ++i)
-      //{
-      //  pluck(spectralGen, left[i] * 0.5f + 0.5f);
-      //}
+      //pluck(spectralGen, pluckCenter);
+      for (int i = 0; i < blockSize; ++i)
+      {
+        float location = left[i] * 0.5f + 0.5f;
+        float amplitude = right[i] * 0.5f + 0.5f;
+        pluck(spectralGen, location, amplitude);
+      }
     }
 
     spectralGen->generate(left);
@@ -107,12 +109,12 @@ protected:
   }
 
 private:
-  void pluck(SpectralSignalGenerator* spectrum, float location)
+  void pluck(SpectralSignalGenerator* spectrum, float location, float amp)
   {
     const int   numBands = roundf(bandDensity);
     const int   band = roundf(Interpolator::linear(0, numBands, location));
     const float freq = frequencyOfString(band, numBands, bandFirst, bandLast, linLogLerp);
-    spectrum->pluck(freq, 1);
+    spectrum->pluck(freq, amp);
   }
 
 };
