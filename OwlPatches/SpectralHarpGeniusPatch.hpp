@@ -18,19 +18,32 @@ public:
       auto band = spectralGen->getBand(freq);
       band.phase += stringAnimation;
 
-      float w = Interpolator::linear(0, 2, band.amplitude);
-      int segments = w > 0 ? 32 : 1;
-      float segLength = (float)height / segments;
-      float py0 = 0;
-      float px0 = x + w * sinf(band.phase);
-      for (int i = 0; i < segments + 1; ++i)
+      // solid line animation that wobbles back and forth based on amplitude
+      //float w = Interpolator::linear(0, 2, band.amplitude);
+      //int segments = w > 0 ? 32 : 1;
+      //float segLength = (float)height / segments;
+      //float py0 = 0;
+      //float px0 = x + w * sinf(band.phase);
+      //for (int i = 0; i < segments + 1; ++i)
+      //{
+      //  float py1 = i * segLength;
+      //  float s1 = py1 / height * (float)M_PI * 8 + band.phase;
+      //  float px1 = x + w * sinf(s1);
+      //  screen.drawLine(px0, py0, px1, py1, WHITE);
+      //  px0 = px1;
+      //  py0 = py1;
+      //}
+
+      // same animation, viewed from the side with "pegs" at top and bottom
+      screen.drawLine(x, 0, x, 1, WHITE);
+      screen.drawLine(x, height - 1, x, height, WHITE);
+      for (int y = 2; y < height - 1; ++y)
       {
-        float py1 = i * segLength;
-        float s1 = py1 / height * (float)M_PI * 8 + band.phase;
-        float px1 = x + w * sinf(s1);
-        screen.drawLine(px0, py0, px1, py1, WHITE);
-        px0 = px1;
-        py0 = py1;
+        float s1 = (float)y / height * M_PI * band.amplitude * 24 + band.phase;
+        if (fabsf(band.amplitude*sinf(s1)) > 0.5f)
+        {
+          screen.setPixel(x, y, WHITE);
+        }
       }
     }
 
