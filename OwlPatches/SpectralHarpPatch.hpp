@@ -19,9 +19,9 @@ protected:
   const float decayMax = 5.0f;
   const float decayDefault = 0.5f;
   const int   densityMin = 12.0f;
-  const int   densityMax = 240.0f;
-  const float lowBandFreq = 64;
-  const float hiBandFreq = 13000;
+  const int   densityMax = 121.0f;
+  const float bandFirst = 64;
+  const float bandLast = 13000;
 
   SpectralSignalGenerator* spectralGen;
 
@@ -91,7 +91,7 @@ public:
   }
 
 protected:
-  float frequencyOfString(int stringNum, float stringCount, float lowFreqHz, float hiFreqHz, float linLogLerp)
+  float frequencyOfString(int stringNum, int stringCount, float lowFreqHz, float hiFreqHz, float linLogLerp)
   {
     const float t = (float)stringNum / stringCount;
     // convert first and last bands to midi notes and then do a linear interp, converting back to Hz at the end.
@@ -109,8 +109,9 @@ protected:
 private:
   void pluck(SpectralSignalGenerator* spectrum, float location)
   {
-    const int   band = Interpolator::linear(0, bandDensity, location) + 0.5f;
-    const float freq = frequencyOfString(band, bandDensity, lowBandFreq, hiBandFreq, linLogLerp);
+    const int   numBands = roundf(bandDensity);
+    const int   band = roundf(Interpolator::linear(0, numBands, location));
+    const float freq = frequencyOfString(band, numBands, bandFirst, bandLast, linLogLerp);
     spectrum->pluck(freq, 1);
   }
 

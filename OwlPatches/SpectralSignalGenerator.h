@@ -225,28 +225,6 @@ public:
     delete spectralGen;
   }
 
-private:
-  void addSinusoidWithSpread(const int idx, const float amp, const int lidx, const int hidx)
-  {
-    const int range = idx - lidx;
-    for (int bidx = lidx; bidx <= hidx; ++bidx)
-    {
-      if (bidx > 0 && bidx < bands.getSize())
-      {
-        if (bidx == idx)
-        {
-          specSpread[bidx] += amp;
-        }
-        else
-        {
-          const float fn = fabsf(bidx - idx) / range;
-          // exponential fall off from the center, see: https://www.desmos.com/calculator/gzqrz4isyb
-          specSpread[bidx] += amp * exp(-10 * fn);
-        }
-      }
-    }
-  }
-
   float indexToFreq(int i) const
   {
     // special case: the width of the first bin is half that of the others.
@@ -275,5 +253,37 @@ private:
     // roundf is not available in windows, so we do this
     const int i = (int)floorf((float)fft->getSize() * fraction + 0.5f);
     return i;
+  }
+
+  Band getBand(float freq)
+  {
+    int idx = freqToIndex(freq);
+    // get from bands array for phase
+    Band b = bands[idx];
+    // set normalized amplitude based on magnitude array (which includes spread and brightness)
+    b.amplitude = specMag[idx] / spectralMagnitude;
+    return b;
+  }
+
+private:
+  void addSinusoidWithSpread(const int idx, const float amp, const int lidx, const int hidx)
+  {
+    const int range = idx - lidx;
+    for (int bidx = lidx; bidx <= hidx; ++bidx)
+    {
+      if (bidx > 0 && bidx < bands.getSize())
+      {
+        if (bidx == idx)
+        {
+          specSpread[bidx] += amp;
+        }
+        else
+        {
+          const float fn = fabsf(bidx - idx) / range;
+          // exponential fall off from the center, see: https://www.desmos.com/calculator/gzqrz4isyb
+          specSpread[bidx] += amp * exp(-10 * fn);
+        }
+      }
+    }
   }
 };
