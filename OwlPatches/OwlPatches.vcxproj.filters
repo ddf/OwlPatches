@@ -84,5 +84,8 @@
     <ClInclude Include="Frequency.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SpectralHarpGeniusPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

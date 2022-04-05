@@ -154,6 +154,7 @@
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
     <ClInclude Include="SkewedValue.h" />
+    <ClInclude Include="SpectralHarpGeniusPatch.hpp" />
     <ClInclude Include="SpectralHarpPatch.hpp" />
     <ClInclude Include="SpectralSignalGenerator.h" />
     <ClInclude Include="TapTempo.hpp" />
