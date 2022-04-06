@@ -20,7 +20,9 @@ public:
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    const int height = screen.getHeight() - 18;
+    const int top = 8;
+    const int bottom = screen.getHeight() - 18;
+    const int height = bottom - top;
     const int numBands = roundf(bandDensity);
     for (int b = 0; b <= numBands; ++b)
     {
@@ -46,9 +48,9 @@ public:
       //}
 
       // same animation, viewed from the side with "pegs" at top and bottom
-      screen.drawLine(x, 0, x, 1, WHITE);
-      screen.drawLine(x, height - 1, x, height, WHITE);
-      for (int y = 2; y < height - 1; ++y)
+      screen.drawLine(x, top, x, top+1, WHITE);
+      screen.drawLine(x, bottom - 1, x, bottom, WHITE);
+      for (int y = top+2; y < bottom - 1; ++y)
       {
         float s1 = (float)y / height * M_PI * band.amplitude * 24 + band.phase;
         if (fabsf(band.amplitude*sinf(s1)) > 0.25f)
@@ -57,6 +59,16 @@ public:
         }
       }
     }
+
+    char* bandFirstStr = msg_itoa((int)bandFirst, 10);
+    screen.setCursor(0, top);
+    screen.print(bandFirstStr);
+    screen.print(" Hz");
+
+    char* bandLastStr = msg_itoa((int)bandLast, 10);
+    screen.setCursor(screen.getWidth() - 6 * (strlen(bandLastStr) + 3), top);
+    screen.print(bandLastStr);
+    screen.print(" Hz");
 
     const float dt = 1.0f / 60.0f;
     stringAnimation += dt * M_PI * 4;
