@@ -7,25 +7,30 @@ template<int spectrumSize, typename PatchClass>
 class SpectralHarpPatch : public PatchClass
 {
 protected:
-  static const PatchParameterId inPitch = PARAMETER_A;
-  static const PatchParameterId inSpread = PARAMETER_B;
-  static const PatchParameterId inDecay = PARAMETER_C;
-  static const PatchParameterId inBrightness = PARAMETER_D;
-  static const PatchParameterId inTuning = PARAMETER_E;
-  static const PatchParameterId inDensity = PARAMETER_F;
+  static const PatchParameterId inHarpFundamental = PARAMETER_A;
+  static const PatchParameterId inHarpOctaves = PARAMETER_B;
+  static const PatchParameterId inDensity = PARAMETER_C;
+  static const PatchParameterId inTuning = PARAMETER_D;
+  static const PatchParameterId inDecay = PARAMETER_E;
+  static const PatchParameterId inSpread = PARAMETER_F;
+  static const PatchParameterId inBrightness = PARAMETER_G;
 
   const float spreadMax = 13000.0f;
-  const float decayMin = 0.150f;
+  const float decayMin = 0.15f;
   const float decayMax = 5.0f;
   const float decayDefault = 0.5f;
-  const int   densityMin = 12.0f;
+  const int   densityMin = 24.0f;
   const int   densityMax = 121.0f;
-  const float bandFirst = 64;
-  const float bandLast = 13000;
+  const float octavesMin = 2;
+  const float octavesMax = 8;
+  const int   midiNoteMin = 36;
+  const float bandMin = Frequency::ofMidiNote(midiNoteMin).asHz();
+  const float bandMax = Frequency::ofMidiNote(128).asHz();
 
   SpectralSignalGenerator* spectralGen;
 
-  float       pluckCenter;
+  StiffFloat bandFirst;
+  StiffFloat bandLast;
   SmoothFloat spread;
   SmoothFloat decay;
   SmoothFloat brightness;
@@ -44,13 +49,16 @@ public:
   {
     spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
 
-    registerParameter(inPitch, "Pitch");
+    registerParameter(inHarpFundamental, "Harp Fund");
+    registerParameter(inHarpOctaves, "Harp Oct");
     registerParameter(inSpread, "Spread");
     registerParameter(inDecay, "Decay");
     registerParameter(inBrightness, "Brightness");
     registerParameter(inTuning, "Tuning");
     registerParameter(inDensity, "Density");
 
+    setParameterValue(inHarpFundamental, 0.0f);
+    setParameterValue(inHarpOctaves, 1.0f);
     setParameterValue(inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
     setParameterValue(inDensity, 1.0f);
   }
@@ -66,12 +74,16 @@ public:
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
 
-    pluckCenter = getParameterValue(inPitch);
+    float harpFund = Interpolator::linear(midiNoteMin, 128, getParameterValue(inHarpFundamental));
+    float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(inHarpOctaves));
+    bandFirst = Frequency::ofMidiNote(harpFund).asHz();
+    bandLast = fmin(Frequency::ofMidiNote(harpFund + harpOctaves*12).asHz(), bandMax);
+    bandDensity = Interpolator::linear(densityMin, densityMax, getParameterValue(inDensity));
+    linLogLerp = getParameterValue(inTuning);
+
     spread = getParameterValue(inSpread)*spreadMax;
     decay = Interpolator::linear(decayMin, decayMax, getParameterValue(inDecay));
     brightness = getParameterValue(inBrightness);
-    linLogLerp = getParameterValue(inTuning);
-    bandDensity = Interpolator::linear(densityMin, densityMax, getParameterValue(inDensity));
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
@@ -79,7 +91,6 @@ public:
 
     if (isButtonPressed(BUTTON_1))
     {
-      //pluck(spectralGen, pluckCenter);
       for (int i = 0; i < blockSize; ++i)
       {
         float location = left[i] * 0.5f + 0.5f;
