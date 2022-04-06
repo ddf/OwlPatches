@@ -15,11 +15,14 @@ protected:
   static const PatchParameterId inSpread = PARAMETER_F;
   static const PatchParameterId inBrightness = PARAMETER_G;
 
+  static const PatchParameterId outStrumX = PARAMETER_AA;
+  static const PatchParameterId outStrumY = PARAMETER_AB;
+
   const float spreadMax = 13000.0f;
   const float decayMin = 0.15f;
   const float decayMax = 5.0f;
   const float decayDefault = 0.5f;
-  const int   densityMin = 24.0f;
+  const int   densityMin = 6.0f;
   const int   densityMax = 121.0f;
   const float octavesMin = 2;
   const float octavesMax = 8;
@@ -57,6 +60,9 @@ public:
     registerParameter(inTuning, "Tuning");
     registerParameter(inDensity, "Density");
 
+    registerParameter(outStrumX, "Strum X>");
+    registerParameter(outStrumY, "Strum Y>");
+
     setParameterValue(inHarpFundamental, 0.0f);
     setParameterValue(inHarpOctaves, 1.0f);
     setParameterValue(inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
@@ -89,6 +95,8 @@ public:
     spectralGen->setDecay(decay);
     spectralGen->setBrightness(brightness);
 
+    float strumX = 0;
+    float strumY = 0;
     if (isButtonPressed(BUTTON_1))
     {
       for (int i = 0; i < blockSize; ++i)
@@ -96,11 +104,16 @@ public:
         float location = left[i] * 0.5f + 0.5f;
         float amplitude = right[i] * 0.5f + 0.5f;
         pluck(spectralGen, location, amplitude);
+        strumX = fmax(strumX, location);
+        strumY = fmax(strumY, amplitude);
       }
     }
 
     spectralGen->generate(left);
     left.copyTo(right);
+
+    setParameterValue(outStrumX, strumX);
+    setParameterValue(outStrumY, strumY);
   }
 
 protected:
