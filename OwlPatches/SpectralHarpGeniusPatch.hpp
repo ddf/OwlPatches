@@ -24,10 +24,10 @@ public:
     const int bottom = screen.getHeight() - 18;
     const int height = bottom - top;
     const int numBands = roundf(bandDensity);
-    for (int b = 0; b <= numBands; ++b)
+    for (int b = 0; b < numBands; ++b)
     {
       float freq = frequencyOfString(b, numBands, bandFirst, bandLast, linLogLerp);
-      float x = Interpolator::linear(padding, screen.getWidth() - padding, (float)b / numBands);
+      float x = Interpolator::linear(padding, screen.getWidth() - padding, (float)b / (numBands-1));
       auto band = spectralGen->getBand(freq);
       band.phase += stringAnimation;
 

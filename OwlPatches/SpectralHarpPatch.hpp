@@ -26,8 +26,9 @@ protected:
   const int   densityMax = 121.0f;
   const float octavesMin = 2;
   const float octavesMax = 8;
-  const int   midiNoteMin = 36;
-  const float bandMin = Frequency::ofMidiNote(midiNoteMin).asHz();
+  const int   fundamentalNoteMin = 36;
+  const int   fundaMentalNoteMax = 128 - octavesMin * 12;
+  const float bandMin = Frequency::ofMidiNote(fundamentalNoteMin).asHz();
   const float bandMax = Frequency::ofMidiNote(128).asHz();
 
   SpectralSignalGenerator* spectralGen;
@@ -80,7 +81,7 @@ public:
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
 
-    float harpFund = Interpolator::linear(midiNoteMin, 128, getParameterValue(inHarpFundamental));
+    float harpFund = Interpolator::linear(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(inHarpFundamental));
     float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
     bandLast = fmin(Frequency::ofMidiNote(harpFund + harpOctaves*12).asHz(), bandMax);
