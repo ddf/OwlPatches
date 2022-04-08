@@ -1,3 +1,5 @@
+#define USE_MIDI_CALLBACK
+
 #include "Patch.h"
 #include "SpectralSignalGenerator.h"
 #include "Frequency.h"
@@ -41,6 +43,8 @@ protected:
   SmoothFloat linLogLerp;
   SmoothFloat bandDensity;
 
+  MidiMessage* midiNotes;
+
 public:
 
   using PatchClass::registerParameter;
@@ -52,6 +56,8 @@ public:
   SpectralHarpPatch() : PatchClass()
   {
     spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
+    midiNotes = new MidiMessage[128];
+    memset(midiNotes, 0, sizeof(MidiMessage)*128);
 
     registerParameter(inHarpFundamental, "Harp Fund");
     registerParameter(inHarpOctaves, "Harp Oct");
@@ -73,6 +79,20 @@ public:
   ~SpectralHarpPatch()
   {
     SpectralSignalGenerator::destroy(spectralGen);
+    delete[] midiNotes;
+  }
+
+  void processMidi(MidiMessage msg) override
+  {
+    if (msg.isNote())
+    {
+      midiNotes[msg.getNote()] = msg;
+
+      if (msg.isNoteOn())
+      {
+        pluck(spectralGen, msg);
+      }
+    }
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -110,6 +130,14 @@ public:
       }
     }
 
+    for (int i = 0; i < 128; ++i)
+    {
+      if (midiNotes[i].isNoteOn())
+      {
+        pluck(spectralGen, midiNotes[i]);
+      }
+    }
+
     spectralGen->generate(left);
     left.copyTo(right);
 
@@ -142,4 +170,10 @@ private:
     spectrum->pluck(freq, amp);
   }
 
+  void pluck(SpectralSignalGenerator* spectrum, MidiMessage msg)
+  {
+    float freq = Frequency::ofMidiNote(msg.getNote()).asHz();
+    float amp = msg.getVelocity() / 127.0f;
+    spectrum->pluck(freq, amp);
+  }
 };
