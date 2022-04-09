@@ -7,15 +7,33 @@ class SpectralHarpGeniusPatch : public BasePatch
 {
   const int padding = 4;
   float stringAnimation = 0;
+  float highElapsedTime;
 
 public:
+
+  // returns CPU% as [0,1] value
+  float getElapsedTime()
+  {
+    return getElapsedCycles() / getBlockSize() / 10000.0f;
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
     // have to invert audio input on Genius
     audio.getSamples(0).multiply(-1);
     audio.getSamples(1).multiply(-1);
 
+    float elapsed = getElapsedTime();
     BasePatch::processAudio(audio);
+    elapsed = getElapsedTime() - elapsed;
+    if (elapsed > highElapsedTime)
+    {
+      highElapsedTime = elapsed;
+    }
+    else
+    {
+      highElapsedTime *= 0.9999f;
+    }
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
@@ -69,6 +87,9 @@ public:
     screen.setCursor(screen.getWidth() - 6 * (strlen(bandLastStr) + 3), top);
     screen.print(bandLastStr);
     screen.print(" Hz");
+
+    screen.setCursor(screen.getWidth() / 2 - 24, top);
+    screen.print(highElapsedTime);
 
     const float dt = 1.0f / 60.0f;
     stringAnimation += dt * M_PI * 4;
