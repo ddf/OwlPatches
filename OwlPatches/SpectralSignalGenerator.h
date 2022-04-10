@@ -5,9 +5,15 @@
 #include "FloatArray.h"
 #include "ComplexFloatArray.h"
 #include "ExponentialDecayEnvelope.h"
+#include "BlurSignalProcessor.h"
+#include "Interpolator.h"
+
+static const int kSpectralBandPartials = 16;
+static const int kSpectralSpreadKernelSize = 11;
 
 class SpectralSignalGenerator : public SignalGenerator
 {
+
   struct Band
   {
     // the frequency of this band, for faster conversion between index and frequency
@@ -16,6 +22,7 @@ class SpectralSignalGenerator : public SignalGenerator
     float decay;
     float phase;
     ComplexFloat complex[2];
+    float partials[kSpectralBandPartials];
   };
 
   FastFourierTransform* fft;
@@ -26,7 +33,10 @@ class SpectralSignalGenerator : public SignalGenerator
   float spread;
   float brightness;
 
+  FloatArray specBright;
   FloatArray specSpread;
+  BlurKernel spreadKernel;
+
   FloatArray specMag;
   ComplexFloatArray complex;
   FloatArray inverse;
@@ -40,21 +50,21 @@ class SpectralSignalGenerator : public SignalGenerator
   const float halfBandWidth;
   const int   overlapSize;
   const int   spectralMagnitude;
-  const int   spreadBandsMax;
+  const float spreadBandsMax;
 
 public:
-  SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, 
-                          Band* bandsData, float* specSpreadData, float* specMagData, int specSize,
+  SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, Band* bandsData, float* specBrightData,
+                          float* specSpreadData, BlurKernel spreadKernel, float* specMagData, int specSize,
                           ComplexFloat* complexData, float* inverseData, int blockSize,
                           float* windowData, int windowSize,
                           float* outputData, int outputSize)
     : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
-    , overlapSize(blockSize/2), spectralMagnitude(blockSize / 64)
-    , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
+    , overlapSize(blockSize/2), spectralMagnitude(blockSize / 64), specBright(specBrightData, specSize)
+    , specSpread(specSpreadData, specSize), spreadKernel(spreadKernel), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
     , output(outputData, outputSize), outIndex(0), phaseIdx(0)
-    , spread(0), spreadBandsMax(specSize/64), brightness(0)
+    , spread(0), spreadBandsMax(32), brightness(0)
   {
     setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
@@ -73,6 +83,11 @@ public:
       else
       {
         bands[i].complex[1] = bands[i].complex[0];
+      }
+
+      for (int p = 0; p < kSpectralBandPartials; ++p)
+      {
+        bands[i].partials[p] = bands[i].frequency*(2+p);
       }
     }
     specSpread.clear();
@@ -155,14 +170,16 @@ public:
     const int specSize = blockSize / 2;
     const int outputSize = blockSize * 2;
     Band* bandsData = new Band[specSize];
+    float* brightData = new float[specSize];
     float* spreadData = new float[specSize];
+    BlurKernel kernel = BlurKernel::create(kSpectralSpreadKernelSize);
     float* magData = new float[specSize];
     float* inverseData = new float[blockSize];
     ComplexFloat* complexData = new ComplexFloat[blockSize];
     float* outputData = new float[outputSize];
     Window window = Window::create(Window::TriangularWindow, blockSize);
     return new SpectralSignalGenerator(FastFourierTransform::create(blockSize), sampleRate,
-      bandsData, spreadData, magData, specSize,
+      bandsData, brightData, spreadData, kernel, magData, specSize,
       complexData, inverseData, blockSize,
       window.getData(), blockSize,
       outputData, outputSize
@@ -172,7 +189,9 @@ public:
   static void destroy(SpectralSignalGenerator* spectralGen)
   {
     FastFourierTransform::destroy(spectralGen->fft);
+    BlurKernel::destroy(spectralGen->spreadKernel);
     delete[] spectralGen->bands.getData();
+    delete[] spectralGen->specBright.getData();
     delete[] spectralGen->specSpread.getData();
     delete[] spectralGen->specMag.getData();
     delete[] spectralGen->inverse.getData();
@@ -316,7 +335,7 @@ private:
     const float freqMult = 1.0f;
     const int specSize = bands.getSize();
 
-    specSpread.clear();
+    specBright.clear();
 
     for (int i = 1; i < specSize; ++i)
     {
@@ -335,31 +354,73 @@ private:
       //  addSinusoidWithSpread(midx, a, lidx, hidx);
       //}
     }
+
+    // this basically works how I want, but has a bug where turning spread all the way up
+    // causes very weird low frequency stuff to appear, so the spectrum data is getting messed up somehow.
+    // it may also be worth adding a setExponential method for the kernel to give exponential falloff
+    // from the center, instead of the Gaussian, which will give the spread a shape more akin
+    // to what it has when using addSinusoidWithSpread.
+    spreadKernel.setGauss(spread*(spreadBandsMax / specSize), (kSpectralSpreadKernelSize-1)/4.0f, 2.0f);
+    for (int i = 1; i < specSize; ++i)
+    {
+      // i'm using an odd-numbered kernel size, which should retain this band at full amplitude,
+      // but for some reason when I don't do this, it gets smeared into adjacent band,
+      // so you don't even see it on the screen anymore on Genius.
+      float v = specBright[i];
+      for (int s = 0; s < kSpectralSpreadKernelSize; ++s)
+      {
+        BlurKernelSample samp = spreadKernel[s];
+        float sidx = i + samp.offset*specSize;
+        int lidx = (int)sidx;
+        int hidx = lidx + 1;
+        float t = sidx - lidx;
+        float low = lidx > 0 && lidx < specSize ? specBright[lidx] : 0;
+        float high = hidx < specSize ? specBright[hidx] : 0;
+        v += Interpolator::linear(low, high, t) * samp.weight;
+      }
+      specSpread[i] = v;
+    }
   }
 
   void processBand(int idx)
   {
     Band& b = bands[idx];
     b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
-    if (b.decay > 0)
+    //if (b.decay > 0)
     {
       float a = b.decay*b.amplitude;
-      addSinusoidWithSpread(b.frequency, a);
+      specBright[idx] += a;
+      //addSinusoidWithSpread(b.frequency, a);
       // add brightness if we have a decent signal to work with
       static const float epsilon = 0.01f;
-      if (a > epsilon)
+      for (int i = 0; i < kSpectralBandPartials; ++i)
       {
-        const float lastPartialFreq = bands[bands.getSize() - 1].frequency;
-        int partial = 2;
-        float partialFreq = b.frequency*partial;
-        //a *= brightness;
-        while (partialFreq < lastPartialFreq && partial < 24*brightness && a > epsilon)
+        int p = 2 + i;
+        a *= brightness;
+        // would probably be faster to have partials contain indices
+        // because calculating the frequency is less work than 
+        // converting frequency to index.
+        int pidx = freqToIndex(b.partials[i]);
+        if (pidx < specBright.getSize())
         {
-          addSinusoidWithSpread(partialFreq, a / partial++);
-          partialFreq = b.frequency*partial;
-          //a *= brightness;
+          specBright[pidx] += a / p;
         }
+        //addSinusoidWithSpread(b.partials[i], a / p);
       }
+
+      //if (a > epsilon)
+      //{
+      //  const float lastPartialFreq = bands[bands.getSize() - 1].frequency;
+      //  int partial = 2;
+      //  float partialFreq = b.frequency*partial;
+      //  //a *= brightness;
+      //  while (partialFreq < lastPartialFreq && partial < 24*brightness && a > epsilon)
+      //  {
+      //    addSinusoidWithSpread(partialFreq, a / partial++);
+      //    partialFreq = b.frequency*partial;
+      //    //a *= brightness;
+      //  }
+      //}
     }
   }
 
