@@ -1,7 +1,7 @@
 #include "MonoChromeScreenPatch.h"
 #include "SpectralHarpPatch.hpp"
 
-typedef SpectralHarpPatch<4096, MonochromeScreenPatch> BasePatch;
+typedef SpectralHarpPatch<2048, MonochromeScreenPatch> BasePatch;
 
 class SpectralHarpGeniusPatch : public BasePatch
 {

@@ -176,4 +176,4 @@ private:
     float amp = msg.getVelocity() / 127.0f;
     spectrum->pluck(freq, amp);
   }
-};
+}; 

@@ -9,6 +9,8 @@ class SpectralSignalGenerator : public SignalGenerator
 {
   struct Band
   {
+    // the frequency of this band, for faster conversion between index and frequency
+    float frequency;
     float amplitude;
     float decay;
     float phase;
@@ -19,7 +21,7 @@ class SpectralSignalGenerator : public SignalGenerator
   Window window;
 
   SimpleArray<Band> bands;
-  float decaySeconds;
+  float decayDec;
   float spread;
   float brightness;
 
@@ -32,7 +34,9 @@ class SpectralSignalGenerator : public SignalGenerator
   int phaseIdx;
 
   const float sampleRate;
+  const float oneOverSampleRate;
   const float bandWidth;
+  const float halfBandWidth;
   const int   overlapSize;
   const int   spectralMagnitude;
 
@@ -42,16 +46,18 @@ public:
                           ComplexFloat* complexData, float* inverseData, int blockSize,
                           float* windowData, int windowSize,
                           float* outputData, int outputSize)
-    : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate)
-    , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f))
+    : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
+    , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
     , overlapSize(blockSize/2), spectralMagnitude(blockSize / 64)
     , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
     , output(outputData, outputSize), outIndex(0), phaseIdx(0)
-    , decaySeconds(1.0f), spread(0), brightness(0)
+    , spread(0), brightness(0)
   {
+    setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
     {
+      bands[i].frequency = frequencyForIndex(i);
       bands[i].amplitude = 0;
       bands[i].phase = randf()*M_PI*2;
       bands[i].complex[0].setPolar(1.0f, bands[i].phase);
@@ -76,12 +82,19 @@ public:
 
   void setSpread(float hz)
   {
-    spread = hz;
+    spread = hz*0.5f;
   }
 
   void setDecay(float inSeconds)
   {
-    decaySeconds = inSeconds;
+    // having a shorter decay than the overlap size doesn't make sense
+    // and we also want to avoid divide-by-zero.
+    float decaySeconds = fmax(overlapSize * oneOverSampleRate, inSeconds);
+    // amplitude needs to decrease by 1 / (decaySeconds * sampleRate()) every sample.
+    // eg decaySeconds == 1 -> 1 / sampleRate()
+    //    decaySeconds == 0.5 -> 1 / (0.5 * sampleRate), which is twice as fast, equivalent to 2 / sampleRate()
+    // since we generate a new buffer every overlapSize samples, we multiply that rate by overlapSize, giving:
+    decayDec = overlapSize / (decaySeconds * sampleRate);
   }
 
   void setBrightness(float amt)
@@ -101,74 +114,16 @@ public:
 
   float generate() override
   {
-    bool generateOutput = outIndex % overlapSize == 0;
-    if (generateOutput)
+    // transfer bands into spread array halfway through the overlap
+    // so that we do this work in a different block than brightness and synthesis
+    if (outIndex % overlapSize == overlapSize / 2)
     {
-      // amplitude needs to decrease by 1 / (decaySeconds * sampleRate()) every sample.
-      // eg decaySeconds == 1 -> 1 / sampleRate()
-      //    decaySeconds == 0.5 -> 1 / (0.5 * sampleRate), which is twice as fast, equivalent to 2 / sampleRate()
-      // since we generate a new buffer every overlapSize samples, we multiply that rate by overlapSize, giving:
-      const float decayDec = overlapSize / (decaySeconds * sampleRate);
-      const float halfSpread = spread * 0.5f;
-      const float freqMult = 1.0f;
-      const int specSize = bands.getSize();
+      fillSpread();
+    }
 
-      specSpread.clear();
-      complex.clear();
-
-      for (int i = 1; i < specSize; ++i)
-      {
-        Band& b = bands[i];
-        b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
-        if (b.decay > 0)
-        {
-          const float a = b.decay*b.amplitude;
-          const float bandFreq = indexToFreq(i) * freqMult;
-          // get low and high frequencies for spread
-          const int midx = freqToIndex(bandFreq);
-          const int lidx = freqToIndex(bandFreq - halfSpread);
-          const int hidx = freqToIndex(bandFreq + halfSpread);
-          addSinusoidWithSpread(midx, a, lidx, hidx);
-        }
-      }
-
-      for (int i = 1; i < specSize; ++i)
-      {
-        // grab the magnitude as set by our pluck with spread pass
-        float a = specSpread[i];
-        // copy into the complex spectrum where we will accumulate brightness.
-        // it's += because we may have already accumulated some brightness here from a previous band.
-        complex[i].re += a;
-        // add brightness if we have a decent signal to work with
-        static const float epsilon = 0.0001f;
-        if (a > epsilon)
-        {
-          const float bandFreq = indexToFreq(i);
-          int partial = 2;
-          float partialFreq = bandFreq * partial;
-          int pidx = freqToIndex(bandFreq*partial);
-          a *= brightness;
-          while (pidx < specSize && a > epsilon)
-          {
-            // accumulate into the complex spectrum
-            complex[pidx].re += a / partial;
-            ++partial;
-            partialFreq = bandFreq * partial;
-            pidx = freqToIndex(bandFreq*partial);
-            a *= brightness;
-          }
-        }
-
-        // copy accumulated result into the magnitude array, scaling by our max amplitude
-        specMag[i] = fmin(complex[i].re * spectralMagnitude, spectralMagnitude);
-
-        // #TODO probably sounds better to do the pitch-shift here?
-        // At this point we have gAnaMagn and gAnaFreq from
-        // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
-
-        // done with this band, we can construct the complex representation.
-        complex[i] = bands[i].complex[phaseIdx] * specMag[i];
-      }
+    if (outIndex % overlapSize == 0)
+    {
+      fillComplex();
 
       fft->ifft(complex, inverse);
       window.apply(inverse);
@@ -225,34 +180,23 @@ public:
     delete spectralGen;
   }
 
-  float indexToFreq(int i) const
+  float indexToFreq(int i)
   {
-    // special case: the width of the first bin is half that of the others.
-    //               so the center frequency is a quarter of the way.
-    if (i == 0) return bandWidth * 0.25f;
-    // special case: the width of the last bin is half that of the others.
-    if (i == bands.getSize())
-    {
-      float lastBinBeginFreq = (sampleRate / 2) - (bandWidth / 2);
-      float binHalfWidth = bandWidth * 0.25f;
-      return lastBinBeginFreq + binHalfWidth;
-    }
-    // the center frequency of the ith band is simply i*bw
-    // because the first band is half the width of all others.
-    // treating it as if it wasn't offsets us to the middle 
-    // of the band.
-    return i * bandWidth;
+    return bands[i].frequency;
   }
 
   int freqToIndex(float freq)
   {
-    // special case: freq is lower than the bandwidth of spectrum[0] but not negative
-    if (freq > 0 && freq < bandWidth / 2) return 0;
-    // all other cases
-    const float fraction = freq / sampleRate;
-    // roundf is not available in windows, so we do this
-    const int i = (int)floorf((float)fft->getSize() * fraction + 0.5f);
-    return i;
+    // simplified version of below
+    return freq > 0 && freq < halfBandWidth ? 0 : (int)((float)fft->getSize()*freq*oneOverSampleRate + 0.5f);
+
+    //// special case: freq is lower than the bandwidth of spectrum[0] but not negative
+    //if (freq > 0 && freq < halfBandWidth) return 0;
+    //// all other cases
+    //const float fraction = freq * oneOverSampleRate;
+    //// roundf is not available in windows, so we do this
+    //const int i = (int)((float)fft->getSize() * fraction + 0.5f);
+    //return i;
   }
 
   Band getBand(float freq)
@@ -285,5 +229,128 @@ private:
         }
       }
     }
+  }
+
+  void addSinusoidWithSpread(float bandFreq, float amp)
+  {
+    // get low and high frequencies for spread
+    const int midx = freqToIndex(bandFreq);
+    const int lidx = freqToIndex(bandFreq - spread);
+    const int hidx = freqToIndex(bandFreq + spread);
+    addSinusoidWithSpread(midx, amp, lidx, hidx);
+  }
+
+  void fillComplex()
+  {
+    const int specSize = bands.getSize();
+
+    complex.clear();
+
+    for (int i = 1; i < specSize; ++i)
+    {
+      // grab the magnitude as set by our pluck with spread pass
+      float a = specSpread[i];
+
+      //// copy into the complex spectrum where we will accumulate brightness.
+      //// it's += because we may have already accumulated some brightness here from a previous band.
+      //complex[i].re += a;
+      //// add brightness if we have a decent signal to work with
+      //static const float epsilon = 0.0001f;
+      //if (a > epsilon)
+      //{
+      //  const float bandFreq = indexToFreq(i);
+      //  int partial = 2;
+      //  int pidx = freqToIndex(bandFreq*partial);
+      //  a *= brightness;
+      //  while (pidx < specSize && a > epsilon)
+      //  {
+      //    // accumulate into the complex spectrum
+      //    complex[pidx].re += a / partial++;
+      //    pidx = freqToIndex(bandFreq*partial);
+      //    a *= brightness;
+      //  }
+      //}
+
+      // copy accumulated result into the magnitude array, scaling by our max amplitude
+      specMag[i] = fmin(a * spectralMagnitude, spectralMagnitude);
+
+      // #TODO probably sounds better to do the pitch-shift here?
+      // At this point we have gAnaMagn and gAnaFreq from
+      // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
+
+      // done with this band, we can construct the complex representation.
+      complex[i] = bands[i].complex[phaseIdx] * specMag[i];
+    }
+  }
+
+  void fillSpread()
+  {
+    const float freqMult = 1.0f;
+    const int specSize = bands.getSize();
+
+    specSpread.clear();
+
+    for (int i = 1; i < specSize; ++i)
+    {
+      processBand(i);
+
+      //Band& b = bands[i];
+      //b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
+      //if (b.decay > 0)
+      //{
+      //  const float a = b.decay*b.amplitude;
+      //  const float bandFreq = indexToFreq(i) * freqMult;
+      //  // get low and high frequencies for spread
+      //  const int midx = freqToIndex(bandFreq);
+      //  const int lidx = freqToIndex(bandFreq - spread);
+      //  const int hidx = freqToIndex(bandFreq + spread);
+      //  addSinusoidWithSpread(midx, a, lidx, hidx);
+      //}
+    }
+  }
+
+  void processBand(int idx)
+  {
+    Band& b = bands[idx];
+    b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
+    if (b.decay > 0)
+    {
+      float a = b.decay*b.amplitude;
+      addSinusoidWithSpread(b.frequency, a);
+      // add brightness if we have a decent signal to work with
+      static const float epsilon = 0.01f;
+      if (a > epsilon)
+      {
+        const float lastPartialFreq = bands[bands.getSize() - 1].frequency;
+        int partial = 2;
+        float partialFreq = b.frequency*partial;
+        //a *= brightness;
+        while (partialFreq < lastPartialFreq && partial < 24*brightness && a > epsilon)
+        {
+          addSinusoidWithSpread(partialFreq, a / partial++);
+          partialFreq = b.frequency*partial;
+          //a *= brightness;
+        }
+      }
+    }
+  }
+
+  float frequencyForIndex(int i) const
+  {
+    // special case: the width of the first bin is half that of the others.
+    //               so the center frequency is a quarter of the way.
+    if (i == 0) return bandWidth * 0.25f;
+    // special case: the width of the last bin is half that of the others.
+    if (i == bands.getSize())
+    {
+      float lastBinBeginFreq = (sampleRate / 2) - (bandWidth / 2);
+      float binHalfWidth = bandWidth * 0.25f;
+      return lastBinBeginFreq + binHalfWidth;
+    }
+    // the center frequency of the ith band is simply i*bw
+    // because the first band is half the width of all others.
+    // treating it as if it wasn't offsets us to the middle 
+    // of the band.
+    return i * bandWidth;
   }
 };
