@@ -4,6 +4,7 @@
 #include "SimpleArray.h"
 #include "FloatArray.h"
 #include "ComplexFloatArray.h"
+#include "ExponentialDecayEnvelope.h"
 
 class SpectralSignalGenerator : public SignalGenerator
 {
@@ -39,6 +40,7 @@ class SpectralSignalGenerator : public SignalGenerator
   const float halfBandWidth;
   const int   overlapSize;
   const int   spectralMagnitude;
+  const int   spreadBandsMax;
 
 public:
   SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, 
@@ -52,7 +54,7 @@ public:
     , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
     , output(outputData, outputSize), outIndex(0), phaseIdx(0)
-    , spread(0), brightness(0)
+    , spread(0), spreadBandsMax(specSize/64), brightness(0)
   {
     setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
@@ -80,9 +82,9 @@ public:
     output.clear();
   }
 
-  void setSpread(float hz)
+  void setSpread(float val)
   {
-    spread = hz*0.5f;
+    spread = val;
   }
 
   void setDecay(float inSeconds)
@@ -210,33 +212,59 @@ public:
   }
 
 private:
+  ExponentialDecayEnvelope falloffEnv;
+
   void addSinusoidWithSpread(const int idx, const float amp, const int lidx, const int hidx)
   {
-    const int range = idx - lidx;
-    for (int bidx = lidx; bidx <= hidx; ++bidx)
+    specSpread[idx] += amp;
+
+    if (lidx < idx)
     {
-      if (bidx > 0 && bidx < bands.getSize())
+      falloffEnv.setDecaySamples(idx - lidx + 1);
+      falloffEnv.setLevel(1);
+      falloffEnv.generate();
+      for (int bidx = idx-1; bidx >= lidx && bidx > 0; --bidx)
       {
-        if (bidx == idx)
-        {
-          specSpread[bidx] += amp;
-        }
-        else
-        {
-          const float fn = fabsf(bidx - idx) / range;
-          // exponential fall off from the center, see: https://www.desmos.com/calculator/gzqrz4isyb
-          specSpread[bidx] += amp * exp(-10 * fn);
-        }
+        specSpread[bidx] += amp * falloffEnv.generate();
       }
     }
+
+    if (hidx > idx)
+    {
+      falloffEnv.setDecaySamples(hidx - idx + 1);
+      falloffEnv.setLevel(1);
+      falloffEnv.generate();
+      for (int bidx = idx + 1; bidx <= hidx && bidx < bands.getSize(); ++bidx)
+      {
+        specSpread[bidx] += amp * falloffEnv.generate();
+      }
+    }
+
+    //const int range = idx - lidx;
+    //for (int bidx = lidx; bidx <= hidx; ++bidx)
+    //{
+    //  if (bidx > 0 && bidx < bands.getSize())
+    //  {
+    //    if (bidx == idx)
+    //    {
+    //      specSpread[bidx] += amp;
+    //    }
+    //    else
+    //    {
+    //      const float fn = fabsf(bidx - idx) / range;
+    //      // exponential fall off from the center, see: https://www.desmos.com/calculator/gzqrz4isyb
+    //      specSpread[bidx] += amp * exp(-10 * fn);
+    //    }
+    //  }
+    //}
   }
 
   void addSinusoidWithSpread(float bandFreq, float amp)
   {
     // get low and high frequencies for spread
     const int midx = freqToIndex(bandFreq);
-    const int lidx = freqToIndex(bandFreq - spread);
-    const int hidx = freqToIndex(bandFreq + spread);
+    const int lidx = midx - spreadBandsMax * spread; // freqToIndex(bandFreq - bandFreq * 0.5f*spread);
+    const int hidx = midx + spreadBandsMax * spread; // freqToIndex(bandFreq + bandFreq * spread);
     addSinusoidWithSpread(midx, amp, lidx, hidx);
   }
 

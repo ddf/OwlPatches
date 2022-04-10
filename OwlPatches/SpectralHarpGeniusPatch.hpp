@@ -32,7 +32,7 @@ public:
     }
     else
     {
-      highElapsedTime *= 0.9999f;
+      highElapsedTime += (elapsed-highElapsedTime)*0.001f;
     }
   }
 

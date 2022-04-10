@@ -1,6 +1,7 @@
 #define USE_MIDI_CALLBACK
 
 #include "Patch.h"
+#include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
 #include "Frequency.h"
 #include "Interpolator.h"
@@ -20,7 +21,7 @@ protected:
   static const PatchParameterId outStrumX = PARAMETER_AA;
   static const PatchParameterId outStrumY = PARAMETER_AB;
 
-  const float spreadMax = 13000.0f;
+  const float spreadMax = 1.0f;
   const float decayMin = 0.15f;
   const float decayMax = 5.0f;
   const float decayDefault = 0.5f;
