@@ -8,8 +8,7 @@
 #include "BlurSignalProcessor.h"
 #include "Interpolator.h"
 
-static const int kSpectralBandPartials = 16;
-static const int kSpectralSpreadKernelSize = 11;
+static const int kSpectralBandPartials = 64;
 
 class SpectralSignalGenerator : public SignalGenerator
 {
@@ -22,7 +21,7 @@ class SpectralSignalGenerator : public SignalGenerator
     float decay;
     float phase;
     ComplexFloat complex[2];
-    float partials[kSpectralBandPartials];
+    int   partials[kSpectralBandPartials];
   };
 
   FastFourierTransform* fft;
@@ -86,7 +85,7 @@ public:
 
       for (int p = 0; p < kSpectralBandPartials; ++p)
       {
-        bands[i].partials[p] = bands[i].frequency*(2+p);
+        bands[i].partials[p] = freqToIndex(bands[i].frequency*(2 + p));
       }
     }
     specSpread.clear();
@@ -356,10 +355,7 @@ private:
       {
         int p = 2 + i;
         a *= brightness;
-        // would probably be faster to have partials contain indices
-        // because calculating the frequency is less work than 
-        // converting frequency to index.
-        int pidx = freqToIndex(b.partials[i]);
+        int pidx = b.partials[i];
         if (pidx < specBright.getSize())
         {
           specBright[pidx] += a / p;
