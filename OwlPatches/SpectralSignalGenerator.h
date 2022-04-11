@@ -371,12 +371,15 @@ private:
       {
         BlurKernelSample samp = spreadKernel[s];
         float sidx = i + samp.offset*specSize;
-        int lidx = (int)sidx;
-        int hidx = lidx + 1;
-        float t = sidx - lidx;
-        float low = lidx > 0 && lidx < specSize ? specBright[lidx] : 0;
-        float high = hidx < specSize ? specBright[hidx] : 0;
-        v += Interpolator::linear(low, high, t) * samp.weight;
+        if (sidx >= 1 && sidx < specSize-1)
+        {
+          int lidx = (int)sidx;
+          int hidx = lidx + 1;
+          float t = sidx - lidx;
+          float low = specBright[lidx];
+          float high = specBright[hidx];
+          v += Interpolator::linear(low, high, t) * samp.weight;
+        }
       }
       specSpread[i] = v;
     }
