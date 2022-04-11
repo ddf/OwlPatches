@@ -35,7 +35,6 @@ class SpectralSignalGenerator : public SignalGenerator
 
   FloatArray specBright;
   FloatArray specSpread;
-  BlurKernel spreadKernel;
 
   FloatArray specMag;
   ComplexFloatArray complex;
@@ -53,18 +52,18 @@ class SpectralSignalGenerator : public SignalGenerator
   const float spreadBandsMax;
 
 public:
-  SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, Band* bandsData, float* specBrightData,
-                          float* specSpreadData, BlurKernel spreadKernel, float* specMagData, int specSize,
+  SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, Band* bandsData,
+                          float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
                           ComplexFloat* complexData, float* inverseData, int blockSize,
                           float* windowData, int windowSize,
                           float* outputData, int outputSize)
     : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
     , overlapSize(blockSize/2), spectralMagnitude(blockSize / 64), specBright(specBrightData, specSize)
-    , specSpread(specSpreadData, specSize), spreadKernel(spreadKernel), specMag(specMagData, specSize)
+    , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
     , output(outputData, outputSize), outIndex(0), phaseIdx(0)
-    , spread(0), spreadBandsMax(32), brightness(0)
+    , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
     setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
@@ -172,14 +171,13 @@ public:
     Band* bandsData = new Band[specSize];
     float* brightData = new float[specSize];
     float* spreadData = new float[specSize];
-    BlurKernel kernel = BlurKernel::create(kSpectralSpreadKernelSize);
     float* magData = new float[specSize];
     float* inverseData = new float[blockSize];
     ComplexFloat* complexData = new ComplexFloat[blockSize];
     float* outputData = new float[outputSize];
     Window window = Window::create(Window::TriangularWindow, blockSize);
     return new SpectralSignalGenerator(FastFourierTransform::create(blockSize), sampleRate,
-      bandsData, brightData, spreadData, kernel, magData, specSize,
+      bandsData, brightData, spreadData, magData, specSize,
       complexData, inverseData, blockSize,
       window.getData(), blockSize,
       outputData, outputSize
@@ -189,7 +187,6 @@ public:
   static void destroy(SpectralSignalGenerator* spectralGen)
   {
     FastFourierTransform::destroy(spectralGen->fft);
-    BlurKernel::destroy(spectralGen->spreadKernel);
     delete[] spectralGen->bands.getData();
     delete[] spectralGen->specBright.getData();
     delete[] spectralGen->specSpread.getData();
@@ -298,26 +295,6 @@ private:
       // grab the magnitude as set by our pluck with spread pass
       float a = specSpread[i];
 
-      //// copy into the complex spectrum where we will accumulate brightness.
-      //// it's += because we may have already accumulated some brightness here from a previous band.
-      //complex[i].re += a;
-      //// add brightness if we have a decent signal to work with
-      //static const float epsilon = 0.0001f;
-      //if (a > epsilon)
-      //{
-      //  const float bandFreq = indexToFreq(i);
-      //  int partial = 2;
-      //  int pidx = freqToIndex(bandFreq*partial);
-      //  a *= brightness;
-      //  while (pidx < specSize && a > epsilon)
-      //  {
-      //    // accumulate into the complex spectrum
-      //    complex[pidx].re += a / partial++;
-      //    pidx = freqToIndex(bandFreq*partial);
-      //    a *= brightness;
-      //  }
-      //}
-
       // copy accumulated result into the magnitude array, scaling by our max amplitude
       specMag[i] = fmin(a * spectralMagnitude, spectralMagnitude);
 
@@ -336,52 +313,31 @@ private:
     const int specSize = bands.getSize();
 
     specBright.clear();
+    specSpread.clear();
 
     for (int i = 1; i < specSize; ++i)
     {
       processBand(i);
-
-      //Band& b = bands[i];
-      //b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
-      //if (b.decay > 0)
-      //{
-      //  const float a = b.decay*b.amplitude;
-      //  const float bandFreq = indexToFreq(i) * freqMult;
-      //  // get low and high frequencies for spread
-      //  const int midx = freqToIndex(bandFreq);
-      //  const int lidx = freqToIndex(bandFreq - spread);
-      //  const int hidx = freqToIndex(bandFreq + spread);
-      //  addSinusoidWithSpread(midx, a, lidx, hidx);
-      //}
     }
 
-    // this basically works how I want, but has a bug where turning spread all the way up
-    // causes very weird low frequency stuff to appear, so the spectrum data is getting messed up somehow.
-    // it may also be worth adding a setExponential method for the kernel to give exponential falloff
-    // from the center, instead of the Gaussian, which will give the spread a shape more akin
-    // to what it has when using addSinusoidWithSpread.
-    spreadKernel.setGauss(spread*(spreadBandsMax / specSize), (kSpectralSpreadKernelSize-1)/4.0f, 2.0f);
-    for (int i = 1; i < specSize; ++i)
+    // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
+    // adapted from ExponentialDecayEnvelope
+    float spreadMult = 1.0 + (logf(0.00001f) - logf(1.0f)) / (spreadBandsMax*spread + 12);
+    float pi = 0;
+    float pj = 0;
+    int count = specSize - 1;
+    for (int i = 1; i < count; ++i)
     {
-      // i'm using an odd-numbered kernel size, which should retain this band at full amplitude,
-      // but for some reason when I don't do this, it gets smeared into adjacent band,
-      // so you don't even see it on the screen anymore on Genius.
-      float v = specBright[i];
-      for (int s = 0; s < kSpectralSpreadKernelSize; ++s)
-      {
-        BlurKernelSample samp = spreadKernel[s];
-        float sidx = i + samp.offset*specSize;
-        if (sidx >= 1 && sidx < specSize-1)
-        {
-          int lidx = (int)sidx;
-          int hidx = lidx + 1;
-          float t = sidx - lidx;
-          float low = specBright[lidx];
-          float high = specBright[hidx];
-          v += Interpolator::linear(low, high, t) * samp.weight;
-        }
-      }
-      specSpread[i] = v;
+      float ci = specBright[i];
+      specSpread[i] += ci + pi;
+      pi = max(ci, pi)*spreadMult;
+
+      // we don't add in bright on the backwards pass
+      // because it gets added in the forward pass
+      int j = count - i;
+      float cj = specBright[j];
+      specSpread[j] += pj;
+      pj = max(cj, pj)*spreadMult;
     }
   }
 
@@ -410,20 +366,6 @@ private:
         }
         //addSinusoidWithSpread(b.partials[i], a / p);
       }
-
-      //if (a > epsilon)
-      //{
-      //  const float lastPartialFreq = bands[bands.getSize() - 1].frequency;
-      //  int partial = 2;
-      //  float partialFreq = b.frequency*partial;
-      //  //a *= brightness;
-      //  while (partialFreq < lastPartialFreq && partial < 24*brightness && a > epsilon)
-      //  {
-      //    addSinusoidWithSpread(partialFreq, a / partial++);
-      //    partialFreq = b.frequency*partial;
-      //    //a *= brightness;
-      //  }
-      //}
     }
   }
 
