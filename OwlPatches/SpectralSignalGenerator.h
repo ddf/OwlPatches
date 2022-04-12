@@ -8,11 +8,10 @@
 #include "BlurSignalProcessor.h"
 #include "Interpolator.h"
 
-static const int kSpectralBandPartials = 64;
+static const int kSpectralBandPartials = 40;
 
 class SpectralSignalGenerator : public SignalGenerator
 {
-
   struct Band
   {
     // the frequency of this band, for faster conversion between index and frequency
@@ -322,6 +321,7 @@ private:
     // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
     // adapted from ExponentialDecayEnvelope
     float spreadMult = 1.0 + (logf(0.00001f) - logf(1.0f)) / (spreadBandsMax*spread + 12);
+    spreadMult *= spreadMult;
     float pi = 0;
     float pj = 0;
     int count = specSize - 1;
