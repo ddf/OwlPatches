@@ -3,13 +3,17 @@
 #include "Patch.h"
 #include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
+#include "BitCrusher.hpp"
 #include "Diffuser.h"
 #include "Frequency.h"
 #include "Interpolator.h"
+#include "Easing.h"
 
 template<int spectrumSize, typename PatchClass>
 class SpectralHarpPatch : public PatchClass
 {
+  using BitCrush = BitCrusher<24>;
+
 protected:
   static const PatchParameterId inHarpFundamental = PARAMETER_A;
   static const PatchParameterId inHarpOctaves = PARAMETER_B;
@@ -18,10 +22,12 @@ protected:
   static const PatchParameterId inDecay = PARAMETER_E;
   static const PatchParameterId inSpread = PARAMETER_F;
   static const PatchParameterId inBrightness = PARAMETER_G;
-  static const PatchParameterId inWidth = PARAMETER_H;
+  static const PatchParameterId inCrush = PARAMETER_H;
 
-  static const PatchParameterId outStrumX = PARAMETER_AA;
-  static const PatchParameterId outStrumY = PARAMETER_AB;
+  static const PatchParameterId inWidth = PARAMETER_AA;
+
+  static const PatchParameterId outStrumX = PARAMETER_AD;
+  static const PatchParameterId outStrumY = PARAMETER_AE;
 
   const float spreadMax = 1.0f;
   const float decayMin = 0.15f;
@@ -35,8 +41,10 @@ protected:
   const int   fundaMentalNoteMax = 128 - octavesMin * 12;
   const float bandMin = Frequency::ofMidiNote(fundamentalNoteMin).asHz();
   const float bandMax = Frequency::ofMidiNote(128).asHz();
+  const float crushRateMin = 1000.0f;
 
   SpectralSignalGenerator* spectralGen;
+  BitCrush* bitCrusher;
   Diffuser* diffuser;
 
   StiffFloat bandFirst;
@@ -44,6 +52,7 @@ protected:
   SmoothFloat spread;
   SmoothFloat decay;
   SmoothFloat brightness;
+  SmoothFloat crush;
   SmoothFloat linLogLerp;
   SmoothFloat bandDensity;
   SmoothFloat stereoWidth;
@@ -61,6 +70,7 @@ public:
   SpectralHarpPatch() : PatchClass()
   {
     spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
+    bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
     diffuser = Diffuser::create(getSampleRate());
 
     midiNotes = new MidiMessage[128];
@@ -71,6 +81,7 @@ public:
     registerParameter(inSpread, "Spread");
     registerParameter(inDecay, "Decay");
     registerParameter(inBrightness, "Brightness");
+    registerParameter(inCrush, "Crush");
     registerParameter(inTuning, "Tuning");
     registerParameter(inDensity, "Density");
     registerParameter(inWidth, "Width");
@@ -87,6 +98,7 @@ public:
   ~SpectralHarpPatch()
   {
     SpectralSignalGenerator::destroy(spectralGen);
+    BitCrush::destroy(bitCrusher);
     Diffuser::destroy(diffuser);
     delete[] midiNotes;
   }
@@ -120,11 +132,13 @@ public:
     spread = getParameterValue(inSpread)*spreadMax;
     decay = Interpolator::linear(decayMin, decayMax, getParameterValue(inDecay));
     brightness = getParameterValue(inBrightness);
+    crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(inCrush));
     stereoWidth = getParameterValue(inWidth);
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
     spectralGen->setBrightness(brightness);
+    bitCrusher->setBitRate(crush);
 
     float strumX = 0;
     float strumY = 0;
@@ -149,6 +163,8 @@ public:
     }
 
     spectralGen->generate(left);
+    bitCrusher->process(left, left);
+
     left.copyTo(right);
 
     diffuser->setAmount(stereoWidth);

@@ -90,5 +90,8 @@
     <ClInclude Include="Diffuser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Easing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
