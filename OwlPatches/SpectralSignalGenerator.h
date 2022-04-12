@@ -5,7 +5,6 @@
 #include "FloatArray.h"
 #include "ComplexFloatArray.h"
 #include "ExponentialDecayEnvelope.h"
-#include "BlurSignalProcessor.h"
 #include "Interpolator.h"
 
 static const int kSpectralBandPartials = 40;
@@ -129,7 +128,7 @@ public:
   float generate() override
   {
     // transfer bands into spread array halfway through the overlap
-    // so that we do this work in a different block than brightness and synthesis
+    // so that we do this work in a different block than synthesis
     if (outIndex % overlapSize == overlapSize / 2)
     {
       fillSpread();

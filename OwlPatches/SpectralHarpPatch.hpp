@@ -3,6 +3,7 @@
 #include "Patch.h"
 #include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
+#include "Diffuser.h"
 #include "Frequency.h"
 #include "Interpolator.h"
 
@@ -17,6 +18,7 @@ protected:
   static const PatchParameterId inDecay = PARAMETER_E;
   static const PatchParameterId inSpread = PARAMETER_F;
   static const PatchParameterId inBrightness = PARAMETER_G;
+  static const PatchParameterId inWidth = PARAMETER_H;
 
   static const PatchParameterId outStrumX = PARAMETER_AA;
   static const PatchParameterId outStrumY = PARAMETER_AB;
@@ -35,6 +37,7 @@ protected:
   const float bandMax = Frequency::ofMidiNote(128).asHz();
 
   SpectralSignalGenerator* spectralGen;
+  Diffuser* diffuser;
 
   StiffFloat bandFirst;
   StiffFloat bandLast;
@@ -43,6 +46,7 @@ protected:
   SmoothFloat brightness;
   SmoothFloat linLogLerp;
   SmoothFloat bandDensity;
+  SmoothFloat stereoWidth;
 
   MidiMessage* midiNotes;
 
@@ -57,6 +61,8 @@ public:
   SpectralHarpPatch() : PatchClass()
   {
     spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
+    diffuser = Diffuser::create(getSampleRate());
+
     midiNotes = new MidiMessage[128];
     memset(midiNotes, 0, sizeof(MidiMessage)*128);
 
@@ -67,6 +73,7 @@ public:
     registerParameter(inBrightness, "Brightness");
     registerParameter(inTuning, "Tuning");
     registerParameter(inDensity, "Density");
+    registerParameter(inWidth, "Width");
 
     registerParameter(outStrumX, "Strum X>");
     registerParameter(outStrumY, "Strum Y>");
@@ -80,6 +87,7 @@ public:
   ~SpectralHarpPatch()
   {
     SpectralSignalGenerator::destroy(spectralGen);
+    Diffuser::destroy(diffuser);
     delete[] midiNotes;
   }
 
@@ -112,6 +120,7 @@ public:
     spread = getParameterValue(inSpread)*spreadMax;
     decay = Interpolator::linear(decayMin, decayMax, getParameterValue(inDecay));
     brightness = getParameterValue(inBrightness);
+    stereoWidth = getParameterValue(inWidth);
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
@@ -141,6 +150,9 @@ public:
 
     spectralGen->generate(left);
     left.copyTo(right);
+
+    diffuser->setAmount(stereoWidth);
+    diffuser->process(audio, audio);
 
     setParameterValue(outStrumX, strumX);
     setParameterValue(outStrumY, strumY);
