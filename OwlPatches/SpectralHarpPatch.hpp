@@ -71,7 +71,7 @@ public:
   {
     spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
-    diffuser = Diffuser::create(getSampleRate());
+    diffuser = Diffuser::create();
 
     midiNotes = new MidiMessage[128];
     memset(midiNotes, 0, sizeof(MidiMessage)*128);
