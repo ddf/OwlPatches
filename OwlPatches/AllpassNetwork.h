@@ -1,3 +1,6 @@
+#ifndef __ALLPASS_NETWORK_H__
+#define __ALLPASS_NETWORK_H__
+
 // Configurable network of Allpass filters
 #include "SignalProcessor.h"
 #include "Filters/allpass.h"
@@ -84,3 +87,5 @@ public:
     delete network;
   }
 };
+
+#endif // __ALLPASS_NETWORK_H__

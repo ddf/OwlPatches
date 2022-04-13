@@ -93,5 +93,11 @@
     <ClInclude Include="Easing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="AllpassNetwork.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Reverb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

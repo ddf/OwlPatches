@@ -134,6 +134,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AllpassNetwork.h" />
     <ClInclude Include="BitCrusher.hpp" />
     <ClInclude Include="BlurKernel.h" />
     <ClInclude Include="BlurPatch.hpp" />
@@ -155,6 +156,7 @@
     <ClInclude Include="Noise.hpp" />
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
+    <ClInclude Include="Reverb.h" />
     <ClInclude Include="SkewedValue.h" />
     <ClInclude Include="SpectralHarpGeniusPatch.hpp" />
     <ClInclude Include="SpectralHarpPatch.hpp" />

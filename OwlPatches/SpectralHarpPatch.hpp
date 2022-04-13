@@ -5,6 +5,7 @@
 #include "SpectralSignalGenerator.h"
 #include "BitCrusher.hpp"
 #include "Diffuser.h"
+#include "Reverb.h"
 #include "Frequency.h"
 #include "Interpolator.h"
 #include "Easing.h"
@@ -25,9 +26,12 @@ protected:
   static const PatchParameterId inCrush = PARAMETER_H;
 
   static const PatchParameterId inWidth = PARAMETER_AA;
+  static const PatchParameterId inReverbTime = PARAMETER_AB;
+  static const PatchParameterId inReverbTone = PARAMETER_AC;
+  static const PatchParameterId inReverbBlend = PARAMETER_AD;
 
-  static const PatchParameterId outStrumX = PARAMETER_AD;
-  static const PatchParameterId outStrumY = PARAMETER_AE;
+  static const PatchParameterId outStrumX = PARAMETER_AE;
+  static const PatchParameterId outStrumY = PARAMETER_AF;
 
   const float spreadMax = 1.0f;
   const float decayMin = 0.15f;
@@ -46,6 +50,7 @@ protected:
   SpectralSignalGenerator* spectralGen;
   BitCrush* bitCrusher;
   Diffuser* diffuser;
+  Reverb*   reverb;
 
   StiffFloat bandFirst;
   StiffFloat bandLast;
@@ -56,6 +61,9 @@ protected:
   SmoothFloat linLogLerp;
   SmoothFloat bandDensity;
   SmoothFloat stereoWidth;
+  SmoothFloat reverbTime;
+  SmoothFloat reverbTone;
+  SmoothFloat reverbBlend;
 
   MidiMessage* midiNotes;
 
@@ -72,6 +80,7 @@ public:
     spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
     diffuser = Diffuser::create();
+    reverb = Reverb::create(getSampleRate());
 
     midiNotes = new MidiMessage[128];
     memset(midiNotes, 0, sizeof(MidiMessage)*128);
@@ -85,6 +94,9 @@ public:
     registerParameter(inTuning, "Tuning");
     registerParameter(inDensity, "Density");
     registerParameter(inWidth, "Width");
+    registerParameter(inReverbTime, "Verb Time");
+    registerParameter(inReverbTone, "Verb Tone");
+    registerParameter(inReverbBlend, "Verb Blend");
 
     registerParameter(outStrumX, "Strum X>");
     registerParameter(outStrumY, "Strum Y>");
@@ -93,6 +105,7 @@ public:
     setParameterValue(inHarpOctaves, 1.0f);
     setParameterValue(inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
     setParameterValue(inDensity, 1.0f);
+    setParameterValue(inReverbTone, 1.0f);
   }
 
   ~SpectralHarpPatch()
@@ -100,6 +113,7 @@ public:
     SpectralSignalGenerator::destroy(spectralGen);
     BitCrush::destroy(bitCrusher);
     Diffuser::destroy(diffuser);
+    Reverb::destroy(reverb);
     delete[] midiNotes;
   }
 
@@ -134,6 +148,9 @@ public:
     brightness = getParameterValue(inBrightness);
     crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(inCrush));
     stereoWidth = getParameterValue(inWidth);
+    reverbTime = 0.35f + 0.6f*getParameterValue(inReverbTime);
+    reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(inReverbTone));
+    reverbBlend = getParameterValue(inReverbBlend) * 0.56f;
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
@@ -169,6 +186,12 @@ public:
 
     diffuser->setAmount(stereoWidth);
     diffuser->process(audio, audio);
+
+    reverb->setDiffusion(0.7f);
+    reverb->setReverbTime(reverbTime);
+    reverb->setLowPass(reverbTone);
+    reverb->setAmount(reverbBlend);
+    reverb->process(audio, audio);
 
     setParameterValue(outStrumX, strumX);
     setParameterValue(outStrumY, strumY);
