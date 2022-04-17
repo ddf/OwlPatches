@@ -139,6 +139,7 @@
     <ClInclude Include="BlurPatch.hpp" />
     <ClInclude Include="BlurSignalProcessor.h" />
     <ClInclude Include="CircularTexture.h" />
+    <ClInclude Include="CreaturePatch.hpp" />
     <ClInclude Include="GaussianBlur2DGeniusPatch.hpp" />
     <ClInclude Include="GaussianBlur2DLichPatch.hpp" />
     <ClInclude Include="GaussianBlurSignalProcessor.h" />
@@ -154,6 +155,7 @@
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
     <ClInclude Include="SkewedValue.h" />
     <ClInclude Include="TapTempo.hpp" />
+    <ClInclude Include="WaveShaper.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
