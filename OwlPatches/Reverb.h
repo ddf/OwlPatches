@@ -103,14 +103,17 @@ public:
       float right = *inR++;
       float m = (left + right) * 0.2f;
 
-      // TODO smearing first allpass filter in the diffuser with lfo1
+      float lfo = lfo1->generate()*0.5f + 0.5f;
+      float smear = diffuser->read(0, 10.0f + lfo * 60.0f);
+      diffuser->write(0, 100, smear);
 
       float d = diffuser->process(m);
 
       float accum = d;
       // interpolated read from delay2
       {
-        float df = 4680.0f + lfo2->generate()*100.0f;
+        lfo = lfo2->generate()*0.5f + 0.5f;
+        float df = 4680.0f + lfo*100.0f;
         int da = (int)df;
         int db = da + 1;
         float t = df - da;

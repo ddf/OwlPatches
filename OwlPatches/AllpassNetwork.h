@@ -40,6 +40,25 @@ public:
     coeff = diffusion;
   }
 
+  float read(int api, float offset)
+  {
+    DelayLine& d = delays[api];
+    int lidx = (int)offset;
+    int hidx = lidx + 1;
+    float t = offset - lidx;
+    // wrap in the buffer
+    lidx = (d.bufPos - lidx + d.bufLen) % d.bufLen;
+    hidx = (d.bufPos - hidx + d.bufLen) % d.bufLen;
+    return d.buf[lidx] + t * (d.buf[hidx] - d.buf[lidx]);
+  }
+
+  void write(int api, int offset, float v)
+  {
+    DelayLine& d = delays[api];
+    int widx = (d.bufPos - offset + d.bufLen) % d.bufLen;
+    d.buf[widx] = v;
+  }
+
   float process(float input) override
   {
     float output = input;
