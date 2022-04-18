@@ -14,12 +14,16 @@ public:
 
   float process(float input) override
   {
-    float tscale = clamp((input * 0.5f + 0.5f)*0.99f, 0.0f, 1.0f);
-    float sidx = tableSize*tscale;
+    float tscale = fmodf(input * 0.5f + 0.5f, 1.0f);
+    if (tscale < 0)
+    {
+      tscale += 1.0f;
+    }
+    float sidx = (tableSize-1)*tscale;
     int lidx = (int)sidx;
     int hidx = lidx + 1;
     float t = sidx - lidx;
-    return Interpolator::linear(waveTable[lidx%tableSize], waveTable[hidx%tableSize], t);
+    return Interpolator::linear(waveTable[lidx], waveTable[hidx], t);
   }
 
   static WaveShaper* create(FloatArray waveTable)

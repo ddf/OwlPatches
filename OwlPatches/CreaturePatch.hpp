@@ -1,20 +1,23 @@
 #include "Patch.h"
+#include "MonochromeScreenPatch.h"
 #include "SineOscillator.h"
 #include "RampOscillator.h"
 #include "ChirpOscillator.h"
+#include "AdsrEnvelope.h"
 #include "ExponentialDecayEnvelope.h"
 #include "DelayProcessor.h"
 #include "WaveShaper.h"
 
-class CreaturePatch : public Patch 
+class CreaturePatch : public MonochromeScreenPatch 
 {
   using Delay = FractionalDelayProcessor<LINEAR_INTERPOLATION>;
   using SawOscillator = InvertedRampOscillator;
+  using DecayEnvelope = AdsrEnvelope<true>;
 
   struct Chirp
   {
     SineOscillator* osc;
-    ExponentialDecayEnvelope* decay;
+    DecayEnvelope* decay;
     float finc;
   };
 
@@ -31,16 +34,17 @@ class CreaturePatch : public Patch
   float waveCenterFrequency;
   float ampDelayValue;
   float freqDelayValue;
+  PatchButtonId lastButtonPress = BUTTON_1;
 
 public:
   CreaturePatch() 
-    : Patch()
-    , waveCenterFrequency(250), ampDelayValue(0), freqDelayValue(0)
+    : MonochromeScreenPatch()
+    , waveCenterFrequency(240), ampDelayValue(0), freqDelayValue(0)
   {
     for (int i = 0; i < kChirpCount; ++i)
     {
       chirps[i].osc = SineOscillator::create(getSampleRate());
-      chirps[i].decay = ExponentialDecayEnvelope::create(getSampleRate());
+      chirps[i].decay = DecayEnvelope::create(getSampleRate());
       chirps[i].finc = 0;
     }
 
@@ -73,7 +77,7 @@ public:
     for (int i = 0; i < kChirpCount; ++i)
     {
       SineOscillator::destroy(chirps[i].osc);
-      ExponentialDecayEnvelope::destroy(chirps[i].decay);
+      DecayEnvelope::destroy(chirps[i].decay);
     }
 
     SineOscillator::destroy(wave);
@@ -87,16 +91,17 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (value == Patch::ON)
+    if ((bid == BUTTON_1 || bid == BUTTON_2) && value == Patch::ON)
     {
-      const float lowFreq = bid == BUTTON_1 ? 1.0f : 5.0f;
-      const float hiFreq = bid == BUTTON_2 ? 20.0f : 1000.0f;
+      lastButtonPress = bid;
+      const float lowFreq = bid == BUTTON_1 ? 1.f : 1000.0f;
+      const float hiFreq  = bid == BUTTON_1 ? 20.f : 8000.0f;
       for (int i = 0; i < kChirpCount; ++i)
       {
         Chirp& chirp = chirps[i];
-        if (chirp.decay->getLevel() < 0.0001f)
+        if (chirp.decay->getLevel() == 0)
         {
-          float dur = Interpolator::linear(0.1f, 0.2f, randf());
+          float dur = Interpolator::linear(0.01f, 0.1f, randf());
           float freq = Interpolator::linear(lowFreq, hiFreq, randf());
           float fromFreq = freq * Interpolator::linear(0.8f, 1.2f, randf());
           float toFreq = freq * Interpolator::linear(0.8f, 1.2f, randf());
@@ -104,7 +109,11 @@ public:
           chirp.finc = (toFreq - fromFreq) / (dur * getSampleRate());
           chirp.osc->reset();
           chirp.decay->setDecay(dur);
+          chirp.decay->setSustain(0);
           chirp.decay->trigger();
+          // pull one sample so that the level is not 0 in process audio
+          chirp.decay->generate();
+          break;
         }
       }
     }
@@ -122,25 +131,24 @@ public:
       for (int c = 0; c < kChirpCount; ++c)
       {
         Chirp& chirp = chirps[c];
-        if (chirp.decay->getLevel() >= 0.0001f)
+        if (chirp.decay->getLevel() > 0)
         {
-          chirpSignal += chirp.osc->generate() * chirp.decay->generate() * 0.5f;
+          chirpSignal += chirp.osc->generate() * chirp.decay->generate() * 0.6f;
           chirp.osc->setFrequency(chirp.osc->getFrequency() + chirp.finc);
         }
       }
 
-      freqDelayValue = freqDelay->process(chirpSignal + freqDelayValue) * wave->getSample() * ampDelayValue;
+      freqDelayValue = clamp(freqDelay->process(chirpSignal + freqDelayValue *0.5f), -1.0f, 1.0f);
 
-      float fd = fabsf(freqDelayValue);
-      delayMod->setFrequency(fd);
-      float ampDelaySamples = (delayMod->generate()*0.1f + 0.15f) * getSampleRate();
+      float delayModFM = fabsf(freqDelayValue) / getSampleRate();
+      float ampDelaySamples = (delayMod->generate(delayModFM)*0.1f + 0.15f) * getSampleRate();
       ampDelay->setDelay(ampDelaySamples);
-      ampDelayValue  = ampDelay->process(chirpSignal + ampDelayValue) * 0.5f;
+      ampDelayValue = clamp(ampDelay->process(chirpSignal + ampDelayValue*0.5f), -1.0f, 1.0f);
 
-      float waveFreq = waveCenterFrequency + freqDelayValue * 0.5f * waveCenterFrequency; 
-      waveFreq = freqDelayShaper->process(freqDelayValue);
+      //float waveFreq = waveCenterFrequency + freqDelayValue * 0.5f * waveCenterFrequency;
+      float waveFreq = freqDelayShaper->process(freqDelayValue);
       wave->setFrequency(waveFreq);
-      pan->setFrequency(Interpolator::linear(0.2f, 10.f, clamp(freqDelayValue*0.5f + 0.5f, 0.0f, 1.0f)));
+      pan->setFrequency(Interpolator::linear(0.2f, 10.f, freqDelayValue*0.5f + 0.5f));
 
       float waveValue = wave->generate() * ampDelayValue;
       float panValue = pan->generate() * 0.8f;
@@ -158,4 +166,16 @@ public:
     setParameterValue(PARAMETER_A, ampDelayValue*0.5f + 0.5f);
     setParameterValue(PARAMETER_B, freqDelayValue*0.5f + 0.5f);
   }
+
+  void processScreen(MonochromeScreenBuffer& screen) override
+  {
+    screen.setCursor(0, 20);
+    switch (lastButtonPress)
+    {
+      case BUTTON_1: screen.print("BUTTON 1"); break;
+      case BUTTON_2: screen.print("BUTTON 2"); break;
+      default: screen.print(lastButtonPress); break;
+    }
+  }
+
 };
