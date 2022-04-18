@@ -39,7 +39,7 @@ class CreaturePatch : public MonochromeScreenPatch
 public:
   CreaturePatch() 
     : MonochromeScreenPatch()
-    , waveCenterFrequency(240), ampDelayValue(0), freqDelayValue(0)
+    , waveCenterFrequency(60), ampDelayValue(0), freqDelayValue(0)
   {
     for (int i = 0; i < kChirpCount; ++i)
     {
@@ -58,14 +58,14 @@ public:
     delayMod->setFrequency(0.1f);
 
     ampDelay = Delay::create(getSampleRate());
-    freqDelay = Delay::create(0.3f*getSampleRate());
-    freqDelay->setDelay(0.29f*getSampleRate());
+    freqDelay = Delay::create(0.5f*getSampleRate());
+    freqDelay->setDelay(0.1f*getSampleRate());
 
     freqDelayShaperTable = FloatArray::create(1024);
-    freqDelayShaperTable.subArray(0, 257).ramp(100, 1500);
-    freqDelayShaperTable.subArray(256, 257).ramp(1500, 350);
-    freqDelayShaperTable.subArray(512, 257).ramp(350, 3000);
-    freqDelayShaperTable.subArray(768, 256).ramp(3000, 50);
+    freqDelayShaperTable.subArray(0, 257).ramp(0, 1500);
+    freqDelayShaperTable.subArray(256, 257).ramp(1500, 0);
+    freqDelayShaperTable.subArray(512, 257).ramp(0, 3000);
+    freqDelayShaperTable.subArray(768, 256).ramp(3000, 0);
     freqDelayShaper = WaveShaper::create(freqDelayShaperTable);
 
     registerParameter(PARAMETER_A, "Amp Delay>");
@@ -94,14 +94,14 @@ public:
     if ((bid == BUTTON_1 || bid == BUTTON_2) && value == Patch::ON)
     {
       lastButtonPress = bid;
-      const float lowFreq = bid == BUTTON_1 ? 1.f : 1000.0f;
-      const float hiFreq  = bid == BUTTON_1 ? 20.f : 8000.0f;
+      const float lowFreq = bid == BUTTON_1 ? 10.f : 1000.0f;
+      const float hiFreq  = bid == BUTTON_1 ? 80.f : 8000.0f;
       for (int i = 0; i < kChirpCount; ++i)
       {
         Chirp& chirp = chirps[i];
         if (chirp.decay->getLevel() == 0)
         {
-          float dur = Interpolator::linear(0.01f, 0.1f, randf());
+          float dur = Interpolator::linear(0.01f, 0.03f, randf());
           float freq = Interpolator::linear(lowFreq, hiFreq, randf());
           float fromFreq = freq * Interpolator::linear(0.8f, 1.2f, randf());
           float toFreq = freq * Interpolator::linear(0.8f, 1.2f, randf());
@@ -138,20 +138,23 @@ public:
         }
       }
 
-      freqDelayValue = clamp(freqDelay->process(chirpSignal + freqDelayValue *0.5f), -1.0f, 1.0f);
+      float freqDelaySamples = (0.1f + ampDelayValue*0.01f)*getSampleRate();
+      freqDelay->setDelay(freqDelaySamples);
+      freqDelayValue = freqDelay->process(chirpSignal + freqDelayValue * 0.2f); // *wave->getSample();
 
-      float delayModFM = fabsf(freqDelayValue) / getSampleRate();
-      float ampDelaySamples = (delayMod->generate(delayModFM)*0.1f + 0.15f) * getSampleRate();
+      float delayModFM = fabsf(freqDelayValue * wave->getSample());
+      delayMod->setFrequency(delayModFM);
+      float ampDelaySamples = (delayMod->generate()*0.1f + 0.15f) * getSampleRate();
       ampDelay->setDelay(ampDelaySamples);
-      ampDelayValue = clamp(ampDelay->process(chirpSignal + ampDelayValue*0.5f), -1.0f, 1.0f);
+      ampDelayValue = clamp(ampDelay->process(chirpSignal + ampDelayValue*0.25f), -1.0f, 1.0f);
 
       //float waveFreq = waveCenterFrequency + freqDelayValue * 0.5f * waveCenterFrequency;
       float waveFreq = freqDelayShaper->process(freqDelayValue);
-      wave->setFrequency(waveFreq);
+      //wave->setFrequency(waveFreq);
       pan->setFrequency(Interpolator::linear(0.2f, 10.f, freqDelayValue*0.5f + 0.5f));
 
-      float waveValue = wave->generate() * ampDelayValue;
-      float panValue = pan->generate() * 0.8f;
+      float waveValue = wave->generate(waveFreq / getSampleRate()) * ampDelayValue;
+      float panValue = pan->generate() * 0.1f;
 
       float normBalance = (panValue + 1.f) * 0.5f;
 
@@ -164,7 +167,7 @@ public:
     }
 
     setParameterValue(PARAMETER_A, ampDelayValue*0.5f + 0.5f);
-    setParameterValue(PARAMETER_B, freqDelayValue*0.5f + 0.5f);
+    setParameterValue(PARAMETER_B, clamp(freqDelayValue*0.5f + 0.5f, 0.0, 1.0f));
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
