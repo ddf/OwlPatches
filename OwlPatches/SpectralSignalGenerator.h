@@ -224,6 +224,11 @@ public:
     return b;
   }
 
+  float getMagnitudeMean()
+  {
+    return specMag.getMean() / spectralMagnitude;
+  }
+
 private:
   ExponentialDecayEnvelope falloffEnv;
 

@@ -22,6 +22,7 @@ class Reverb : public MultiSignalProcessor
   float lpDecay1;
   float lpDecay2;
 
+  float inputGain;
   float reverbTime;
   float lpAmount;
   float wetAmount;
@@ -29,7 +30,7 @@ class Reverb : public MultiSignalProcessor
   Reverb(AllpassNetwork* diffuser, AllpassNetwork* dap1, AllpassNetwork* dap2,
          LFO* lfo1, LFO* lfo2, CircularFloatBuffer* delay1, CircularFloatBuffer* delay2)
     : diffuser(diffuser), dap1(dap1), dap2(dap2), lfo1(lfo1), lfo2(lfo2), delay1(delay1), delay2(delay2)
-    , lpDecay1(0), lpDecay2(0), reverbTime(0), lpAmount(0.7f), wetAmount(0)
+    , lpDecay1(0), lpDecay2(0), inputGain(0.2f), reverbTime(0), lpAmount(0.7f), wetAmount(0)
   {
     lfo1->setFrequency(0.5f);
     lfo2->setFrequency(0.3f);
@@ -64,6 +65,11 @@ public:
     CircularFloatBuffer::destroy(reverb->delay1);
     CircularFloatBuffer::destroy(reverb->delay2);
     delete reverb;
+  }
+
+  void setInputGain(float amt)
+  {
+    inputGain = amt;
   }
 
   void setDiffusion(float amt)
@@ -101,7 +107,7 @@ public:
     {
       float left = *inL++;
       float right = *inR++;
-      float m = (left + right) * 0.2f;
+      float m = (left + right) * inputGain;
 
       float lfo = lfo1->generate()*0.5f + 0.5f;
       float smear = diffuser->read(0, 10.0f + lfo * 60.0f);
