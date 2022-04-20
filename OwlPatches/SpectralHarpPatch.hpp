@@ -10,7 +10,7 @@
 #include "Interpolator.h"
 #include "Easing.h"
 
-template<int spectrumSize, typename PatchClass>
+template<int spectrumSize, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
   using BitCrush = BitCrusher<24>;
@@ -34,8 +34,8 @@ protected:
   static const PatchParameterId outStrumY = PARAMETER_AF;
 
   const float spreadMax = 1.0f;
-  const float decayMin = 0.15f;
-  const float decayMax = 5.0f;
+  const float decayMin;
+  const float decayMax;
   const float decayDefault = 0.5f;
   const int   densityMin = 6.0f;
   const int   densityMax = 121.0f;
@@ -51,7 +51,11 @@ protected:
   BitCrush* bitCrusher;
   Diffuser* diffuser;
   Reverb*   reverb;
-
+  
+  int        pluckAtSample;
+  int        gateOnAtSample;
+  int        gateOffAtSample;
+  bool       gateState;
   StiffFloat bandFirst;
   StiffFloat bandLast;
   SmoothFloat spread;
@@ -76,6 +80,8 @@ public:
   using PatchClass::isButtonPressed;
 
   SpectralHarpPatch() : PatchClass()
+    , pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
+    , decayMin((float)(spectrumSize*0.75f) / getSampleRate()), decayMax(5.0f)
   {
     spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
@@ -115,6 +121,26 @@ public:
     Diffuser::destroy(diffuser);
     Reverb::destroy(reverb);
     delete[] midiNotes;
+  }
+
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples)
+  {
+    if ((bid == PUSHBUTTON || bid == BUTTON_1) && value == Patch::ON)
+    {
+      pluckAtSample = samples;
+    }
+
+    if (bid == BUTTON_2)
+    {
+      if (value == Patch::ON)
+      {
+        gateOnAtSample = samples;
+      }
+      else
+      {
+        gateOffAtSample = samples;
+      }
+    }
   }
 
   void processMidi(MidiMessage msg) override
@@ -159,9 +185,23 @@ public:
 
     float strumX = 0;
     float strumY = 0;
-    if (isButtonPressed(BUTTON_1))
+
+    if (pluckAtSample != -1)
     {
-      for (int i = 0; i < blockSize; ++i)
+      float location = left[pluckAtSample] * 0.5f + 0.5f;
+      float amplitude = right[pluckAtSample] * 0.5f + 0.5f;
+      pluck(spectralGen, location, amplitude);
+      pluckAtSample = -1;
+      strumX = location;
+      strumY = amplitude;
+    }
+
+    for (int i = 0; i < blockSize; ++i)
+    {
+      if (i == gateOnAtSample) gateState = true;
+      if (i == gateOffAtSample) gateState = false;
+
+      if (gateState)
       {
         float location = left[i] * 0.5f + 0.5f;
         float amplitude = right[i] * 0.5f + 0.5f;
@@ -170,6 +210,9 @@ public:
         strumY = fmax(strumY, amplitude);
       }
     }
+    
+    gateOnAtSample = -1;
+    gateOffAtSample = -1;
 
     for (int i = 0; i < 128; ++i)
     {
