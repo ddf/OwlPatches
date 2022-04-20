@@ -13,6 +13,7 @@
 template<int spectrumSize, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
+  using SpectralGen = SpectralSignalGenerator<false>;
   using BitCrush = BitCrusher<24>;
 
 protected:
@@ -47,7 +48,7 @@ protected:
   const float bandMax = Frequency::ofMidiNote(128).asHz();
   const float crushRateMin = 1000.0f;
 
-  SpectralSignalGenerator* spectralGen;
+  SpectralGen* spectralGen;
   BitCrush* bitCrusher;
   Diffuser* diffuser;
   Reverb*   reverb;
@@ -81,9 +82,9 @@ public:
 
   SpectralHarpPatch() : PatchClass()
     , pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
-    , decayMin((float)(spectrumSize*0.75f) / getSampleRate()), decayMax(5.0f)
+    , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
   {
-    spectralGen = SpectralSignalGenerator::create(spectrumSize, getSampleRate());
+    spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
     diffuser = Diffuser::create();
     reverb = Reverb::create(getSampleRate());
@@ -116,7 +117,7 @@ public:
 
   ~SpectralHarpPatch()
   {
-    SpectralSignalGenerator::destroy(spectralGen);
+    SpectralGen::destroy(spectralGen);
     BitCrush::destroy(bitCrusher);
     Diffuser::destroy(diffuser);
     Reverb::destroy(reverb);
@@ -261,7 +262,7 @@ protected:
   }
 
 private:
-  void pluck(SpectralSignalGenerator* spectrum, float location, float amp)
+  void pluck(SpectralGen* spectrum, float location, float amp)
   {
     const int   numBands = roundf(bandDensity);
     const int   band = roundf(Interpolator::linear(0, numBands, location));
@@ -269,7 +270,7 @@ private:
     spectrum->pluck(freq, amp);
   }
 
-  void pluck(SpectralSignalGenerator* spectrum, MidiMessage msg)
+  void pluck(SpectralGen* spectrum, MidiMessage msg)
   {
     float freq = Frequency::ofMidiNote(msg.getNote()).asHz();
     float amp = msg.getVelocity() / 127.0f;

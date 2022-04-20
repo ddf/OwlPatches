@@ -9,6 +9,7 @@
 
 static const int kSpectralBandPartials = 40;
 
+template<bool linearDecay = true>
 class SpectralSignalGenerator : public SignalGenerator
 {
   struct Band
@@ -47,6 +48,8 @@ class SpectralSignalGenerator : public SignalGenerator
   const int   overlapSize;
   const int   spectralMagnitude;
   const float spreadBandsMax;
+
+  const float exponentialDecayMin = 0.0001f;
 
 public:
   SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, Band* bandsData,
@@ -103,11 +106,20 @@ public:
     // having a shorter decay than the overlap size doesn't make sense
     // and we also want to avoid divide-by-zero.
     float decaySeconds = fmax(overlapSize * oneOverSampleRate, inSeconds);
-    // amplitude needs to decrease by 1 / (decaySeconds * sampleRate()) every sample.
-    // eg decaySeconds == 1 -> 1 / sampleRate()
-    //    decaySeconds == 0.5 -> 1 / (0.5 * sampleRate), which is twice as fast, equivalent to 2 / sampleRate()
-    // since we generate a new buffer every overlapSize samples, we multiply that rate by overlapSize, giving:
-    decayDec = overlapSize / (decaySeconds * sampleRate);
+    if (linearDecay)
+    {
+      // amplitude needs to decrease by 1 / (decaySeconds * sampleRate()) every sample.
+      // eg decaySeconds == 1 -> 1 / sampleRate()
+      //    decaySeconds == 0.5 -> 1 / (0.5 * sampleRate), which is twice as fast, equivalent to 2 / sampleRate()
+      // since we generate a new buffer every overlapSize samples, we multiply that rate by overlapSize, giving:
+      decayDec = overlapSize / (decaySeconds * sampleRate);
+    }
+    else // exponential decay
+    {
+      float blockRate = sampleRate / overlapSize;
+      float lengthInBlocks = decaySeconds * blockRate;
+      decayDec = 1.0 + logf(exponentialDecayMin) / (lengthInBlocks + 20);
+    }
   }
 
   void setBrightness(float amt)
@@ -347,7 +359,14 @@ private:
   void processBand(int idx)
   {
     Band& b = bands[idx];
-    b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
+    if (linearDecay)
+    {
+      b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
+    }
+    else
+    {
+      b.decay *= decayDec;
+    }
     //if (b.decay > 0)
     {
       float a = b.decay*b.amplitude;
