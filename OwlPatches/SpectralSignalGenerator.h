@@ -49,8 +49,6 @@ class SpectralSignalGenerator : public SignalGenerator
   const int   spectralMagnitude;
   const float spreadBandsMax;
 
-  const float exponentialDecayMin = 0.0001f;
-
 public:
   SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, Band* bandsData,
                           float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
@@ -118,7 +116,7 @@ public:
     {
       float blockRate = sampleRate / overlapSize;
       float lengthInBlocks = decaySeconds * blockRate;
-      decayDec = 1.0 + logf(exponentialDecayMin) / (lengthInBlocks + 20);
+      decayDec = 1.0 + logf(0.0001f) / (lengthInBlocks + 20);
     }
   }
 
