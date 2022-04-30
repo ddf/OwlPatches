@@ -1,11 +1,16 @@
 #include "SignalGenerator.h"
-#include "FastFourierTransform.h"
 #include "Window.h"
 #include "SimpleArray.h"
 #include "FloatArray.h"
 #include "ComplexFloatArray.h"
 #include "ExponentialDecayEnvelope.h"
 #include "Interpolator.h"
+
+#include "FastFourierTransform.h"
+typedef FastFourierTransform FFT;
+
+//#include "KissFFT.h"
+//typedef KissFFT FFT;
 
 static const int kSpectralBandPartials = 40;
 
@@ -23,7 +28,7 @@ class SpectralSignalGenerator : public SignalGenerator
     int   partials[kSpectralBandPartials];
   };
 
-  FastFourierTransform* fft;
+  FFT* fft;
   Window window;
 
   SimpleArray<Band> bands;
@@ -50,7 +55,7 @@ class SpectralSignalGenerator : public SignalGenerator
   const float spreadBandsMax;
 
 public:
-  SpectralSignalGenerator(FastFourierTransform* fft, float sampleRate, Band* bandsData,
+  SpectralSignalGenerator(FFT* fft, float sampleRate, Band* bandsData,
                           float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
                           ComplexFloat* complexData, float* inverseData, int blockSize,
                           float* windowData, int windowSize,
@@ -183,7 +188,7 @@ public:
     ComplexFloat* complexData = new ComplexFloat[blockSize];
     float* outputData = new float[outputSize];
     Window window = Window::create(Window::TriangularWindow, blockSize);
-    return new SpectralSignalGenerator(FastFourierTransform::create(blockSize), sampleRate,
+    return new SpectralSignalGenerator(FFT::create(blockSize), sampleRate,
       bandsData, brightData, spreadData, magData, specSize,
       complexData, inverseData, blockSize,
       window.getData(), blockSize,
@@ -193,7 +198,7 @@ public:
 
   static void destroy(SpectralSignalGenerator* spectralGen)
   {
-    FastFourierTransform::destroy(spectralGen->fft);
+    FFT::destroy(spectralGen->fft);
     delete[] spectralGen->bands.getData();
     delete[] spectralGen->specBright.getData();
     delete[] spectralGen->specSpread.getData();

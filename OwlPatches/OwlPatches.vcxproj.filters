@@ -99,5 +99,16 @@
     <ClInclude Include="Reverb.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SpectralHarpLichPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="KissFFT.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="KissFFT.cpp">
+      <Filter>Header Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

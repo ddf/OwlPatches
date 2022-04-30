@@ -70,16 +70,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -142,6 +142,7 @@
     <ClInclude Include="CircularTexture.h" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="Easing.h" />
+    <ClInclude Include="KissFFT.h" />
     <ClInclude Include="Frequency.h" />
     <ClInclude Include="GaussianBlur2DGeniusPatch.hpp" />
     <ClInclude Include="GaussianBlur2DLichPatch.hpp" />
@@ -159,9 +160,13 @@
     <ClInclude Include="Reverb.h" />
     <ClInclude Include="SkewedValue.h" />
     <ClInclude Include="SpectralHarpGeniusPatch.hpp" />
+    <ClInclude Include="SpectralHarpLichPatch.hpp" />
     <ClInclude Include="SpectralHarpPatch.hpp" />
     <ClInclude Include="SpectralSignalGenerator.h" />
     <ClInclude Include="TapTempo.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="KissFFT.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
