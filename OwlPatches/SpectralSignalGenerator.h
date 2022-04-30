@@ -62,7 +62,7 @@ public:
                           float* outputData, int outputSize)
     : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
-    , overlapSize(blockSize/2), spectralMagnitude(blockSize / 64), specBright(specBrightData, specSize)
+    , overlapSize(blockSize/2), spectralMagnitude(blockSize/64), specBright(specBrightData, specSize)
     , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
     , output(outputData, outputSize), outIndex(0), phaseIdx(0)
