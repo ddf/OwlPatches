@@ -27,9 +27,9 @@ protected:
   static const PatchParameterId inCrush = PARAMETER_H;
 
   static const PatchParameterId inWidth = PARAMETER_AA;
-  static const PatchParameterId inReverbTime = PARAMETER_AB;
-  static const PatchParameterId inReverbTone = PARAMETER_AC;
-  static const PatchParameterId inReverbBlend = PARAMETER_AD;
+  static const PatchParameterId inReverbBlend = PARAMETER_AB;
+  static const PatchParameterId inReverbTime = PARAMETER_AC;
+  static const PatchParameterId inReverbTone = PARAMETER_AD;
 
   static const PatchParameterId outStrumX = PARAMETER_AE;
   static const PatchParameterId outStrumY = PARAMETER_AF;
