@@ -10,7 +10,7 @@
 #include "Interpolator.h"
 #include "Easing.h"
 
-template<int spectrumSize, typename PatchClass = Patch>
+template<int spectrumSize, bool reverb_enabled, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
   using SpectralGen = SpectralSignalGenerator<false>;
@@ -86,8 +86,12 @@ public:
   {
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
-    diffuser = Diffuser::create();
-    reverb = Reverb::create(getSampleRate());
+
+    if (reverb_enabled)
+    {
+      diffuser = Diffuser::create();
+      reverb = Reverb::create(getSampleRate());
+    }
 
     midiNotes = new MidiMessage[128];
     memset(midiNotes, 0, sizeof(MidiMessage)*128);
@@ -100,10 +104,13 @@ public:
     registerParameter(inCrush, "Crush");
     registerParameter(inTuning, "Tuning");
     registerParameter(inDensity, "Density");
-    registerParameter(inWidth, "Width");
-    registerParameter(inReverbTime, "Verb Time");
-    registerParameter(inReverbTone, "Verb Tone");
-    registerParameter(inReverbBlend, "Verb Blend");
+    if (reverb_enabled)
+    {
+      registerParameter(inWidth, "Width");
+      registerParameter(inReverbTime, "Verb Time");
+      registerParameter(inReverbTone, "Verb Tone");
+      registerParameter(inReverbBlend, "Verb Blend");
+    }
 
     registerParameter(outStrumX, "Strum X>");
     registerParameter(outStrumY, "Strum Y>");
@@ -112,15 +119,22 @@ public:
     setParameterValue(inHarpOctaves, 1.0f);
     setParameterValue(inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
     setParameterValue(inDensity, 1.0f);
-    setParameterValue(inReverbTone, 1.0f);
+
+    if (reverb_enabled)
+    {
+      setParameterValue(inReverbTone, 1.0f);
+    }
   }
 
   ~SpectralHarpPatch()
   {
     SpectralGen::destroy(spectralGen);
     BitCrush::destroy(bitCrusher);
-    Diffuser::destroy(diffuser);
-    Reverb::destroy(reverb);
+    if (reverb_enabled)
+    {
+      Diffuser::destroy(diffuser);
+      Reverb::destroy(reverb);
+    }
     delete[] midiNotes;
   }
 
@@ -174,10 +188,14 @@ public:
     decay = Interpolator::linear(decayMin, decayMax, getParameterValue(inDecay));
     brightness = getParameterValue(inBrightness);
     crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(inCrush));
-    stereoWidth = getParameterValue(inWidth);
-    reverbTime = 0.35f + 0.6f*getParameterValue(inReverbTime);
-    reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(inReverbTone));
-    reverbBlend = getParameterValue(inReverbBlend) * 0.56f;
+
+    if (reverb_enabled)
+    {
+      stereoWidth = getParameterValue(inWidth);
+      reverbTime = 0.35f + 0.6f*getParameterValue(inReverbTime);
+      reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(inReverbTone));
+      reverbBlend = getParameterValue(inReverbBlend) * 0.56f;
+    }
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
@@ -228,18 +246,21 @@ public:
 
     left.copyTo(right);
 
-    diffuser->setAmount(stereoWidth);
-    diffuser->process(audio, audio);
+    if (reverb_enabled)
+    {
+      diffuser->setAmount(stereoWidth);
+      diffuser->process(audio, audio);
 
-    float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
-    float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
+      float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
+      float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
 
-    reverb->setDiffusion(0.7f);
-    reverb->setInputGain(reverbInputGain);
-    reverb->setReverbTime(reverbTime);
-    reverb->setLowPass(reverbTone);
-    reverb->setAmount(reverbBlend);
-    reverb->process(audio, audio);
+      reverb->setDiffusion(0.7f);
+      reverb->setInputGain(reverbInputGain);
+      reverb->setReverbTime(reverbTime);
+      reverb->setLowPass(reverbTone);
+      reverb->setAmount(reverbBlend);
+      reverb->process(audio, audio);
+    }
 
     setParameterValue(outStrumX, strumX);
     setParameterValue(outStrumY, strumY);
