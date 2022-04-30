@@ -119,6 +119,10 @@ public:
     setParameterValue(inHarpOctaves, 1.0f);
     setParameterValue(inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
     setParameterValue(inDensity, 1.0f);
+    setParameterValue(inSpread, 0.0f);
+    setParameterValue(inBrightness, 0.0f);
+    setParameterValue(inCrush, 0.0f);
+    setParameterValue(inTuning, 0.0f);
 
     if (reverb_enabled)
     {
