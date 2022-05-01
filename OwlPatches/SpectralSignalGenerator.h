@@ -42,7 +42,7 @@ class SpectralSignalGenerator : public SignalGenerator
   FloatArray specMag;
   ComplexFloatArray complex;
   FloatArray inverse;
-  FloatArray output;
+  FloatArray outputBuffer;
   int outIndex;
   int phaseIdx;
 
@@ -69,7 +69,7 @@ public:
     , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
     , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
-    , output(outputData, outputSize), outIndex(0), outIndexMask(outputSize-1), phaseIdx(0)
+    , outputBuffer(outputData, outputSize), outIndex(0), outIndexMask(outputSize-1), phaseIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
     setDecay(1.0f);
@@ -100,7 +100,7 @@ public:
     specMag.clear();
     complex.clear();
     inverse.clear();
-    output.clear();
+    outputBuffer.clear();
   }
 
   void setSpread(float val)
@@ -165,20 +165,55 @@ public:
       {
         int ind = (s + outIndex) & outIndexMask;
 
-        output[ind] += inverse[s];
+        outputBuffer[ind] += inverse[s];
       }
 
       phaseIdx ^= 1;
     }
 
-    float result = output[outIndex];
-    output[outIndex++] = 0;
+    float result = outputBuffer[outIndex];
+    outputBuffer[outIndex++] = 0;
     outIndex &= outIndexMask;
 
     return result;
   }
 
-  using SignalGenerator::generate;
+  void generate(FloatArray output) override
+  {
+    const int op = outIndex & overlapSizeMask;
+
+    // transfer bands into spread array halfway through the overlap
+    // so that we do this work in a different block than synthesis
+    if (op == overlapSizeHalf)
+    {
+      fillSpread();
+    }
+    else if (op == 0)
+    {
+      fillComplex();
+
+      fft->ifft(complex, inverse);
+      window.apply(inverse);
+
+      for (int s = 0; s < inverse.getSize(); ++s)
+      {
+        int ind = (s + outIndex) & outIndexMask;
+
+        outputBuffer[ind] += inverse[s];
+      }
+
+      phaseIdx ^= 1;
+    }
+
+    const int size = outputBuffer.getSize();
+    float* out = output.getData();
+    while (size--)
+    {
+      *out++ = outputBuffer[outIndex];
+      outputBuffer[outIndex++] = 0;
+      outIndex &= outIndexMask;
+    }
+  }
 
   static SpectralSignalGenerator* create(int blockSize, float sampleRate)
   {
@@ -209,7 +244,7 @@ public:
     delete[] spectralGen->specMag.getData();
     delete[] spectralGen->inverse.getData();
     delete[] spectralGen->complex.getData();
-    delete[] spectralGen->output.getData();
+    delete[] spectralGen->outputBuffer.getData();
     delete[] spectralGen->window.getData();
     delete spectralGen;
   }
