@@ -215,7 +215,7 @@ public:
     out = output.getData();
     while (size--)
     {
-      *out++ += outputBufferB * window[outIndexB];
+      *out++ += outputBufferB[outIndexB] * window[outIndexB];
       outIndexB = (outIndexB+1) & outIndexMask;
     }
   }
