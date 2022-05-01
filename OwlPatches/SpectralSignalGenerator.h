@@ -165,8 +165,7 @@ public:
         output[ind] += inverse[s];
       }
 
-      if (phaseIdx == 0) phaseIdx = 1;
-      else phaseIdx = 0;
+      phaseIdx ^= 1;
     }
 
     float result = output[outIndex];
