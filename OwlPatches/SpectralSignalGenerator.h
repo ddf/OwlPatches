@@ -181,16 +181,15 @@ public:
 
   void generate(FloatArray output) override
   {
-    const int opA = outIndexA & overlapSizeMask;
-    const int opB = outIndexB & overlapSizeMask;
+    const int op = outIndexA & overlapSizeMask;
 
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
-    if (opA == overlapSizeHalf || opB == overlapSizeHalf)
+    if (op == overlapSizeHalf)
     {
       fillSpread();
     }
-    else if (opA == 0 || opB == 0)
+    else if (op == 0)
     {
       fillComplex();
 
