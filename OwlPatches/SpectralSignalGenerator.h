@@ -184,7 +184,7 @@ public:
     const int blockSize = complex.getSize();
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
-    if (outIndexA+overlapSize == blockSize || outIndexB+overlapSize == blockSize)
+    if (outIndexA+overlapSizeHalf == blockSize || outIndexB+overlapSizeHalf == blockSize)
     {
       fillSpread();
     }
