@@ -205,7 +205,7 @@ public:
       phaseIdx ^= 1;
     }
 
-    const int size = outputBuffer.getSize();
+    int size = outputBuffer.getSize();
     float* out = output.getData();
     while (size--)
     {
