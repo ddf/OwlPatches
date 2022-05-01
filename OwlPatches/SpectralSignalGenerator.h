@@ -12,7 +12,7 @@ typedef FastFourierTransform FFT;
 //#include "KissFFT.h"
 //typedef KissFFT FFT;
 
-static const int kSpectralBandPartials = 1;
+static const int kSpectralBandPartials = 40;
 
 template<bool linearDecay = true>
 class SpectralSignalGenerator : public SignalGenerator
