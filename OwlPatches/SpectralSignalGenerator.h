@@ -231,7 +231,6 @@ public:
   static SpectralSignalGenerator* create(int blockSize, float sampleRate)
   {
     const int specSize = blockSize / 2;
-    const int outputSize = blockSize * 2;
     Band* bandsData = new Band[specSize];
     float* brightData = new float[specSize];
     float* spreadData = new float[specSize];
@@ -239,7 +238,7 @@ public:
     float* outputA = new float[blockSize];
     float* outputB = new float[blockSize];
     Window window  = Window::create(Window::TriangularWindow, blockSize);
-    ComplexFloat* complexData = new ComplexFloat[blockSize]
+    ComplexFloat* complexData = new ComplexFloat[blockSize];
     return new SpectralSignalGenerator(FFT::create(blockSize), sampleRate,
       bandsData, brightData, spreadData, magData, specSize,
       complexData, outputA, outputB, window.getData(), blockSize
