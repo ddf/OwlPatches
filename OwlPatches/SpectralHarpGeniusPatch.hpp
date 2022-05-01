@@ -7,7 +7,7 @@ class SpectralHarpGeniusPatch : public BasePatch
 {
   const int padding = 4;
   float stringAnimation = 0;
-  float highElapsedTime;
+  float highElapsedTime = 0;
 
 public:
 
