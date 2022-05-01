@@ -144,14 +144,14 @@ public:
   {
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
-    //if (outIndex % overlapSize == overlapSize / 2)
-    //{
-    //  fillSpread();
-    //}
+    if (outIndex % overlapSize == overlapSize / 2)
+    {
+      fillSpread();
+    }
 
     if (outIndex % overlapSize == 0)
     {
-      //fillComplex();
+      fillComplex();
 
       fft->ifft(complex, inverse);
       window.apply(inverse);
