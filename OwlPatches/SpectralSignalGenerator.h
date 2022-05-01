@@ -181,15 +181,15 @@ public:
 
   void generate(FloatArray output) override
   {
-    const int op = outIndexA & overlapSizeMask;
-
+    const int blockSize = complex.getSize();
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
-    if (op == overlapSizeHalf)
+    if (outIndexA+overlapSize == blockSize || outIndexB+overlapSize == blockSize)
     {
       fillSpread();
     }
-    else if (op == 0)
+
+    if (outIndexA == 0 || outIndexB == 0)
     {
       fillComplex();
 
@@ -222,7 +222,7 @@ public:
     while (size--)
     {
       *out++ += outB[outIndexB] * window[outIndexB];
-      outIndexB = (outIndexB + 1) & outIndexMask;
+      outIndexB = (outIndexB+1) & outIndexMask;
     }
   }
 
