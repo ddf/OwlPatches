@@ -193,14 +193,13 @@ public:
       fillComplex();
 
       fft->ifft(complex, inverse);
-      //window.apply(inverse);
 
-      for (int s = 0; s < inverse.getSize(); ++s)
-      {
-        int ind = (s + outIndex) & outIndexMask;
+      //for (int s = 0; s < inverse.getSize(); ++s)
+      //{
+      //  int ind = (s + outIndex) & outIndexMask;
 
-        outputBuffer[ind] += inverse[s] * window[s];
-      }
+      //  outputBuffer[ind] += inverse[s] * window[s];
+      //}
 
       phaseIdx ^= 1;
     }
