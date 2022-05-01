@@ -411,7 +411,7 @@ private:
     {
       b.decay *= decayDec;
     }
-    if (b.decay > 0)
+    //if (b.decay > 0)
     {
       float a = b.decay*b.amplitude;
       specBright[idx] += a;
