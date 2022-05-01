@@ -54,6 +54,8 @@ class SpectralSignalGenerator : public SignalGenerator
   const int   spectralMagnitude;
   const float spreadBandsMax;
 
+  const int outIndexMask;
+
 public:
   SpectralSignalGenerator(FFT* fft, float sampleRate, Band* bandsData,
                           float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
@@ -65,7 +67,7 @@ public:
     , overlapSize(blockSize/2), spectralMagnitude(blockSize/64), specBright(specBrightData, specSize)
     , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
-    , output(outputData, outputSize), outIndex(0), phaseIdx(0)
+    , output(outputData, outputSize), outIndex(0), outIndexMask(outputSize-1), phaseIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
     setDecay(1.0f);
@@ -158,7 +160,7 @@ public:
 
       for (int s = 0; s < inverse.getSize(); ++s)
       {
-        int ind = (s + outIndex) % output.getSize();
+        int ind = (s + outIndex) & outIndexMask;
 
         output[ind] += inverse[s];
       }
@@ -168,8 +170,8 @@ public:
     }
 
     float result = output[outIndex];
-    output[outIndex] = 0;
-    outIndex = (outIndex + 1) % output.getSize();
+    output[outIndex++] = 0;
+    outIndex &= outIndexMask;
 
     return result;
   }
