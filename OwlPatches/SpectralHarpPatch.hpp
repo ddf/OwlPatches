@@ -219,20 +219,20 @@ public:
       strumY = amplitude;
     }
 
-    //for (int i = 0; i < blockSize; ++i)
-    //{
-    //  if (i == gateOnAtSample) gateState = true;
-    //  if (i == gateOffAtSample) gateState = false;
+    for (int i = 0; i < blockSize; ++i)
+    {
+      if (i == gateOnAtSample) gateState = true;
+      if (i == gateOffAtSample) gateState = false;
 
-    //  if (gateState)
-    //  {
-    //    float location = left[i] * 0.5f + 0.5f;
-    //    float amplitude = right[i] * 0.5f + 0.5f;
-    //    pluck(spectralGen, location, amplitude);
-    //    strumX = fmax(strumX, location);
-    //    strumY = fmax(strumY, amplitude);
-    //  }
-    //}
+      if (gateState)
+      {
+        float location = left[i] * 0.5f + 0.5f;
+        float amplitude = right[i] * 0.5f + 0.5f;
+        pluck(spectralGen, location, amplitude);
+        strumX = fmax(strumX, location);
+        strumY = fmax(strumY, amplitude);
+      }
+    }
     
     gateOnAtSample = -1;
     gateOffAtSample = -1;
