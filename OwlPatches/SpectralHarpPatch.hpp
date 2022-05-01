@@ -18,12 +18,12 @@ class SpectralHarpPatch : public PatchClass
 
 protected:
   static const PatchParameterId inHarpFundamental = PARAMETER_A;
-  static const PatchParameterId inHarpOctaves = PARAMETER_B;
-  static const PatchParameterId inDensity = PARAMETER_C;
-  static const PatchParameterId inTuning = PARAMETER_D;
-  static const PatchParameterId inDecay = PARAMETER_E;
-  static const PatchParameterId inSpread = PARAMETER_F;
-  static const PatchParameterId inBrightness = PARAMETER_G;
+  static const PatchParameterId inHarpOctaves = PARAMETER_E;
+  static const PatchParameterId inDensity = PARAMETER_F;
+  static const PatchParameterId inTuning = PARAMETER_G;
+  static const PatchParameterId inDecay = PARAMETER_B;
+  static const PatchParameterId inSpread = PARAMETER_C;
+  static const PatchParameterId inBrightness = PARAMETER_D;
   static const PatchParameterId inCrush = PARAMETER_H;
 
   static const PatchParameterId inWidth = PARAMETER_AA;
