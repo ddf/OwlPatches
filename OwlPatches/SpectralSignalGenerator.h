@@ -41,10 +41,11 @@ class SpectralSignalGenerator : public SignalGenerator
 
   FloatArray specMag;
   ComplexFloatArray complex;
-  FloatArray outputBuffers[2];
-  int bufferIdx;
+  FloatArray outputBufferA;
+  FloatArray outputBufferB;
   int outIndexA;
   int outIndexB;
+  int phaseIdx;
 
   const float sampleRate;
   const float oneOverSampleRate;
@@ -68,11 +69,10 @@ public:
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
     , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
     , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
-    , complex(complexData, blockSize), outIndexA(0), outIndexB(overlapSize), outIndexMask(blockSize-1), bufferIdx(0)
+    , complex(complexData, blockSize), outputBufferA(outputDataA, blockSize), outputBufferB(outputDataB, blockSize)
+    , outIndexA(0), outIndexB(overlapSize), outIndexMask(blockSize-1), phaseIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
-    outputBuffers[0] = FloatArray(outputDataA, blockSize);
-    outputBuffers[1] = FloatArray(outputDataB, blockSize);
     setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
     {
@@ -100,8 +100,8 @@ public:
     specSpread.clear();
     specMag.clear();
     complex.clear();
-    outputBuffers[0].clear();
-    outputBuffers[1].clear();
+    outputBufferA.clear();
+    outputBufferB.clear();
   }
 
   void setSpread(float val)
@@ -188,40 +188,34 @@ public:
     {
       fillSpread();
     }
-
-    if (outIndexA == 0 || outIndexB == 0)
+    
+    if (outIndexA == 0)
     {
+      phaseIdx = 0;
       fillComplex();
-
-      FloatArray buffer = outputBuffers[bufferIdx];
-      fft->ifft(complex, buffer);
-      //window.apply(buffer)
-
-      //for (int s = 0; s < inverse.getSize(); ++s)
-      //{
-      //  int ind = (s + outIndex) & outIndexMask;
-
-      //  outputBuffer[ind] += inverse[s] * window[s];
-      //}
-
-      bufferIdx ^= 1;
+      fft->ifft(complex, outputBufferA);
+    }
+    
+    if (outIndexB == 0)
+    {
+      phaseIdx = 1;
+      fillComplex();
+      fft->ifft(complex, outputBufferB);
     }
 
     int size = output.getSize();
     float* out = output.getData();
-    float* outA = outputBuffers[0];
     while (size--)
     {
-      *out++ = outA[outIndexA] * window[outIndexA];
+      *out++ = outputBufferA[outIndexA] * window[outIndexA];
       outIndexA = (outIndexA+1) & outIndexMask;
     }
 
     size = output.getSize();
     out = output.getData();
-    float* outB = outputBuffers[1];
     while (size--)
     {
-      *out++ += outB[outIndexB] * window[outIndexB];
+      *out++ += outputBufferB * window[outIndexB];
       outIndexB = (outIndexB+1) & outIndexMask;
     }
   }
@@ -250,8 +244,8 @@ public:
     delete[] spectralGen->specBright.getData();
     delete[] spectralGen->specSpread.getData();
     delete[] spectralGen->specMag.getData();
-    delete[] spectralGen->outputBuffers[0].getData();
-    delete[] spectralGen->outputBuffers[1].getData();
+    delete[] spectralGen->outputBufferA.getData();
+    delete[] spectralGen->outputBufferB.getData();
     delete[] spectralGen->window.getData();
     delete[] spectralGen->complex.getData();
     delete spectralGen;
@@ -367,7 +361,7 @@ private:
       // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
 
       // done with this band, we can construct the complex representation.
-      complex[i] = bands[i].complex[bufferIdx] * specMag[i];
+      complex[i] = bands[i].complex[phaseIdx] * specMag[i];
     }
   }
 
