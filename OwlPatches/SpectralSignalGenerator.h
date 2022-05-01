@@ -144,14 +144,14 @@ public:
   {
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
-    if (outIndex % overlapSize == overlapSize / 2)
-    {
-      fillSpread();
-    }
+    //if (outIndex % overlapSize == overlapSize / 2)
+    //{
+    //  fillSpread();
+    //}
 
     if (outIndex % overlapSize == 0)
     {
-      fillComplex();
+      //fillComplex();
 
       fft->ifft(complex, inverse);
       window.apply(inverse);
@@ -339,24 +339,24 @@ private:
 
     // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
     // adapted from ExponentialDecayEnvelope
-    //float spreadMult = 1.0 + (logf(0.00001f) - logf(1.0f)) / (spreadBandsMax*spread + 12);
-    //spreadMult *= spreadMult;
-    //float pi = 0;
-    //float pj = 0;
-    //int count = specSize - 1;
-    //for (int i = 1; i < count; ++i)
-    //{
-    //  float ci = specBright[i];
-    //  specSpread[i] += ci + pi;
-    //  pi = max(ci, pi)*spreadMult;
+    float spreadMult = 1.0 + (logf(0.00001f) - logf(1.0f)) / (spreadBandsMax*spread + 12);
+    spreadMult *= spreadMult;
+    float pi = 0;
+    float pj = 0;
+    int count = specSize - 1;
+    for (int i = 1; i < count; ++i)
+    {
+      float ci = specBright[i];
+      specSpread[i] += ci + pi;
+      pi = max(ci, pi)*spreadMult;
 
-    //  // we don't add in bright on the backwards pass
-    //  // because it gets added in the forward pass
-    //  int j = count - i;
-    //  float cj = specBright[j];
-    //  specSpread[j] += pj;
-    //  pj = max(cj, pj)*spreadMult;
-    //}
+      // we don't add in bright on the backwards pass
+      // because it gets added in the forward pass
+      int j = count - i;
+      float cj = specBright[j];
+      specSpread[j] += pj;
+      pj = max(cj, pj)*spreadMult;
+    }
   }
 
   void processBand(int idx)
