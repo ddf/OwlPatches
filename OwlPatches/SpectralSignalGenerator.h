@@ -205,7 +205,7 @@ public:
       phaseIdx ^= 1;
     }
 
-    int size = outputBuffer.getSize();
+    int size = output.getSize();
     float* out = output.getData();
     while (size--)
     {
