@@ -70,7 +70,7 @@ public:
     , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
     , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), outputBufferA(outputDataA, blockSize), outputBufferB(outputDataB, blockSize)
-    , outIndexA(0), outIndexB(overlapSize), outIndexMask(blockSize-1), phaseIdx(0)
+    , outIndexA(0), outIndexB(blockSize/2), outIndexMask(blockSize-1), phaseIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
     setDecay(1.0f);
