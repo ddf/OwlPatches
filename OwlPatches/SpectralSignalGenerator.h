@@ -41,10 +41,10 @@ class SpectralSignalGenerator : public SignalGenerator
 
   FloatArray specMag;
   ComplexFloatArray complex;
-  FloatArray inverse;
-  FloatArray outputBuffer;
-  int outIndex;
-  int phaseIdx;
+  FloatArray outputBuffers[2];
+  int bufferIdx;
+  int outIndexA;
+  int outIndexB;
 
   const float sampleRate;
   const float oneOverSampleRate;
@@ -59,19 +59,21 @@ class SpectralSignalGenerator : public SignalGenerator
   const int outIndexMask;
 
 public:
-  SpectralSignalGenerator(FFT* fft, float sampleRate, Band* bandsData,
-                          float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
-                          ComplexFloat* complexData, float* inverseData, int blockSize,
-                          float* windowData, int windowSize,
-                          float* outputData, int outputSize)
-    : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
+  SpectralSignalGenerator(FFT* fft, float sampleRate, 
+                          // these need to all be the same length
+                          Band* bandsData, float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
+                          // these need to all be the same length
+                          ComplexFloat* complexData, float* outputDataA, float* outputDataB, float* windowData, int blockSize)
+    : fft(fft), window(windowData, blockSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
     , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
     , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
-    , complex(complexData, blockSize), inverse(inverseData, blockSize)
-    , outputBuffer(outputData, outputSize), outIndex(0), outIndexMask(outputSize-1), phaseIdx(0)
+    , complex(complexData, blockSize)
+    , outIndexA(0), outIndexB(overlapSize) outIndexMask(blockSize-1), bufferIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
+    outputBuffers[0] = FloatArray(outputDataA, blockSize)
+    outputBuffers[1] = FloatArray(outputDataB, blockSize);
     setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
     {
@@ -99,8 +101,8 @@ public:
     specSpread.clear();
     specMag.clear();
     complex.clear();
-    inverse.clear();
-    outputBuffer.clear();
+    outputBuffers[0].clear();
+    outputBuffers[1].clear();
   }
 
   void setSpread(float val)
@@ -144,43 +146,44 @@ public:
     }
   }
 
-  float generate() override
-  {
-    const int op = outIndex & overlapSizeMask;
+  //float generate() override
+  //{
+  //  const int op = outIndex & overlapSizeMask;
 
-    // transfer bands into spread array halfway through the overlap
-    // so that we do this work in a different block than synthesis
-    if (op == overlapSizeHalf)
-    {
-      fillSpread();
-    }
-    else if (op == 0)
-    {
-      fillComplex();
+  //  // transfer bands into spread array halfway through the overlap
+  //  // so that we do this work in a different block than synthesis
+  //  if (op == overlapSizeHalf)
+  //  {
+  //    fillSpread();
+  //  }
+  //  else if (op == 0)
+  //  {
+  //    fillComplex();
 
-      fft->ifft(complex, inverse);
-      window.apply(inverse);
+  //    fft->ifft(complex, inverse);
+  //    window.apply(inverse);
 
-      for (int s = 0; s < inverse.getSize(); ++s)
-      {
-        int ind = (s + outIndex) & outIndexMask;
+  //    for (int s = 0; s < inverse.getSize(); ++s)
+  //    {
+  //      int ind = (s + outIndex) & outIndexMask;
 
-        outputBuffer[ind] += inverse[s];
-      }
+  //      outputBuffer[ind] += inverse[s];
+  //    }
 
-      phaseIdx ^= 1;
-    }
+  //    bufferIdx ^= 1;
+  //  }
 
-    float result = outputBuffer[outIndex];
-    outputBuffer[outIndex++] = 0;
-    outIndex &= outIndexMask;
+  //  float result = outputBuffer[outIndex];
+  //  outputBuffer[outIndex++] = 0;
+  //  outIndex &= outIndexMask;
 
-    return result;
-  }
+  //  return result;
+  //}
 
   void generate(FloatArray output) override
   {
-    const int op = outIndex & overlapSizeMask;
+    const int opA = outIndexA & overlapSizeMask;
+    const int opB = outIndexB & overlapSizeMask;
 
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
@@ -192,26 +195,36 @@ public:
     {
       fillComplex();
 
-      fft->ifft(complex, inverse);
-      //window.apply(inverse);
+      FloatArray buffer = outputBuffers[bufferIdx];
+      fft->ifft(complex, buffer);
+      //window.apply(buffer)
 
-      for (int s = 0; s < inverse.getSize(); ++s)
-      {
-        int ind = (s + outIndex) & outIndexMask;
+      //for (int s = 0; s < inverse.getSize(); ++s)
+      //{
+      //  int ind = (s + outIndex) & outIndexMask;
 
-        outputBuffer[ind] += inverse[s] * window[s];
-      }
+      //  outputBuffer[ind] += inverse[s] * window[s];
+      //}
 
-      phaseIdx ^= 1;
+      bufferIdx ^= 1;
     }
 
     int size = output.getSize();
     float* out = output.getData();
+    float* outA = outputBuffers[0];
     while (size--)
     {
-      *out++ = outputBuffer[outIndex];
-      outputBuffer[outIndex++] = 0;
-      outIndex &= outIndexMask;
+      *out++ = outA[outIndexA] * window[outIndexA];
+      outIndexA = (outIndexA+1) & outIndexMask;
+    }
+
+    size = output.getSize();
+    out = output.getData();
+    float* outB = outputBuffers[1];
+    while (size--)
+    {
+      *out++ += outB[outIndexB] * window[outIndexB];
+      outIndexB = (outIndexB + 1) & outIndexMask;
     }
   }
 
@@ -223,15 +236,13 @@ public:
     float* brightData = new float[specSize];
     float* spreadData = new float[specSize];
     float* magData = new float[specSize];
-    float* inverseData = new float[blockSize];
-    ComplexFloat* complexData = new ComplexFloat[blockSize];
-    float* outputData = new float[outputSize];
-    Window window = Window::create(Window::TriangularWindow, blockSize);
+    float* outputA = new float[blockSize];
+    float* outputB = new float[blockSize];
+    Window window  = Window::create(Window::TriangularWindow, blockSize);
+    ComplexFloat* complexData = new ComplexFloat[blockSize]
     return new SpectralSignalGenerator(FFT::create(blockSize), sampleRate,
       bandsData, brightData, spreadData, magData, specSize,
-      complexData, inverseData, blockSize,
-      window.getData(), blockSize,
-      outputData, outputSize
+      complexData, outputA, outputB, window.getData(), blockSize
     );
   }
 
@@ -242,10 +253,10 @@ public:
     delete[] spectralGen->specBright.getData();
     delete[] spectralGen->specSpread.getData();
     delete[] spectralGen->specMag.getData();
-    delete[] spectralGen->inverse.getData();
-    delete[] spectralGen->complex.getData();
-    delete[] spectralGen->outputBuffer.getData();
+    delete[] spectralGen->outputBuffers[0].getData();
+    delete[] spectralGen->outputBuffers[1].getData();
     delete[] spectralGen->window.getData();
+    delete[] spectralGen->complex.getData();
     delete spectralGen;
   }
 
@@ -359,7 +370,7 @@ private:
       // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
 
       // done with this band, we can construct the complex representation.
-      complex[i] = bands[i].complex[phaseIdx] * specMag[i];
+      complex[i] = bands[i].complex[bufferIdx] * specMag[i];
     }
   }
 
