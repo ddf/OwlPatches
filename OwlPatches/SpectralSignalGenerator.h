@@ -68,8 +68,7 @@ public:
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
     , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
     , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
-    , complex(complexData, blockSize)
-    , outIndexA(0), outIndexB(overlapSize) outIndexMask(blockSize-1), bufferIdx(0)
+    , complex(complexData, blockSize), outIndexA(0), outIndexB(overlapSize), outIndexMask(blockSize-1), bufferIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
     outputBuffers[0] = FloatArray(outputDataA, blockSize)
