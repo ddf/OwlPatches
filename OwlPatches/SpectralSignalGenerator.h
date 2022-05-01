@@ -51,6 +51,8 @@ class SpectralSignalGenerator : public SignalGenerator
   const float bandWidth;
   const float halfBandWidth;
   const int   overlapSize;
+  const int   overlapSizeHalf;
+  const int   overlapSizeMask;
   const int   spectralMagnitude;
   const float spreadBandsMax;
 
@@ -64,8 +66,8 @@ public:
                           float* outputData, int outputSize)
     : fft(fft), window(windowData, windowSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
-    , overlapSize(blockSize/2), spectralMagnitude(blockSize/64), specBright(specBrightData, specSize)
-    , specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
+    , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
+    , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
     , complex(complexData, blockSize), inverse(inverseData, blockSize)
     , output(outputData, outputSize), outIndex(0), outIndexMask(outputSize-1), phaseIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
@@ -144,14 +146,15 @@ public:
 
   float generate() override
   {
+    const int op = outIndex & overlapSizeMask;
+
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
-    if (outIndex % overlapSize == overlapSize / 2)
+    if (op == overlapSizeHalf)
     {
       fillSpread();
     }
-
-    if (outIndex % overlapSize == 0)
+    else if (op == 0)
     {
       fillComplex();
 
