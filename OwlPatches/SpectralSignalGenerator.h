@@ -71,7 +71,7 @@ public:
     , complex(complexData, blockSize), outIndexA(0), outIndexB(overlapSize), outIndexMask(blockSize-1), bufferIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
-    outputBuffers[0] = FloatArray(outputDataA, blockSize)
+    outputBuffers[0] = FloatArray(outputDataA, blockSize);
     outputBuffers[1] = FloatArray(outputDataB, blockSize);
     setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
