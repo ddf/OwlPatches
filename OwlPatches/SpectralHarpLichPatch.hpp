@@ -1,6 +1,6 @@
 #include "SpectralHarpPatch.hpp"
 
-typedef SpectralHarpPatch<512, false, Patch> BasePatch;
+typedef SpectralHarpPatch<256, false, Patch> BasePatch;
 
 class SpectralHarpLichPatch : public BasePatch
 {
