@@ -193,6 +193,7 @@ public:
       fillComplex();
 
       fft->ifft(complex, inverse);
+      window.apply(inverse);
 
       //for (int s = 0; s < inverse.getSize(); ++s)
       //{
