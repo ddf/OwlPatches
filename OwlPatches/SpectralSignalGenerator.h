@@ -187,11 +187,11 @@ public:
 
     // transfer bands into spread array halfway through the overlap
     // so that we do this work in a different block than synthesis
-    if (op == overlapSizeHalf)
+    if (opA == overlapSizeHalf || opB == overlapSizeHalf)
     {
       fillSpread();
     }
-    else if (op == 0)
+    else if (opA == 0 || opB == 0)
     {
       fillComplex();
 
