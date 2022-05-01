@@ -351,17 +351,17 @@ private:
     for (int i = 1; i < specSize; ++i)
     {
       // grab the magnitude as set by our pluck with spread pass
-      float a = specSpread[i];
+      const float a = fmin(specSpread[i] * spectralMagnitude, spectralMagnitude);
 
       // copy accumulated result into the magnitude array, scaling by our max amplitude
-      specMag[i] = fmin(a * spectralMagnitude, spectralMagnitude);
+      specMag[i] = a;
 
       // #TODO probably sounds better to do the pitch-shift here?
       // At this point we have gAnaMagn and gAnaFreq from
       // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
 
       // done with this band, we can construct the complex representation.
-      complex[i] = bands[i].complex[phaseIdx] * specMag[i];
+      complex[i] = bands[i].complex[phaseIdx] * a;
     }
   }
 
@@ -415,19 +415,12 @@ private:
     {
       float a = b.decay*b.amplitude;
       specBright[idx] += a;
-      //addSinusoidWithSpread(b.frequency, a);
-      // add brightness if we have a decent signal to work with
-      static const float epsilon = 0.01f;
       for (int i = 0; i < kSpectralBandPartials && b.partials[i] < specSize; ++i)
       {
         int p = 2 + i;
         a *= brightness;
         int pidx = b.partials[i];
-        //if (pidx < specBright.getSize())
-        {
-          specBright[pidx] += a / p;
-        }
-        //addSinusoidWithSpread(b.partials[i], a / p);
+        specBright[pidx] += a / p;
       }
     }
   }
