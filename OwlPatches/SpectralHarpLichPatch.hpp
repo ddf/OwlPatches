@@ -19,10 +19,10 @@ class SpectralHarpLichPatch : public BasePatch
     {
       highElapsedTime = elapsed;
     }
-    else
-    {
-      highElapsedTime += (elapsed - highElapsedTime)*0.001f;
-    }
+    //else
+    //{
+    //  highElapsedTime += (elapsed - highElapsedTime)*0.001f;
+    //}
 
     debugMessage("CPU High: ", highElapsedTime);
   }
