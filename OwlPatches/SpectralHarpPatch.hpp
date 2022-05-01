@@ -246,7 +246,7 @@ public:
     }
 
     spectralGen->generate(left);
-    //bitCrusher->process(left, left);
+    bitCrusher->process(left, left);
 
     left.copyTo(right);
 
