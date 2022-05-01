@@ -375,7 +375,7 @@ private:
 
     for (int i = 1; i < specSize; ++i)
     {
-      processBand(i);
+      processBand(i, specSize);
     }
 
     // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
@@ -400,7 +400,7 @@ private:
     }
   }
 
-  void processBand(int idx)
+  void processBand(int idx, int specSize)
   {
     Band& b = bands[idx];
     if (linearDecay)
@@ -418,12 +418,12 @@ private:
       //addSinusoidWithSpread(b.frequency, a);
       // add brightness if we have a decent signal to work with
       static const float epsilon = 0.01f;
-      for (int i = 0; i < kSpectralBandPartials; ++i)
+      for (int i = 0; i < kSpectralBandPartials && b.partials[i] < specSize; ++i)
       {
         int p = 2 + i;
         a *= brightness;
         int pidx = b.partials[i];
-        if (pidx < specBright.getSize())
+        //if (pidx < specBright.getSize())
         {
           specBright[pidx] += a / p;
         }
