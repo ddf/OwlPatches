@@ -145,40 +145,6 @@ public:
     }
   }
 
-  //float generate() override
-  //{
-  //  const int op = outIndex & overlapSizeMask;
-
-  //  // transfer bands into spread array halfway through the overlap
-  //  // so that we do this work in a different block than synthesis
-  //  if (op == overlapSizeHalf)
-  //  {
-  //    fillSpread();
-  //  }
-  //  else if (op == 0)
-  //  {
-  //    fillComplex();
-
-  //    fft->ifft(complex, inverse);
-  //    window.apply(inverse);
-
-  //    for (int s = 0; s < inverse.getSize(); ++s)
-  //    {
-  //      int ind = (s + outIndex) & outIndexMask;
-
-  //      outputBuffer[ind] += inverse[s];
-  //    }
-
-  //    bufferIdx ^= 1;
-  //  }
-
-  //  float result = outputBuffer[outIndex];
-  //  outputBuffer[outIndex++] = 0;
-  //  outIndex &= outIndexMask;
-
-  //  return result;
-  //}
-
   void generate(FloatArray output) override
   {
     const int blockSize = complex.getSize();
