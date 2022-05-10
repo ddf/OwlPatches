@@ -79,13 +79,17 @@ public:
       bands[i].frequency = frequencyForIndex(i);
       bands[i].amplitude = 0;
       bands[i].phase = randf()*M_PI*2;
-      bands[i].complex[0].setPolar(1.0f, bands[i].phase);
+      // boost low frequencies and attenuate high frequencies with an equal loudness curve.
+      // attenuation of high frequencies is to try to prevent distortion that happens when 
+      // the spectrum is particularly overloaded in the high end.
+      float weight = bands[i].frequency < 6000.0f ? clamp(1.0f / aWeight(bands[i].frequency), 0.0f, 4.0f) : aWeight(bands[i].frequency);
+      bands[i].complex[0].setPolar(weight, bands[i].phase);
       // ODD bands need to be 180 out of phase every other buffer generation
       // because our overlap is half the size of the buffer generated.
       // this ensure that phase lines up for those sinusoids in every buffer.
       if (i % 2 == 1)
       {
-        bands[i].complex[1].setPolar(1.0f, bands[i].phase + M_PI);
+        bands[i].complex[1].setPolar(weight, bands[i].phase + M_PI);
       }
       else
       {
@@ -94,7 +98,9 @@ public:
 
       for (int p = 0; p < kSpectralBandPartials; ++p)
       {
-        bands[i].partials[p] = freqToIndex(bands[i].frequency*(2 + p));
+        float partialFreq = bands[i].frequency*(2 + p);
+        // only add partials most people can actually hear
+        bands[i].partials[p] = partialFreq < 16000.0f ? freqToIndex(partialFreq) : blockSize;
       }
     }
     specSpread.clear();
@@ -409,4 +415,16 @@ private:
     // of the band.
     return i * bandWidth;
   }
+
+  // cribbed from https://github.com/audiojs/a-weighting/blob/master/a.js
+  // this generates the a-weight for the given frequency,
+  // which would typically be used to shape a spectrum of analyzed sound before display,
+  // we use this to *boost* frequencies to create a sense of equal loudness (given equal plucked amplitude)
+  // across the spectrum when synthesizing.
+  float aWeight(float f) 
+  {
+    float f2 = f * f;
+    return 1.2588966 * 148840000 * f2*f2 /
+      ((f2 + 424.36) * sqrtf((f2 + 11599.29) * (f2 + 544496.41)) * (f2 + 148840000));
+  };
 };
