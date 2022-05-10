@@ -6,6 +6,7 @@
 #include "ExponentialDecayEnvelope.h"
 #include "Interpolator.h"
 #include "Easing.h"
+#include "EqualLoudnessCurves.h"
 
 #include "FastFourierTransform.h"
 typedef FastFourierTransform FFT;
@@ -83,7 +84,7 @@ public:
       // boost low frequencies and attenuate high frequencies with an equal loudness curve.
       // attenuation of high frequencies is to try to prevent distortion that happens when 
       // the spectrum is particularly overloaded in the high end.
-      float weight = bands[i].frequency < 6000.0f ? clamp(1.0f / aWeight(bands[i].frequency), 0.0f, 4.0f) : aWeight(bands[i].frequency);
+      float weight = bands[i].frequency < 6000.0f ? clamp(1.0f / elc::a(bands[i].frequency), 0.0f, 4.0f) : elc::a(bands[i].frequency);
       bands[i].complex[0].setPolar(weight, bands[i].phase);
       // ODD bands need to be 180 out of phase every other buffer generation
       // because our overlap is half the size of the buffer generated.
@@ -346,7 +347,7 @@ private:
     specBright.clear();
     specSpread.clear();
 
-    float amplitudeAdjust = Easing::expoOut(1.0f, 0.25f, spread);
+    float amplitudeAdjust = Easing::expoOut(1.0f, 0.5f, spread);
     for (int i = 1; i < specSize; ++i)
     {
       processBand(i, specSize, amplitudeAdjust);
@@ -371,6 +372,13 @@ private:
       float cj = specBright[j];
       specSpread[j] += pj;
       pj = max(cj, pj)*spreadMult;
+    }
+
+    const float maxMeanPower = 0.07f;
+    float meanPower = specSpread.getMean();
+    if (meanPower > maxMeanPower)
+    {
+      specSpread.multiply(maxMeanPower / meanPower);
     }
   }
 
@@ -417,16 +425,4 @@ private:
     // of the band.
     return i * bandWidth;
   }
-
-  // cribbed from https://github.com/audiojs/a-weighting/blob/master/a.js
-  // this generates the a-weight for the given frequency,
-  // which would typically be used to shape a spectrum of analyzed sound before display,
-  // we use this to *boost* frequencies to create a sense of equal loudness (given equal plucked amplitude)
-  // across the spectrum when synthesizing.
-  float aWeight(float f) 
-  {
-    float f2 = f * f;
-    return 1.2588966 * 148840000 * f2*f2 /
-      ((f2 + 424.36) * sqrtf((f2 + 11599.29) * (f2 + 544496.41)) * (f2 + 148840000));
-  };
 };
