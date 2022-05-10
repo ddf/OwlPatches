@@ -1,3 +1,5 @@
+#ifndef __EASING_H__
+#define __EASING_H__
 // good ole robert penner's easing equations
 // t is time
 // b is beginning value
@@ -14,3 +16,4 @@ namespace Easing
     return (end-begin) * (-powf(2, -10 * t / d) + 1) + begin;
   }
 }
+#endif // __EASING_H__

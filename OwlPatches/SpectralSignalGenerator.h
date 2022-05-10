@@ -5,6 +5,7 @@
 #include "ComplexFloatArray.h"
 #include "ExponentialDecayEnvelope.h"
 #include "Interpolator.h"
+#include "Easing.h"
 
 #include "FastFourierTransform.h"
 typedef FastFourierTransform FFT;
@@ -345,9 +346,10 @@ private:
     specBright.clear();
     specSpread.clear();
 
+    float amplitudeAdjust = Easing::expoOut(1.0f, 0.25f, spread);
     for (int i = 1; i < specSize; ++i)
     {
-      processBand(i, specSize);
+      processBand(i, specSize, amplitudeAdjust);
     }
 
     // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
@@ -372,7 +374,7 @@ private:
     }
   }
 
-  void processBand(int idx, int specSize)
+  void processBand(int idx, int specSize, float amplitudeAdjust)
   {
     Band& b = bands[idx];
     if (linearDecay)
@@ -385,7 +387,7 @@ private:
     }
     //if (b.decay > 0)
     {
-      float a = b.decay*b.amplitude;
+      float a = b.decay*b.amplitude*amplitudeAdjust;
       specBright[idx] += a;
       for (int i = 0; i < kSpectralBandPartials && b.partials[i] < specSize; ++i)
       {
