@@ -10,6 +10,26 @@
 #include "Interpolator.h"
 #include "Easing.h"
 
+struct SpectralHarpParameterIds
+{
+  PatchParameterId inHarpFundamental; // = PARAMETER_A;
+  PatchParameterId inHarpOctaves; // = PARAMETER_B;
+  PatchParameterId inDensity; // = PARAMETER_C;
+  PatchParameterId inTuning; // PARAMETER_D;
+  PatchParameterId inDecay; // = PARAMETER_E;
+  PatchParameterId inSpread; // = PARAMETER_F;
+  PatchParameterId inBrightness; // = PARAMETER_G;
+  PatchParameterId inCrush; // = PARAMETER_H;
+
+  PatchParameterId inWidth; // = PARAMETER_AA;
+  PatchParameterId inReverbBlend; // = PARAMETER_AB;
+  PatchParameterId inReverbTime; // = PARAMETER_AC;
+  PatchParameterId inReverbTone; // = PARAMETER_AD;
+
+  PatchParameterId outStrumX; // = PARAMETER_AE;
+  PatchParameterId outStrumY; // = PARAMETER_AF;
+};
+
 template<int spectrumSize, bool reverb_enabled, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
@@ -17,22 +37,7 @@ class SpectralHarpPatch : public PatchClass
   using BitCrush = BitCrusher<24>;
 
 protected:
-  static const PatchParameterId inHarpFundamental = PARAMETER_A;
-  static const PatchParameterId inHarpOctaves = PARAMETER_E;
-  static const PatchParameterId inDensity = PARAMETER_F;
-  static const PatchParameterId inTuning = PARAMETER_G;
-  static const PatchParameterId inDecay = PARAMETER_B;
-  static const PatchParameterId inSpread = PARAMETER_C;
-  static const PatchParameterId inBrightness = PARAMETER_D;
-  static const PatchParameterId inCrush = PARAMETER_H;
-
-  static const PatchParameterId inWidth = PARAMETER_AA;
-  static const PatchParameterId inReverbBlend = PARAMETER_AB;
-  static const PatchParameterId inReverbTime = PARAMETER_AC;
-  static const PatchParameterId inReverbTone = PARAMETER_AD;
-
-  static const PatchParameterId outStrumX = PARAMETER_AE;
-  static const PatchParameterId outStrumY = PARAMETER_AF;
+  const SpectralHarpParameterIds params;
 
   const float spreadMax = 1.0f;
   const float decayMin;
@@ -80,8 +85,8 @@ public:
   using PatchClass::getSampleRate;
   using PatchClass::isButtonPressed;
 
-  SpectralHarpPatch() : PatchClass()
-    , pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
+  SpectralHarpPatch(SpectralHarpParameterIds paramIds) : PatchClass()
+    , params(paramIds), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
   {
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
@@ -96,37 +101,37 @@ public:
     midiNotes = new MidiMessage[128];
     memset(midiNotes, 0, sizeof(MidiMessage)*128);
 
-    registerParameter(inHarpFundamental, "Harp Fund");
-    registerParameter(inHarpOctaves, "Harp Oct");
-    registerParameter(inSpread, "Spread");
-    registerParameter(inDecay, "Decay");
-    registerParameter(inBrightness, "Brightness");
-    registerParameter(inCrush, "Crush");
-    registerParameter(inTuning, "Tuning");
-    registerParameter(inDensity, "Density");
+    registerParameter(params.inHarpFundamental, "Harp Fund");
+    registerParameter(params.inHarpOctaves, "Harp Oct");
+    registerParameter(params.inSpread, "Spread");
+    registerParameter(params.inDecay, "Decay");
+    registerParameter(params.inBrightness, "Brightness");
+    registerParameter(params.inCrush, "Crush");
+    registerParameter(params.inTuning, "Tuning");
+    registerParameter(params.inDensity, "Density");
     if (reverb_enabled)
     {
-      registerParameter(inWidth, "Width");
-      registerParameter(inReverbTime, "Verb Time");
-      registerParameter(inReverbTone, "Verb Tone");
-      registerParameter(inReverbBlend, "Verb Blend");
+      registerParameter(params.inWidth, "Width");
+      registerParameter(params.inReverbTime, "Verb Time");
+      registerParameter(params.inReverbTone, "Verb Tone");
+      registerParameter(params.inReverbBlend, "Verb Blend");
     }
 
-    registerParameter(outStrumX, "Strum X>");
-    registerParameter(outStrumY, "Strum Y>");
+    registerParameter(params.outStrumX, "Strum X>");
+    registerParameter(params.outStrumY, "Strum Y>");
 
-    setParameterValue(inHarpFundamental, 0.0f);
-    setParameterValue(inHarpOctaves, 1.0f);
-    setParameterValue(inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
-    setParameterValue(inDensity, 1.0f);
-    setParameterValue(inSpread, 0.0f);
-    setParameterValue(inBrightness, 0.0f);
-    setParameterValue(inCrush, 0.0f);
-    setParameterValue(inTuning, 0.0f);
+    setParameterValue(params.inHarpFundamental, 0.0f);
+    setParameterValue(params.inHarpOctaves, 1.0f);
+    setParameterValue(params.inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
+    setParameterValue(params.inDensity, 1.0f);
+    setParameterValue(params.inSpread, 0.0f);
+    setParameterValue(params.inBrightness, 0.0f);
+    setParameterValue(params.inCrush, 0.0f);
+    setParameterValue(params.inTuning, 0.0f);
 
     if (reverb_enabled)
     {
-      setParameterValue(inReverbTone, 1.0f);
+      setParameterValue(params.inReverbTone, 1.0f);
     }
   }
 
@@ -181,25 +186,17 @@ public:
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
 
-    float harpFund = Interpolator::linear(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(inHarpFundamental));
-    float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(inHarpOctaves));
+    float harpFund = Interpolator::linear(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
+    float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
     bandLast = fmin(Frequency::ofMidiNote(harpFund + harpOctaves*12).asHz(), bandMax);
-    bandDensity = Interpolator::linear(densityMin, densityMax, getParameterValue(inDensity));
-    linLogLerp = getParameterValue(inTuning);
+    bandDensity = Interpolator::linear(densityMin, densityMax, getParameterValue(params.inDensity));
+    linLogLerp = getParameterValue(params.inTuning);
 
-    spread = getParameterValue(inSpread)*spreadMax;
-    decay = Interpolator::linear(decayMin, decayMax, getParameterValue(inDecay));
-    brightness = getParameterValue(inBrightness);
-    crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(inCrush));
-
-    if (reverb_enabled)
-    {
-      stereoWidth = getParameterValue(inWidth);
-      reverbTime = 0.35f + 0.6f*getParameterValue(inReverbTime);
-      reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(inReverbTone));
-      reverbBlend = getParameterValue(inReverbBlend) * 0.56f;
-    }
+    spread = getParameterValue(params.inSpread)*spreadMax;
+    decay = Interpolator::linear(decayMin, decayMax, getParameterValue(params.inDecay));
+    brightness = getParameterValue(params.inBrightness);
+    crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
@@ -252,6 +249,11 @@ public:
 
     if (reverb_enabled)
     {
+      stereoWidth = getParameterValue(params.inWidth);
+      reverbTime = 0.35f + 0.6f*getParameterValue(params.inReverbTime);
+      reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(params.inReverbTone));
+      reverbBlend = getParameterValue(params.inReverbBlend) * 0.56f;
+
       diffuser->setAmount(stereoWidth);
       diffuser->process(audio, audio);
 
@@ -266,8 +268,8 @@ public:
       reverb->process(audio, audio);
     }
 
-    setParameterValue(outStrumX, strumX);
-    setParameterValue(outStrumY, strumY);
+    setParameterValue(params.outStrumX, strumX);
+    setParameterValue(params.outStrumY, strumY);
   }
 
 protected:

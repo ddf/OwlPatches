@@ -3,6 +3,26 @@
 
 typedef SpectralHarpPatch<4096, true, MonochromeScreenPatch> BasePatch;
 
+static const SpectralHarpParameterIds spectraHarpGeniusParams = 
+{
+  .inHarpFundamental = PARAMETER_A,
+  .inHarpOctaves     = PARAMETER_B,
+  .inDensity         = PARAMETER_C,
+  .inTuning          = PARAMETER_D,
+  .inDecay           = PARAMETER_E,
+  .inSpread          = PARAMETER_F,
+  .inBrightness      = PARAMETER_G,
+  .inCrush           = PARAMETER_H,
+
+  .inWidth           = PARAMETER_AA,
+  .inReverbBlend     = PARAMETER_AB,
+  .inReverbTime      = PARAMETER_AC,
+  .inReverbTone      = PARAMETER_AD,
+
+  .outStrumX         = PARAMETER_AE,
+  .outStrumY         = PARAMETER_AF,
+};
+
 class SpectralHarpGeniusPatch : public BasePatch
 {
   const int padding = 4;
@@ -10,6 +30,7 @@ class SpectralHarpGeniusPatch : public BasePatch
   float highElapsedTime = 0;
 
 public:
+  SpectralHarpGeniusPatch() : BasePatch(spectraHarpGeniusParams) {}
 
   // returns CPU% as [0,1] value
   float getElapsedTime()
