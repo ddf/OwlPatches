@@ -43,8 +43,8 @@ protected:
   const float decayMin;
   const float decayMax;
   const float decayDefault = 0.5f;
-  const int   densityMin = 6.0f;
-  const int   densityMax = 121.0f;
+  const int   densityMin = 6;
+  const int   densityMax = 121;
   const float octavesMin = 2;
   const float octavesMax = 8;
   const int   fundamentalNoteMin = 36;
@@ -194,7 +194,9 @@ public:
     float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
     bandLast  = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
-    bandDensity = Interpolator::linear(densityMin, densityMax, getParameterValue(params.inDensity));
+    int bandFirstIdx = spectralGen->freqToIndex(bandFirst);
+    int bandLastIdx = spectralGen->freqToIndex(bandLast);
+    bandDensity = Interpolator::linear(densityMin, min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
     linLogLerp = getParameterValue(params.inTuning);
 
     spread = getParameterValue(params.inSpread)*spreadMax;
@@ -283,12 +285,18 @@ public:
   }
 
 protected:
-  float frequencyOfString(int stringNum, int stringCount, float lowFreqHz, float hiFreqHz, float linLogLerp)
+  // get the current string count based on the density setting
+  int getStringCount()
   {
-    const float t = (float)stringNum / stringCount;
+    return (int)(bandDensity+0.5f);
+  }
+
+  float frequencyOfString(int stringNum)
+  {
+    const float t = (float)stringNum / getStringCount();
     // convert first and last bands to midi notes and then do a linear interp, converting back to Hz at the end.
-    Frequency lowFreq = Frequency::ofHertz(lowFreqHz);
-    Frequency hiFreq = Frequency::ofHertz(hiFreqHz);
+    Frequency lowFreq = Frequency::ofHertz(bandFirst);
+    Frequency hiFreq = Frequency::ofHertz(bandLast);
     const float linFreq = Interpolator::linear(lowFreq.asHz(), hiFreq.asHz(), t);
     const float midiNote = Interpolator::linear(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
     const float logFreq = Frequency::ofMidiNote(midiNote).asHz();
@@ -301,9 +309,9 @@ protected:
 private:
   void pluck(SpectralGen* spectrum, float location, float amp)
   {
-    const int   numBands = roundf(bandDensity);
+    const int   numBands = getStringCount();
     const int   band = roundf(Interpolator::linear(0, numBands, location));
-    const float freq = frequencyOfString(band, numBands, bandFirst, bandLast, linLogLerp);
+    const float freq = frequencyOfString(band);
     spectrum->pluck(freq, amp);
   }
 
