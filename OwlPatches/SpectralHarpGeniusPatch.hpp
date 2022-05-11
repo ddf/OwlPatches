@@ -25,7 +25,6 @@ static const SpectralHarpParameterIds spectraHarpGeniusParams =
 
 class SpectralHarpGeniusPatch : public BasePatch
 {
-  const int padding = 4;
   float stringAnimation = 0;
   float highElapsedTime = 0;
 
@@ -66,7 +65,7 @@ public:
     for (int b = 0; b < numBands; ++b)
     {
       float freq = frequencyOfString(b);
-      float x = Interpolator::linear(padding, screen.getWidth() - padding, (float)b / (numBands-1));
+      float x = Interpolator::linear(0, screen.getWidth() - 1, (float)b / (numBands - 1));
       auto band = spectralGen->getBand(freq);
       band.phase += stringAnimation;
 

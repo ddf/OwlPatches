@@ -44,7 +44,7 @@ protected:
   const float decayMax;
   const float decayDefault = 0.5f;
   const int   densityMin = 6;
-  const int   densityMax = 121;
+  const int   densityMax = 129;
   const float octavesMin = 2;
   const float octavesMax = 8;
   const int   fundamentalNoteMin = 36;
