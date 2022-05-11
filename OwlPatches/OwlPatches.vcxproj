@@ -142,6 +142,7 @@
     <ClInclude Include="CircularTexture.h" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="Easing.h" />
+    <ClInclude Include="EqualLoudnessCurves.h" />
     <ClInclude Include="KissFFT.h" />
     <ClInclude Include="Frequency.h" />
     <ClInclude Include="GaussianBlur2DGeniusPatch.hpp" />
