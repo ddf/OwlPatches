@@ -1,4 +1,4 @@
-#include "MonoChromeScreenPatch.h"
+#include "MonochromeScreenPatch.h"
 #include "SpectralHarpPatch.hpp"
 
 typedef SpectralHarpPatch<4096, true, MonochromeScreenPatch> BasePatch;
