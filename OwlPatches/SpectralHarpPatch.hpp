@@ -89,6 +89,7 @@ public:
   SpectralHarpPatch(SpectralHarpParameterIds paramIds) : PatchClass()
     , params(paramIds), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
+    , bandFirst(1.f), bandLast(1.f)
   {
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
@@ -102,14 +103,16 @@ public:
     midiNotes = new MidiMessage[128];
     memset(midiNotes, 0, sizeof(MidiMessage)*128);
 
-    registerParameter(params.inHarpFundamental, "Harp Fund");
-    registerParameter(params.inHarpOctaves, "Harp Oct");
-    registerParameter(params.inSpread, "Spread");
+    // register Decay and Spread first
+    // so that these wind up as the default CV A and B parameters on Genius
     registerParameter(params.inDecay, "Decay");
+    registerParameter(params.inSpread, "Spread");
     registerParameter(params.inBrightness, "Brightness");
     registerParameter(params.inCrush, "Crush");
-    registerParameter(params.inTuning, "Tuning");
+    registerParameter(params.inHarpFundamental, "Fundamentl");
+    registerParameter(params.inHarpOctaves, "Octaves");
     registerParameter(params.inDensity, "Density");
+    registerParameter(params.inTuning, "Tuning");
     if (reverb_enabled)
     {
       registerParameter(params.inWidth, "Width");
@@ -190,7 +193,7 @@ public:
     float harpFund = Interpolator::linear(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
     float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
-    bandLast = fmin(Frequency::ofMidiNote(harpFund + harpOctaves*12).asHz(), bandMax);
+    bandLast  = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
     bandDensity = Interpolator::linear(densityMin, densityMax, getParameterValue(params.inDensity));
     linLogLerp = getParameterValue(params.inTuning);
 
