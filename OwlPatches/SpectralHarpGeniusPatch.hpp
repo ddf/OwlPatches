@@ -109,8 +109,8 @@ public:
     screen.print(bandLastStr);
     screen.print(" Hz");
 
-    screen.setCursor(screen.getWidth() / 2 - 16, top);
-    screen.print(highElapsedTime);
+    //screen.setCursor(screen.getWidth() / 2 - 16, top);
+    //screen.print(highElapsedTime);
     //screen.print(spectralGen->getMagnitudeMean());
 
     const float dt = 1.0f / 60.0f;
