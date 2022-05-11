@@ -37,6 +37,8 @@ class SpectralSignalGenerator : public SignalGenerator
   float decayDec;
   float spread;
   float brightness;
+  float volume;
+  float spectralMagnitude;
 
   FloatArray specBright;
   FloatArray specSpread;
@@ -56,7 +58,6 @@ class SpectralSignalGenerator : public SignalGenerator
   const int   overlapSize;
   const int   overlapSizeHalf;
   const int   overlapSizeMask;
-  const int   spectralMagnitude;
   const float spreadBandsMax;
 
   const int outIndexMask;
@@ -75,6 +76,7 @@ public:
     , outIndexA(0), outIndexB(blockSize/2), outIndexMask(blockSize-1), phaseIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
   {
+    setVolume(1.0f);
     setDecay(1.0f);
     for (int i = 0; i < specSize; ++i)
     {
@@ -84,7 +86,7 @@ public:
       // boost low frequencies and attenuate high frequencies with an equal loudness curve.
       // attenuation of high frequencies is to try to prevent distortion that happens when 
       // the spectrum is particularly overloaded in the high end.
-      float weight = bands[i].frequency < 6000.0f ? clamp(1.0f / elc::a(bands[i].frequency), 0.0f, 4.0f) : elc::a(bands[i].frequency);
+      float weight = bands[i].frequency < 1000.0f ? clamp(1.0f / elc::b(bands[i].frequency), 0.0f, 4.0f) : elc::b(bands[i].frequency);
       bands[i].complex[0].setPolar(weight, bands[i].phase);
       // ODD bands need to be 180 out of phase every other buffer generation
       // because our overlap is half the size of the buffer generated.
@@ -141,6 +143,11 @@ public:
   void setBrightness(float amt)
   {
     brightness = amt;
+  }
+
+  void setVolume(float amt)
+  {
+    volume = clamp(amt, 0.0f, 1.0f);
   }
 
   void pluck(float freq, float amp)
@@ -322,6 +329,7 @@ private:
 
     complex.clear();
 
+    spectralMagnitude = (complex.getSize() / 8.0f)*volume;
     for (int i = 1; i < specSize; ++i)
     {
       // grab the magnitude as set by our pluck with spread pass
@@ -347,10 +355,9 @@ private:
     specBright.clear();
     specSpread.clear();
 
-    float amplitudeAdjust = Easing::expoOut(1.0f, 0.5f, spread);
     for (int i = 1; i < specSize; ++i)
     {
-      processBand(i, specSize, amplitudeAdjust);
+      processBand(i, specSize);
     }
 
     // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
@@ -373,16 +380,9 @@ private:
       specSpread[j] += pj;
       pj = max(cj, pj)*spreadMult;
     }
-
-    const float maxMeanPower = 0.07f;
-    float meanPower = specSpread.getMean();
-    if (meanPower > maxMeanPower)
-    {
-      specSpread.multiply(maxMeanPower / meanPower);
-    }
   }
 
-  void processBand(int idx, int specSize, float amplitudeAdjust)
+  void processBand(int idx, int specSize)
   {
     Band& b = bands[idx];
     if (linearDecay)
@@ -395,7 +395,7 @@ private:
     }
     //if (b.decay > 0)
     {
-      float a = b.decay*b.amplitude*amplitudeAdjust;
+      float a = b.decay*b.amplitude;
       specBright[idx] += a;
       for (int i = 0; i < kSpectralBandPartials && b.partials[i] < specSize; ++i)
       {

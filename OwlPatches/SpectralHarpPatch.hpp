@@ -67,6 +67,7 @@ protected:
   SmoothFloat spread;
   SmoothFloat decay;
   SmoothFloat brightness;
+  SmoothFloat volume;
   SmoothFloat crush;
   SmoothFloat linLogLerp;
   SmoothFloat bandDensity;
@@ -198,9 +199,15 @@ public:
     brightness = getParameterValue(params.inBrightness);
     crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
 
+    // reduce volume based on combination of decay, spread, and brightness parameters
+    volume = Easing::expoOut(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
+                                        + 0.7f*getParameterValue(params.inSpread)
+                                        + 0.1f*getParameterValue(params.inBrightness));
+
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
     spectralGen->setBrightness(brightness);
+    spectralGen->setVolume(volume);
     bitCrusher->setBitRate(crush);
 
     float strumX = 0;
