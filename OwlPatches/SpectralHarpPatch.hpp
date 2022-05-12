@@ -1,3 +1,40 @@
+/**
+
+AUTHOR:
+    (c) 2022 Damien Quartz
+
+LICENSE:
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+DESCRIPTION:
+    Synthesizes sound by using overlap-app IFFT synthesis of spectral data.
+    Send a trigger to Gate input 1 or a gate to Gate input 2 to excite a 
+    frequency band in the sound spectrum based on the signal at L In and 
+    the Fundamental, Octaves, Density, and Tuning settings. Fundamental 
+    and Octaves are used to determine the portion of the spectrum that 
+    L In strums (shown at the top of the screen in Hz). Density determines 
+    how many "strings" are available in that range, acting like a kind of 
+    quantizer on the input. Tuning determines how strings are spaced within 
+    the frequency range from logarithmic to linear. Decay controls how 
+    quickly strings decay to silence after being plucked, Spread will excite 
+    nearby strings with each pluck, Brightness fades in overtones of plucked 
+    strings, and Crush reduces the sample rate of the harp output. Width 
+    stereoizes the harp output with a diffuser, which is followed by reverb 
+    with controls for blend, time, and tone.
+*/
+
 #define USE_MIDI_CALLBACK
 
 #include "Patch.h"
