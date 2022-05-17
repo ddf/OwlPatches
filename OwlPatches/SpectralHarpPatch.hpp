@@ -258,7 +258,7 @@ public:
     if (pluckAtSample != -1)
     {
       float location = left[pluckAtSample] * 0.5f + 0.5f;
-      float amplitude = right[pluckAtSample] * 0.5f + 0.5f;
+      float amplitude = clamp(right[pluckAtSample], 0.0f, 1.0f);
       pluck(spectralGen, location, amplitude);
       pluckAtSample = -1;
       strumX = location;
@@ -273,7 +273,7 @@ public:
       if (gateState)
       {
         float location = left[i] * 0.5f + 0.5f;
-        float amplitude = right[i] * 0.5f + 0.5f;
+        float amplitude = clamp(right[i], 0.0f, 1.0f);
         pluck(spectralGen, location, amplitude);
         strumX = fmax(strumX, location);
         strumY = fmax(strumY, amplitude);
