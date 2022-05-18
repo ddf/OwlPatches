@@ -27,12 +27,13 @@ DESCRIPTION:
     L In strums (shown at the top of the screen in Hz). Density determines 
     how many "strings" are available in that range, acting like a kind of 
     quantizer on the input. Tuning determines how strings are spaced within 
-    the frequency range from logarithmic to linear. Decay controls how 
-    quickly strings decay to silence after being plucked, Spread will excite 
-    nearby strings with each pluck, Brightness fades in overtones of plucked 
-    strings, and Crush reduces the sample rate of the harp output. Width 
-    stereoizes the harp output with a diffuser, which is followed by reverb 
-    with controls for blend, time, and tone.
+    the frequency range from logarithmic to linear. In R determines the
+    amplitude of a pluck and Decay controls how  quickly strings decay 
+    to silence after being plucked, Spread will excite nearby strings with 
+    each pluck, Brightness fades in overtones of plucked strings, and Crush 
+    reduces the sample rate of the harp output. Width stereoizes the harp 
+    output with a diffuser, which is followed by reverb with controls for 
+    blend, time, and tone.
 */
 
 #define USE_MIDI_CALLBACK
