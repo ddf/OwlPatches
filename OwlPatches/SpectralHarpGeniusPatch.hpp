@@ -90,8 +90,8 @@ public:
       screen.drawLine(x, bottom - 1, x, bottom, WHITE);
       for (int y = top+2; y < bottom - 1; ++y)
       {
-        float s1 = (float)y / height * M_PI * band.amplitude * 24 + band.phase;
-        if (fabsf(band.amplitude*sinf(s1)) > 0.25f)
+        float s1 = (float)y / height * M_PI * band.amplitude * 600 + band.phase;
+        if (fabsf(band.amplitude*sinf(s1)) > 0.004f)
         {
           screen.setPixel(x, y, WHITE);
         }
