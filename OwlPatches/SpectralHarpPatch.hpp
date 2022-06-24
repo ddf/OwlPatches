@@ -47,6 +47,7 @@ DESCRIPTION:
 #include "Frequency.h"
 #include "Interpolator.h"
 #include "Easing.h"
+#include "SmoothValue.h"
 
 struct SpectralHarpParameterIds
 {
