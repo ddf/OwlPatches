@@ -108,6 +108,18 @@
     <ClInclude Include="EqualLoudnessCurves.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CartesianFloat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CartesianFloatArray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="KnotOscillator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CartesianTransform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="KissFFT.cpp">

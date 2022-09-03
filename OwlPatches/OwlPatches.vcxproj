@@ -139,6 +139,9 @@
     <ClInclude Include="BlurKernel.h" />
     <ClInclude Include="BlurPatch.hpp" />
     <ClInclude Include="BlurSignalProcessor.h" />
+    <ClInclude Include="CartesianFloat.h" />
+    <ClInclude Include="CartesianFloatArray.h" />
+    <ClInclude Include="CartesianTransform.h" />
     <ClInclude Include="CircularTexture.h" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="Easing.h" />
@@ -153,6 +156,7 @@
     <ClInclude Include="GrainzPatch.hpp" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
+    <ClInclude Include="KnotOscillator.h" />
     <ClInclude Include="MarkovChain.hpp" />
     <ClInclude Include="MarkovPatch.hpp" />
     <ClInclude Include="Noise.hpp" />
