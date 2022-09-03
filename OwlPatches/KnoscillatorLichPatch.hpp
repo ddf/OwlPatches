@@ -53,7 +53,7 @@ private:
   int knotQ;
 
   float phaseS;
-  float phaseM;
+  float morph;
   float rotateX;
   float rotateY;
   float rotateZ;
@@ -95,7 +95,7 @@ private:
 public:
   KnoscillatorLichPatch()
     : hz(true), midinote(0), knotP(1), knotQ(1), gateHigh(0),
-    phaseS(0), phaseM(0), 
+    phaseS(0), morph(0), 
     rotateX(0), rotateY(0), rotateZ(0), 
     rotateOffX(0), rotateOffY(0), rotateOffZ(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
@@ -215,8 +215,8 @@ public:
     float tune = (midinote + getParameterValue(inPitch)*64 - 64) / 12.0f;
     hz.setTune(tune);
 
-    float morphTarget = getParameterValue(inMorph)*M_PI;
-    float morphStep = (morphTarget - phaseM) / getBlockSize();
+    float morphTarget = getParameterValue(inMorph);
+    float morphStep = (morphTarget - morph) / getBlockSize();
 
     float pRaw = 1 + getParameterValue(inKnotP) * 16;
     float pTarget = floor(pRaw);
@@ -260,7 +260,7 @@ public:
 
       knoscil->setFrequency(freq);
       knoscil->setPQ(freezeP ? 0 : p + dtp, freezeQ ? 0 : q + dtq);
-      knoscil->setMorph(phaseM);
+      knoscil->setMorph(morph);
 
       CartesianFloat coord = knoscil->generate(fm);
       rotator->setEuler(rotateX + rotateOffX, rotateY + rotateOffY, rotateZ + rotateOffZ);
@@ -277,7 +277,7 @@ public:
       left[s] = coord.x * projection;
       right[s] = coord.y * projection;
 
-      phaseM += morphStep;
+      morph += morphStep;
 
       const float step = freq * stepRate;
       stepPhase(phaseS, step * 4 * (p + q + dts));

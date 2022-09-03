@@ -57,9 +57,9 @@ public:
     knotQ = q;
   }
 
-  void setMorph(float phaseM)
+  void setMorph(float amt)
   {
-    morph = -0.5f*cos(phaseM) + 0.5f;
+    morph = -0.5f*cos(amt*M_PI) + 0.5f;
   }
 
   CartesianFloat generate(float fm)
