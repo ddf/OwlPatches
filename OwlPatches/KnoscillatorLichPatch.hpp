@@ -33,7 +33,9 @@ DESCRIPTION:
 #include "Patch.h"
 #include "MidiMessage.h"
 #include "VoltsPerOctave.h"
+#include "KnotOscillator.h"
 #include "SineOscillator.h"
+#include "CartesianTransform.h"
 #include "SmoothValue.h"
 #include "Noise.hpp"
 
@@ -42,6 +44,9 @@ class KnoscillatorLichPatch : public Patch
 private:
   VoltsPerOctave hz;
   SineOscillator* kpm;
+  
+  KnotOscillator* knoscil;
+  Rotation3D* rotator;
 
   int midinote;
   int knotP;
@@ -160,6 +165,9 @@ public:
     y1[LISSA] = 2; y2[LISSA] = M_PI * 3; y3[LISSA] = 0;
     z1[LISSA] = 0; z2[LISSA] = 1;
 
+    knoscil = KnotOscillator::create(getSampleRate());
+    rotator = Rotation3D::create();
+
     kpm = SineOscillator::create(getSampleRate());
     kpm->setFrequency(1.02f);
 
@@ -176,7 +184,9 @@ public:
 
   ~KnoscillatorLichPatch()
   {
+    KnotOscillator::destroy(knoscil);
     SineOscillator::destroy(kpm);
+    Rotation3D::destroy(rotator);
     FloatArray::destroy(noiseTable);
   }
 
@@ -307,59 +317,35 @@ public:
     bool freezeP = isButtonPressed(BUTTON_A);
     bool freezeQ = isButtonPressed(BUTTON_B);
 
-    for(int s = 0; s < getBlockSize(); ++s)
+    for (int s = 0; s < getBlockSize(); ++s)
     {
-      float freq = hz.getFrequency(left[s]);
+      const float freq = hz.getFrequency(left[s]);
       // phase modulate in sync with the current frequency
-      kpm->setFrequency(freq*2);
-      float pm  = kpm->generate()*TWO_PI;
-      float ppm = pm*right[s];
-      float qpm = ppm;
-      float zpm = ppm;
-      float spm = pm * sFM;
+      kpm->setFrequency(freq * 2);
+      const float fm = kpm->generate()*TWO_PI*right[s];
 
-      float pt = phaseP+ppm;
-      float qt = phaseQ+qpm;
-      float zt = phaseZ+zpm;
+      knoscil->setFrequency(freq);
+      knoscil->setPQ(freezeP ? 0 : p + dtp, freezeQ ? 0 : q + dtq);
+      knoscil->setMorph(phaseM);
 
-      x2[TORUS] = sinf(qt);
-      y3[TORUS] = cosf(qt);
+      CartesianFloat coord = knoscil->generate(fm);
+      rotator->setEuler(rotateX + rotateOffX, rotateY + rotateOffY, rotateZ + rotateOffZ);
+      coord = rotator->process(coord);
 
-      phaseM += morphStep;
-      float m = -0.5f*cos(phaseM) + 0.5f;
-
-      float ox = interp(x1, KNUM, m)*sinf(qt)                       + interp(x2, KNUM, m)*cosf(pt + interp(x3, KNUM, m));
-      float oy = interp(y1, KNUM, m)*cosf(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cosf(pt);
-      float oz = interp(z1, KNUM, m)*sinf(3 * zt)                   + interp(z2, KNUM, m)*sinf(pt);
-
-      rotate(ox, oy, oz, rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
-
-      float st = phaseS + spm;
-      //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
-      //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-      float nz = nVol * noise(ox, oy);
-      ox += cosf(st)*sVol + ox * nz;
-      oy += sinf(st)*sVol + oy * nz;
-      oz += oz * nz;
+      float st = phaseS + (fm*sFM);
+      float nz = nVol * noise(coord.x, coord.y);
+      coord.x += cosf(st)*sVol + coord.x * nz;
+      coord.y += sinf(st)*sVol + coord.y * nz;
+      coord.z += coord.z * nz;
 
       const float camDist = 6.0f;
-      float projection = 1.0f / (oz + camDist);
-      left[s]  = ox * projection;
-      right[s] = oy * projection;
+      float projection = 1.0f / (coord.z + camDist);
+      left[s] = coord.x * projection;
+      right[s] = coord.y * projection;
+
+      phaseM += morphStep;
 
       const float step = freq * stepRate;
-      stepPhase(phaseZ, step);
-
-      if (!freezeQ)
-      {
-        stepPhase(phaseQ, step * (q + dtq));
-      }
-
-      if (!freezeP)
-      {
-        stepPhase(phaseP, step * (p + dtp));
-      }
-
       stepPhase(phaseS, step * 4 * (p + q + dts));
 
       if (gateHigh > 0)
@@ -389,6 +375,89 @@ public:
       p += pStep;
       q += qStep;
     }
+
+    //for(int s = 0; s < getBlockSize(); ++s)
+    //{
+    //  float freq = hz.getFrequency(left[s]);
+    //  // phase modulate in sync with the current frequency
+    //  kpm->setFrequency(freq*2);
+    //  float pm  = kpm->generate()*TWO_PI;
+    //  float ppm = pm*right[s];
+    //  float qpm = ppm;
+    //  float zpm = ppm;
+    //  float spm = pm * sFM;
+
+    //  float pt = phaseP+ppm;
+    //  float qt = phaseQ+qpm;
+    //  float zt = phaseZ+zpm;
+
+    //  x2[TORUS] = sinf(qt);
+    //  y3[TORUS] = cosf(qt);
+
+    //  phaseM += morphStep;
+    //  float m = -0.5f*cos(phaseM) + 0.5f;
+
+    //  float ox = interp(x1, KNUM, m)*sinf(qt)                       + interp(x2, KNUM, m)*cosf(pt + interp(x3, KNUM, m));
+    //  float oy = interp(y1, KNUM, m)*cosf(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cosf(pt);
+    //  float oz = interp(z1, KNUM, m)*sinf(3 * zt)                   + interp(z2, KNUM, m)*sinf(pt);
+
+    //  rotate(ox, oy, oz, rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
+
+    //  float st = phaseS + spm;
+    //  //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
+    //  //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
+    //  float nz = nVol * noise(ox, oy);
+    //  ox += cosf(st)*sVol + ox * nz;
+    //  oy += sinf(st)*sVol + oy * nz;
+    //  oz += oz * nz;
+
+    //  const float camDist = 6.0f;
+    //  float projection = 1.0f / (oz + camDist);
+    //  left[s]  = ox * projection;
+    //  right[s] = oy * projection;
+
+    //  const float step = freq * stepRate;
+    //  stepPhase(phaseZ, step);
+
+    //  if (!freezeQ)
+    //  {
+    //    stepPhase(phaseQ, step * (q + dtq));
+    //  }
+
+    //  if (!freezeP)
+    //  {
+    //    stepPhase(phaseP, step * (p + dtp));
+    //  }
+
+    //  stepPhase(phaseS, step * 4 * (p + q + dts));
+
+    //  if (gateHigh > 0)
+    //  {
+    //    --gateHigh;
+    //  }
+
+    //  if (stepPhase(rotateX, stepRate * rotateBaseFreq * rxf))
+    //  {
+    //    gateHigh = gateHighSampleLength;
+    //  }
+
+    //  if (stepPhase(rotateY, stepRate * rotateBaseFreq * ryf))
+    //  {
+    //    gateHigh = gateHighSampleLength;
+    //  }
+
+    //  if (stepPhase(rotateZ, stepRate * rotateBaseFreq * rzf))
+    //  {
+    //    gateHigh = gateHighSampleLength;
+    //  }
+
+    //  rotateOffX += (rxt - rotateOffX) * rotateOffSmooth;
+    //  rotateOffY += (ryt - rotateOffY) * rotateOffSmooth;
+    //  rotateOffZ += (rzt - rotateOffZ) * rotateOffSmooth;
+
+    //  p += pStep;
+    //  q += qStep;
+    //}
 
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
