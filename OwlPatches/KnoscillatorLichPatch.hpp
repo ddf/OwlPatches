@@ -52,22 +52,6 @@ private:
   int knotP;
   int knotQ;
 
-  enum KnotType
-  {
-    TFOIL = 0,
-    LISSA = 1,
-    TORUS = 2,
-
-    KNUM = 3
-  };
- 
-  float x1[KNUM], x2[KNUM], x3[KNUM];
-  float y1[KNUM], y2[KNUM], y3[KNUM];
-  float z1[KNUM], z2[KNUM];
-
-  float phaseP;
-  float phaseQ;
-  float phaseZ;
   float phaseS;
   float phaseM;
   float rotateX;
@@ -111,7 +95,7 @@ private:
 public:
   KnoscillatorLichPatch()
     : hz(true), midinote(0), knotP(1), knotQ(1), gateHigh(0),
-    phaseP(0), phaseQ(0), phaseZ(0), phaseS(0), phaseM(0), 
+    phaseS(0), phaseM(0), 
     rotateX(0), rotateY(0), rotateZ(0), 
     rotateOffX(0), rotateOffY(0), rotateOffZ(0),
     inPitch(PARAMETER_A), inMorph(PARAMETER_B), inKnotP(PARAMETER_C), inKnotQ(PARAMETER_D),
@@ -153,18 +137,6 @@ public:
     setParameterValue(inRotateZ, 0);
     setParameterValue(inNoiseAmp, 0);
 
-    x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
-    y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
-    z1[TFOIL] = 1; z2[TFOIL] = 0;
-
-    x1[TORUS] = 2; x2[TORUS] = 0; /*sin(qt)*/ x3[TORUS] = 0;
-    y1[TORUS] = 1; y2[TORUS] = 0; y3[TORUS] = 0; /*cos(qt)*/
-    z1[TORUS] = 0; z2[TORUS] = 1;
-
-    x1[LISSA] = 0; x2[LISSA] = 2; x3[LISSA] = TWO_PI;
-    y1[LISSA] = 2; y2[LISSA] = M_PI * 3; y3[LISSA] = 0;
-    z1[LISSA] = 0; z2[LISSA] = 1;
-
     knoscil = KnotOscillator::create(getSampleRate());
     rotator = Rotation3D::create();
 
@@ -190,50 +162,12 @@ public:
     FloatArray::destroy(noiseTable);
   }
 
-  float interp(float* buffer, size_t bufferSize, float normIdx)
-  {
-    const float fracIdx = (bufferSize - 1) * normIdx;
-    const int i = (int)fracIdx;
-    const int j = (i + 1) % bufferSize;
-    const float lerp = fracIdx - i;
-    return buffer[i] + lerp * (buffer[j] - buffer[i]);
-  }
-
   float noise(float x, float y)
   {
     int nx = (int)(fabs(x) / noiseStep) % noiseDim;
     int ny = (int)(fabs(y) / noiseStep) % noiseDim;
     int ni = nx * noiseDim + ny;
     return noiseTable[ni];
-  }
-
-  void rotate(float& x, float& y, float &z, float pitch, float yaw, float roll)
-  {
-    float cosa = cosf(roll);
-    float sina = sinf(roll);
-
-    float cosb = cosf(yaw);
-    float sinb = sinf(yaw);
-
-    float cosc = cosf(pitch);
-    float sinc = sinf(pitch);
-
-    float Axx = cosa * cosb;
-    float Axy = cosa * sinb*sinc - sina * cosc;
-    float Axz = cosa * sinb*cosc + sina * sinc;
-
-    float Ayx = sina * cosb;
-    float Ayy = sina * sinb*sinc + cosa * cosc;
-    float Ayz = sina * sinb*cosc - cosa * sinc;
-
-    float Azx = -sinb;
-    float Azy = cosb * sinc;
-    float Azz = cosb * cosc;
-
-    float ix = x, iy = y, iz = z;
-    x = Axx * ix + Axy * iy + Axz * iz;
-    y = Ayx * ix + Ayy * iy + Ayz * iz;
-    z = Azx * ix + Azy * iy + Azz * iz;
   }
 
   void processMidi(MidiMessage msg)
@@ -375,89 +309,6 @@ public:
       p += pStep;
       q += qStep;
     }
-
-    //for(int s = 0; s < getBlockSize(); ++s)
-    //{
-    //  float freq = hz.getFrequency(left[s]);
-    //  // phase modulate in sync with the current frequency
-    //  kpm->setFrequency(freq*2);
-    //  float pm  = kpm->generate()*TWO_PI;
-    //  float ppm = pm*right[s];
-    //  float qpm = ppm;
-    //  float zpm = ppm;
-    //  float spm = pm * sFM;
-
-    //  float pt = phaseP+ppm;
-    //  float qt = phaseQ+qpm;
-    //  float zt = phaseZ+zpm;
-
-    //  x2[TORUS] = sinf(qt);
-    //  y3[TORUS] = cosf(qt);
-
-    //  phaseM += morphStep;
-    //  float m = -0.5f*cos(phaseM) + 0.5f;
-
-    //  float ox = interp(x1, KNUM, m)*sinf(qt)                       + interp(x2, KNUM, m)*cosf(pt + interp(x3, KNUM, m));
-    //  float oy = interp(y1, KNUM, m)*cosf(qt + interp(y2, KNUM, m)) + interp(y3, KNUM, m)*cosf(pt);
-    //  float oz = interp(z1, KNUM, m)*sinf(3 * zt)                   + interp(z2, KNUM, m)*sinf(pt);
-
-    //  rotate(ox, oy, oz, rotateX+rotateOffX, rotateY+rotateOffY, rotateZ+rotateOffZ);
-
-    //  float st = phaseS + spm;
-    //  //float nx = nVol * perlin2d(fabs(ox), 0, p, 4);
-    //  //float ny = nVol * perlin2d(0, fabs(oy), q, 4);
-    //  float nz = nVol * noise(ox, oy);
-    //  ox += cosf(st)*sVol + ox * nz;
-    //  oy += sinf(st)*sVol + oy * nz;
-    //  oz += oz * nz;
-
-    //  const float camDist = 6.0f;
-    //  float projection = 1.0f / (oz + camDist);
-    //  left[s]  = ox * projection;
-    //  right[s] = oy * projection;
-
-    //  const float step = freq * stepRate;
-    //  stepPhase(phaseZ, step);
-
-    //  if (!freezeQ)
-    //  {
-    //    stepPhase(phaseQ, step * (q + dtq));
-    //  }
-
-    //  if (!freezeP)
-    //  {
-    //    stepPhase(phaseP, step * (p + dtp));
-    //  }
-
-    //  stepPhase(phaseS, step * 4 * (p + q + dts));
-
-    //  if (gateHigh > 0)
-    //  {
-    //    --gateHigh;
-    //  }
-
-    //  if (stepPhase(rotateX, stepRate * rotateBaseFreq * rxf))
-    //  {
-    //    gateHigh = gateHighSampleLength;
-    //  }
-
-    //  if (stepPhase(rotateY, stepRate * rotateBaseFreq * ryf))
-    //  {
-    //    gateHigh = gateHighSampleLength;
-    //  }
-
-    //  if (stepPhase(rotateZ, stepRate * rotateBaseFreq * rzf))
-    //  {
-    //    gateHigh = gateHighSampleLength;
-    //  }
-
-    //  rotateOffX += (rxt - rotateOffX) * rotateOffSmooth;
-    //  rotateOffY += (ryt - rotateOffY) * rotateOffSmooth;
-    //  rotateOffZ += (rzt - rotateOffZ) * rotateOffSmooth;
-
-    //  p += pStep;
-    //  q += qStep;
-    //}
 
     knotP = (int)pTarget;
     knotQ = (int)qTarget;
