@@ -2,6 +2,7 @@
 #define __CartesianFloat_h__
 
 #include "basicmaths.h"
+#include "FloatMatrix.h"
 
 /**
 * A structure defining a floating point Cartesian coordinate.
@@ -12,6 +13,11 @@ struct CartesianFloat {
   constexpr CartesianFloat(float x, float y, float z) : x(x), y(y), z(z) {}
 
   float x, y, z;
+
+  operator FloatMatrix()
+  {
+    return FloatMatrix(&x, 3, 1);
+  }
 
   float getMagnitude() const
   {

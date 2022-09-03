@@ -12,12 +12,14 @@ public:
 
   CartesianFloat process(CartesianFloat input)
   {
-    // #TODO use FloatMatrix operation
-
     CartesianFloat output;
-    output.x = matrix[0][0] * input.x + matrix[0][1] * input.y + matrix[0][2] * input.z;
-    output.y = matrix[1][0] * input.x + matrix[1][1] * input.y + matrix[1][2] * input.z;
-    output.z = matrix[2][0] * input.x + matrix[2][1] * input.y + matrix[2][2] * input.z;
+
+    //output.x = matrix[0][0] * input.x + matrix[0][1] * input.y + matrix[0][2] * input.z;
+    //output.y = matrix[1][0] * input.x + matrix[1][1] * input.y + matrix[1][2] * input.z;
+    //output.z = matrix[2][0] * input.x + matrix[2][1] * input.y + matrix[2][2] * input.z;
+
+    // this might be faster?
+    matrix.multiply(input, output);
 
     return output;
   }
