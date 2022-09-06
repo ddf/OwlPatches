@@ -156,6 +156,7 @@
     <ClInclude Include="GrainzPatch.hpp" />
     <ClInclude Include="HashMap.h" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
+    <ClInclude Include="KnoscillatorPatch.hpp" />
     <ClInclude Include="KnotOscillator.h" />
     <ClInclude Include="MarkovChain.hpp" />
     <ClInclude Include="MarkovPatch.hpp" />
