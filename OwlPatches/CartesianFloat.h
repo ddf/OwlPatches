@@ -35,6 +35,64 @@ struct CartesianFloat {
     y = radius * sinf(azimuth) * sinf(inclination);
     z = radius * cosf(inclination);
   }
+
+  CartesianFloat& operator=(const CartesianFloat& other) 
+  {
+    x = other.x;
+    y = other.y;
+    z = other.z;
+    return *this;
+  }
+
+  CartesianFloat& operator+=(const CartesianFloat& other) 
+  {
+    x += other.x;
+    y += other.y;
+    z += other.z;
+    return *this;
+  }
+
+  friend CartesianFloat operator+(CartesianFloat lhs, const CartesianFloat& rhs)
+  {
+    lhs += rhs;
+    return lhs;
+  }
+
+  CartesianFloat& operator-=(const CartesianFloat& other) 
+  {
+    x -= other.x;
+    y -= other.y;
+    z -= other.z;
+    return *this;
+  }
+
+  friend CartesianFloat operator-(CartesianFloat lhs, const CartesianFloat& rhs)
+  {
+    lhs -= rhs;
+    return lhs;
+  }
+
+  CartesianFloat& operator*=(const float& scalar) 
+  {
+    x *= scalar;
+    y *= scalar;
+    z *= scalar;
+    return *this;
+  }
+
+  friend CartesianFloat operator*(CartesianFloat lhs, const float& rhs)
+  {
+    lhs *= rhs;
+    return lhs;
+  }
+
+  CartesianFloat& operator/=(const float& scalar) 
+  {
+    x /= scalar;
+    y /= scalar;
+    z /= scalar;
+    return *this;
+  }
 };
 
 #endif // __CartesianFloat_h__
