@@ -52,6 +52,9 @@ struct KnoscillatorParameterIds
   PatchParameterId inRotateX;
   PatchParameterId inRotateY;
   PatchParameterId inRotateZ;
+  PatchParameterId inRotateXRate;
+  PatchParameterId inRotateYRate;
+  PatchParameterId inRotateZRate;
   PatchParameterId inNoiseAmp;
 
   PatchParameterId outRotateX;
@@ -159,6 +162,24 @@ public:
     registerParameter(params.inRotateZ, "Z-Rotation");
     registerParameter(params.inNoiseAmp, "Noise");
 
+    if (params.inRotateXRate != params.inKnotP)
+    {
+      registerParameter(params.inRotateXRate, "X-Rot Rate");
+      setParameterValue(params.inRotateXRate, 1.0f / 16);
+    }
+
+    if (params.inRotateYRate != params.inKnotQ)
+    {
+      registerParameter(params.inRotateYRate, "Y-Rot Rate");
+      setParameterValue(params.inRotateYRate, 1.0f / 16);
+    }
+
+    if (params.inRotateZRate != params.inSquiggleVol)
+    {
+      registerParameter(params.inRotateZRate, "Z-Rot Rate");
+      setParameterValue(params.inRotateZRate, 0.0f);
+    }
+
     setParameterValue(params.inSquiggleVol, 0);
     setParameterValue(params.inSquiggleFM, 0);
     setParameterValue(params.inDetuneP, 0);
@@ -240,11 +261,11 @@ public:
     float dts = getParameterValue(params.inDetuneS);
 
     float rxt = getParameterValue(params.inRotateX)*TWO_PI;
-    float rxf = rxt == 0 ? pRaw : 0;
+    float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)*16 : 0;
     float ryt = getParameterValue(params.inRotateY)*TWO_PI;
-    float ryf = ryt == 0 ? qRaw : 0;
+    float ryf = ryt == 0 ? getParameterValue(params.inRotateYRate)*16 : 0;
     float rzt = getParameterValue(params.inRotateZ)*TWO_PI;
-    float rzf = rzt == 0 ? sRaw : 0;
+    float rzf = rzt == 0 ? getParameterValue(params.inRotateZRate)*16 : 0;
 
     float nVol = getParameterValue(params.inNoiseAmp)*0.5f;
 
