@@ -65,7 +65,7 @@ public:
     morph = -0.5f*cos(amt*M_PI) + 0.5f;
   }
 
-  CartesianFloat generate(float fm)
+  CartesianFloat generate(float fm, float pm, float qm)
   {
     float ppm = fm;
     float qpm = fm;
@@ -88,8 +88,8 @@ public:
     float oz = interp(z1, i, j, lerp)*sinf(3 * zt) + interp(z2, i, j, lerp)*sinf(pt);
 
     stepPhase(phaseZ, phaseInc);
-    stepPhase(phaseQ, phaseInc*knotQ);
-    stepPhase(phaseP, phaseInc*knotP);
+    stepPhase(phaseQ, phaseInc*(knotQ+qm));
+    stepPhase(phaseP, phaseInc*(knotP+pm));
 
     return CartesianFloat(ox, oy, oz);
   }

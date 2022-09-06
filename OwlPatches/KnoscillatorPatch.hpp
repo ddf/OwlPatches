@@ -237,17 +237,10 @@ public:
     float morphStep = (morphTarget - morph) / getBlockSize();
 
     float pRaw = 1 + getParameterValue(params.inKnotP) * 16;
-    float pTarget = floor(pRaw);
-    float pDelta = pTarget - knotP;
-    float pStep = pDelta / getBlockSize();
+    knotP = floor(pRaw);
 
     float qRaw = 1 + getParameterValue(params.inKnotQ) * 16;
-    float qTarget = floor(qRaw);
-    float qDelta = qTarget - knotQ;
-    float qStep = qDelta / getBlockSize();
-
-    float p = knotP;
-    float q = knotQ;
+    knotQ = floor(qRaw);
 
     float sVol = getParameterValue(params.inKnotS) * 0.25f;
 
@@ -275,10 +268,10 @@ public:
       const float fm = kpm->generate()*TWO_PI*right[s];
 
       knoscil->setFrequency(freq);
-      knoscil->setPQ(freezeP ? 0 : p + dtp, freezeQ ? 0 : q + dtq);
+      knoscil->setPQ(freezeP ? 0 : knotP, freezeQ ? 0 : knotQ);
       knoscil->setMorph(morph);
 
-      CartesianFloat coord = knoscil->generate(fm);
+      CartesianFloat coord = knoscil->generate(fm, dtp, dtq);
       rotator->setEuler(rotateX + rotateOffX, rotateY + rotateOffY, rotateZ + rotateOffZ);
       coord = rotator->process(coord);
 
@@ -296,7 +289,7 @@ public:
       morph += morphStep;
 
       const float step = freq * stepRate;
-      stepPhase(phaseS, step * 4 * (p + q + dts));
+      stepPhase(phaseS, step * 4 * (knotP + knotQ + dts));
 
       if (gateHigh > 0)
       {
@@ -321,13 +314,7 @@ public:
       rotateOffX += (rxt - rotateOffX) * rotateOffSmooth;
       rotateOffY += (ryt - rotateOffY) * rotateOffSmooth;
       rotateOffZ += (rzt - rotateOffZ) * rotateOffSmooth;
-
-      p += pStep;
-      q += qStep;
     }
-
-    knotP = (int)pTarget;
-    knotQ = (int)qTarget;
 
     setParameterValue(params.outRotateX, sinf(rotateX + rotateOffX)*0.5f + 0.5f);
     setParameterValue(params.outRotateY, cosf(rotateY + rotateOffY)*0.5f + 0.5f);
