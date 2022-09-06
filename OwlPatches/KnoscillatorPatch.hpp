@@ -44,8 +44,7 @@ struct KnoscillatorParameterIds
   PatchParameterId inMorph;
   PatchParameterId inKnotP;
   PatchParameterId inKnotQ;
-  PatchParameterId inSquiggleVol;
-  PatchParameterId inSquiggleFM;
+  PatchParameterId inKnotS;
   PatchParameterId inDetuneP;
   PatchParameterId inDetuneQ;
   PatchParameterId inDetuneS;
@@ -152,8 +151,7 @@ public:
     setParameterValue(params.outRotateX, 0);
     setParameterValue(params.outRotateY, 0);
 
-    registerParameter(params.inSquiggleVol, "Squiggle Volume");
-    registerParameter(params.inSquiggleFM, "Squiggle FM Amount");
+    registerParameter(params.inKnotS, "Knot S");
     registerParameter(params.inDetuneP, "Detune P");
     registerParameter(params.inDetuneQ, "Detune Q");
     registerParameter(params.inDetuneS, "Detune S");
@@ -174,14 +172,13 @@ public:
       setParameterValue(params.inRotateYRate, 1.0f / 16);
     }
 
-    if (params.inRotateZRate != params.inSquiggleVol)
+    if (params.inRotateZRate != params.inKnotS)
     {
       registerParameter(params.inRotateZRate, "Z-Rot Rate");
       setParameterValue(params.inRotateZRate, 0.0f);
     }
 
-    setParameterValue(params.inSquiggleVol, 0);
-    setParameterValue(params.inSquiggleFM, 0);
+    setParameterValue(params.inKnotS, 0);
     setParameterValue(params.inDetuneP, 0);
     setParameterValue(params.inDetuneQ, 0);
     setParameterValue(params.inDetuneS, 0);
@@ -252,9 +249,7 @@ public:
     float p = knotP;
     float q = knotQ;
 
-    float sRaw = getParameterValue(params.inSquiggleVol) * 16;
-    float sVol = sRaw / 100.f;
-    float sFM = getParameterValue(params.inSquiggleFM);
+    float sVol = getParameterValue(params.inKnotS) * 0.25f;
 
     float dtp = getParameterValue(params.inDetuneP);
     float dtq = getParameterValue(params.inDetuneQ);
@@ -287,7 +282,7 @@ public:
       rotator->setEuler(rotateX + rotateOffX, rotateY + rotateOffY, rotateZ + rotateOffZ);
       coord = rotator->process(coord);
 
-      float st = phaseS + (fm*sFM);
+      float st = phaseS + fm;
       float nz = nVol * noise(coord.x, coord.y);
       coord.x += cosf(st)*sVol + coord.x * nz;
       coord.y += sinf(st)*sVol + coord.y * nz;

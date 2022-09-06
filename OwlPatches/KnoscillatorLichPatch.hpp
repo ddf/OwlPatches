@@ -40,18 +40,21 @@ static const KnoscillatorParameterIds knoscillatorLichParams =
   .inMorph = PARAMETER_B,
   .inKnotP = PARAMETER_C,
   .inKnotQ = PARAMETER_D,
-  .inSquiggleVol = PARAMETER_AA,
-  .inSquiggleFM = PARAMETER_AB,
-  .inDetuneP = PARAMETER_AC,
-  .inDetuneQ = PARAMETER_AD,
-  .inDetuneS = PARAMETER_AE,
-  .inRotateX = PARAMETER_AF,
-  .inRotateY = PARAMETER_AG,
-  .inRotateZ = PARAMETER_AH,
+  .inKnotS = PARAMETER_E,
+  .inDetuneP = PARAMETER_AA,
+  .inDetuneQ = PARAMETER_AB,
+  .inDetuneS = PARAMETER_AC,
+
+  .inRotateX = PARAMETER_AE,
+  .inRotateY = PARAMETER_AF,
+  .inRotateZ = PARAMETER_AG,
+
   .inRotateXRate = PARAMETER_C, // inKnotP
   .inRotateYRate = PARAMETER_D, // inKnotQ
-  .inRotateZRate = PARAMETER_AA, // inSquiggleVol
-  .inNoiseAmp = PARAMETER_BA,
+  .inRotateZRate = PARAMETER_E, // inKnotS
+
+  .inNoiseAmp = PARAMETER_AD,
+
   .outRotateX = PARAMETER_F,
   .outRotateY = PARAMETER_G,
 
