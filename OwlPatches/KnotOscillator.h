@@ -21,9 +21,7 @@ class KnotOscillator
 
   float knotP;
   float knotQ;
-  float phaseP;
-  float phaseQ;
-  float phaseZ;
+  float phase;
   float phaseInc;
   float morph;
 
@@ -31,7 +29,9 @@ class KnotOscillator
   const float stepRate;
 
 public:
-  KnotOscillator(float sampleRate) : stepRate(TWO_PI/sampleRate)
+  KnotOscillator(float sampleRate) 
+    : stepRate(TWO_PI/sampleRate)
+    , knotP(1), knotQ(1), phase(0), phaseInc(stepRate), morph(0)
   {
     x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
     y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
@@ -68,9 +68,9 @@ public:
     float qpm = fm;
     float zpm = fm;
 
-    float pt = phaseP + ppm;
-    float qt = phaseQ + qpm;
-    float zt = phaseZ + zpm;
+    float pt = phase*knotP + ppm;
+    float qt = phase*knotQ + qpm;
+    float zt = phase + zpm;
 
     x2[TORUS] = sinf(qt);
     y3[TORUS] = cosf(qt);
@@ -80,30 +80,25 @@ public:
     const int j = (i + 1) % KNUM;
     const float lerp = fracIdx - i;
 
-    float ox = interp(x1, i, j, lerp)*sinf(qt) + interp(x2, i, j, lerp)*cosf(pt + interp(x3, i, j, lerp));
-    float oy = interp(y1, i, j, lerp)*cosf(qt + interp(y2, i, j, lerp)) + interp(y3, i, j, lerp)*cosf(pt);
-    float oz = interp(z1, i, j, lerp)*sinf(3 * zt) + interp(z2, i, j, lerp)*sinf(pt);
+    CartesianFloat coord;
 
-    stepPhase(phaseZ, phaseInc);
-    stepPhase(phaseQ, phaseInc*knotQ);
-    stepPhase(phaseP, phaseInc*knotP);
+    coord.x = interp(x1, i, j, lerp)*sinf(qt) + interp(x2, i, j, lerp)*cosf(pt + interp(x3, i, j, lerp));
+    coord.y = interp(y1, i, j, lerp)*cosf(qt + interp(y2, i, j, lerp)) + interp(y3, i, j, lerp)*cosf(pt);
+    coord.z = interp(z1, i, j, lerp)*sinf(3 * zt) + interp(z2, i, j, lerp)*sinf(pt);
 
-    return CartesianFloat(ox, oy, oz);
+    phase += phaseInc;
+    if (phase >= TWO_PI)
+    {
+      phase -= TWO_PI;
+    }
+
+    return coord;
   }
 
 private:
   inline float interp(float* buffer, int i, int j, float lerp)
   {
     return buffer[i] + lerp * (buffer[j] - buffer[i]);
-  }
-
-  void stepPhase(float& phase, const float step)
-  {
-    phase += step;
-    if (phase >= TWO_PI)
-    {
-      phase -= TWO_PI;
-    }
   }
 
 public:
