@@ -50,7 +50,11 @@ static const KnoscillatorParameterIds knoscillatorLichParams =
   .inRotateZ = PARAMETER_AH,
   .inNoiseAmp = PARAMETER_BA,
   .outRotateX = PARAMETER_F,
-  .outRotateY = PARAMETER_G
+  .outRotateY = PARAMETER_G,
+
+  .inFreezeP = BUTTON_1,
+  .inFreezeQ = BUTTON_2,
+  .outRotateComplete = PUSHBUTTON
 };
 
 class KnoscillatorLichPatch : public BasePatch

@@ -56,6 +56,11 @@ struct KnoscillatorParameterIds
 
   PatchParameterId outRotateX;
   PatchParameterId outRotateY;
+
+  PatchButtonId inFreezeP;
+  PatchButtonId inFreezeQ;
+  PatchButtonId outRotateComplete;
+
 };
 
 template<typename PatchClass = Patch>
@@ -243,8 +248,8 @@ public:
 
     float nVol = getParameterValue(params.inNoiseAmp)*0.5f;
 
-    bool freezeP = isButtonPressed(BUTTON_A);
-    bool freezeQ = isButtonPressed(BUTTON_B);
+    bool freezeP = isButtonPressed(params.inFreezeP);
+    bool freezeQ = isButtonPressed(params.inFreezeQ);
 
     for (int s = 0; s < getBlockSize(); ++s)
     {
@@ -310,6 +315,6 @@ public:
 
     setParameterValue(params.outRotateX, sinf(rotateX + rotateOffX)*0.5f + 0.5f);
     setParameterValue(params.outRotateY, cosf(rotateY + rotateOffY)*0.5f + 0.5f);
-    setButton(PUSHBUTTON, gateHigh != 0);
+    setButton(params.outRotateComplete, gateHigh != 0);
   }
 };
