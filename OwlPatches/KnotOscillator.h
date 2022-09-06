@@ -12,7 +12,7 @@ class KnotOscillator
     LISSA = 1,
     TORUS = 2,
 
-    KNUM = 3
+    KNUM = 3 // note: update interp method if more knots are added
   };
 
   float x1[KNUM], x2[KNUM], x3[KNUM];
@@ -75,9 +75,14 @@ public:
     x2[TORUS] = sinf(qt);
     y3[TORUS] = cosf(qt);
 
-    float ox = interp(x1, KNUM, morph)*sinf(qt) + interp(x2, KNUM, morph)*cosf(pt + interp(x3, KNUM, morph));
-    float oy = interp(y1, KNUM, morph)*cosf(qt + interp(y2, KNUM, morph)) + interp(y3, KNUM, morph)*cosf(pt);
-    float oz = interp(z1, KNUM, morph)*sinf(3 * zt) + interp(z2, KNUM, morph)*sinf(pt);
+    const float fracIdx = (KNUM - 1) * morph;
+    const int i = (int)fracIdx;
+    const int j = (i + 1) % KNUM;
+    const float lerp = fracIdx - i;
+
+    float ox = interp(x1, i, j, lerp)*sinf(qt) + interp(x2, i, j, lerp)*cosf(pt + interp(x3, i, j, lerp));
+    float oy = interp(y1, i, j, lerp)*cosf(qt + interp(y2, i, j, lerp)) + interp(y3, i, j, lerp)*cosf(pt);
+    float oz = interp(z1, i, j, lerp)*sinf(3 * zt) + interp(z2, i, j, lerp)*sinf(pt);
 
     stepPhase(phaseZ, phaseInc);
     stepPhase(phaseQ, phaseInc*knotQ);
@@ -87,12 +92,8 @@ public:
   }
 
 private:
-  float interp(float* buffer, size_t bufferSize, float normIdx)
+  inline float interp(float* buffer, int i, int j, float lerp)
   {
-    const float fracIdx = (bufferSize - 1) * normIdx;
-    const int i = (int)fracIdx;
-    const int j = (i + 1) % bufferSize;
-    const float lerp = fracIdx - i;
     return buffer[i] + lerp * (buffer[j] - buffer[i]);
   }
 
