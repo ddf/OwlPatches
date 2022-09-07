@@ -79,8 +79,8 @@ private:
   Rotation3D* rotator;
 
   int midinote;
-  int knotP;
-  int knotQ;
+  SmoothFloat knotP;
+  SmoothFloat knotQ;
 
   float phaseS;
   float morph;
@@ -114,7 +114,7 @@ public:
 
   KnoscillatorPatch(KnoscillatorParameterIds paramIds) 
     : PatchClass()
-    , params(paramIds), hz(true), midinote(0), knotP(1), knotQ(1)
+    , params(paramIds), hz(true), midinote(0), knotP(0.9f, 2), knotQ(0.9f, 1)
     , gateHigh(0), phaseS(0), morph(0)
     , rotateX(0), rotateY(0), rotateZ(0)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
@@ -146,8 +146,8 @@ public:
 
     setParameterValue(params.inPitch, 0);
     setParameterValue(params.inMorph, 0);
-    setParameterValue(params.inKnotP, 2.0f / 16);
-    setParameterValue(params.inKnotQ, 1.0f / 16);
+    setParameterValue(params.inKnotP, knotP / 16.0f);
+    setParameterValue(params.inKnotQ, knotQ / 16.0f);
     setParameterValue(params.outRotateX, 0);
     setParameterValue(params.outRotateY, 0);
 
@@ -236,11 +236,8 @@ public:
     float morphTarget = getParameterValue(params.inMorph);
     float morphStep = (morphTarget - morph) / getBlockSize();
 
-    float pRaw = 1 + getParameterValue(params.inKnotP) * 16;
-    knotP = floor(pRaw);
-
-    float qRaw = 1 + getParameterValue(params.inKnotQ) * 16;
-    knotQ = floor(qRaw);
+    knotP = 1 + getParameterValue(params.inKnotP) * 16;
+    knotQ = 1 + getParameterValue(params.inKnotQ) * 16;
 
     float sVol = getParameterValue(params.inKnotS) * 0.25f;
 
@@ -268,7 +265,7 @@ public:
       const float fm = kpm->generate()*TWO_PI*right[s];
 
       knoscil->setFrequency(freq);
-      knoscil->setPQ(freezeP ? 0 : knotP, freezeQ ? 0 : knotQ);
+      knoscil->setPQ(freezeP ? 0.f : knotP.getValue(), freezeQ ? 0.f : knotQ.getValue());
       knoscil->setMorph(morph);
 
       CartesianFloat coord = knoscil->generate(fm, dtp, dtq);

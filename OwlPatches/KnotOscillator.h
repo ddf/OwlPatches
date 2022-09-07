@@ -67,34 +67,80 @@ public:
 
   CartesianFloat generate(float fm, float pm, float qm)
   {
-    float ppm = fm;
-    float qpm = fm;
-    float zpm = fm;
-
-    float pt = phaseP + ppm;
-    float qt = phaseQ + qpm;
-    float zt = phaseZ + zpm;
-
-    x2[TORUS] = sinf(qt);
-    y3[TORUS] = cosf(qt);
-
+    // calculate coefficients based on the morph setting
     const float fracIdx = (KNUM - 1) * morph;
     const int i = (int)fracIdx;
     const int j = (i + 1) % KNUM;
     const float lerp = fracIdx - i;
 
-    float ox = interp(x1, i, j, lerp)*sinf(qt) + interp(x2, i, j, lerp)*cosf(pt + interp(x3, i, j, lerp));
-    float oy = interp(y1, i, j, lerp)*cosf(qt + interp(y2, i, j, lerp)) + interp(y3, i, j, lerp)*cosf(pt);
-    float oz = interp(z1, i, j, lerp)*sinf(3 * zt) + interp(z2, i, j, lerp)*sinf(pt);
+    const float cx1 = interp(x1, i, j, lerp);
+    const float cx3 = interp(x3, i, j, lerp);
+    const float cy1 = interp(y1, i, j, lerp);
+    const float cy2 = interp(y2, i, j, lerp);
+    const float cz1 = interp(z1, i, j, lerp);
+    const float cz2 = interp(z2, i, j, lerp);
 
+    // support fractional P and Q values by generating a curve
+    // that is a bilinear interpolation of phase-sync'd curves
+    // for F(P,Q), F(P+1,Q), F(P,Q+1), F(P+1,Q+1).
+    const float kp = (int)knotP;
+    const float kq = (int)knotQ;
+    const float pd = knotP - kp;
+    const float qd = knotQ - kq;
+
+    // the four phases we need for sampling the curves
+    // are calculated as multiples of phases running
+    // at the same frequency as phaseZ (with phase modulation added).
+    // this keeps the four curves properly aligned for blending.
+    const float phaseP1 = phaseP * kp + fm;
+    const float phaseQ1 = phaseQ * kq + fm;
+    const float phaseP2 = phaseP * (kp + 1) + fm;
+    const float phaseQ2 = phaseQ * (kq + 1) + fm;
+
+    x2[TORUS] = sinf(phaseQ1);
+    y3[TORUS] = cosf(phaseQ1);
+
+    float cx2 = interp(x2, i, j, lerp);
+    float cy3 = interp(y3, i, j, lerp);
+
+    CartesianFloat a = sample(phaseP1, phaseQ1, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
+    CartesianFloat b = sample(phaseP2, phaseQ1, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
+
+    x2[TORUS] = sinf(phaseQ2);
+    y3[TORUS] = cosf(phaseQ2);
+
+    cx2 = interp(x2, i, j, lerp);
+    cy3 = interp(y3, i, j, lerp);
+
+    CartesianFloat c = sample(phaseP1, phaseQ2, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
+    CartesianFloat d = sample(phaseP2, phaseQ2, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
+
+    a = a + (b - a)*pd;
+    b = c + (d - c)*pd;
+    a = a + (b - a)*qd;
+
+    stepPhase(phaseP, phaseInc*(1 + pm));
+    stepPhase(phaseQ, phaseInc*(1 + qm));
     stepPhase(phaseZ, phaseInc);
-    stepPhase(phaseQ, phaseInc*(knotQ+qm));
-    stepPhase(phaseP, phaseInc*(knotP+pm));
 
-    return CartesianFloat(ox, oy, oz);
+    return a;
   }
 
 private:
+  inline CartesianFloat sample(const float pt, const float qt, const float zt,
+    const float cx1, const float cx2, const float cx3,
+    const float cy1, const float cy2, const float cy3,
+    const float cz1, const float cz2)
+  {
+    CartesianFloat a {
+    .x = cx1 * sinf(qt) + cx2 * cosf(pt + cx3),
+    .y = cy1 * cosf(qt + cy2) + cy3 * cosf(pt),
+    .z = cz1 * sinf(3 * zt) + cz2 * sinf(pt),
+    };
+
+    return a;
+  }
+
   inline float interp(float* buffer, int i, int j, float lerp)
   {
     return buffer[i] + lerp * (buffer[j] - buffer[i]);
