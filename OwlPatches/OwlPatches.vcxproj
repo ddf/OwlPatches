@@ -155,6 +155,7 @@
     <ClInclude Include="Grain.hpp" />
     <ClInclude Include="GrainzPatch.hpp" />
     <ClInclude Include="HashMap.h" />
+    <ClInclude Include="KnoscillatorGeniusPatch.hpp" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
     <ClInclude Include="KnoscillatorPatch.hpp" />
     <ClInclude Include="KnotOscillator.h" />
