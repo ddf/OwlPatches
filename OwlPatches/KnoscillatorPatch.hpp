@@ -236,13 +236,16 @@ public:
     float morphTarget = getParameterValue(params.inMorph);
     float morphStep = (morphTarget - morph) / getBlockSize();
 
-    knotP = 1 + getParameterValue(params.inKnotP) * 16;
-    knotQ = 1 + getParameterValue(params.inKnotQ) * 16;
+    knotP = 1.0f + getParameterValue(params.inKnotP) * 16;
+    knotQ = 1.0f + getParameterValue(params.inKnotQ) * 16;
 
     float sVol = getParameterValue(params.inKnotS) * 0.25f;
 
-    float dtp = getParameterValue(params.inDetuneP);
-    float dtq = getParameterValue(params.inDetuneQ);
+    bool freezeP = isButtonPressed(params.inFreezeP);
+    bool freezeQ = isButtonPressed(params.inFreezeQ);
+
+    float dtp = freezeP ? -1 : getParameterValue(params.inDetuneP);
+    float dtq = freezeQ ? -1 : getParameterValue(params.inDetuneQ);
     float dts = getParameterValue(params.inDetuneS);
 
     float rxt = getParameterValue(params.inRotateX)*TWO_PI;
@@ -254,8 +257,7 @@ public:
 
     float nVol = getParameterValue(params.inNoiseAmp)*0.5f;
 
-    bool freezeP = isButtonPressed(params.inFreezeP);
-    bool freezeQ = isButtonPressed(params.inFreezeQ);
+    knoscil->setPQ(knotP, knotQ);
 
     for (int s = 0; s < getBlockSize(); ++s)
     {
@@ -265,7 +267,6 @@ public:
       const float fm = kpm->generate()*TWO_PI*right[s];
 
       knoscil->setFrequency(freq);
-      knoscil->setPQ(freezeP ? 0.f : knotP.getValue(), freezeQ ? 0.f : knotQ.getValue());
       knoscil->setMorph(morph);
 
       CartesianFloat coord = knoscil->generate(fm, dtp, dtq);
