@@ -62,7 +62,7 @@ public:
 
   void setMorph(float amt)
   {
-    morph = -0.5f*cos(amt*M_PI) + 0.5f;
+    morph = -0.5f*cosf(amt*M_PI) + 0.5f;
   }
 
   CartesianFloat generate(float fm, float pm, float qm)
