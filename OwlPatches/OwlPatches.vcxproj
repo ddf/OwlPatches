@@ -70,16 +70,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
