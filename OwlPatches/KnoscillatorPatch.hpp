@@ -70,9 +70,9 @@ class KnoscillatorPatch : public PatchClass
 {
 protected:
   KnoscillatorParameterIds params;
+  VoltsPerOctave hz;
 
 private:
-  VoltsPerOctave hz;
   SineOscillator* kpm;
 
   KnotOscillator* knoscil;

@@ -67,43 +67,82 @@ static const KnoscillatorParameterIds knoscillatorGeniusParams =
 
 class KnoscillatorGeniusPatch : public BasePatch
 {
+  size_t drawCount;
+  float  knotPhase;
   CircularFloatBuffer* left;
   CircularFloatBuffer* right;
+  MonochromeScreenBuffer backBuffer;
 
 public:
   KnoscillatorGeniusPatch()
-    : BasePatch(knoscillatorGeniusParams)
+    : BasePatch(knoscillatorGeniusParams), drawCount(0), knotPhase(0)
+    , backBuffer(128,64)
   {
-    left = CircularFloatBuffer::create(getBlockSize() * 2);
-    right = CircularFloatBuffer::create(getBlockSize() * 2);
+    const size_t bufferSize = getBlockSize() * 128;
+    left = CircularFloatBuffer::create(bufferSize);
+    right = CircularFloatBuffer::create(bufferSize);
+    backBuffer.setBuffer(new uint8_t[backBuffer.getWidth()*backBuffer.getHeight()/8]);
   }
   
   ~KnoscillatorGeniusPatch()
   {
     CircularFloatBuffer::destroy(left);
     CircularFloatBuffer::destroy(right);
+    delete[] backBuffer.getBuffer();
+  }
+
+  // returns CPU% as [0,1] value
+  float getElapsedTime()
+  {
+    return getElapsedCycles() / getBlockSize() / 10000.0f;
   }
 
   void processAudio(AudioBuffer& audio) override
   {
+    const int size = audio.getSize();
+    FloatArray inLeft = audio.getSamples(0);
+    const float phaseStep = 1.0f / getSampleRate();
+    for (int i = 0; i < size; ++i)
+    {
+      const float freq = hz.getFrequency(inLeft[i]);
+      knotPhase += freq * phaseStep;
+      if (knotPhase >= 1)
+      {
+        knotPhase -= 1;
+        drawCount = left->getReadCapacity() + i;
+      }
+    }
+
     BasePatch::processAudio(audio);
+
     left->write(audio.getSamples(0), audio.getSize());
     right->write(audio.getSamples(1), audio.getSize());
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    const int displayHeight = screen.getHeight() - 18;
+    const int displayHeight = screen.getHeight();
     const int cy = displayHeight / 2;
     const int cx = screen.getWidth() / 2;
     const int sz = displayHeight / 2;
 
-    int count = min(left->getReadCapacity(), (size_t)getBlockSize());
-    while (count--)
+    if (drawCount)
     {
-      int x = cx + left->read()*sz;
-      int y = cy + right->read()*sz;
-      screen.setPixel(x, y, WHITE);
+      backBuffer.clear();
+      float t1 = getElapsedTime();
+      size_t count = min(drawCount, left->getSize() / 2);
+      drawCount -= count;
+      while (count--)
+      {
+        int x = cx + left->read()*sz;
+        int y = cy + right->read()*sz;
+        backBuffer.setPixel(x, y, WHITE);
+      }
+      float t2 = getElapsedTime();
+
+      //backBuffer.setCursor(0, 8);
+      //backBuffer.print(t2 - t1);
     }
+    memcpy(screen.getBuffer(), backBuffer.getBuffer(), screen.getWidth()*screen.getHeight()/8);
   }
 };
