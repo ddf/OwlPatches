@@ -81,9 +81,9 @@ private:
   int midinote;
   SmoothFloat knotP;
   SmoothFloat knotQ;
+  SmoothFloat morph;
 
   float phaseS;
-  float morph;
   float rotateX;
   float rotateY;
   float rotateZ;
@@ -115,7 +115,7 @@ public:
   KnoscillatorPatch(KnoscillatorParameterIds paramIds) 
     : PatchClass()
     , params(paramIds), hz(true), midinote(0), knotP(0.9f, 2), knotQ(0.9f, 1)
-    , gateHigh(0), phaseS(0), morph(0)
+    , gateHigh(0), phaseS(0), morph(0.9f, 0)
     , rotateX(0), rotateY(0), rotateZ(0)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
     , TWO_PI(M_PI * 2), stepRate(TWO_PI / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
@@ -234,8 +234,7 @@ public:
     float tune = (midinote - 66 + getParameterValue(params.inPitch) * 73) / 12.0f;
     hz.setTune(tune);
 
-    float morphTarget = getParameterValue(params.inMorph);
-    float morphStep = (morphTarget - morph) / getBlockSize();
+    morph = getParameterValue(params.inMorph);
 
     knotP = 1.0f + getParameterValue(params.inKnotP) * 16;
     knotQ = 1.0f + getParameterValue(params.inKnotQ) * 16;
@@ -284,8 +283,6 @@ public:
       float projection = 1.0f / (coord.z + camDist);
       left[s] = coord.x * projection;
       right[s] = coord.y * projection;
-
-      morph += morphStep;
 
       const float step = freq * stepRate;
       stepPhase(phaseS, step * 4 * (knotP + knotQ + dts));
