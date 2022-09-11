@@ -210,7 +210,7 @@ public:
   {
     if (msg.isNoteOn())
     {
-      midinote = msg.getNote() - 60;
+      midinote = msg.getNote();
     }
   }
 
@@ -230,7 +230,8 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    float tune = (midinote + getParameterValue(params.inPitch) * 64 - 64) / 12.0f;
+    // adjust so that midinote 60 (C4) actually generates a C4 when the pitch param is zero.
+    float tune = (midinote - 66 + getParameterValue(params.inPitch) * 73) / 12.0f;
     hz.setTune(tune);
 
     float morphTarget = getParameterValue(params.inMorph);
