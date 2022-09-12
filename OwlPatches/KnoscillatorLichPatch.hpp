@@ -59,7 +59,7 @@ static const KnoscillatorParameterIds knoscillatorLichParams =
 
   .outRotateX = PARAMETER_F,
   .outRotateY = PARAMETER_G,
-  .outRotateZ = -1,
+  .outRotateZ = (PatchParameterId)(-1),
 
   .inFreezeP = BUTTON_1,
   .inFreezeQ = BUTTON_2,

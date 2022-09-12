@@ -83,6 +83,7 @@ private:
   Rotation3D* rotator;
 
   int midinote;
+  SmoothFloat tune;
   SmoothFloat knotP;
   SmoothFloat knotQ;
   SmoothFloat morph;
@@ -123,7 +124,7 @@ public:
 
   KnoscillatorPatch(KnoscillatorParameterIds paramIds)
     : PatchClass()
-    , params(paramIds), hz(true), midinote(0), knotP(0.9f, 2), knotQ(0.9f, 1)
+    , params(paramIds), hz(true), midinote(0), tune(0.9f, -6.0f), knotP(0.9f, 2), knotQ(0.9f, 1)
     , gateHigh(0), phaseS(0), morph(0.9f, 0), zoom(0.9f, zoomNear), fmRatio(0.9f, 2.0f)
     , rotateX(0), rotateY(0), rotateZ(0)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
@@ -248,7 +249,7 @@ public:
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
     // adjust so that midinote 60 (C4) actually generates a C4 when the pitch param is zero.
-    float tune = (midinote - 66 + getParameterValue(params.inPitch) * 73) / 12.0f;
+    tune = (midinote - 69 + getParameterValue(params.inPitch) * 73) / 12.0f;
     hz.setTune(tune);
 
     morph = getParameterValue(params.inMorph);
