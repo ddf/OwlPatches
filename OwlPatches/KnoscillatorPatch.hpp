@@ -292,6 +292,7 @@ public:
     float nVol = getParameterValue(params.inNoiseAmp)*0.5f;
 
     knoscil->setPQ(knotP, knotQ);
+    knoscil->setMorph(morph);
 
     for (int s = 0; s < getBlockSize(); ++s)
     {
@@ -301,7 +302,6 @@ public:
       const float fm = kpm->generate()*TWO_PI*right[s];
 
       knoscil->setFrequency(freq);
-      knoscil->setMorph(morph);
 
       CartesianFloat coord = knoscil->generate(fm, dtp, dtq);
       rotator->setEuler(rotateX + rotateOffX, rotateY + rotateOffY, rotateZ + rotateOffZ);
