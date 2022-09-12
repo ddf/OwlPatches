@@ -70,16 +70,16 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)..\..\OwlProgram\Libraries\;$(ProjectDir)..\..\OwlProgram\Libraries\DaisySP\Source;$(ProjectDir)..\..\OwlProgram\LibSource;$(ProjectDir)..\..\OwlProgram\Source;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -139,6 +139,9 @@
     <ClInclude Include="BlurKernel.h" />
     <ClInclude Include="BlurPatch.hpp" />
     <ClInclude Include="BlurSignalProcessor.h" />
+    <ClInclude Include="CartesianFloat.h" />
+    <ClInclude Include="CartesianFloatArray.h" />
+    <ClInclude Include="CartesianTransform.h" />
     <ClInclude Include="CircularTexture.h" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="Easing.h" />
@@ -152,7 +155,10 @@
     <ClInclude Include="Grain.hpp" />
     <ClInclude Include="GrainzPatch.hpp" />
     <ClInclude Include="HashMap.h" />
+    <ClInclude Include="KnoscillatorGeniusPatch.hpp" />
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
+    <ClInclude Include="KnoscillatorPatch.hpp" />
+    <ClInclude Include="KnotOscillator.h" />
     <ClInclude Include="MarkovChain.hpp" />
     <ClInclude Include="MarkovPatch.hpp" />
     <ClInclude Include="Noise.hpp" />
