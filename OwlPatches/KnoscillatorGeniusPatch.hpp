@@ -127,10 +127,10 @@ public:
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    const int displayHeight = screen.getHeight();
+    const int displayHeight = screen.getHeight() - 18;
     const int cy = displayHeight / 2;
     const int cx = screen.getWidth() / 2;
-    const int sz = displayHeight / 2;
+    const int sz = screen.getHeight() / 2;
 
     if (drawCount)
     {
@@ -149,6 +149,15 @@ public:
       //backBuffer.setCursor(0, 8);
       //backBuffer.print(t2 - t1);
     }
-    memcpy(screen.getBuffer(), backBuffer.getBuffer(), screen.getWidth()*screen.getHeight()/8);
+    // copy pixels one at a time so we don't overwrite
+    // the selected parameters displayed at the bottom of the screen
+    for (int x = 0; x < screen.getWidth(); ++x)
+    {
+      for (int y = 0; y < displayHeight; ++y)
+      {
+        auto c = screen.getPixel(x, y) | backBuffer.getPixel(x, y);
+        screen.setPixel(x, y, c);
+      }
+    }
   }
 };
