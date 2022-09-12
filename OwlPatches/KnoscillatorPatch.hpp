@@ -160,8 +160,8 @@ public:
 
     setParameterValue(params.inPitch, 0);
     setParameterValue(params.inMorph, 0);
-    setParameterValue(params.inKnotP, knotP / 16.0f);
-    setParameterValue(params.inKnotQ, knotQ / 16.0f);
+    setParameterValue(params.inKnotP, (knotP - 1) / 16.0f);
+    setParameterValue(params.inKnotQ, (knotQ - 1) / 16.0f);
     setParameterValue(params.outRotateX, 0);
     setParameterValue(params.outRotateY, 0);
 
