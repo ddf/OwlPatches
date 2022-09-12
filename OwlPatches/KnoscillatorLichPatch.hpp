@@ -54,6 +54,7 @@ static const KnoscillatorParameterIds knoscillatorLichParams =
   .inRotateZRate = PARAMETER_E, // inKnotS
 
   .inNoiseAmp = PARAMETER_AD,
+  .inFMRatio = PARAMETER_H,
   .inZoom = PARAMETER_AH,
 
   .outRotateX = PARAMETER_F,

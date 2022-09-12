@@ -56,11 +56,12 @@ static const KnoscillatorParameterIds knoscillatorGeniusParams =
   .inRotateZRate = PARAMETER_AC,
 
   .inNoiseAmp = PARAMETER_AD,
-  .inZoom = PARAMETER_AH,
+  .inFMRatio = PARAMETER_AH,
+  .inZoom = PARAMETER_BA,
 
-  .outRotateX = PARAMETER_BA,
-  .outRotateY = PARAMETER_BB,
-  .outRotateZ = PARAMETER_BC,
+  .outRotateX = PARAMETER_BB,
+  .outRotateY = PARAMETER_BC,
+  .outRotateZ = PARAMETER_BD,
 
   .inFreezeP = BUTTON_1,
   .inFreezeQ = BUTTON_2,

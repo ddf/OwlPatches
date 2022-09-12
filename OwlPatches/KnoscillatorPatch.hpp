@@ -55,6 +55,7 @@ struct KnoscillatorParameterIds
   PatchParameterId inRotateYRate;
   PatchParameterId inRotateZRate;
   PatchParameterId inNoiseAmp;
+  PatchParameterId inFMRatio;
   PatchParameterId inZoom;
 
   PatchParameterId outRotateX;
@@ -85,6 +86,7 @@ private:
   SmoothFloat knotP;
   SmoothFloat knotQ;
   SmoothFloat morph;
+  SmoothFloat fmRatio;
 
   static constexpr float zoomFar = 60.0f;
   static constexpr float zoomNear = 6.0f;
@@ -119,10 +121,10 @@ public:
   using PatchClass::setButton;
   using PatchClass::getBlockSize;
 
-  KnoscillatorPatch(KnoscillatorParameterIds paramIds) 
+  KnoscillatorPatch(KnoscillatorParameterIds paramIds)
     : PatchClass()
     , params(paramIds), hz(true), midinote(0), knotP(0.9f, 2), knotQ(0.9f, 1)
-    , gateHigh(0), phaseS(0), morph(0.9f, 0), zoom(0.9f, zoomNear)
+    , gateHigh(0), phaseS(0), morph(0.9f, 0), zoom(0.9f, zoomNear), fmRatio(0.9f, 2.0f)
     , rotateX(0), rotateY(0), rotateZ(0)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
     , TWO_PI(M_PI * 2), stepRate(TWO_PI / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
@@ -170,6 +172,7 @@ public:
     registerParameter(params.inRotateY, "Y-Rot");
     registerParameter(params.inRotateZ, "Z-Rot");
     registerParameter(params.inNoiseAmp, "Noise");
+    registerParameter(params.inFMRatio, "FM Ratio");
     registerParameter(params.inZoom, "Zoom");
 
     if (params.inRotateXRate != params.inKnotP)
@@ -198,6 +201,7 @@ public:
     setParameterValue(params.inRotateY, 0);
     setParameterValue(params.inRotateZ, 0);
     setParameterValue(params.inNoiseAmp, 0);
+    setParameterValue(params.inFMRatio, 0.33f);
     setParameterValue(params.inZoom, 1);
   }
 
@@ -248,6 +252,21 @@ public:
     hz.setTune(tune);
 
     morph = getParameterValue(params.inMorph);
+
+    float fmParam = getParameterValue(params.inFMRatio);
+    if (fmParam < 0.34f)
+    {
+      fmRatio = fmParam < 0.32f ? 1.0f + fmParam / 0.32f : 2.0f;
+    }
+    else if (fmParam < 0.67f)
+    {
+      fmRatio = fmParam < 0.65 ? 2 + (fmParam - 0.34f) / (0.65f - 0.34f) : 3;
+    }
+    else
+    {
+      fmRatio = fmParam < 0.96f ? 3 + (fmParam - 0.67f) / (0.96f - 0.67f) : 4;
+    }
+    
     zoom  = zoomFar + (zoomNear - zoomFar)*getParameterValue(params.inZoom);
 
     knotP = 1.0f + getParameterValue(params.inKnotP) * 16;
@@ -277,7 +296,7 @@ public:
     {
       const float freq = hz.getFrequency(left[s]);
       // phase modulate in sync with the current frequency
-      kpm->setFrequency(freq * 2);
+      kpm->setFrequency(freq * fmRatio);
       const float fm = kpm->generate()*TWO_PI*right[s];
 
       knoscil->setFrequency(freq);
