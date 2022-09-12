@@ -10,6 +10,7 @@
 
 struct CartesianFloat {
   constexpr CartesianFloat() : x(0), y(0), z(0) {}
+  constexpr CartesianFloat(CartesianFloat& in) : x(in.x), y(in.y), z(in.z) {}
   constexpr CartesianFloat(float x, float y, float z) : x(x), y(y), z(z) {}
 
   float x, y, z;
