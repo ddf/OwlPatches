@@ -55,14 +55,17 @@ struct KnoscillatorParameterIds
   PatchParameterId inRotateYRate;
   PatchParameterId inRotateZRate;
   PatchParameterId inNoiseAmp;
+  PatchParameterId inZoom;
 
   PatchParameterId outRotateX;
   PatchParameterId outRotateY;
+  PatchParameterId outRotateZ;
 
   PatchButtonId inFreezeP;
   PatchButtonId inFreezeQ;
-  PatchButtonId outRotateComplete;
-
+  PatchButtonId outRotateXGate;
+  PatchButtonId outRotateYGate;
+  PatchButtonId outRotateZGate;
 };
 
 template<typename PatchClass = Patch>
@@ -82,6 +85,10 @@ private:
   SmoothFloat knotP;
   SmoothFloat knotQ;
   SmoothFloat morph;
+
+  static constexpr float zoomFar = 60.0f;
+  static constexpr float zoomNear = 6.0f;
+  SmoothFloat zoom;
 
   float phaseS;
   float rotateX;
@@ -115,7 +122,7 @@ public:
   KnoscillatorPatch(KnoscillatorParameterIds paramIds) 
     : PatchClass()
     , params(paramIds), hz(true), midinote(0), knotP(0.9f, 2), knotQ(0.9f, 1)
-    , gateHigh(0), phaseS(0), morph(0.9f, 0)
+    , gateHigh(0), phaseS(0), morph(0.9f, 0), zoom(0.9f, zoomNear)
     , rotateX(0), rotateY(0), rotateZ(0)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
     , TWO_PI(M_PI * 2), stepRate(TWO_PI / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
@@ -141,8 +148,12 @@ public:
     registerParameter(params.inMorph, "Morph");
     registerParameter(params.inKnotP, "Knot P");
     registerParameter(params.inKnotQ, "Knot Q");
-    registerParameter(params.outRotateX, "X-Rotation>");
-    registerParameter(params.outRotateY, "Y-Rotation>");
+    registerParameter(params.outRotateX, "X-Rot>");
+    registerParameter(params.outRotateY, "Y-Rot>");
+    if (params.outRotateZ != -1)
+    {
+      registerParameter(params.outRotateZ, "Z-Rot>");
+    }
 
     setParameterValue(params.inPitch, 0);
     setParameterValue(params.inMorph, 0);
@@ -155,10 +166,11 @@ public:
     registerParameter(params.inDetuneP, "Detune P");
     registerParameter(params.inDetuneQ, "Detune Q");
     registerParameter(params.inDetuneS, "Detune S");
-    registerParameter(params.inRotateX, "X-Rotation");
-    registerParameter(params.inRotateY, "Y-Rotation");
-    registerParameter(params.inRotateZ, "Z-Rotation");
+    registerParameter(params.inRotateX, "X-Rot");
+    registerParameter(params.inRotateY, "Y-Rot");
+    registerParameter(params.inRotateZ, "Z-Rot");
     registerParameter(params.inNoiseAmp, "Noise");
+    registerParameter(params.inZoom, "Zoom");
 
     if (params.inRotateXRate != params.inKnotP)
     {
@@ -186,6 +198,7 @@ public:
     setParameterValue(params.inRotateY, 0);
     setParameterValue(params.inRotateZ, 0);
     setParameterValue(params.inNoiseAmp, 0);
+    setParameterValue(params.inZoom, 1);
   }
 
   ~KnoscillatorPatch()
@@ -235,6 +248,7 @@ public:
     hz.setTune(tune);
 
     morph = getParameterValue(params.inMorph);
+    zoom  = zoomFar + (zoomNear - zoomFar)*getParameterValue(params.inZoom);
 
     knotP = 1.0f + getParameterValue(params.inKnotP) * 16;
     knotQ = 1.0f + getParameterValue(params.inKnotQ) * 16;
@@ -279,8 +293,7 @@ public:
       coord.y += sinf(st)*sVol + coord.y * nz;
       coord.z += coord.z * nz;
 
-      const float camDist = 6.0f;
-      float projection = 1.0f / (coord.z + camDist);
+      float projection = 1.0f / (coord.z + zoom);
       left[s] = coord.x * projection;
       right[s] = coord.y * projection;
 
@@ -314,6 +327,20 @@ public:
 
     setParameterValue(params.outRotateX, sinf(rotateX + rotateOffX)*0.5f + 0.5f);
     setParameterValue(params.outRotateY, cosf(rotateY + rotateOffY)*0.5f + 0.5f);
-    setButton(params.outRotateComplete, gateHigh != 0);
+    if (params.outRotateZ != -1)
+    {
+      setParameterValue(params.outRotateZ, sinf(rotateZ + rotateOffZ)*0.5f + 0.5f);
+    }
+
+    if (params.outRotateXGate == params.outRotateYGate == params.outRotateZGate)
+    {
+      setButton(params.outRotateXGate, gateHigh != 0);
+    }
+    else
+    {
+      setButton(params.outRotateXGate, rotateX < M_PI_2);
+      setButton(params.outRotateYGate, rotateY < M_PI_2);
+      setButton(params.outRotateZGate, rotateZ < M_PI_2);
+    }
   }
 };

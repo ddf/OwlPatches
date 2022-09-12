@@ -54,13 +54,17 @@ static const KnoscillatorParameterIds knoscillatorLichParams =
   .inRotateZRate = PARAMETER_E, // inKnotS
 
   .inNoiseAmp = PARAMETER_AD,
+  .inZoom = PARAMETER_AH,
 
   .outRotateX = PARAMETER_F,
   .outRotateY = PARAMETER_G,
+  .outRotateZ = -1,
 
   .inFreezeP = BUTTON_1,
   .inFreezeQ = BUTTON_2,
-  .outRotateComplete = PUSHBUTTON
+  .outRotateXGate = PUSHBUTTON,
+  .outRotateYGate = PUSHBUTTON,
+  .outRotateZGate = PUSHBUTTON
 };
 
 class KnoscillatorLichPatch : public BasePatch

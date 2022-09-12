@@ -38,31 +38,36 @@ typedef KnoscillatorPatch<MonochromeScreenPatch> BasePatch;
 
 static const KnoscillatorParameterIds knoscillatorGeniusParams =
 {
-  .inPitch = PARAMETER_A,
-  .inMorph = PARAMETER_B,
-  .inKnotP = PARAMETER_C,
-  .inKnotQ = PARAMETER_D,
-  .inKnotS = PARAMETER_E,
-  .inDetuneP = PARAMETER_AA,
-  .inDetuneQ = PARAMETER_AB,
-  .inDetuneS = PARAMETER_AC,
+  .inPitch = PARAMETER_H,
+  .inMorph = PARAMETER_D,
+  .inKnotP = PARAMETER_A,
+  .inKnotQ = PARAMETER_B,
+  .inKnotS = PARAMETER_C,
+  .inDetuneP = PARAMETER_E,
+  .inDetuneQ = PARAMETER_F,
+  .inDetuneS = PARAMETER_G,
 
   .inRotateX = PARAMETER_AE,
   .inRotateY = PARAMETER_AF,
   .inRotateZ = PARAMETER_AG,
 
-  .inRotateXRate = PARAMETER_C, // inKnotP
-  .inRotateYRate = PARAMETER_D, // inKnotQ
-  .inRotateZRate = PARAMETER_E, // inKnotS
+  .inRotateXRate = PARAMETER_AA,
+  .inRotateYRate = PARAMETER_AB,
+  .inRotateZRate = PARAMETER_AC,
 
   .inNoiseAmp = PARAMETER_AD,
+  .inZoom = PARAMETER_AH,
 
-  .outRotateX = PARAMETER_F,
-  .outRotateY = PARAMETER_G,
+  .outRotateX = PARAMETER_BA,
+  .outRotateY = PARAMETER_BB,
+  .outRotateZ = PARAMETER_BC,
 
   .inFreezeP = BUTTON_1,
   .inFreezeQ = BUTTON_2,
-  .outRotateComplete = PUSHBUTTON
+
+  .outRotateXGate = BUTTON_1,
+  .outRotateYGate = BUTTON_2,
+  .outRotateZGate = BUTTON_3
 };
 
 class KnoscillatorGeniusPatch : public BasePatch
