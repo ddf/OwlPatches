@@ -132,13 +132,11 @@ private:
     const float cy1, const float cy2, const float cy3,
     const float cz1, const float cz2)
   {
-    CartesianFloat a {
-    .x = cx1 * sinf(qt) + cx2 * cosf(pt + cx3),
-    .y = cy1 * cosf(qt + cy2) + cy3 * cosf(pt),
-    .z = cz1 * sinf(3 * zt) + cz2 * sinf(pt),
-    };
-
-    return a;
+    return CartesianFloat(
+      cx1 * sinf(qt) + cx2 * cosf(pt + cx3),
+      cy1 * cosf(qt + cy2) + cy3 * cosf(pt),
+      cz1 * sinf(3 * zt) + cz2 * sinf(pt)
+    );
   }
 
   inline float interp(float* buffer, int i, int j, float lerp)
