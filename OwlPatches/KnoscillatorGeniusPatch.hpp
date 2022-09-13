@@ -20,14 +20,13 @@ LICENSE:
 
 DESCRIPTION:
     Knoscillator is a stereo oscillator that oscillates over a 3D curve (or Knot).
-    The Knot can morphed between three Knot equations based on the Trefoil Knot,
+    The Knot can be morphed between three Knot equations based on the Trefoil Knot,
     Lissajous Curve, and Torus Knot. Each 3D sample is projected to a 2D point
     whose X-Y coordinates are used as the left and right audio outputs. By plotting
     the audio on a scope in X-Y mode, you will be able to see the Knot generating the sound.
-    The Knot shape can be changed by adjusting the P and Q coefficients
-    and it rotates around the X and Y axes at speeds relative to P and Q,
-    which generates an ever-changing stereo field.
-
+    The Knot shape can be changed by adjusting the P, Q, and S coefficients.
+    The Knot can be directly rotated or set to rotate at unique rates around 
+    the X, Y, and Z axes, creating an ever-changing stereo field.
 */
 
 #include "KnoscillatorPatch.hpp"
