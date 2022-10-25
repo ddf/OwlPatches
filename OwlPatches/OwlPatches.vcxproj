@@ -143,6 +143,7 @@
     <ClInclude Include="CartesianFloatArray.h" />
     <ClInclude Include="CartesianTransform.h" />
     <ClInclude Include="CircularTexture.h" />
+    <ClInclude Include="DelayMatrixPatch.hpp" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="Easing.h" />
     <ClInclude Include="EqualLoudnessCurves.h" />

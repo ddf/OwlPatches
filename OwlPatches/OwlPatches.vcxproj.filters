@@ -126,6 +126,9 @@
     <ClInclude Include="KnoscillatorGeniusPatch.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DelayMatrixPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="KissFFT.cpp">
