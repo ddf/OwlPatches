@@ -23,68 +23,85 @@ DESCRIPTION:
 */
 
 #include "Patch.h"
-#include "DelayProcessor.h"
-#include "FeedbackProcessor.h"
+#include "StereoDelayProcessor.h"
 
-#define DELAY_LINE_COUNT 2
+#define DELAY_LINE_COUNT 3
 
-static const float MIN_DELAY_SECONDS = 0.002f;
-static const float MAX_DELAY_SECONDS = 1.0f;
+static const float MIN_TIME_SECONDS = 0.002f;
+static const float MAX_TIME_SECONDS = 0.25f;
+static const float MIN_SPREAD = 0.25f;
+static const float MAX_SPREAD = 2.0f;
+// Spread calculator: https://www.desmos.com/calculator/xnzudjo949
+static const float MAX_DELAY_LEN = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
 
-typedef FeedbackSignalProcessor<CrossFadingDelayProcessor> DelayLine;
+typedef StereoCrossFadingDelayProcessor DelayLine;
 
-struct DelayParamIds
+struct DelayMatrixParamIds
 {
-  PatchParameterId time; // length of the delay
-  PatchParameterId feedback; // feedback amount
-  PatchParameterId input; // amount of input fed into the delay
-  PatchParameterId send; // amount of wet signal sent to the next delay
+  PatchParameterId time;
+  PatchParameterId spread;
+  PatchParameterId feedback;
+  PatchParameterId dryWet;
 };
 
-struct DelayParams
+struct DelayLineParamIds
+{
+  PatchParameterId input; // amount of input fed into the delay
+  PatchParameterId send; // amount of wet signal sent to other delays
+};
+
+struct DelayLineData
 {
   SmoothFloat time;
   SmoothFloat feedback;
   SmoothFloat input;
   SmoothFloat send;
+  AudioBuffer* out;
 };
 
 class DelayMatrixPatch : public Patch
 {
+  const DelayMatrixParamIds patchParams;
+
+  SmoothFloat time;
+  SmoothFloat spread;
+  SmoothFloat feedback;
+  SmoothFloat dryWet;
 
   DelayLine* delays[DELAY_LINE_COUNT];
-  DelayParamIds delayParamIds[DELAY_LINE_COUNT];
-  DelayParams delayParamValues[DELAY_LINE_COUNT];
+  DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
+  DelayLineData delayData[DELAY_LINE_COUNT];
 
-  FloatArray input;
-  FloatArray recv;
-  FloatArray accum;
+  AudioBuffer* input;
+  AudioBuffer* accum;
 
 public:
   DelayMatrixPatch()
+    : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D })
   {
+    registerParameter(patchParams.time, "Time");
+    registerParameter(patchParams.spread, "Spread");
+    registerParameter(patchParams.feedback, "Feedback");
+    registerParameter(patchParams.dryWet, "Dry/Wet");
+
     const int blockSize = getBlockSize();
-    const int delayLen = getSampleRate() * MAX_DELAY_SECONDS + 1;
-    PatchParameterId firstParam = PARAMETER_A;
+    const int delayLen = getSampleRate() * MAX_DELAY_LEN + 1;
+    int firstParam = PARAMETER_E;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      delays[i] = DelayLine::create(blockSize, CrossFadingCircularFloatBuffer::create(delayLen, blockSize));
+      delays[i] = DelayLine::create(delayLen, blockSize);
+      delayData[i].out = AudioBuffer::create(2, blockSize);
 
-      PatchParameterId timeParam = firstParam;
-      PatchParameterId feedParam = (PatchParameterId)(firstParam + 1);
-      PatchParameterId inputParam = (PatchParameterId)(firstParam + 2);
-      PatchParameterId sendParam = (PatchParameterId)(firstParam + 3);
-      registerParameter(timeParam, "Time");
-      registerParameter(feedParam, "Fdbk");
-      registerParameter(inputParam, "Input");
-      registerParameter(sendParam, "Send");
-      delayParamIds[i] = { timeParam, feedParam, inputParam, sendParam };
-      firstParam = (PatchParameterId)(firstParam + 4);
+      PatchParameterId inputParam = (PatchParameterId)(firstParam);
+      PatchParameterId sendParam = (PatchParameterId)(firstParam+1);
+      registerParameter(inputParam, "In Lvl");
+      registerParameter(sendParam, "Send Lvl");
+      delayParamIds[i] = { inputParam, sendParam };
+      firstParam += 4;
     }
 
-    input = FloatArray::create(blockSize);
-    recv = FloatArray::create(blockSize);
-    accum = FloatArray::create(blockSize);
+    input = AudioBuffer::create(2, blockSize);
+    accum = AudioBuffer::create(2, blockSize);
   }
 
   ~DelayMatrixPatch()
@@ -92,50 +109,64 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLine::destroy(delays[i]);
+      AudioBuffer::destroy(delayData[i].out);
     }
 
-    FloatArray::destroy(input);
-    FloatArray::destroy(recv);
-    FloatArray::destroy(accum);
+    AudioBuffer::destroy(input);
+    AudioBuffer::destroy(accum);
   }
 
   void processAudio(AudioBuffer& audio) override
   {
+    time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, getParameterValue(patchParams.time)) * getSampleRate();
+    feedback = getParameterValue(patchParams.feedback);
+    spread = Interpolator::linear(MIN_SPREAD, MAX_SPREAD, getParameterValue(patchParams.spread));
+    dryWet = getParameterValue(patchParams.dryWet);
+
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      delayParamValues[i].time = getParameterValue(delayParamIds[i].time);
-      delayParamValues[i].feedback = getParameterValue(delayParamIds[i].feedback);
-      delayParamValues[i].input = getParameterValue(delayParamIds[i].input);
-      delayParamValues[i].send = getParameterValue(delayParamIds[i].send);
+      delayData[i].time  = time + spread * i * time;
+      delayData[i].feedback = feedback;
+      delayData[i].input = getParameterValue(delayParamIds[i].input);
+      delayData[i].send  = getParameterValue(delayParamIds[i].send);
     }
 
-    FloatArray leftAudio = audio.getSamples(0);
-
-    accum.clear();
+    accum->clear();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      DelayParams& params = delayParamValues[i];
       DelayLine* delay = delays[i];
+      DelayLineData& data = delayData[i];
+      AudioBuffer& out = *data.out;
 
-      input.copyFrom(leftAudio);
-      input.multiply(params.input);
-      input.add(recv);
+      input->copyFrom(audio);
+      input->multiply(data.input);
+      // add sends from adjacent delays
+      if (i > 0)
+      {
+        input->add(*(delayData[i-1].out));
+      }
+      if (i+1 < DELAY_LINE_COUNT)
+      {
+        input->add(*(delayData[i + 1].out));
+      }
 
-      float delaySamples = Interpolator::linear(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS, params.time) * getSampleRate();
+      float delaySamples = data.time;
       delay->setDelay(delaySamples);
-      delay->setFeedback(params.feedback);
-      delay->process(input, recv);
+      delay->setFeedback(data.feedback);
+      delay->process(*input, out);
 
       // accumulate wet delay signals
-      accum.add(recv);
+      accum->add(out);
 
-      // attenuate for the next delay with the send amount
-      recv.multiply(params.send);
+      // attenuate for other delays with the send amount
+      out.multiply(data.send);
     }
 
-    accum.multiply(0.5f);
-    leftAudio.multiply(0.5f);
-    leftAudio.add(accum);
+    const float wet = dryWet;
+    const float dry = 1.0f - dryWet;
+    accum->multiply(wet);
+    audio.multiply(dry);
+    audio.add(*accum);
   }
 
 };

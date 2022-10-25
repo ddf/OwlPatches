@@ -171,6 +171,7 @@
     <ClInclude Include="SpectralHarpLichPatch.hpp" />
     <ClInclude Include="SpectralHarpPatch.hpp" />
     <ClInclude Include="SpectralSignalGenerator.h" />
+    <ClInclude Include="StereoDelayProcessor.h" />
     <ClInclude Include="TapTempo.hpp" />
   </ItemGroup>
   <ItemGroup>
