@@ -24,6 +24,12 @@ public:
     static_cast<CrossFadingDelayProcessor*>(processor_left)->setDelay(samples);
   }
 
+  void setDelay(float samplesLeft, float samplesRight)
+  {
+    static_cast<CrossFadingDelayProcessor*>(processor_left)->setDelay(samplesLeft);
+    static_cast<CrossFadingDelayProcessor*>(processor_right)->setDelay(samplesRight);
+  }
+
   void clear() 
   {
     static_cast<CrossFadingDelayProcessor*>(processor_right)->clear();

@@ -23,6 +23,7 @@ DESCRIPTION:
 */
 
 #include "Patch.h"
+#include "DcBlockingFilter.h"
 #include "StereoDelayProcessor.h"
 
 #define DELAY_LINE_COUNT 3
@@ -46,8 +47,9 @@ struct DelayMatrixParamIds
 
 struct DelayLineParamIds
 {
-  PatchParameterId input; // amount of input fed into the delay
-  PatchParameterId send; // amount of wet signal sent to other delays
+  PatchParameterId input;    // amount of input fed into the delay
+  PatchParameterId skew;     // amount to skew the delay between left and right
+  PatchParameterId send;     // amount of wet signal sent to other delays
 };
 
 struct DelayLineData
@@ -55,6 +57,7 @@ struct DelayLineData
   SmoothFloat time;
   SmoothFloat feedback;
   SmoothFloat input;
+  SmoothFloat skew; // in samples
   SmoothFloat send;
   AudioBuffer* out;
 };
@@ -68,6 +71,7 @@ class DelayMatrixPatch : public Patch
   SmoothFloat feedback;
   SmoothFloat dryWet;
 
+  StereoDcBlockingFilter* inputFilter;
   DelayLine* delays[DELAY_LINE_COUNT];
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
   DelayLineData delayData[DELAY_LINE_COUNT];
@@ -93,15 +97,20 @@ public:
       delayData[i].out = AudioBuffer::create(2, blockSize);
 
       PatchParameterId inputParam = (PatchParameterId)(firstParam);
-      PatchParameterId sendParam = (PatchParameterId)(firstParam+1);
-      registerParameter(inputParam, "In Lvl");
-      registerParameter(sendParam, "Send Lvl");
-      delayParamIds[i] = { inputParam, sendParam };
+      PatchParameterId rotateParam = (PatchParameterId)(firstParam + 1);
+      PatchParameterId sendParam = (PatchParameterId)(firstParam+2);
+      registerParameter(inputParam, "Gain");
+      registerParameter(rotateParam, "Skew");
+      setParameterValue(rotateParam, 0.5f);
+      registerParameter(sendParam, "Radiate");
+      delayParamIds[i] = { inputParam, rotateParam, sendParam };
       firstParam += 4;
     }
 
     input = AudioBuffer::create(2, blockSize);
     accum = AudioBuffer::create(2, blockSize);
+
+    inputFilter = StereoDcBlockingFilter::create();
   }
 
   ~DelayMatrixPatch()
@@ -114,6 +123,8 @@ public:
 
     AudioBuffer::destroy(input);
     AudioBuffer::destroy(accum);
+
+    StereoDcBlockingFilter::destroy(inputFilter);
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -129,7 +140,10 @@ public:
       delayData[i].feedback = feedback;
       delayData[i].input = getParameterValue(delayParamIds[i].input);
       delayData[i].send  = getParameterValue(delayParamIds[i].send);
+      delayData[i].skew = Interpolator::linear(-24, 24, getParameterValue(delayParamIds[i].skew));
     }
+
+    inputFilter->process(audio, audio);
 
     accum->clear();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
@@ -151,7 +165,7 @@ public:
       }
 
       float delaySamples = data.time;
-      delay->setDelay(delaySamples);
+      delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
       delay->setFeedback(data.feedback);
       delay->process(*input, out);
 
