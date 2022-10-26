@@ -130,7 +130,7 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, getParameterValue(patchParams.time)) * getSampleRate();
-    feedback = getParameterValue(patchParams.feedback);
+    feedback = getParameterValue(patchParams.feedback)*0.95f;
     spread = Interpolator::linear(MIN_SPREAD, MAX_SPREAD, getParameterValue(patchParams.spread));
     dryWet = getParameterValue(patchParams.dryWet);
 
@@ -139,7 +139,7 @@ public:
       delayData[i].time  = time + spread * i * time;
       delayData[i].feedback = feedback;
       delayData[i].input = getParameterValue(delayParamIds[i].input);
-      delayData[i].send  = getParameterValue(delayParamIds[i].send);
+      delayData[i].send  = getParameterValue(delayParamIds[i].send) * 0.5f * (1.0f - feedback);
       delayData[i].skew = Interpolator::linear(-24, 24, getParameterValue(delayParamIds[i].skew));
     }
 
@@ -154,15 +154,19 @@ public:
 
       input->copyFrom(audio);
       input->multiply(data.input);
-      // add sends from adjacent delays
-      if (i > 0)
+
+      // with send values capped at 0.5 this gives reverby results a lot
+      // can get really overloaded, a little distorted, but doesn't turn to screaming feedback
+      // with all the parameters at max
+      for (int j = 0; j < DELAY_LINE_COUNT - 1; ++j)
       {
-        input->add(*(delayData[i-1].out));
+        DelayLineData& recv = delayData[(i + j) % DELAY_LINE_COUNT];
+        input->add(*recv.out);
       }
-      if (i+1 < DELAY_LINE_COUNT)
-      {
-        input->add(*(delayData[i + 1].out));
-      }
+
+      // more weird delay with sometimes reverberation appearing
+      //DelayLineData& recv = delayData[(i + 2) % DELAY_LINE_COUNT];
+      //input->add(*recv.out);
 
       float delaySamples = data.time;
       delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);

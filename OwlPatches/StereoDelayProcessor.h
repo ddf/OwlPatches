@@ -6,6 +6,9 @@
 
 class StereoCrossFadingDelayProcessor : public StereoFeedbackProcessor
 {
+private:
+  StereoDcBlockingFilter feedbackFilter;
+
 public:
   StereoCrossFadingDelayProcessor(CrossFadingDelayProcessor* left, CrossFadingDelayProcessor* right, FloatArray fbl, FloatArray fbr)
     : StereoFeedbackProcessor(left, right, fbl, fbr)
@@ -36,6 +39,15 @@ public:
     static_cast<CrossFadingDelayProcessor*>(processor_left)->clear();
   }
 
+  void process(AudioBuffer& input, AudioBuffer& output) override
+  {
+    StereoFeedbackProcessor::process(input, output);
+    // filter DC from the output, copy back to feedback arrays
+    feedbackFilter.process(output, output);
+    feedback_left.copyFrom(output.getSamples(LEFT_CHANNEL));
+    feedback_right.copyFrom(output.getSamples(RIGHT_CHANNEL));
+  }
+
   static StereoCrossFadingDelayProcessor* create(size_t delayLen, size_t blockSize)
   {
     CrossFadingDelayProcessor* left = CrossFadingDelayProcessor::create(delayLen, blockSize);
@@ -49,6 +61,7 @@ public:
     CrossFadingDelayProcessor::destroy(static_cast<CrossFadingDelayProcessor*>(obj->processor_right));
     StereoFeedbackProcessor::destroy(obj);
   }
+
 };
 
 #endif // __STEREO_DELAY_PROCESSOR_H__
