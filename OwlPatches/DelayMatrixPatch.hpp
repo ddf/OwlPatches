@@ -24,6 +24,7 @@ DESCRIPTION:
 
 #include "Patch.h"
 #include "DcBlockingFilter.h"
+#include "BiquadFilter.h"
 #include "StereoDelayProcessor.h"
 
 #define DELAY_LINE_COUNT 3
@@ -49,6 +50,7 @@ struct DelayLineParamIds
 {
   PatchParameterId input;    // amount of input fed into the delay
   PatchParameterId skew;     // amount to skew the delay between left and right
+  PatchParameterId cutoff;   // cutoff for the filter
   PatchParameterId send;     // amount of wet signal sent to other delays
 };
 
@@ -58,7 +60,9 @@ struct DelayLineData
   SmoothFloat feedback;
   SmoothFloat input;
   SmoothFloat skew; // in samples
+  SmoothFloat cutoff;
   SmoothFloat send;
+  StereoBiquadFilter* filter;
   AudioBuffer* out;
 };
 
@@ -94,16 +98,20 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       delays[i] = DelayLine::create(delayLen, blockSize);
+      delayData[i].filter = StereoBiquadFilter::create(getSampleRate());
       delayData[i].out = AudioBuffer::create(2, blockSize);
 
       PatchParameterId inputParam = (PatchParameterId)(firstParam);
       PatchParameterId rotateParam = (PatchParameterId)(firstParam + 1);
-      PatchParameterId sendParam = (PatchParameterId)(firstParam+2);
+      PatchParameterId cutoffParam = (PatchParameterId)(firstParam + 2);
+      PatchParameterId sendParam = (PatchParameterId)(firstParam+3);
       registerParameter(inputParam, "Gain");
       registerParameter(rotateParam, "Skew");
       setParameterValue(rotateParam, 0.5f);
       registerParameter(sendParam, "Radiate");
-      delayParamIds[i] = { inputParam, rotateParam, sendParam };
+      registerParameter(cutoffParam, "Color");
+      setParameterValue(cutoffParam, 1);
+      delayParamIds[i] = { inputParam, rotateParam, cutoffParam, sendParam };
       firstParam += 4;
     }
 
@@ -119,6 +127,7 @@ public:
     {
       DelayLine::destroy(delays[i]);
       AudioBuffer::destroy(delayData[i].out);
+      StereoBiquadFilter::destroy(delayData[i].filter);
     }
 
     AudioBuffer::destroy(input);
@@ -139,8 +148,9 @@ public:
       delayData[i].time  = time + spread * i * time;
       delayData[i].feedback = feedback;
       delayData[i].input = getParameterValue(delayParamIds[i].input);
-      delayData[i].send  = getParameterValue(delayParamIds[i].send) * 0.5f * (1.0f - feedback);
+      delayData[i].send  = getParameterValue(delayParamIds[i].send) * 0.515f * (1.0f - feedback);
       delayData[i].skew = Interpolator::linear(-24, 24, getParameterValue(delayParamIds[i].skew));
+      delayData[i].cutoff = Interpolator::linear(400, 18000, getParameterValue(delayParamIds[i].cutoff));
     }
 
     inputFilter->process(audio, audio);
@@ -150,6 +160,7 @@ public:
     {
       DelayLine* delay = delays[i];
       DelayLineData& data = delayData[i];
+      StereoBiquadFilter& filter = *data.filter;
       AudioBuffer& out = *data.out;
 
       input->copyFrom(audio);
@@ -172,6 +183,10 @@ public:
       delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
       delay->setFeedback(data.feedback);
       delay->process(*input, out);
+
+      // filter output
+      filter.setLowPass(data.cutoff, FilterStage::BUTTERWORTH_Q);
+      filter.process(out, out);
 
       // accumulate wet delay signals
       accum->add(out);
