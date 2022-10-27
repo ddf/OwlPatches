@@ -26,8 +26,9 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
 #include "StereoDelayProcessor.h"
+#include <string.h>
 
-#define DELAY_LINE_COUNT 3
+#define DELAY_LINE_COUNT 4
 
 static const float MIN_TIME_SECONDS = 0.002f;
 static const float MAX_TIME_SECONDS = 0.25f;
@@ -44,26 +45,26 @@ struct DelayMatrixParamIds
   PatchParameterId spread;
   PatchParameterId feedback;
   PatchParameterId dryWet;
+  PatchParameterId skew;
 };
 
 struct DelayLineParamIds
 {
   PatchParameterId input;    // amount of input fed into the delay
-  PatchParameterId skew;     // amount to skew the delay between left and right
   PatchParameterId cutoff;   // cutoff for the filter
-  PatchParameterId send;     // amount of wet signal sent to other delays
+  PatchParameterId feedback[DELAY_LINE_COUNT];     // amount of wet signal sent to other delays
 };
 
 struct DelayLineData
 {
   SmoothFloat time;
-  SmoothFloat feedback;
   SmoothFloat input;
   SmoothFloat skew; // in samples
   SmoothFloat cutoff;
-  SmoothFloat send;
+  SmoothFloat feedback[DELAY_LINE_COUNT];
   StereoBiquadFilter* filter;
-  AudioBuffer* out;
+  AudioBuffer* sigIn;
+  AudioBuffer* sigOut;
 };
 
 class DelayMatrixPatch : public Patch
@@ -72,6 +73,7 @@ class DelayMatrixPatch : public Patch
 
   SmoothFloat time;
   SmoothFloat spread;
+  SmoothFloat skew;
   SmoothFloat feedback;
   SmoothFloat dryWet;
 
@@ -80,43 +82,65 @@ class DelayMatrixPatch : public Patch
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
   DelayLineData delayData[DELAY_LINE_COUNT];
 
-  AudioBuffer* input;
+  AudioBuffer* scratch;
   AudioBuffer* accum;
 
 public:
   DelayMatrixPatch()
-    : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D })
+    : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E })
   {
     registerParameter(patchParams.time, "Time");
     registerParameter(patchParams.spread, "Spread");
     registerParameter(patchParams.feedback, "Feedback");
+    registerParameter(patchParams.skew, "Skew");
     registerParameter(patchParams.dryWet, "Dry/Wet");
 
     const int blockSize = getBlockSize();
     const int delayLen = getSampleRate() * MAX_DELAY_LEN + 1;
-    int firstParam = PARAMETER_E;
+    char pname[16]; char* p;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       delays[i] = DelayLine::create(delayLen, blockSize);
-      delayData[i].filter = StereoBiquadFilter::create(getSampleRate());
-      delayData[i].out = AudioBuffer::create(2, blockSize);
+      delays[i]->setFeedback(0);
 
-      PatchParameterId inputParam = (PatchParameterId)(firstParam);
-      PatchParameterId rotateParam = (PatchParameterId)(firstParam + 1);
-      PatchParameterId cutoffParam = (PatchParameterId)(firstParam + 2);
-      PatchParameterId sendParam = (PatchParameterId)(firstParam+3);
-      registerParameter(inputParam, "Gain");
-      registerParameter(rotateParam, "Skew");
-      setParameterValue(rotateParam, 0.5f);
-      registerParameter(sendParam, "Radiate");
-      registerParameter(cutoffParam, "Color");
-      setParameterValue(cutoffParam, 1);
-      delayParamIds[i] = { inputParam, rotateParam, cutoffParam, sendParam };
-      firstParam += 4;
+      DelayLineData& data = delayData[i];
+      data.filter = StereoBiquadFilter::create(getSampleRate());
+      data.sigIn = AudioBuffer::create(2, blockSize);
+      data.sigOut = AudioBuffer::create(2, blockSize);
+
+      DelayLineParamIds& params = delayParamIds[i];
+      params.input = (PatchParameterId)(PARAMETER_AA + i);
+      p = stpcpy(pname, "Gain "); p = stpcpy(p, msg_itoa(i + 1, 10));
+      registerParameter(params.input, pname);
+      setParameterValue(params.input, 1.0f);
+      
+      params.cutoff = (PatchParameterId)(PARAMETER_AE + i);
+      p = stpcpy(pname, "Color "); p = stpcpy(p, msg_itoa(i + 1, 10));
+      registerParameter(params.cutoff, pname);
+      setParameterValue(params.cutoff, 1);
+      
+      for (int f = 0; f < DELAY_LINE_COUNT; ++f)
+      {
+        params.feedback[f] = (PatchParameterId)(PARAMETER_BA + f * 4 + i);
+        p = stpcpy(pname, "Q");
+        p = stpcpy(p, msg_itoa(i + 1, 10));
+        p = stpcpy(p, msg_itoa(f + 1, 10));
+        registerParameter(params.feedback[f], pname);
+        // initialize the matrix so it sounds like 3 delays in parallel
+        // when the global feedback param is turned up
+        if (i == f)
+        {
+          setParameterValue(params.feedback[f], 1);
+        }
+        else
+        {
+          setParameterValue(params.feedback[f], 0.5f);
+        }
+      }
     }
 
-    input = AudioBuffer::create(2, blockSize);
     accum = AudioBuffer::create(2, blockSize);
+    scratch = AudioBuffer::create(2, blockSize);
 
     inputFilter = StereoDcBlockingFilter::create();
   }
@@ -126,12 +150,13 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLine::destroy(delays[i]);
-      AudioBuffer::destroy(delayData[i].out);
+      AudioBuffer::destroy(delayData[i].sigIn);
+      AudioBuffer::destroy(delayData[i].sigOut);
       StereoBiquadFilter::destroy(delayData[i].filter);
     }
 
-    AudioBuffer::destroy(input);
     AudioBuffer::destroy(accum);
+    AudioBuffer::destroy(scratch);
 
     StereoDcBlockingFilter::destroy(inputFilter);
   }
@@ -139,60 +164,71 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, getParameterValue(patchParams.time)) * getSampleRate();
-    feedback = getParameterValue(patchParams.feedback)*0.95f;
+    feedback = getParameterValue(patchParams.feedback)*0.9f;
     spread = Interpolator::linear(MIN_SPREAD, MAX_SPREAD, getParameterValue(patchParams.spread));
     dryWet = getParameterValue(patchParams.dryWet);
+    skew = getParameterValue(patchParams.skew);
 
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      delayData[i].time  = time + spread * i * time;
-      delayData[i].feedback = feedback;
-      delayData[i].input = getParameterValue(delayParamIds[i].input);
-      delayData[i].send  = getParameterValue(delayParamIds[i].send) * 0.515f * (1.0f - feedback);
-      delayData[i].skew = Interpolator::linear(-24, 24, getParameterValue(delayParamIds[i].skew));
-      delayData[i].cutoff = Interpolator::linear(400, 18000, getParameterValue(delayParamIds[i].cutoff));
+      DelayLineData& data = delayData[i];
+      DelayLineParamIds& params = delayParamIds[i];
+
+      data.time  = time + spread * i * time;
+      data.input = getParameterValue(params.input)*0.9f;
+      data.skew = i % 2 == 0 ? 24 * skew : -24 * skew;
+      data.cutoff = Interpolator::linear(400, 18000, getParameterValue(params.cutoff));
+
+      for (int f = 0; f < DELAY_LINE_COUNT; ++f)
+      {
+        data.feedback[f] = feedback * Interpolator::linear(-0.99f, 1.0f, getParameterValue(params.feedback[f]));
+      }
     }
 
     inputFilter->process(audio, audio);
 
+    // setup delay inputs with last blocks results
+    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+    {
+      DelayLine* delay = delays[i];
+      DelayLineData& data = delayData[i];
+      AudioBuffer& input = *data.sigIn;
+
+      input.copyFrom(audio);
+      input.multiply(data.input);
+
+      // add feedback from the matrix
+      for (int f = 0; f < DELAY_LINE_COUNT; ++f)
+      {
+        AudioBuffer& recv = *delayData[f].sigOut;
+        scratch->copyFrom(recv);
+        scratch->multiply(data.feedback[f]);
+        input.add(*scratch);
+      }
+      input.getSamples(LEFT_CHANNEL).tanh();
+      input.getSamples(RIGHT_CHANNEL).tanh();
+    }
+
+    // process all delays
     accum->clear();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLine* delay = delays[i];
       DelayLineData& data = delayData[i];
       StereoBiquadFilter& filter = *data.filter;
-      AudioBuffer& out = *data.out;
-
-      input->copyFrom(audio);
-      input->multiply(data.input);
-
-      // with send values capped at 0.5 this gives reverby results a lot
-      // can get really overloaded, a little distorted, but doesn't turn to screaming feedback
-      // with all the parameters at max
-      for (int j = 0; j < DELAY_LINE_COUNT - 1; ++j)
-      {
-        DelayLineData& recv = delayData[(i + j) % DELAY_LINE_COUNT];
-        input->add(*recv.out);
-      }
-
-      // more weird delay with sometimes reverberation appearing
-      //DelayLineData& recv = delayData[(i + 2) % DELAY_LINE_COUNT];
-      //input->add(*recv.out);
+      AudioBuffer& input = *data.sigIn;
+      AudioBuffer& output = *data.sigOut;
 
       float delaySamples = data.time;
       delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
-      delay->setFeedback(data.feedback);
-      delay->process(*input, out);
+      delay->process(input, output);
 
       // filter output
       filter.setLowPass(data.cutoff, FilterStage::BUTTERWORTH_Q);
-      filter.process(out, out);
+      filter.process(output, output);
 
       // accumulate wet delay signals
-      accum->add(out);
-
-      // attenuate for other delays with the send amount
-      out.multiply(data.send);
+      accum->add(output);
     }
 
     const float wet = dryWet;
