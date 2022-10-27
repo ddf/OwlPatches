@@ -2,64 +2,61 @@
 #define __STEREO_DELAY_PROCESSOR_H__
 
 #include "DelayProcessor.h"
-#include "FeedbackProcessor.h"
 
-class StereoCrossFadingDelayProcessor : public StereoFeedbackProcessor
+class StereoCrossFadingDelayProcessor : public MultiSignalProcessor
 {
 private:
-  StereoDcBlockingFilter feedbackFilter;
+  CrossFadingDelayProcessor* processor_left;
+  CrossFadingDelayProcessor* processor_right;
 
 public:
-  StereoCrossFadingDelayProcessor(CrossFadingDelayProcessor* left, CrossFadingDelayProcessor* right, FloatArray fbl, FloatArray fbr)
-    : StereoFeedbackProcessor(left, right, fbl, fbr)
+  StereoCrossFadingDelayProcessor(CrossFadingDelayProcessor* left, CrossFadingDelayProcessor* right)
+    : processor_left(left), processor_right(right)
   {
 
   }
 
   float getDelay() 
   {
-    return static_cast<CrossFadingDelayProcessor*>(processor_left)->getDelay();
+    return processor_left->getDelay();
   }
 
   void setDelay(float samples) 
   {
-    static_cast<CrossFadingDelayProcessor*>(processor_right)->setDelay(samples);
-    static_cast<CrossFadingDelayProcessor*>(processor_left)->setDelay(samples);
+    processor_right->setDelay(samples);
+    processor_left->setDelay(samples);
   }
 
   void setDelay(float samplesLeft, float samplesRight)
   {
-    static_cast<CrossFadingDelayProcessor*>(processor_left)->setDelay(samplesLeft);
-    static_cast<CrossFadingDelayProcessor*>(processor_right)->setDelay(samplesRight);
+    processor_left->setDelay(samplesLeft);
+    processor_right->setDelay(samplesRight);
   }
 
   void clear() 
   {
-    static_cast<CrossFadingDelayProcessor*>(processor_right)->clear();
-    static_cast<CrossFadingDelayProcessor*>(processor_left)->clear();
+    processor_right->clear();
+    processor_left->clear();
   }
 
   void process(AudioBuffer& input, AudioBuffer& output) override
   {
-    StereoFeedbackProcessor::process(input, output);
-    // filter DC from the output, copy back to feedback arrays
-    feedbackFilter.process(output, output);
-    feedback_left.copyFrom(output.getSamples(LEFT_CHANNEL));
-    feedback_right.copyFrom(output.getSamples(RIGHT_CHANNEL));
+    processor_left->process(input.getSamples(LEFT_CHANNEL), output.getSamples(LEFT_CHANNEL));
+    processor_right->process(input.getSamples(RIGHT_CHANNEL), output.getSamples(RIGHT_CHANNEL));
   }
 
   static StereoCrossFadingDelayProcessor* create(size_t delayLen, size_t blockSize)
   {
     CrossFadingDelayProcessor* left = CrossFadingDelayProcessor::create(delayLen, blockSize);
     CrossFadingDelayProcessor* right = CrossFadingDelayProcessor::create(delayLen, blockSize);
-    return new StereoCrossFadingDelayProcessor(left, right, FloatArray::create(blockSize), FloatArray::create(blockSize));
+    return new StereoCrossFadingDelayProcessor(left, right);
   }
 
   static void destroy(StereoCrossFadingDelayProcessor* obj)
   {
-    CrossFadingDelayProcessor::destroy(static_cast<CrossFadingDelayProcessor*>(obj->processor_left));
-    CrossFadingDelayProcessor::destroy(static_cast<CrossFadingDelayProcessor*>(obj->processor_right));
-    StereoFeedbackProcessor::destroy(obj);
+    CrossFadingDelayProcessor::destroy(obj->processor_left);
+    CrossFadingDelayProcessor::destroy(obj->processor_right);
+    delete obj;
   }
 
 };

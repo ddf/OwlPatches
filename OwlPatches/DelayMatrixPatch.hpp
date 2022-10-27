@@ -62,6 +62,7 @@ struct DelayLineData
   SmoothFloat skew; // in samples
   SmoothFloat cutoff;
   SmoothFloat feedback[DELAY_LINE_COUNT];
+  StereoDcBlockingFilter* dcBlock;
   StereoBiquadFilter* filter;
   AudioBuffer* sigIn;
   AudioBuffer* sigOut;
@@ -101,9 +102,9 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       delays[i] = DelayLine::create(delayLen, blockSize);
-      delays[i]->setFeedback(0);
 
       DelayLineData& data = delayData[i];
+      data.dcBlock = StereoDcBlockingFilter::create();
       data.filter = StereoBiquadFilter::create(getSampleRate());
       data.sigIn = AudioBuffer::create(2, blockSize);
       data.sigOut = AudioBuffer::create(2, blockSize);
@@ -122,9 +123,10 @@ public:
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
       {
         params.feedback[f] = (PatchParameterId)(PARAMETER_BA + f * 4 + i);
-        p = stpcpy(pname, "Q");
-        p = stpcpy(p, msg_itoa(i + 1, 10));
+        p = stpcpy(pname, "Fdbk ");
         p = stpcpy(p, msg_itoa(f + 1, 10));
+        p = stpcpy(p, "->");
+        p = stpcpy(p, msg_itoa(i + 1, 10));
         registerParameter(params.feedback[f], pname);
         // initialize the matrix so it sounds like 3 delays in parallel
         // when the global feedback param is turned up
@@ -152,6 +154,7 @@ public:
       DelayLine::destroy(delays[i]);
       AudioBuffer::destroy(delayData[i].sigIn);
       AudioBuffer::destroy(delayData[i].sigOut);
+      StereoDcBlockingFilter::destroy(delayData[i].dcBlock);
       StereoBiquadFilter::destroy(delayData[i].filter);
     }
 
@@ -193,6 +196,7 @@ public:
       DelayLine* delay = delays[i];
       DelayLineData& data = delayData[i];
       AudioBuffer& input = *data.sigIn;
+      StereoDcBlockingFilter& filter = *data.dcBlock;
 
       input.copyFrom(audio);
       input.multiply(data.input);
@@ -205,8 +209,11 @@ public:
         scratch->multiply(data.feedback[f]);
         input.add(*scratch);
       }
-      input.getSamples(LEFT_CHANNEL).tanh();
-      input.getSamples(RIGHT_CHANNEL).tanh();
+
+      filter.process(input, input);
+
+      //input.getSamples(LEFT_CHANNEL).tanh();
+      //input.getSamples(RIGHT_CHANNEL).tanh();
     }
 
     // process all delays
