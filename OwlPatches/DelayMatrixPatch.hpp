@@ -22,13 +22,14 @@ DESCRIPTION:
 
 */
 
-#include "Patch.h"
+#include "MonochromeScreenPatch.h"
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
 #include "StereoDelayProcessor.h"
 #include "Dynamics/limiter.h"
 #include <string.h>
 #include "custom_dsp.h"
+#include "TapTempo.h"
 
 #define DELAY_LINE_COUNT 4
 
@@ -38,6 +39,17 @@ static const float MIN_SPREAD = 0.25f;
 static const float MAX_SPREAD = 2.0f;
 // Spread calculator: https://www.desmos.com/calculator/xnzudjo949
 static const float MAX_DELAY_LEN = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
+
+static const float CLOCK_RATIOS[] = {
+  1.0f / 4.0f,
+  1.0f / 2.0f,
+  3.0f / 4.0f,
+  1.0f,
+  1.5f,
+  2.0f,
+  4.0f
+};
+static const int CLOCK_RATIOS_COUNT = sizeof(CLOCK_RATIOS) / sizeof(float);
 
 typedef StereoCrossFadingDelayProcessor DelayLine;
 using daisysp::Limiter;
@@ -73,7 +85,7 @@ struct DelayLineData
   AudioBuffer* sigOut;
 };
 
-class DelayMatrixPatch : public Patch
+class DelayMatrixPatch : public MonochromeScreenPatch
 {
   const DelayMatrixParamIds patchParams;
 
@@ -88,16 +100,23 @@ class DelayMatrixPatch : public Patch
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
   DelayLineData delayData[DELAY_LINE_COUNT];
 
+  int clockTriggerLimit;
+  int clockRatioIndex;
+  TapTempo tapTempo;
+  int samplesSinceLastTap;
+
   AudioBuffer* scratch;
   AudioBuffer* accum;
 
 public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E })
+    , clockTriggerLimit(MAX_DELAY_LEN*getSampleRate()), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
+    , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit)
   {
     registerParameter(patchParams.time, "Time");
-    registerParameter(patchParams.spread, "Spread");
     registerParameter(patchParams.feedback, "Feedback");
+    registerParameter(patchParams.spread, "Spread");
     registerParameter(patchParams.skew, "Skew");
     registerParameter(patchParams.dryWet, "Dry/Wet");
 
@@ -171,9 +190,47 @@ public:
     StereoDcBlockingFilter::destroy(inputFilter);
   }
 
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
+  {
+    if (bid == BUTTON_1)
+    {
+      bool on = value == Patch::ON;
+      tapTempo.trigger(on, samples);
+
+      if (on)
+      {
+        samplesSinceLastTap = 0;
+      }
+    }
+  }
+
   void processAudio(AudioBuffer& audio) override
   {
-    time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, getParameterValue(patchParams.time)) * getSampleRate();
+    tapTempo.clock(audio.getSize());
+
+    // clocked
+    if (samplesSinceLastTap < clockTriggerLimit)
+    {
+      float timeParam = getParameterValue(patchParams.time);
+      clockRatioIndex = (CLOCK_RATIOS_COUNT - 1) / 2;
+      if (timeParam >= 0.53f)
+      {
+        clockRatioIndex = Interpolator::linear(clockRatioIndex, CLOCK_RATIOS_COUNT, (timeParam - 0.53f) * 2.12f);
+      }
+      else if (timeParam <= 0.47f)
+      {
+        clockRatioIndex = Interpolator::linear(clockRatioIndex, 0, (0.47f - timeParam) * 2.12f);
+      }
+      time = tapTempo.getPeriodInSamples() * CLOCK_RATIOS[clockRatioIndex];
+
+      samplesSinceLastTap += audio.getSize();
+    }
+    // not clocked
+    else
+    {
+      time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, getParameterValue(patchParams.time)) * getSampleRate();
+    }
+
     feedback = getParameterValue(patchParams.feedback)*0.9f;
     spread = Interpolator::linear(MIN_SPREAD, MAX_SPREAD, getParameterValue(patchParams.spread));
     dryWet = getParameterValue(patchParams.dryWet);
@@ -267,6 +324,17 @@ public:
     accum->multiply(wet);
     audio.multiply(dry);
     audio.add(*accum);
+  }
+
+  void processScreen(MonochromeScreenBuffer& screen) override
+  {
+    screen.setCursor(0, 10);
+    screen.print(clockRatioIndex);
+    screen.setCursor(0, 20);
+    screen.print((int)tapTempo.getPeriodInSamples());
+    screen.print(tapTempo.isOn() ? " ON" : " OFF");
+    screen.setCursor(0, 30);
+    screen.print(time.getValue());
   }
 
 };
