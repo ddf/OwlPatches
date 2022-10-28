@@ -26,7 +26,9 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
 #include "StereoDelayProcessor.h"
+#include "Dynamics/limiter.h"
 #include <string.h>
+#include "custom_dsp.h"
 
 #define DELAY_LINE_COUNT 4
 
@@ -38,6 +40,7 @@ static const float MAX_SPREAD = 2.0f;
 static const float MAX_DELAY_LEN = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
 
 typedef StereoCrossFadingDelayProcessor DelayLine;
+using daisysp::Limiter;
 
 struct DelayMatrixParamIds
 {
@@ -64,6 +67,8 @@ struct DelayLineData
   SmoothFloat feedback[DELAY_LINE_COUNT];
   StereoDcBlockingFilter* dcBlock;
   StereoBiquadFilter* filter;
+  Limiter limitLeft;
+  Limiter limitRight;
   AudioBuffer* sigIn;
   AudioBuffer* sigOut;
 };
@@ -108,6 +113,8 @@ public:
       data.filter = StereoBiquadFilter::create(getSampleRate());
       data.sigIn = AudioBuffer::create(2, blockSize);
       data.sigOut = AudioBuffer::create(2, blockSize);
+      data.limitLeft.Init();
+      data.limitRight.Init();
 
       DelayLineParamIds& params = delayParamIds[i];
       params.input = (PatchParameterId)(PARAMETER_AA + i);
@@ -190,6 +197,8 @@ public:
 
     inputFilter->process(audio, audio);
 
+    FloatArray audioLeft = audio.getSamples(LEFT_CHANNEL);
+    FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
     // setup delay inputs with last blocks results
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
@@ -198,8 +207,11 @@ public:
       AudioBuffer& input = *data.sigIn;
       StereoDcBlockingFilter& filter = *data.dcBlock;
 
-      input.copyFrom(audio);
-      input.multiply(data.input);
+      int inSize = input.getSize();
+      FloatArray inLeft = input.getSamples(LEFT_CHANNEL);
+      FloatArray inRight = input.getSamples(RIGHT_CHANNEL);
+
+      input.clear();
 
       // add feedback from the matrix
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
@@ -210,8 +222,20 @@ public:
         input.add(*scratch);
       }
 
+      // remove dc offset
       filter.process(input, input);
 
+      for (int s = 0; s < inSize; ++s)
+      {
+        inLeft[s]  += audioLeft[s] * data.input;
+        inRight[s] += audioRight[s] * data.input;
+      }
+
+      // limit the feedback signal
+      data.limitLeft.ProcessBlock(inLeft, inSize, 1.125f);
+      data.limitRight.ProcessBlock(inRight, inSize, 1.125f);
+
+      // very slow and I think harsher than the limiters
       //input.getSamples(LEFT_CHANNEL).tanh();
       //input.getSamples(RIGHT_CHANNEL).tanh();
     }
