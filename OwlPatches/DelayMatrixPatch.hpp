@@ -34,9 +34,10 @@ DESCRIPTION:
 #define DELAY_LINE_COUNT 4
 
 static const float MIN_TIME_SECONDS = 0.002f;
-static const float MAX_TIME_SECONDS = 0.25f;
+static const float MAX_TIME_SECONDS = 0.2f;
 static const float MIN_SPREAD = 0.25f;
-static const float MAX_SPREAD = 2.0f;
+static const float MID_SPREAD = 1.0f;
+static const float MAX_SPREAD = 4.0f;
 // Spread calculator: https://www.desmos.com/calculator/xnzudjo949
 static const float MAX_DELAY_LEN = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
 
@@ -50,6 +51,17 @@ static const float CLOCK_RATIOS[] = {
   4.0f
 };
 static const int CLOCK_RATIOS_COUNT = sizeof(CLOCK_RATIOS) / sizeof(float);
+
+static const float SPREAD_RATIOS[] = {
+  1.0f / 4.0f,
+  1.0f / 2.0f,
+  3.0f / 4.0f,
+  1.0f,
+  2.0f,
+  3.0f,
+  4.0f
+};
+static const int SPREAD_RATIOS_COUNT = sizeof(SPREAD_RATIOS) / sizeof(float);
 
 typedef StereoCrossFadingDelayProcessor DelayLine;
 using daisysp::Limiter;
@@ -102,6 +114,7 @@ class DelayMatrixPatch : public MonochromeScreenPatch
 
   int clockTriggerLimit;
   int clockRatioIndex;
+  int spreadRatioIndex;
   TapTempo tapTempo;
   int samplesSinceLastTap;
 
@@ -111,8 +124,8 @@ class DelayMatrixPatch : public MonochromeScreenPatch
 public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E })
-    , clockTriggerLimit(MAX_DELAY_LEN*getSampleRate()), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
-    , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit)
+    , clockTriggerLimit(MAX_DELAY_LEN*getSampleRate()/4), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
+    , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadRatioIndex((SPREAD_RATIOS_COUNT-1)/2)
   {
     registerParameter(patchParams.time, "Time");
     registerParameter(patchParams.feedback, "Feedback");
@@ -208,10 +221,12 @@ public:
   {
     tapTempo.clock(audio.getSize());
 
+    float timeParam = getParameterValue(patchParams.time);
+    float spreadParam = getParameterValue(patchParams.spread);
+
     // clocked
     if (samplesSinceLastTap < clockTriggerLimit)
-    {
-      float timeParam = getParameterValue(patchParams.time);
+    {      
       clockRatioIndex = (CLOCK_RATIOS_COUNT - 1) / 2;
       if (timeParam >= 0.53f)
       {
@@ -223,16 +238,35 @@ public:
       }
       time = tapTempo.getPeriodInSamples() * CLOCK_RATIOS[clockRatioIndex];
 
+      spreadRatioIndex = (SPREAD_RATIOS_COUNT - 1) / 2;
+      if (spreadParam >= 0.53f)
+      {
+        spreadRatioIndex = Interpolator::linear(spreadRatioIndex, SPREAD_RATIOS_COUNT, (spreadParam - 0.53f) * 2.12f);
+      }
+      else if (spreadParam <= 0.47f)
+      {
+        spreadRatioIndex = Interpolator::linear(spreadRatioIndex, 0, (0.47f - spreadParam) * 2.12f);
+      }
+      spread = SPREAD_RATIOS[spreadRatioIndex];
+
       samplesSinceLastTap += audio.getSize();
     }
     // not clocked
     else
     {
-      time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, getParameterValue(patchParams.time)) * getSampleRate();
+      time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam*1.01f) * getSampleRate();
+
+      if (spreadParam <= 0.5f)
+      {
+        spread = Interpolator::linear(MIN_SPREAD, MID_SPREAD, spreadParam*2);
+      }
+      else
+      {
+        spread = Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*1.02f);
+      }
     }
 
     feedback = getParameterValue(patchParams.feedback)*0.9f;
-    spread = Interpolator::linear(MIN_SPREAD, MAX_SPREAD, getParameterValue(patchParams.spread));
     dryWet = getParameterValue(patchParams.dryWet);
     skew = getParameterValue(patchParams.skew);
 
@@ -329,11 +363,17 @@ public:
   void processScreen(MonochromeScreenBuffer& screen) override
   {
     screen.setCursor(0, 10);
+    screen.print("Clock Ratio: ");
     screen.print(clockRatioIndex);
     screen.setCursor(0, 20);
-    screen.print((int)tapTempo.getPeriodInSamples());
-    screen.print(tapTempo.isOn() ? " ON" : " OFF");
+    screen.print("Spread Ratio: ");
+    screen.print(spreadRatioIndex);
     screen.setCursor(0, 30);
+    screen.print("Tap Smp: ");
+    screen.print((int)tapTempo.getPeriodInSamples());
+    screen.print(tapTempo.isOn() ? " X" : " O");
+    screen.setCursor(0, 40);
+    screen.print("Dly Smp: ");
     screen.print(time.getValue());
   }
 
