@@ -30,6 +30,7 @@ DESCRIPTION:
 #include <string.h>
 #include "custom_dsp.h"
 #include "TapTempo.h"
+#include "SineOscillator.h"
 
 #define DELAY_LINE_COUNT 4
 
@@ -73,6 +74,8 @@ struct DelayMatrixParamIds
   PatchParameterId feedback;
   PatchParameterId dryWet;
   PatchParameterId skew;
+  PatchParameterId lfoOut;
+  PatchParameterId lfoIndex;
 };
 
 struct DelayLineParamIds
@@ -118,12 +121,15 @@ class DelayMatrixPatch : public MonochromeScreenPatch
   TapTempo tapTempo;
   int samplesSinceLastTap;
 
+  SineOscillator* lfo;
+
   AudioBuffer* scratch;
   AudioBuffer* accum;
 
 public:
   DelayMatrixPatch()
-    : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E })
+    : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_H })
+    , time(0.9f, MIN_TIME_SECONDS*getSampleRate())
     , clockTriggerLimit(MAX_DELAY_LEN*getSampleRate()/4), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
     , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadRatioIndex((SPREAD_RATIOS_COUNT-1)/2)
   {
@@ -132,9 +138,11 @@ public:
     registerParameter(patchParams.spread, "Spread");
     registerParameter(patchParams.skew, "Skew");
     registerParameter(patchParams.dryWet, "Dry/Wet");
+    registerParameter(patchParams.lfoOut, "LFO>");
+    registerParameter(patchParams.lfoIndex, "Index");
 
     const int blockSize = getBlockSize();
-    const int delayLen = getSampleRate() * MAX_DELAY_LEN + 1;
+    const int delayLen = getSampleRate() * MAX_DELAY_LEN * 1.5f;
     char pname[16]; char* p;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
@@ -184,6 +192,7 @@ public:
     scratch = AudioBuffer::create(2, blockSize);
 
     inputFilter = StereoDcBlockingFilter::create();
+    lfo = SineOscillator::create(getBlockRate());
   }
 
   ~DelayMatrixPatch()
@@ -201,6 +210,7 @@ public:
     AudioBuffer::destroy(scratch);
 
     StereoDcBlockingFilter::destroy(inputFilter);
+    SineOscillator::destroy(lfo);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -269,15 +279,20 @@ public:
     feedback = getParameterValue(patchParams.feedback)*0.9f;
     dryWet = getParameterValue(patchParams.dryWet);
     skew = getParameterValue(patchParams.skew);
+    float lfoIndex = getParameterValue(patchParams.lfoIndex)*0.5f;
+
+    lfo->setFrequency(getSampleRate() / time * 0.0625f);
+    float lfoGen = lfo->generate();
 
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
       DelayLineParamIds& params = delayParamIds[i];
 
-      data.time  = time + spread * i * time;
+      float invert = i % 2 ? 1.0f : -1.0f;
+      data.time = time + spread * i * time + lfoGen * lfoIndex * time * invert;
       data.input = getParameterValue(params.input)*0.9f;
-      data.skew = i % 2 == 0 ? 24 * skew : -24 * skew;
+      data.skew = skew * 24 * invert;
       data.cutoff = Interpolator::linear(400, 18000, getParameterValue(params.cutoff));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
@@ -358,6 +373,8 @@ public:
     accum->multiply(wet);
     audio.multiply(dry);
     audio.add(*accum);
+
+    setParameterValue(patchParams.lfoOut, clamp(lfoGen*0.5f + 0.5f, 0.f, 1.f));
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
@@ -375,6 +392,9 @@ public:
     screen.setCursor(0, 40);
     screen.print("Dly Smp: ");
     screen.print(time.getValue());
+    screen.setCursor(0, 48);
+    screen.print("LFO: ");
+    screen.print(lfo->getFrequency());
   }
 
 };
