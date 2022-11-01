@@ -290,7 +290,7 @@ public:
       }
     }
 
-    feedback = getParameterValue(patchParams.feedback)*0.9f;
+    feedback = getParameterValue(patchParams.feedback);
     dryWet = getParameterValue(patchParams.dryWet);
     skew = getParameterValue(patchParams.skew);
     
@@ -323,13 +323,13 @@ public:
 
       float invert = i % 2 ? 1.0f : -1.0f;
       data.time = time + spread * i * time + modValue * time;
-      data.input = getParameterValue(params.input)*0.9f;
+      data.input = getParameterValue(params.input);
       data.skew = skew * 24 * invert;
       data.cutoff = Interpolator::linear(400, 18000, getParameterValue(params.cutoff));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
       {
-        data.feedback[f] = feedback * Interpolator::linear(-0.99f, 1.0f, getParameterValue(params.feedback[f]));
+        data.feedback[f] = feedback * (getParameterValue(params.feedback[f])*2.0f - 0.99f);
       }
     }
 
@@ -426,9 +426,9 @@ public:
     screen.print("Dly Smp: ");
     screen.print(time.getValue());
     screen.setCursor(0, 48);
-    screen.print("LFO: ");
+    screen.print("MODF: ");
     screen.print(lfo->getFrequency());
-    screen.print("RND: ");
+    screen.print(" RND: ");
     screen.print(rndGen);
   }
 
