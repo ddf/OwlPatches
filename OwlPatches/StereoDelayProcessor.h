@@ -2,10 +2,11 @@
 #define __STEREO_DELAY_PROCESSOR_H__
 
 #include "DelayProcessor.h"
+#include "DelayFreezeProcessor.h"
 
 class StereoCrossFadingDelayProcessor : public MultiSignalProcessor
 {
-private:
+protected:
   CrossFadingDelayProcessor* processor_left;
   CrossFadingDelayProcessor* processor_right;
 
@@ -53,6 +54,37 @@ public:
   }
 
   static void destroy(StereoCrossFadingDelayProcessor* obj)
+  {
+    CrossFadingDelayProcessor::destroy(obj->processor_left);
+    CrossFadingDelayProcessor::destroy(obj->processor_right);
+    delete obj;
+  }
+
+};
+
+class StereoCrossFadingDelayWithFreezeProcessor : public StereoCrossFadingDelayProcessor
+{
+public:
+  StereoCrossFadingDelayWithFreezeProcessor(CrossFadingDelayWithFreezeProcessor* left, CrossFadingDelayWithFreezeProcessor* right)
+    : StereoCrossFadingDelayProcessor(left, right)
+  {
+
+  }
+
+  void setFreeze(bool enabled)
+  {
+    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_left)->setFreeze(enabled);
+    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_right)->setFreeze(enabled);
+  }
+
+  static StereoCrossFadingDelayWithFreezeProcessor* create(size_t delayLen, size_t blockSize)
+  {
+    CrossFadingDelayWithFreezeProcessor* left = CrossFadingDelayWithFreezeProcessor::create(delayLen, blockSize);
+    CrossFadingDelayWithFreezeProcessor* right = CrossFadingDelayWithFreezeProcessor::create(delayLen, blockSize);
+    return new StereoCrossFadingDelayWithFreezeProcessor(left, right);
+  }
+
+  static void destroy(StereoCrossFadingDelayWithFreezeProcessor* obj)
   {
     CrossFadingDelayProcessor::destroy(obj->processor_left);
     CrossFadingDelayProcessor::destroy(obj->processor_right);

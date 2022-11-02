@@ -50,6 +50,8 @@ DESCRIPTION:
 using daisysp::Limiter;
 using daisysp::SmoothRandomGenerator;
 
+typedef StereoCrossFadingDelayWithFreezeProcessor DelayLine;
+
 #define DELAY_LINE_COUNT 4
 
 static const float MIN_TIME_SECONDS = 0.002f;
@@ -82,8 +84,6 @@ static const float SPREAD_RATIOS[] = {
   4.0f
 };
 static const int SPREAD_RATIOS_COUNT = sizeof(SPREAD_RATIOS) / sizeof(float);
-
-typedef StereoCrossFadingDelayProcessor DelayLine;
 
 struct DelayMatrixParamIds
 {
@@ -144,13 +144,15 @@ class DelayMatrixPatch : public MonochromeScreenPatch
   SmoothRandomGenerator rnd;
   float rndGen;
 
+  bool freeze;
+
   AudioBuffer* scratch;
   AudioBuffer* accum;
 
 public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
-    , time(0.9f, MIN_TIME_SECONDS*getSampleRate())
+    , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), freeze(false)
     , clockTriggerLimit(MAX_DELAY_LEN*getSampleRate()/4), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
     , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadRatioIndex((SPREAD_RATIOS_COUNT-1)/2)
   {
@@ -250,6 +252,15 @@ public:
         samplesSinceLastTap = 0;
       }
     }
+
+    if (bid == BUTTON_2 && value == Patch::ON)
+    {
+      freeze = !freeze;
+      for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+      {
+        delays[i]->setFreeze(freeze);
+      }
+    }
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -346,47 +357,50 @@ public:
 
     inputFilter->process(audio, audio);
 
-    FloatArray audioLeft = audio.getSamples(LEFT_CHANNEL);
-    FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
-    // setup delay inputs with last blocks results
-    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+    if (!freeze)
     {
-      DelayLine* delay = delays[i];
-      DelayLineData& data = delayData[i];
-      AudioBuffer& input = *data.sigIn;
-      StereoDcBlockingFilter& filter = *data.dcBlock;
-
-      int inSize = input.getSize();
-      FloatArray inLeft = input.getSamples(LEFT_CHANNEL);
-      FloatArray inRight = input.getSamples(RIGHT_CHANNEL);
-
-      input.clear();
-
-      // add feedback from the matrix
-      for (int f = 0; f < DELAY_LINE_COUNT; ++f)
+      FloatArray audioLeft = audio.getSamples(LEFT_CHANNEL);
+      FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
+      // setup delay inputs with last blocks results
+      for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
-        AudioBuffer& recv = *delayData[f].sigOut;
-        scratch->copyFrom(recv);
-        scratch->multiply(data.feedback[f]);
-        input.add(*scratch);
+        DelayLine* delay = delays[i];
+        DelayLineData& data = delayData[i];
+        AudioBuffer& input = *data.sigIn;
+        StereoDcBlockingFilter& filter = *data.dcBlock;
+
+        int inSize = input.getSize();
+        FloatArray inLeft = input.getSamples(LEFT_CHANNEL);
+        FloatArray inRight = input.getSamples(RIGHT_CHANNEL);
+
+        input.clear();
+
+        // add feedback from the matrix
+        for (int f = 0; f < DELAY_LINE_COUNT; ++f)
+        {
+          AudioBuffer& recv = *delayData[f].sigOut;
+          scratch->copyFrom(recv);
+          scratch->multiply(data.feedback[f]);
+          input.add(*scratch);
+        }
+
+        // remove dc offset
+        filter.process(input, input);
+
+        for (int s = 0; s < inSize; ++s)
+        {
+          inLeft[s] += audioLeft[s] * data.input;
+          inRight[s] += audioRight[s] * data.input;
+        }
+
+        // limit the feedback signal
+        data.limitLeft.ProcessBlock(inLeft, inSize, 1.125f);
+        data.limitRight.ProcessBlock(inRight, inSize, 1.125f);
+
+        // very slow and I think harsher than the limiters
+        //input.getSamples(LEFT_CHANNEL).tanh();
+        //input.getSamples(RIGHT_CHANNEL).tanh();
       }
-
-      // remove dc offset
-      filter.process(input, input);
-
-      for (int s = 0; s < inSize; ++s)
-      {
-        inLeft[s]  += audioLeft[s] * data.input;
-        inRight[s] += audioRight[s] * data.input;
-      }
-
-      // limit the feedback signal
-      data.limitLeft.ProcessBlock(inLeft, inSize, 1.125f);
-      data.limitRight.ProcessBlock(inRight, inSize, 1.125f);
-
-      // very slow and I think harsher than the limiters
-      //input.getSamples(LEFT_CHANNEL).tanh();
-      //input.getSamples(RIGHT_CHANNEL).tanh();
     }
 
     // process all delays
@@ -401,11 +415,16 @@ public:
 
       float delaySamples = data.time;
       delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
-      delay->process(input, output);
+      delay->process(input, input);
 
       // filter output
       filter.setLowPass(data.cutoff, FilterStage::BUTTERWORTH_Q);
-      filter.process(output, output);
+      filter.process(input, output);
+
+      if (freeze)
+      {
+        output.multiply(data.input);
+      }
 
       // accumulate wet delay signals
       accum->add(output);
@@ -430,12 +449,13 @@ public:
     screen.print("Spread Ratio: ");
     screen.print(spreadRatioIndex);
     screen.setCursor(0, 30);
-    screen.print("Tap Smp: ");
+    screen.print("Tap: ");
     screen.print((int)tapTempo.getPeriodInSamples());
     screen.print(tapTempo.isOn() ? " X" : " O");
     screen.setCursor(0, 40);
-    screen.print("Dly Smp: ");
+    screen.print("Dly: ");
     screen.print(time.getValue());
+    screen.print(freeze ? " F:X" : " F:O");
     screen.setCursor(0, 48);
     screen.print("MODF: ");
     screen.print(lfo->getFrequency());
