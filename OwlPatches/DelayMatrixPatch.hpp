@@ -31,6 +31,17 @@ DESCRIPTION:
 
 // daisysp includes
 #include "Dynamics/limiter.h"
+
+// The OWL math lib defines RAND_MAX as UINT32_MAX,
+// which breaks the code in smooth_random.h that uses 
+// RAND_MAX and rand().
+// So we redefine RAND_MAX to INT_MAX because the version 
+// of rand() used in smooth_random returns an int.
+#ifdef RAND_MAX
+#undef RAND_MAX
+#endif
+#include <climits>
+#define RAND_MAX INT_MAX
 #include "Utility/smooth_random.h"
 
 // for building param names
@@ -303,7 +314,7 @@ public:
     // this random generator seems to only ever produce values
     // in the range [-1,0], even though the code claims to
     // (and looks like it should) produce values in the range [-1,1]
-    rndGen = (rnd.Process()+0.5f)*2.0f;
+    rndGen = rnd.Process();
 
     float modValue = 0;
     float modParam = getParameterValue(patchParams.modIndex);
