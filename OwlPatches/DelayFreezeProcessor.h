@@ -8,10 +8,12 @@ class CrossFadingDelayWithFreezeProcessor : public CrossFadingDelayProcessor
 {
 private:
   bool freeze;
+  int freezeRead;
+  int pos;
 
 public:
   CrossFadingDelayWithFreezeProcessor(CrossFadingCircularFloatBuffer* buffer)
-    : CrossFadingDelayProcessor(buffer), freeze(false)
+    : CrossFadingDelayProcessor(buffer), freeze(false), pos(0)
   {
 
   }
@@ -19,6 +21,12 @@ public:
   void setFreeze(bool enabled)
   {
     freeze = enabled;
+    freezeRead = ringbuffer->getReadCapacity();
+  }
+
+  void setPosition(float samples)
+  {
+    pos = samples;
   }
 
   void process(FloatArray input, FloatArray output) override
@@ -26,19 +34,27 @@ public:
     if (freeze)
     {
       int readSz = output.getSize();
-      int readCap = ringbuffer->getReadCapacity();
       float* out = output;
-      if (readSz < readCap)
+      while (readSz)
       {
-        ringbuffer->read(out, readSz);
-      }
-      else
-      {
-        ringbuffer->read(out, readCap);
-        ringbuffer->setDelay(delay);
-
-        out += readCap;
-        ringbuffer->read(out, readSz - readCap);
+        if (freezeRead <= 0)
+        {
+          ringbuffer->setDelay(delay+pos);
+          freezeRead = delay;
+        }
+        else if (freezeRead < readSz)
+        {
+          ringbuffer->read(out, freezeRead);
+          out += freezeRead;
+          readSz -= freezeRead;
+          freezeRead = 0;
+        }
+        else
+        {
+          ringbuffer->read(out, readSz);
+          freezeRead -= readSz;
+          readSz = 0;
+        }
       }
     }
     else

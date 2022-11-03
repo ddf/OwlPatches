@@ -77,6 +77,12 @@ public:
     static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_right)->setFreeze(enabled);
   }
 
+  void setPosition(float position)
+  {
+    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_left)->setPosition(position);
+    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_right)->setPosition(position);
+  }
+
   static StereoCrossFadingDelayWithFreezeProcessor* create(size_t delayLen, size_t blockSize)
   {
     CrossFadingDelayWithFreezeProcessor* left = CrossFadingDelayWithFreezeProcessor::create(delayLen, blockSize);

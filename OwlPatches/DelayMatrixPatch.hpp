@@ -60,7 +60,7 @@ static const float MIN_SPREAD = 0.25f;
 static const float MID_SPREAD = 1.0f;
 static const float MAX_SPREAD = 4.0f;
 // Spread calculator: https://www.desmos.com/calculator/xnzudjo949
-static const float MAX_DELAY_LEN = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
+static const float MAX_DELAY_SECONDS = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
 static const float MAX_MOD_AMT = 0.5f;
 
 static const float CLOCK_RATIOS[] = {
@@ -134,6 +134,7 @@ class DelayMatrixPatch : public MonochromeScreenPatch
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
   DelayLineData delayData[DELAY_LINE_COUNT];
 
+  int delayLineSamplesMax;
   int clockTriggerLimit;
   int clockRatioIndex;
   int spreadRatioIndex;
@@ -153,7 +154,7 @@ public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
     , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), freeze(false)
-    , clockTriggerLimit(MAX_DELAY_LEN*getSampleRate()/4), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
+    , clockTriggerLimit(MAX_DELAY_SECONDS*getSampleRate()/4), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
     , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadRatioIndex((SPREAD_RATIOS_COUNT-1)/2)
   {
     registerParameter(patchParams.time, "Time");
@@ -168,11 +169,11 @@ public:
     setParameterValue(patchParams.modIndex, 0.5f);
 
     const int blockSize = getBlockSize();
-    const int delayLen = getSampleRate() * MAX_DELAY_LEN * 1.5f;
+    delayLineSamplesMax = getSampleRate() * MAX_DELAY_SECONDS * 1.5f;
     char pname[16]; char* p;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      delays[i] = DelayLine::create(delayLen, blockSize);
+      delays[i] = DelayLine::create(delayLineSamplesMax, blockSize);
 
       DelayLineData& data = delayData[i];
       data.dcBlock = StereoDcBlockingFilter::create();
@@ -266,13 +267,14 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     tapTempo.clock(audio.getSize());
+    const bool clocked = samplesSinceLastTap < clockTriggerLimit;
 
     float timeParam = getParameterValue(patchParams.time);
     float spreadParam = getParameterValue(patchParams.spread);
 
     // clocked
-    if (samplesSinceLastTap < clockTriggerLimit)
-    {      
+    if (clocked)
+    {
       clockRatioIndex = (CLOCK_RATIOS_COUNT - 1) / 2;
       if (timeParam >= 0.53f)
       {
@@ -322,9 +324,6 @@ public:
     float lfoGen = lfo->generate();
 
     rnd.SetFreq(modFreq);
-    // this random generator seems to only ever produce values
-    // in the range [-1,0], even though the code claims to
-    // (and looks like it should) produce values in the range [-1,1]
     rndGen = rnd.Process();
 
     float modValue = 0;
@@ -415,6 +414,13 @@ public:
 
       float delaySamples = data.time;
       delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
+      if (freeze)
+      {
+        // how far back we can go depends on how big the frozen section is
+        const float maxDelaySamples = clocked ? tapTempo.getPeriodInSamples() * CLOCK_RATIOS[CLOCK_RATIOS_COUNT - 1] : MAX_TIME_SECONDS * getSampleRate();
+        const float maxPosition = (maxDelaySamples + maxDelaySamples * spread*i);
+        delay->setPosition((maxPosition - delaySamples - data.skew)*feedback);
+      }
       delay->process(input, input);
 
       // filter output
