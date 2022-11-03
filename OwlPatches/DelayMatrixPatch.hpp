@@ -338,6 +338,7 @@ public:
     {
       modValue = rndGen * Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f);
     }
+    modValue *= time;
 
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
@@ -345,9 +346,9 @@ public:
       DelayLineParamIds& params = delayParamIds[i];
 
       float invert = i % 2 ? 1.0f : -1.0f;
-      data.time = time + spread * i * time + modValue * time;
+      data.time = time + spread * i * time + modValue;
       data.input = getParameterValue(params.input);
-      data.skew = skew * 24 * invert;
+      data.skew = skew * 48 * invert;
       data.cutoff = Interpolator::linear(400, 18000, getParameterValue(params.cutoff));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
