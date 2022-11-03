@@ -132,7 +132,7 @@
     <ClInclude Include="StereoDelayProcessor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DelayFreezeProcessor.h">
+    <ClInclude Include="Delay.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

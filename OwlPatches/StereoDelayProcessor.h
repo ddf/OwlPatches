@@ -1,99 +1,94 @@
 #ifndef __STEREO_DELAY_PROCESSOR_H__
 #define __STEREO_DELAY_PROCESSOR_H__
 
-#include "DelayProcessor.h"
-#include "DelayFreezeProcessor.h"
+#include "Patch.h" // for LEFT_CHANNEL and RIGHT_CHANNEL
+#include "Delay.h"
+//#include "DelayProcessor.h"
+//#include "DelayFreezeProcessor.h"
 
-class StereoCrossFadingDelayProcessor : public MultiSignalProcessor
+template<class BufferType>
+class StereoDelayProcessor : public MultiSignalProcessor
 {
 protected:
-  CrossFadingDelayProcessor* processor_left;
-  CrossFadingDelayProcessor* processor_right;
+  using DelayType = DelayProcessor<BufferType>;
+
+  DelayType* delays[2];
 
 public:
-  StereoCrossFadingDelayProcessor(CrossFadingDelayProcessor* left, CrossFadingDelayProcessor* right)
-    : processor_left(left), processor_right(right)
+  StereoDelayProcessor(DelayType* leftDelay, DelayType* rightDelay)
   {
-
+    delays[0] = leftDelay;
+    delays[1] = rightDelay;
   }
 
-  float getDelay() 
+  float getDelay(PatchChannelId channel = LEFT_CHANNEL) const
   {
-    return processor_left->getDelay();
+    return delays[0]->getDelay();
   }
 
-  void setDelay(float samples) 
+  void setDelay(PatchChannelId channel, float samples)
   {
-    processor_right->setDelay(samples);
-    processor_left->setDelay(samples);
+    delays[channel]->setDelay(samples);
   }
 
-  void setDelay(float samplesLeft, float samplesRight)
+  void setDelay(float leftSamples, float rightSamples)
   {
-    processor_left->setDelay(samplesLeft);
-    processor_right->setDelay(samplesRight);
+    delays[0]->setDelay(leftSamples);
+    delays[1]->setDelay(rightSamples);
   }
 
-  void clear() 
+  void process(AudioBuffer& input, AudioBuffer& output)
   {
-    processor_right->clear();
-    processor_left->clear();
+    delays[0]->process(input.getSamples(LEFT_CHANNEL), output.getSamples(LEFT_CHANNEL));
+    delays[1]->process(input.getSamples(RIGHT_CHANNEL), output.getSamples(RIGHT_CHANNEL));
   }
 
-  void process(AudioBuffer& input, AudioBuffer& output) override
+  static StereoDelayProcessor* create(size_t delayLength, size_t blockSize)
   {
-    processor_left->process(input.getSamples(LEFT_CHANNEL), output.getSamples(LEFT_CHANNEL));
-    processor_right->process(input.getSamples(RIGHT_CHANNEL), output.getSamples(RIGHT_CHANNEL));
+    return new StereoDelayProcessor(DelayType::create(delayLength, blockSize), DelayType::create(delayLength, blockSize));
   }
 
-  static StereoCrossFadingDelayProcessor* create(size_t delayLen, size_t blockSize)
+  static void destroy(StereoDelayProcessor* obj)
   {
-    CrossFadingDelayProcessor* left = CrossFadingDelayProcessor::create(delayLen, blockSize);
-    CrossFadingDelayProcessor* right = CrossFadingDelayProcessor::create(delayLen, blockSize);
-    return new StereoCrossFadingDelayProcessor(left, right);
+    DelayType::destroy(obj->delays[0]);
+    DelayType::destroy(obj->delays[1]);
   }
-
-  static void destroy(StereoCrossFadingDelayProcessor* obj)
-  {
-    CrossFadingDelayProcessor::destroy(obj->processor_left);
-    CrossFadingDelayProcessor::destroy(obj->processor_right);
-    delete obj;
-  }
-
 };
 
-class StereoCrossFadingDelayWithFreezeProcessor : public StereoCrossFadingDelayProcessor
+template<class BufferType>
+class StereoDelayWithFreezeProcessor : public StereoDelayProcessor<BufferType>
 {
+  using FreezeType = DelayWithFreezeProcessor<BufferType>;
+  using StereoDelayProcessor<BufferType>::delays;
+
 public:
-  StereoCrossFadingDelayWithFreezeProcessor(CrossFadingDelayWithFreezeProcessor* left, CrossFadingDelayWithFreezeProcessor* right)
-    : StereoCrossFadingDelayProcessor(left, right)
+  StereoDelayWithFreezeProcessor(FreezeType* left, FreezeType* right)
+    : StereoDelayProcessor<BufferType>(left, right)
   {
 
   }
 
   void setFreeze(bool enabled)
   {
-    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_left)->setFreeze(enabled);
-    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_right)->setFreeze(enabled);
+    static_cast<FreezeType*>(delays[0])->setFreeze(enabled);
+    static_cast<FreezeType*>(delays[1])->setFreeze(enabled);
   }
 
   void setPosition(float position)
   {
-    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_left)->setPosition(position);
-    static_cast<CrossFadingDelayWithFreezeProcessor*>(processor_right)->setPosition(position);
+    static_cast<FreezeType*>(delays[0])->setPosition(position);
+    static_cast<FreezeType*>(delays[1])->setPosition(position);
   }
 
-  static StereoCrossFadingDelayWithFreezeProcessor* create(size_t delayLen, size_t blockSize)
+  static StereoDelayWithFreezeProcessor* create(size_t delayLen, size_t blockSize)
   {
-    CrossFadingDelayWithFreezeProcessor* left = CrossFadingDelayWithFreezeProcessor::create(delayLen, blockSize);
-    CrossFadingDelayWithFreezeProcessor* right = CrossFadingDelayWithFreezeProcessor::create(delayLen, blockSize);
-    return new StereoCrossFadingDelayWithFreezeProcessor(left, right);
+    return new StereoDelayWithFreezeProcessor(FreezeType::create(delayLen, blockSize), FreezeType::create(delayLen, blockSize));
   }
 
-  static void destroy(StereoCrossFadingDelayWithFreezeProcessor* obj)
+  static void destroy(StereoDelayWithFreezeProcessor* obj)
   {
-    CrossFadingDelayProcessor::destroy(obj->processor_left);
-    CrossFadingDelayProcessor::destroy(obj->processor_right);
+    FreezeType::destroy(static_cast<FreezeType*>(obj->delays[0]));
+    FreezeType::destroy(static_cast<FreezeType*>(obj->delays[1]));
     delete obj;
   }
 

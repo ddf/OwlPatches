@@ -23,11 +23,12 @@ DESCRIPTION:
 */
 
 #include "MonochromeScreenPatch.h"
+#include "StereoDelayProcessor.h"
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
-#include "StereoDelayProcessor.h"
 #include "TapTempo.h"
 #include "SineOscillator.h"
+#include "Interpolator.h"
 
 // daisysp includes
 #include "Dynamics/limiter.h"
@@ -50,7 +51,8 @@ DESCRIPTION:
 using daisysp::Limiter;
 using daisysp::SmoothRandomGenerator;
 
-typedef StereoCrossFadingDelayWithFreezeProcessor DelayLine;
+//using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
+using DelayLine = StereoDelayWithFreezeProcessor<CrossFadingCircularFloatBuffer>;
 
 #define DELAY_LINE_COUNT 4
 
@@ -460,7 +462,7 @@ public:
     screen.print(tapTempo.isOn() ? " X" : " O");
     screen.setCursor(0, 40);
     screen.print("Dly: ");
-    screen.print(time.getValue());
+    screen.print((int)time.getValue());
     screen.print(freeze ? " F:X" : " F:O");
     screen.setCursor(0, 48);
     screen.print("MODF: ");
