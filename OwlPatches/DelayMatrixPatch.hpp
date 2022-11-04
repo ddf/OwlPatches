@@ -54,39 +54,6 @@ using daisysp::SmoothRandomGenerator;
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
 using DelayLine = StereoDelayWithFreezeProcessor<CrossFadingCircularFloatBuffer>;
 
-#define DELAY_LINE_COUNT 4
-
-static const float MIN_TIME_SECONDS = 0.002f;
-static const float MAX_TIME_SECONDS = 0.2f;
-static const float MIN_SPREAD = 0.25f;
-static const float MID_SPREAD = 1.0f;
-static const float MAX_SPREAD = 4.0f;
-// Spread calculator: https://www.desmos.com/calculator/xnzudjo949
-static const float MAX_DELAY_SECONDS = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
-static const float MAX_MOD_AMT = 0.5f;
-
-static const float CLOCK_RATIOS[] = {
-  1.0f / 4.0f,
-  1.0f / 2.0f,
-  3.0f / 4.0f,
-  1.0f,
-  1.5f,
-  2.0f,
-  4.0f
-};
-static const int CLOCK_RATIOS_COUNT = sizeof(CLOCK_RATIOS) / sizeof(float);
-
-static const float SPREAD_RATIOS[] = {
-  1.0f / 4.0f,
-  1.0f / 2.0f,
-  3.0f / 4.0f,
-  1.0f,
-  2.0f,
-  3.0f,
-  4.0f
-};
-static const int SPREAD_RATIOS_COUNT = sizeof(SPREAD_RATIOS) / sizeof(float);
-
 struct DelayMatrixParamIds
 {
   PatchParameterId time;
@@ -99,30 +66,66 @@ struct DelayMatrixParamIds
   PatchParameterId modIndex;
 };
 
-struct DelayLineParamIds
-{
-  PatchParameterId input;    // amount of input fed into the delay
-  PatchParameterId cutoff;   // cutoff for the filter
-  PatchParameterId feedback[DELAY_LINE_COUNT];     // amount of wet signal sent to other delays
-};
-
-struct DelayLineData
-{
-  SmoothFloat time;
-  SmoothFloat input;
-  SmoothFloat skew; // in samples
-  SmoothFloat cutoff;
-  SmoothFloat feedback[DELAY_LINE_COUNT];
-  StereoDcBlockingFilter* dcBlock;
-  StereoBiquadFilter* filter;
-  Limiter limitLeft;
-  Limiter limitRight;
-  AudioBuffer* sigIn;
-  AudioBuffer* sigOut;
-};
-
+template<int DELAYS>
 class DelayMatrixPatch : public MonochromeScreenPatch
 {
+protected:
+  static constexpr int   DELAY_LINE_COUNT = DELAYS;
+  static constexpr float MIN_TIME_SECONDS = 0.002f;
+  static constexpr float MAX_TIME_SECONDS = 0.2f;
+  static constexpr float MIN_CUTOFF = 400.0f;
+  static constexpr float MAX_CUTOFF = 18000.0f;
+  static constexpr float MIN_SPREAD = 0.25f;
+  static constexpr float MID_SPREAD = 1.0f;
+  static constexpr float MAX_SPREAD = 4.0f;
+  // Spread calculator: https://www.desmos.com/calculator/xnzudjo949
+  static constexpr float MAX_DELAY_SECONDS = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
+  static constexpr float MAX_MOD_AMT = 0.5f;
+
+  static constexpr float CLOCK_RATIOS[] = {
+    1.0f / 4.0f,
+    1.0f / 2.0f,
+    3.0f / 4.0f,
+    1.0f,
+    1.5f,
+    2.0f,
+    4.0f
+  };
+  static constexpr int CLOCK_RATIOS_COUNT = sizeof(CLOCK_RATIOS) / sizeof(float);
+
+  static constexpr float SPREAD_RATIOS[] = {
+    1.0f / 4.0f,
+    1.0f / 2.0f,
+    3.0f / 4.0f,
+    1.0f,
+    2.0f,
+    3.0f,
+    4.0f
+  };
+  static constexpr int SPREAD_RATIOS_COUNT = sizeof(SPREAD_RATIOS) / sizeof(float);
+
+  struct DelayLineParamIds
+  {
+    PatchParameterId input;    // amount of input fed into the delay
+    PatchParameterId cutoff;   // cutoff for the filter
+    PatchParameterId feedback[DELAY_LINE_COUNT];     // amount of wet signal sent to other delays
+  };
+
+  struct DelayLineData
+  {
+    SmoothFloat time;
+    SmoothFloat input;
+    SmoothFloat skew; // in samples
+    SmoothFloat cutoff;
+    SmoothFloat feedback[DELAY_LINE_COUNT];
+    StereoDcBlockingFilter* dcBlock;
+    StereoBiquadFilter* filter;
+    Limiter limitLeft;
+    Limiter limitRight;
+    AudioBuffer* sigIn;
+    AudioBuffer* sigOut;
+  };
+
   const DelayMatrixParamIds patchParams;
 
   SmoothFloat time;
@@ -147,6 +150,7 @@ class DelayMatrixPatch : public MonochromeScreenPatch
   SmoothRandomGenerator rnd;
   float rndGen;
 
+  bool clocked;
   bool freeze;
 
   AudioBuffer* scratch;
@@ -155,7 +159,7 @@ class DelayMatrixPatch : public MonochromeScreenPatch
 public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
-    , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), freeze(false)
+    , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), clocked(false), freeze(false)
     , clockTriggerLimit(MAX_DELAY_SECONDS*getSampleRate()/4), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
     , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadRatioIndex((SPREAD_RATIOS_COUNT-1)/2)
   {
@@ -269,7 +273,7 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     tapTempo.clock(audio.getSize());
-    const bool clocked = samplesSinceLastTap < clockTriggerLimit;
+    clocked = samplesSinceLastTap < clockTriggerLimit;
 
     float timeParam = getParameterValue(patchParams.time);
     float spreadParam = getParameterValue(patchParams.spread);

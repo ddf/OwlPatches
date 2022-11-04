@@ -144,6 +144,7 @@
     <ClInclude Include="CartesianTransform.h" />
     <ClInclude Include="CircularTexture.h" />
     <ClInclude Include="Delay.h" />
+    <ClInclude Include="DelayMatrixGeniusPatch.hpp" />
     <ClInclude Include="DelayMatrixPatch.hpp" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="Easing.h" />
