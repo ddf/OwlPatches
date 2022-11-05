@@ -149,6 +149,7 @@ protected:
   SineOscillator* lfo;
   SmoothRandomGenerator rnd;
   float rndGen;
+  float modAmount;
 
   bool clocked;
   bool freeze;
@@ -193,12 +194,12 @@ public:
       params.input = (PatchParameterId)(PARAMETER_AA + i);
       p = stpcpy(pname, "Gain "); p = stpcpy(p, msg_itoa(i + 1, 10));
       registerParameter(params.input, pname);
-      setParameterValue(params.input, 1.0f);
+      setParameterValue(params.input, 0.99f);
       
       params.cutoff = (PatchParameterId)(PARAMETER_AE + i);
       p = stpcpy(pname, "Color "); p = stpcpy(p, msg_itoa(i + 1, 10));
       registerParameter(params.cutoff, pname);
-      setParameterValue(params.cutoff, 1);
+      setParameterValue(params.cutoff, 0.99f);
       
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
       {
@@ -212,7 +213,7 @@ public:
         // when the global feedback param is turned up
         if (i == f)
         {
-          setParameterValue(params.feedback[f], 1);
+          setParameterValue(params.feedback[f], 0.99f);
         }
         else
         {
@@ -332,18 +333,18 @@ public:
     rnd.SetFreq(modFreq);
     rndGen = rnd.Process();
 
-    float modValue = 0;
+    modAmount = 0;
     float modParam = getParameterValue(patchParams.modIndex);
     if (modParam >= 0.53f)
     {
-      modValue = lfoGen * Interpolator::linear(0, MAX_MOD_AMT, (modParam - 0.53f)*2.12f);
+      modAmount = lfoGen * Interpolator::linear(0, MAX_MOD_AMT, (modParam - 0.53f)*2.12f);
     }
     else if (modParam <= 0.47f)
     {
-      modValue = rndGen * Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f);
+      modAmount = rndGen * Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f);
     }
-    modValue *= time;
 
+    float modValue = modAmount * time;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
