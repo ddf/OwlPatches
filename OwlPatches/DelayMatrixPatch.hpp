@@ -428,9 +428,8 @@ public:
       delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
       if (freeze)
       {
-        // how far back we can go depends on how big the frozen section is
-        const float maxDelaySamples = clocked ? tapTempo.getPeriodInSamples() / CLOCK_MULT[CLOCK_MULT_COUNT - 1] : MAX_TIME_SECONDS * getSampleRate();
-        const float maxPosition = (maxDelaySamples + maxDelaySamples * spread*i);
+        // how far back we can go depends on how big the frozen section is, we don't want to push past the size of the buffer
+        const float maxPosition = min(delaySamples * 8, (float)data.delayLength);
         delay->setPosition((maxPosition - delaySamples - data.skew)*feedback);
       }
       delay->process(input, input);
