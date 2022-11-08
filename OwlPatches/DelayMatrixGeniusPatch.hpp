@@ -92,6 +92,8 @@ public:
         screen.setCursor(x, rowY);
         switch (tap)
         {
+          // for easy debug
+          case 0: screen.print(ftoa(data.time / getSampleRate(), 10)); break;
 #define QUAV ""
 #define DOT2 "."
 #define DOT4 ","
@@ -235,7 +237,6 @@ public:
 
         //screen.print((int)TapTempo::samplePeriodToBpm(data.time, getSampleRate()));
         //screen.print((int)data.time);
-        //screen.print(ftoa(data.time / getSampleRate(), 10));
       }
       else
       {
@@ -248,6 +249,9 @@ public:
       x += knobRadius * 2 + 4;
       drawKnob((data.cutoff - MIN_CUTOFF) / (MAX_CUTOFF - MIN_CUTOFF), screen, x, knobY, knobRadius);
       x += knobRadius * 2 + 6;
+
+      //screen.setCursor(x, rowY);
+      //screen.print(ftoa(data.delayLength / getSampleRate(), 10));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
       {

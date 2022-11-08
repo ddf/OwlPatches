@@ -75,12 +75,12 @@ protected:
   static constexpr float MAX_TIME_SECONDS = 0.25f;
   static constexpr float MIN_CUTOFF = 400.0f;
   static constexpr float MAX_CUTOFF = 18000.0f;
+  // Spread calculator: https://www.desmos.com/calculator/xnzudjo949
   static constexpr float MIN_SPREAD = 0.25f;
   static constexpr float MID_SPREAD = 1.0f;
   static constexpr float MAX_SPREAD = 4.0f;
-  // Spread calculator: https://www.desmos.com/calculator/xnzudjo949
-  static constexpr float MAX_DELAY_SECONDS = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
   static constexpr float MAX_MOD_AMT = 0.5f;
+  static constexpr int   MAX_SKEW_SAMPLES = 48;
 
   static constexpr int CLOCK_MULT[] = {
     32,
@@ -113,6 +113,7 @@ protected:
 
   struct DelayLineData
   {
+    int delayLength;
     SmoothFloat time;
     SmoothFloat input;
     SmoothFloat skew; // in samples
@@ -139,8 +140,7 @@ protected:
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
   DelayLineData delayData[DELAY_LINE_COUNT];
 
-  int delayLineSamplesMax;
-  int clockTriggerLimit;
+  int clockTriggerMax;
   int clockMultIndex;
   int spreadDivMultIndex;
   TapTempo tapTempo;
@@ -161,8 +161,8 @@ public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
     , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), clocked(false), freeze(false)
-    , clockTriggerLimit(MAX_TIME_SECONDS*getSampleRate()*CLOCK_MULT[CLOCK_MULT_COUNT-1]), clockMultIndex((CLOCK_MULT_COUNT-1)/2)
-    , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadDivMultIndex((SPREAD_DIVMULT_COUNT-1)/2)
+    , clockTriggerMax(MAX_TIME_SECONDS*getSampleRate()*CLOCK_MULT[CLOCK_MULT_COUNT-1]), clockMultIndex((CLOCK_MULT_COUNT-1)/2)
+    , tapTempo(getSampleRate(), clockTriggerMax), samplesSinceLastTap(clockTriggerMax), spreadDivMultIndex((SPREAD_DIVMULT_COUNT-1)/2)
   {
     registerParameter(patchParams.time, "Time");
     registerParameter(patchParams.feedback, "Feedback");
@@ -176,19 +176,21 @@ public:
     setParameterValue(patchParams.modIndex, 0.5f);
 
     const int blockSize = getBlockSize();
-    delayLineSamplesMax = getSampleRate() * MAX_DELAY_SECONDS * 1.5f;
+    const int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
     char pname[16]; char* p;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      delays[i] = DelayLine::create(delayLineSamplesMax, blockSize);
-
       DelayLineData& data = delayData[i];
+      // calculate the longest this particular delay will ever need to get
+      data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD*i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
       data.dcBlock = StereoDcBlockingFilter::create();
       data.filter = StereoBiquadFilter::create(getSampleRate());
       data.sigIn = AudioBuffer::create(2, blockSize);
       data.sigOut = AudioBuffer::create(2, blockSize);
       data.limitLeft.Init();
       data.limitRight.Init();
+
+      delays[i] = DelayLine::create(data.delayLength, blockSize);
 
       DelayLineParamIds& params = delayParamIds[i];
       params.input = (PatchParameterId)(PARAMETER_AA + i);
@@ -274,7 +276,7 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     tapTempo.clock(audio.getSize());
-    clocked = samplesSinceLastTap < clockTriggerLimit;
+    clocked = samplesSinceLastTap < clockTriggerMax;
 
     float timeParam = getParameterValue(patchParams.time);
     float spreadParam = getParameterValue(patchParams.spread);
@@ -311,7 +313,7 @@ public:
     // not clocked
     else
     {
-      time = Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam*1.01f) * getSampleRate();
+      time = clamp(Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam*1.01f), MIN_TIME_SECONDS, MAX_TIME_SECONDS) * getSampleRate();
 
       if (spreadParam <= 0.5f)
       {
@@ -319,7 +321,7 @@ public:
       }
       else
       {
-        spread = Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f);
+        spread = clamp(Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f), MID_SPREAD, MAX_SPREAD);
       }
     }
 
@@ -339,11 +341,11 @@ public:
     float modParam = getParameterValue(patchParams.modIndex);
     if (modParam >= 0.53f)
     {
-      modAmount = lfoGen * Interpolator::linear(0, MAX_MOD_AMT, (modParam - 0.53f)*2.12f);
+      modAmount = lfoGen * clamp(Interpolator::linear(0, MAX_MOD_AMT, (modParam - 0.53f)*2.12f), 0.f, MAX_MOD_AMT);
     }
     else if (modParam <= 0.47f)
     {
-      modAmount = rndGen * Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f);
+      modAmount = rndGen * clamp(Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f), 0.f, MAX_MOD_AMT);
     }
 
     float modValue = modAmount * time;
@@ -355,7 +357,7 @@ public:
       float invert = i % 2 ? 1.0f : -1.0f;
       data.time = time + spread * i * time + modValue;
       data.input = getParameterValue(params.input);
-      data.skew = skew * 48 * invert;
+      data.skew = skew * MAX_SKEW_SAMPLES * invert;
       data.cutoff = Interpolator::linear(400, 18000, getParameterValue(params.cutoff));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
