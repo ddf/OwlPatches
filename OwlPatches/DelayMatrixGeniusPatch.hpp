@@ -3,24 +3,47 @@
 
 class DelayMatrixGeniusPatch : public DelayMatrixPatch<4>
 {
-  static constexpr const char* CLOCK_RATIOS[] = {
-    "1/4",
-    "1/2",
-    "3/4",
-    "x1",
-    "x1.5",
-    "x2",
-    "x4"
-  };
+  enum TapDelayLength
+  {
+    Quarter = 32 * 8 * 3 * 3,
 
-  static constexpr const char* SPREAD_RATIOS[] = {
-    "1/4",
-    "1/2",
-    "3/4",
-    "x1",
-    "x2",
-    "x3",
-    "x4"
+    Long = Quarter * 16,
+    Double = Quarter * 8,
+    Whole = Quarter*4,
+    Half = Quarter*2,
+    One8 = Quarter/2,
+    One16 = Quarter/4,
+    One32 = Quarter/8,
+    One64 = Quarter/16,
+    One128 = Quarter/32,
+    One256 = Quarter/64,
+    One512 = Quarter/128,
+    One1028 = Quarter/256,
+
+    DoubleT = Long/3,
+    WholeT = Double/3,
+    HalfT = Whole/3,
+    QuarterT = Half/3,
+    One8T = Quarter/3,
+    One16T = One8/3,
+    One32T = One16/3,
+    One64T = One32/3,
+    One128T = One64/3,
+    One256T = One128/3,
+    One512T = One256/3,
+    One1028T = One512/3,
+
+    WholeTT = DoubleT/3,
+    HalfTT = WholeT/3,
+    QuarterTT = HalfT/3,
+    One8TT = QuarterT/3,
+    One16TT = One8T/3,
+    One32TT = One16T/3,
+    One64TT = One32T/3,
+    One128TT = One64T/3,
+    One256TT = One128T/3,
+    One512TT = One256T/3,
+    One1028TT = One512T/3,
   };
 
   float dryWetAnim = 0;
@@ -37,7 +60,15 @@ public:
 
     const int headingY = matrixTop - knobRadius * 2 - 1;
     screen.setCursor(x, headingY);
-    screen.print("TIME");
+    if (clocked)
+    {
+      screen.print("Q=");
+      screen.print((int)tapTempo.getBeatsPerMinute());
+    }
+    else
+    {
+      screen.print("TIME");
+    }
     x += 39;
     screen.setCursor(x, headingY);
     screen.print("IN");
@@ -51,9 +82,167 @@ public:
       const int rowY = matrixTop + rowSpacing * i;
       const int knobY = rowY - knobRadius - 1;
       x = 1;
-      screen.setCursor(x, rowY);
-      screen.print(ftoa(data.time / getSampleRate(), 10));
-      screen.print("s");
+      if (clocked)
+      {
+        int clockMult = CLOCK_MULT[clockMultIndex];
+        int spreadDivMult = SPREAD_DIVMULT[spreadDivMultIndex];
+        int tapFirst = Quarter / clockMult;
+        int spreadInc = spreadDivMult < 0 ? tapFirst / -spreadDivMult : tapFirst * spreadDivMult;
+        TapDelayLength tap = TapDelayLength(tapFirst + spreadInc*i);
+        screen.setCursor(x, rowY);
+        switch (tap)
+        {
+#define QUAV ""
+#define DOT2 "."
+#define DOT4 ","
+#define DOT8 ";"
+          case Whole: screen.print("W"); break;
+          case Half: screen.print("H"); break;
+          case Quarter: screen.print("Q"); break;
+          case One8: screen.print(QUAV "8"); break;
+          case One16: screen.print(QUAV "16"); break;
+          case One32: screen.print(QUAV "32"); break;
+          case One64: screen.print(QUAV "64"); break;
+          case One128: screen.print(QUAV "128"); break;
+          case One256: screen.print(QUAV "256"); break;
+          case One512: screen.print(QUAV "512"); break;
+
+          case WholeT: screen.print("WT"); break;
+          case HalfT: screen.print("HT"); break;
+          case QuarterT: screen.print("QT"); break;
+          case One8T: screen.print(QUAV "8T"); break;
+          case One16T: screen.print(QUAV "16T"); break;
+          case One32T: screen.print(QUAV "32T"); break;
+          case One64T: screen.print(QUAV "64T"); break;
+          case One128T: screen.print(QUAV "128T"); break;
+          case One256T: screen.print(QUAV "256T"); break;
+          case One512T: screen.print(QUAV "512T"); break;
+          case One1028T: screen.print(QUAV "1028T"); break;
+
+          case WholeTT: screen.print("WTT"); break;
+          case HalfTT: screen.print("HTT"); break;
+          case QuarterTT: screen.print("QTT"); break;
+          case One8TT: screen.print(QUAV "8TT"); break;
+          case One16TT: screen.print(QUAV "16TT"); break;
+          case One32TT: screen.print(QUAV "32TT"); break;
+          case One64TT: screen.print(QUAV "64TT"); break;
+          case One128TT: screen.print(QUAV "128TT"); break;
+          case One256TT: screen.print(QUAV "256TT"); break;
+          case One512TT: screen.print(QUAV "512TT"); break;
+          case One1028TT: screen.print(QUAV "1028TT"); break;
+
+          case Whole + One8: screen.print("W" DOT8); break;
+          case Half + One16: screen.print("H" DOT8); break;
+          case Quarter + One32: screen.print("Q" DOT8); break;
+          case One8 + One64: screen.print(QUAV "8" DOT8); break;
+          case One16 + One128: screen.print(QUAV "16" DOT8); break;
+          case One32 + One256: screen.print(QUAV "32" DOT8); break;
+          case One64 + One512: screen.print(QUAV "64" DOT8); break;
+          case One128 + One1028: screen.print(QUAV "128" DOT8); break;
+
+          case Whole + Quarter: screen.print("W" DOT4); break;
+          case Half + One8: screen.print("H" DOT4); break;
+          case Quarter + One16: screen.print("Q" DOT4); break;
+          case One8 + One32: screen.print(QUAV "8" DOT4); break;
+          case One16 + One64: screen.print(QUAV "16" DOT4); break;
+          case One32 + One128: screen.print(QUAV "32" DOT4); break;
+          case One64 + One256: screen.print(QUAV "64" DOT4); break;
+          case One128 + One512: screen.print(QUAV "128" DOT4); break;
+
+          case Whole + Quarter + One16: screen.print("W" DOT4 DOT4); break;
+          case Half + One8 + One32: screen.print("H" DOT4 DOT4); break;
+          case Quarter + One16 + One64: screen.print("Q" DOT4 DOT4); break;
+          case One8 + One32 + One128: screen.print(QUAV "8" DOT4 DOT4); break;
+          case One16 + One64 + One256: screen.print(QUAV "16" DOT4 DOT4); break;
+          case One32 + One128 + One512: screen.print(QUAV "32" DOT4 DOT4); break;
+          case One64 + One256 + One1028: screen.print(QUAV "64" DOT4 DOT4); break;
+
+          case WholeT + QuarterT: screen.print("WT" DOT4); break;
+          case HalfT + One8T: screen.print("HT" DOT4); break;
+          case QuarterT + One16T: screen.print("QT" DOT4); break;
+          case One8T + One32T: screen.print(QUAV "8T" DOT4); break;
+          case One16T + One64T: screen.print(QUAV "16T" DOT4); break;
+          case One32T + One128T: screen.print(QUAV "32T" DOT4); break;
+          case One64T + One256T: screen.print(QUAV "64T" DOT4); break;
+          case One128T + One512T: screen.print(QUAV "128T" DOT4); break;
+
+          case WholeTT + QuarterTT: screen.print("WTT" DOT4); break;
+          case HalfTT + One8TT: screen.print("HTT" DOT4); break;
+          case QuarterTT + One16TT: screen.print("QTT" DOT4); break;
+          case One8TT + One32TT: screen.print(QUAV "8TT" DOT4); break;
+          case One16TT + One64TT: screen.print(QUAV "16TT" DOT4); break;
+          case One32TT + One128TT: screen.print(QUAV "32TT" DOT4); break;
+          case One64TT + One256TT: screen.print(QUAV "64TT" DOT4); break;
+          case One128TT + One512TT: screen.print(QUAV "128TT" DOT4); break;
+
+          case Whole+Half: screen.print("W" DOT2); break;
+          case Half+Quarter: screen.print("H" DOT2); break;
+          case Quarter + One8: screen.print("Q" DOT2); break;
+          case One8+One16: screen.print(QUAV "8" DOT2); break;
+          case One16+One32: screen.print(QUAV "16" DOT2); break;
+          case One32+One64: screen.print(QUAV "32" DOT2); break;
+          case One64+One128: screen.print(QUAV "64" DOT2); break;
+          case One128+One256: screen.print(QUAV "128" DOT2); break;
+          case One256+One512: screen.print(QUAV "256" DOT2); break;
+
+          case Whole + Half + Quarter: screen.print("W" DOT2 DOT2); break;
+          case Half + Quarter + One8: screen.print("H" DOT2 DOT2); break;
+          case Quarter + One8 + One16: screen.print("Q" DOT2 DOT2); break;
+          case One8 + One16 + One32: screen.print(QUAV "8" DOT2 DOT2); break;
+          case One16 + One32 + One64: screen.print(QUAV "16" DOT2 DOT2); break;
+          case One32 + One64 + One128: screen.print(QUAV "32" DOT2 DOT2); break;
+          case One64 + One128 + One256: screen.print(QUAV "64" DOT2 DOT2); break;
+          case One128 + One256 + One512: screen.print(QUAV "128" DOT2 DOT2); break;
+
+          case WholeT + HalfT + QuarterT: screen.print("WT" DOT2 DOT2); break;
+          case QuarterT + One8T + One16T: screen.print("QT" DOT2 DOT2); break;
+          case HalfT + QuarterT + One8T: screen.print("HT" DOT2 DOT2); break;
+          case One8T + One16T + One32T: screen.print(QUAV "8T"  DOT2 DOT2); break;
+          case One16T + One32T + One64T: screen.print(QUAV "16T" DOT2 DOT2); break;
+          case One32T + One64T + One128T: screen.print(QUAV "32T" DOT2 DOT2); break;
+          case One64T + One128T + One256T: screen.print(QUAV "64T" DOT2 DOT2); break;
+          case One128T + One256T + One512T: screen.print(QUAV "128T" DOT2 DOT2); break;
+
+          case WholeTT + HalfTT + QuarterTT: screen.print("WTT" DOT2 DOT2); break;
+          case QuarterTT + One8TT + One16TT: screen.print("QTT" DOT2 DOT2); break;
+          case HalfTT + QuarterTT + One8TT: screen.print("HTT" DOT2 DOT2); break;
+          case One8TT + One16TT + One32TT: screen.print(QUAV "8TT"  DOT2 DOT2); break;
+          case One16TT + One32TT + One64TT: screen.print(QUAV "16TT" DOT2 DOT2); break;
+          case One32TT + One64TT + One128TT: screen.print(QUAV "32TT" DOT2 DOT2); break;
+          case One64TT + One128TT + One256TT: screen.print(QUAV "64TT" DOT2 DOT2); break;
+          case One128TT + One256TT + One512TT: screen.print(QUAV "128TT" DOT2 DOT2); break;
+
+          case Whole + Half + One8: screen.print("W" DOT2 DOT4); break;
+          case Half + Quarter + One16: screen.print("H" DOT2 DOT4); break;
+          case Quarter + One8 + One32: screen.print("Q" DOT2 DOT4); break;
+          case One8 + One16 + One64: screen.print(QUAV "8" DOT2 DOT4); break;
+          case One16 + One32 + One128: screen.print(QUAV "16" DOT2 DOT4); break;
+          case One32 + One64 + One256: screen.print(QUAV "32" DOT2 DOT4); break;
+          case One64 + One128 + One512: screen.print(QUAV "64" DOT2 DOT4); break;
+          case One128 + One256 + One1028: screen.print(QUAV "128" DOT2 DOT4); break;
+
+          case WholeT + HalfT + One8T: screen.print("WT" DOT2 DOT4); break;
+          case HalfT + QuarterT + One16T: screen.print("HT" DOT2 DOT4); break;
+          case QuarterT + One8T + One32T: screen.print("QT" DOT2 DOT4); break;
+          case One8T + One16T + One64T: screen.print(QUAV "8T" DOT2 DOT4); break;
+          case One16T + One32T + One128T: screen.print(QUAV "16T" DOT2 DOT4); break;
+          case One32T + One64T + One256T: screen.print(QUAV "32T" DOT2 DOT4); break;
+          case One64T + One128T + One512T: screen.print(QUAV "64T" DOT2 DOT4); break;
+          case One128T + One256T + One1028T: screen.print(QUAV "128T" DOT2 DOT4); break;
+
+          default: screen.print(tap); break;
+        }
+
+        //screen.print((int)TapTempo::samplePeriodToBpm(data.time, getSampleRate()));
+        //screen.print((int)data.time);
+        //screen.print(ftoa(data.time / getSampleRate(), 10));
+      }
+      else
+      {
+        screen.setCursor(x, rowY);
+        screen.print(ftoa(data.time / getSampleRate(), 10));
+        screen.print("s");
+      }
       x += 44;
       drawKnob(data.input, screen, x, knobY, knobRadius);
       x += knobRadius * 2 + 4;

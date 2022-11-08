@@ -72,7 +72,7 @@ class DelayMatrixPatch : public MonochromeScreenPatch
 protected:
   static constexpr int   DELAY_LINE_COUNT = DELAYS;
   static constexpr float MIN_TIME_SECONDS = 0.002f;
-  static constexpr float MAX_TIME_SECONDS = 0.2f;
+  static constexpr float MAX_TIME_SECONDS = 0.25f;
   static constexpr float MIN_CUTOFF = 400.0f;
   static constexpr float MAX_CUTOFF = 18000.0f;
   static constexpr float MIN_SPREAD = 0.25f;
@@ -82,27 +82,27 @@ protected:
   static constexpr float MAX_DELAY_SECONDS = MAX_TIME_SECONDS + MAX_SPREAD * (DELAY_LINE_COUNT - 1)*MAX_TIME_SECONDS;
   static constexpr float MAX_MOD_AMT = 0.5f;
 
-  static constexpr float CLOCK_RATIOS[] = {
-    1.0f / 4.0f,
-    1.0f / 2.0f,
-    3.0f / 4.0f,
-    1.0f,
-    1.5f,
-    2.0f,
-    4.0f
+  static constexpr int CLOCK_MULT[] = {
+    32,
+    24,
+    16,
+    12,
+    8,
+    6,
+    4,
   };
-  static constexpr int CLOCK_RATIOS_COUNT = sizeof(CLOCK_RATIOS) / sizeof(float);
+  static constexpr int CLOCK_MULT_COUNT = sizeof(CLOCK_MULT) / sizeof(int);
 
-  static constexpr float SPREAD_RATIOS[] = {
-    1.0f / 4.0f,
-    1.0f / 2.0f,
-    3.0f / 4.0f,
-    1.0f,
-    2.0f,
-    3.0f,
-    4.0f
+  static constexpr int SPREAD_DIVMULT[] = {
+    -4,
+    -3,
+    -2,
+    1,
+    2,
+    3,
+    4
   };
-  static constexpr int SPREAD_RATIOS_COUNT = sizeof(SPREAD_RATIOS) / sizeof(float);
+  static constexpr int SPREAD_DIVMULT_COUNT = sizeof(SPREAD_DIVMULT) / sizeof(float);
 
   struct DelayLineParamIds
   {
@@ -141,8 +141,8 @@ protected:
 
   int delayLineSamplesMax;
   int clockTriggerLimit;
-  int clockRatioIndex;
-  int spreadRatioIndex;
+  int clockMultIndex;
+  int spreadDivMultIndex;
   TapTempo tapTempo;
   int samplesSinceLastTap;
 
@@ -161,8 +161,8 @@ public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
     , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), clocked(false), freeze(false)
-    , clockTriggerLimit(MAX_DELAY_SECONDS*getSampleRate()/4), clockRatioIndex((CLOCK_RATIOS_COUNT-1)/2)
-    , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadRatioIndex((SPREAD_RATIOS_COUNT-1)/2)
+    , clockTriggerLimit(MAX_TIME_SECONDS*getSampleRate()*CLOCK_MULT[CLOCK_MULT_COUNT-1]), clockMultIndex((CLOCK_MULT_COUNT-1)/2)
+    , tapTempo(getSampleRate(), clockTriggerLimit), samplesSinceLastTap(clockTriggerLimit), spreadDivMultIndex((SPREAD_DIVMULT_COUNT-1)/2)
   {
     registerParameter(patchParams.time, "Time");
     registerParameter(patchParams.feedback, "Feedback");
@@ -282,27 +282,29 @@ public:
     // clocked
     if (clocked)
     {
-      clockRatioIndex = (CLOCK_RATIOS_COUNT - 1) / 2;
+      clockMultIndex = (CLOCK_MULT_COUNT - 1) / 2;
       if (timeParam >= 0.53f)
       {
-        clockRatioIndex = Interpolator::linear(clockRatioIndex, CLOCK_RATIOS_COUNT, (timeParam - 0.53f) * 2.12f);
+        clockMultIndex = Interpolator::linear(clockMultIndex, CLOCK_MULT_COUNT, (timeParam - 0.53f) * 2.12f);
       }
       else if (timeParam <= 0.47f)
       {
-        clockRatioIndex = Interpolator::linear(clockRatioIndex, 0, (0.47f - timeParam) * 2.12f);
+        clockMultIndex = Interpolator::linear(clockMultIndex, 0, (0.47f - timeParam) * 2.12f);
       }
-      time = tapTempo.getPeriodInSamples() * CLOCK_RATIOS[clockRatioIndex];
+      // equivalent to multiplying the BPM
+      time = tapTempo.getPeriodInSamples() / CLOCK_MULT[clockMultIndex];
 
-      spreadRatioIndex = (SPREAD_RATIOS_COUNT - 1) / 2;
+      spreadDivMultIndex = (SPREAD_DIVMULT_COUNT - 1) / 2;
       if (spreadParam >= 0.53f)
       {
-        spreadRatioIndex = Interpolator::linear(spreadRatioIndex, SPREAD_RATIOS_COUNT, (spreadParam - 0.53f) * 2.12f);
+        spreadDivMultIndex = Interpolator::linear(spreadDivMultIndex, SPREAD_DIVMULT_COUNT, (spreadParam - 0.53f) * 2.12f);
       }
       else if (spreadParam <= 0.47f)
       {
-        spreadRatioIndex = Interpolator::linear(spreadRatioIndex, 0, (0.47f - spreadParam) * 2.12f);
+        spreadDivMultIndex = Interpolator::linear(spreadDivMultIndex, 0, (0.47f - spreadParam) * 2.12f);
       }
-      spread = SPREAD_RATIOS[spreadRatioIndex];
+      int sdm = SPREAD_DIVMULT[spreadDivMultIndex];
+      spread = sdm < 0 ? -1.0f / sdm : sdm;
 
       samplesSinceLastTap += audio.getSize();
     }
@@ -317,7 +319,7 @@ public:
       }
       else
       {
-        spread = Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*1.02f);
+        spread = Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f);
       }
     }
 
@@ -425,7 +427,7 @@ public:
       if (freeze)
       {
         // how far back we can go depends on how big the frozen section is
-        const float maxDelaySamples = clocked ? tapTempo.getPeriodInSamples() * CLOCK_RATIOS[CLOCK_RATIOS_COUNT - 1] : MAX_TIME_SECONDS * getSampleRate();
+        const float maxDelaySamples = clocked ? tapTempo.getPeriodInSamples() / CLOCK_MULT[CLOCK_MULT_COUNT - 1] : MAX_TIME_SECONDS * getSampleRate();
         const float maxPosition = (maxDelaySamples + maxDelaySamples * spread*i);
         delay->setPosition((maxPosition - delaySamples - data.skew)*feedback);
       }
@@ -458,10 +460,10 @@ public:
   {
     screen.setCursor(0, 10);
     screen.print("Clock Ratio: ");
-    screen.print(clockRatioIndex);
+    screen.print(clockMultIndex);
     screen.setCursor(0, 20);
     screen.print("Spread Ratio: ");
-    screen.print(spreadRatioIndex);
+    screen.print(spreadDivMultIndex);
     screen.setCursor(0, 30);
     screen.print("Tap: ");
     screen.print((int)tapTempo.getPeriodInSamples());
