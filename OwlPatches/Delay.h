@@ -70,10 +70,13 @@ private:
   bool freeze;
   int freezeRead;
   int pos;
+  float fade;
+  float fadeInc;
+  int   fadeLen;
 
 public:
   DelayWithFreezeProcessor(BufferType* buffer)
-    : DelayProcessor<BufferType>(buffer), freeze(false), pos(0)
+    : DelayProcessor<BufferType>(buffer), freeze(false), pos(0), fade(0), fadeInc(0), fadeLen(0)
   {
 
   }
@@ -106,10 +109,12 @@ public:
         {
           buffer->setDelay(delaySamples + pos);
           freezeRead = delaySamples;
+          beginFade(input.getSize());
         }
         else if (freezeRead < readSz)
         {
           buffer->read(out, freezeRead);
+          processFade(out, freezeRead);
           out += freezeRead;
           readSz -= freezeRead;
           freezeRead = 0;
@@ -117,6 +122,7 @@ public:
         else
         {
           buffer->read(out, readSz);
+          processFade(out, readSz);
           freezeRead -= readSz;
           readSz = 0;
         }
@@ -128,6 +134,38 @@ public:
     }
   }
 
+private:
+  void beginFade(int blockSize)
+  {
+    fade = 0.0f;
+    fadeLen = min((float)blockSize, max(delaySamples / 8, 1.0f));
+    fadeInc = 1.0f / fadeLen;
+  }
+
+  void processFade(float* buffer, int len)
+  {
+    int remaining = freezeRead;
+    while(len--)
+    {
+      *buffer++ = *buffer * fade;
+      remaining--;
+      if (fadeInc != 0)
+      {
+        fade += fadeInc;
+        if (fade <= 0 || fade >= 1)
+        {
+          fadeInc = 0;
+          fade = clamp(fade, 0.0f, 1.0f);
+        }
+      }
+      else if (remaining <= fadeLen)
+      {
+        fadeInc = -1.0f / fadeLen;
+      }
+    }
+  }
+
+public:
   static DelayWithFreezeProcessor* create(size_t maxDelayLength, size_t blockSize)
   {
     return new DelayWithFreezeProcessor(BufferType::create(maxDelayLength));
