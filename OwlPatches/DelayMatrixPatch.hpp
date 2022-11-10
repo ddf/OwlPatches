@@ -152,7 +152,14 @@ protected:
   float modAmount;
 
   bool clocked;
-  bool freeze;
+
+  enum
+  {
+    FreezeOff,
+    FreezeEnter,
+    FreezeOn,
+    FreezeExit,
+  } freezeState;
 
   AudioBuffer* scratch;
   AudioBuffer* accum;
@@ -160,7 +167,7 @@ protected:
 public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
-    , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), clocked(false), freeze(false)
+    , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), clocked(false), freezeState(FreezeOff)
     , clockTriggerMax(MAX_TIME_SECONDS*getSampleRate()*CLOCK_MULT[CLOCK_MULT_COUNT-1]), clockMultIndex((CLOCK_MULT_COUNT-1)/2)
     , tapTempo(getSampleRate(), clockTriggerMax), samplesSinceLastTap(clockTriggerMax), spreadDivMultIndex((SPREAD_DIVMULT_COUNT-1)/2)
   {
@@ -265,10 +272,10 @@ public:
 
     if (bid == BUTTON_2 && value == Patch::ON)
     {
-      freeze = !freeze;
+      freezeState = freezeState == FreezeOff ? FreezeEnter : FreezeExit;
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
-        delays[i]->setFreeze(freeze);
+        delays[i]->setFreeze(freezeState == FreezeEnter);
       }
     }
   }
@@ -368,10 +375,8 @@ public:
 
     inputFilter->process(audio, audio);
 
-    if (!freeze)
+    if (freezeState != FreezeOn)
     {
-      FloatArray audioLeft = audio.getSamples(LEFT_CHANNEL);
-      FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
       // setup delay inputs with last blocks results
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
@@ -381,6 +386,8 @@ public:
         StereoDcBlockingFilter& filter = *data.dcBlock;
 
         int inSize = input.getSize();
+        FloatArray audioLeft = audio.getSamples(LEFT_CHANNEL);
+        FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
         FloatArray inLeft = input.getSamples(LEFT_CHANNEL);
         FloatArray inRight = input.getSamples(RIGHT_CHANNEL);
 
@@ -408,6 +415,17 @@ public:
         data.limitLeft.ProcessBlock(inLeft, inSize, 1.125f);
         data.limitRight.ProcessBlock(inRight, inSize, 1.125f);
 
+        if (freezeState == FreezeEnter)
+        {
+          inLeft.scale(1.0f, 0.0f);
+          inRight.scale(1.0f, 0.0f);
+        }
+        else if (freezeState == FreezeExit)
+        {
+          inLeft.scale(0.0f, 1.0f);
+          inRight.scale(0.0f, 1.0f);
+        }
+
         // very slow and I think harsher than the limiters
         //input.getSamples(LEFT_CHANNEL).tanh();
         //input.getSamples(RIGHT_CHANNEL).tanh();
@@ -425,7 +443,7 @@ public:
       AudioBuffer& output = *data.sigOut;
 
       const float delaySamples = data.time;
-      if (freeze)
+      if (freezeState == FreezeOn)
       {
         // how far back we can go depends on how big the frozen section is, we don't want to push past the size of the buffer
         const float maxPosition = min(delaySamples * 8, (float)data.delayLength);
@@ -443,13 +461,22 @@ public:
       filter.setLowPass(data.cutoff, FilterStage::BUTTERWORTH_Q);
       filter.process(input, output);
 
-      if (freeze)
+      if (freezeState == FreezeOn)
       {
         output.multiply(data.input);
       }
 
       // accumulate wet delay signals
       accum->add(output);
+    }
+
+    if (freezeState == FreezeEnter)
+    {
+      freezeState = FreezeOn;
+    }
+    else if (freezeState == FreezeExit)
+    {
+      freezeState = FreezeOff;
     }
 
     const float wet = dryWet;
@@ -477,7 +504,7 @@ public:
     screen.setCursor(0, 40);
     screen.print("Dly: ");
     screen.print((int)time.getValue());
-    screen.print(freeze ? " F:X" : " F:O");
+    screen.print(freezeState != FreezeOff ? " F:X" : " F:O");
     screen.setCursor(0, 48);
     screen.print("MODF: ");
     screen.print(lfo->getFrequency());

@@ -80,7 +80,7 @@ public:
     DelayLineData& lastData = delayData[DELAY_LINE_COUNT - 1];
     const float lastMaxFreezePosition = min(lastData.time * 8 - lastData.time - lastData.skew, (float)lastData.delayLength - lastData.time - lastData.skew);
     const float maxFreezeSize = lastMaxFreezePosition + lastData.time + lastData.skew;
-    if (freeze)
+    if (freezeState == FreezeOn)
     {
       screen.setCursor(x, headingY);
       screen.print("/");
@@ -265,7 +265,7 @@ public:
       //screen.setCursor(x, rowY);
       //screen.print(ftoa(data.delayLength / getSampleRate(), 10));
 
-      if (freeze)
+      if (freezeState == FreezeOn)
       {
         const float windowStart = 1.0f - ((delays[i]->getPosition() + data.time) / maxFreezeSize);
         const float windowSize = min(data.time / maxFreezeSize, 1.0f);
@@ -369,7 +369,7 @@ private:
     const int iconY = y-2;
     const int iconDim = h-2;
 
-    if (freeze)
+    if (freezeState == FreezeOn)
     {
       screen.drawLine(x, iconY, x, iconY - iconDim, WHITE);
       screen.drawLine(x, iconY - iconDim, x + iconDim, iconY - iconDim, WHITE);
