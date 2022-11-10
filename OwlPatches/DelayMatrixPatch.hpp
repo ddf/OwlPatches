@@ -430,7 +430,7 @@ public:
       {
         // how far back we can go depends on how big the frozen section is, we don't want to push past the size of the buffer
         const float maxPosition = min(delaySamples * 8, (float)data.delayLength);
-        delay->setPosition((maxPosition - delaySamples - data.skew)*feedback);
+        delay->setPosition((maxPosition - delaySamples - data.skew)*(1.0f-feedback));
       }
       delay->process(input, input);
 

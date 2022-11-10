@@ -75,6 +75,18 @@ public:
     x += 14;
     screen.setCursor(x, headingY);
     screen.print("LP");
+    x += 14;
+
+    DelayLineData& lastData = delayData[DELAY_LINE_COUNT - 1];
+    const float lastMaxFreezePosition = min(lastData.time * 8 - lastData.time - lastData.skew, (float)lastData.delayLength - lastData.time - lastData.skew);
+    const float maxFreezeSize = lastMaxFreezePosition + lastData.time + lastData.skew;
+    if (freeze)
+    {
+      screen.setCursor(x, headingY);
+      screen.print("/");
+      screen.print(ftoa(maxFreezeSize / getSampleRate(), 10));
+      screen.print("s\\");
+    }
 
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
@@ -253,12 +265,27 @@ public:
       //screen.setCursor(x, rowY);
       //screen.print(ftoa(data.delayLength / getSampleRate(), 10));
 
-      for (int f = 0; f < DELAY_LINE_COUNT; ++f)
+      if (freeze)
       {
-        drawFeedLabel(screen, x - knobRadius, headingY, f+1);
-        float fbk = getParameterValue(delayParamIds[f].feedback[i]);
-        drawKnob(fbk, screen, x, knobY, knobRadius);
-        x += knobRadius * 2 + 4;
+        const float windowStart = 1.0f - ((delays[i]->getPosition() + data.time) / maxFreezeSize);
+        const float windowSize = min(data.time / maxFreezeSize, 1.0f);
+        const int freezeX = x - knobRadius;
+        const int freezeY = knobY - knobRadius;
+        const float freezeW = (knobRadius * 2 + 4)*DELAY_LINE_COUNT - 1;
+        //screen.setCursor(freezeX, rowY);
+        //screen.print(delays[i]->getPosition()/getSampleRate());
+        screen.drawRectangle(freezeX-1, freezeY, freezeW+1, 8, WHITE);
+        screen.fillRectangle(freezeX + (freezeW)*windowStart, freezeY, max(freezeW * windowSize, 1.f), 8, WHITE);
+      }
+      else
+      {
+        for (int f = 0; f < DELAY_LINE_COUNT; ++f)
+        {
+          drawFeedLabel(screen, x - knobRadius, headingY, f + 1);
+          float fbk = getParameterValue(delayParamIds[f].feedback[i]);
+          drawKnob(fbk, screen, x+1, knobY, knobRadius);
+          x += knobRadius * 2 + 4;
+        }
       }
     }
 
@@ -272,9 +299,9 @@ public:
     drawSkew(screen, x, barY, 22, horizBarHeight, skew);
 
     x += 26;
-    drawFeedback<true>(screen, x, barY, 47, horizBarHeight, feedback);
+    drawFeedback<true>(screen, x, barY, 48, horizBarHeight, feedback);
 
-    x += 51;
+    x += 52;
     drawDryWet(screen, x, barY, horizBarHeight, barY - matrixTop + 8, dryWet);
 
     //x += 9;
@@ -341,21 +368,33 @@ private:
   {
     const int iconY = y-2;
     const int iconDim = h-2;
-    screen.drawLine(x, iconY, x, iconY - iconDim, WHITE);
-    screen.drawLine(x, iconY - iconDim, x + iconDim, iconY - iconDim, WHITE);
-    screen.drawLine(x + iconDim, iconY - iconDim, x + iconDim, iconY, WHITE);
 
-    if (pointLeft)
+    if (freeze)
     {
-      screen.drawLine(x + iconDim, iconY, x + 2, iconY, WHITE);
-      screen.drawLine(x + 2, iconY, x + 4, iconY - 2, WHITE);
-      screen.drawLine(x + 2, iconY, x + 4, iconY + 2, WHITE);
+      screen.drawLine(x, iconY, x, iconY - iconDim, WHITE);
+      screen.drawLine(x, iconY - iconDim, x + iconDim, iconY - iconDim, WHITE);
+      screen.drawLine(x, iconY - iconDim + 2, x + 2, iconY - iconDim + 2, WHITE);
+      screen.drawRectangle(x + iconDim - 3, iconY - 3, 3, 3, WHITE);
+      screen.drawLine(x + iconDim - 3, iconY, x + iconDim - 3, iconY - 3, WHITE);
     }
     else
     {
-      screen.drawLine(x, iconY, x + iconDim - 2, iconY, WHITE);
-      screen.drawLine(x + iconDim - 2, iconY, x + iconDim - 4, iconY - 2, WHITE);
-      screen.drawLine(x + iconDim - 2, iconY, x + iconDim - 4, iconY + 2, WHITE);
+      screen.drawLine(x, iconY, x, iconY - iconDim, WHITE);
+      screen.drawLine(x, iconY - iconDim, x + iconDim, iconY - iconDim, WHITE);
+      screen.drawLine(x + iconDim, iconY - iconDim, x + iconDim, iconY, WHITE);
+
+      if (pointLeft)
+      {
+        screen.drawLine(x + iconDim, iconY, x + 2, iconY, WHITE);
+        screen.drawLine(x + 2, iconY, x + 4, iconY - 2, WHITE);
+        screen.drawLine(x + 2, iconY, x + 4, iconY + 2, WHITE);
+      }
+      else
+      {
+        screen.drawLine(x, iconY, x + iconDim - 2, iconY, WHITE);
+        screen.drawLine(x + iconDim - 2, iconY, x + iconDim - 4, iconY - 2, WHITE);
+        screen.drawLine(x + iconDim - 2, iconY, x + iconDim - 4, iconY + 2, WHITE);
+      }
     }
 
     const int barWidth = w - iconDim - 2;

@@ -80,6 +80,11 @@ public:
     static_cast<FreezeType*>(delays[1])->setPosition(position);
   }
 
+  float getPosition() const
+  {
+    return static_cast<FreezeType*>(delays[0])->getPosition();
+  }
+
   static StereoDelayWithFreezeProcessor* create(size_t delayLen, size_t blockSize)
   {
     return new StereoDelayWithFreezeProcessor(FreezeType::create(delayLen, blockSize), FreezeType::create(delayLen, blockSize));

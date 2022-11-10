@@ -89,6 +89,11 @@ public:
     pos = samples;
   }
 
+  float getPosition() const 
+  {
+    return pos;
+  }
+
   void process(FloatArray input, FloatArray output) override
   {
     if (freeze)
