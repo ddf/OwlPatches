@@ -81,7 +81,7 @@ public:
   void setFreeze(bool enabled)
   {
     freeze = enabled;
-    freezeRead = buffer->getReadCapacity();
+    freezeRead = 0; // buffer->getReadCapacity();
   }
 
   void setPosition(float samples)

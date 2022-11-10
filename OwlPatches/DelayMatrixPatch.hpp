@@ -424,13 +424,18 @@ public:
       AudioBuffer& input = *data.sigIn;
       AudioBuffer& output = *data.sigOut;
 
-      float delaySamples = data.time;
-      delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
+      const float delaySamples = data.time;
       if (freeze)
       {
         // how far back we can go depends on how big the frozen section is, we don't want to push past the size of the buffer
         const float maxPosition = min(delaySamples * 8, (float)data.delayLength);
-        delay->setPosition((maxPosition - delaySamples - data.skew)*(1.0f-feedback));
+        const float normPosition = (1.0f - feedback);
+        delay->setDelay(delaySamples, delaySamples);
+        delay->setPosition((maxPosition - delaySamples + data.skew)*normPosition, (maxPosition - delaySamples - data.skew)*normPosition);
+      }
+      else
+      {
+        delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
       }
       delay->process(input, input);
 

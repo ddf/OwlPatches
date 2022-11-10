@@ -80,6 +80,12 @@ public:
     static_cast<FreezeType*>(delays[1])->setPosition(position);
   }
 
+  void setPosition(float leftPosition, float rightPosition)
+  {
+    static_cast<FreezeType*>(delays[0])->setPosition(leftPosition);
+    static_cast<FreezeType*>(delays[1])->setPosition(rightPosition);
+  }
+
   float getPosition() const
   {
     return static_cast<FreezeType*>(delays[0])->getPosition();
