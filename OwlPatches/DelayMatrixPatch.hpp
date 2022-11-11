@@ -163,7 +163,6 @@ protected:
   } freezeState;
 
   AudioBuffer* scratch;
-  AudioBuffer* accum;
 
 public:
   DelayMatrixPatch()
@@ -186,7 +185,6 @@ public:
     const int blockSize = getBlockSize();
 
     FastCrossFadingCircularFloatBuffer::init(blockSize);
-    accum = AudioBuffer::create(2, blockSize);
     scratch = AudioBuffer::create(2, blockSize);
 
     const int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
@@ -257,8 +255,6 @@ public:
     }
 
     FastCrossFadingCircularFloatBuffer::deinit();
-
-    AudioBuffer::destroy(accum);
     AudioBuffer::destroy(scratch);
 
     StereoDcBlockingFilter::destroy(inputFilter);
@@ -441,7 +437,7 @@ public:
     }
 
     // process all delays
-    accum->clear();
+    scratch->clear();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLine* delay = delays[i];
@@ -475,7 +471,7 @@ public:
       }
 
       // accumulate wet delay signals
-      accum->add(output);
+      scratch->add(output);
     }
 
     if (freezeState == FreezeEnter)
@@ -489,9 +485,9 @@ public:
 
     const float wet = dryWet;
     const float dry = 1.0f - dryWet;
-    accum->multiply(wet);
+    scratch->multiply(wet);
     audio.multiply(dry);
-    audio.add(*accum);
+    audio.add(*scratch);
 
     setParameterValue(patchParams.lfoOut, clamp(lfoGen*0.5f + 0.5f, 0.f, 1.f));
     setParameterValue(patchParams.rndOut, clamp(rndGen*0.5f + 0.5f, 0.f, 1.f));
