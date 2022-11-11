@@ -138,6 +138,9 @@
     <ClInclude Include="DelayMatrixGeniusPatch.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FastCrossFadingCircularBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="KissFFT.cpp">
