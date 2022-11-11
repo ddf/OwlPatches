@@ -29,6 +29,7 @@ DESCRIPTION:
 #include "TapTempo.h"
 #include "SineOscillator.h"
 #include "Interpolator.h"
+#include "FastCrossFadingCircularBuffer.h"
 
 // daisysp includes
 #include "Dynamics/limiter.h"
@@ -52,7 +53,7 @@ using daisysp::Limiter;
 using daisysp::SmoothRandomGenerator;
 
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
-using DelayLine = StereoDelayWithFreezeProcessor<CrossFadingCircularFloatBuffer>;
+using DelayLine = StereoDelayWithFreezeProcessor<FastCrossFadingCircularFloatBuffer>;
 
 struct DelayMatrixParamIds
 {
@@ -183,6 +184,11 @@ public:
     setParameterValue(patchParams.modIndex, 0.5f);
 
     const int blockSize = getBlockSize();
+
+    FastCrossFadingCircularFloatBuffer::init(blockSize);
+    accum = AudioBuffer::create(2, blockSize);
+    scratch = AudioBuffer::create(2, blockSize);
+
     const int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
     char pname[16]; char* p;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
@@ -196,8 +202,6 @@ public:
       data.sigOut = AudioBuffer::create(2, blockSize);
       data.limitLeft.Init();
       data.limitRight.Init();
-
-      delays[i] = DelayLine::create(data.delayLength, blockSize);
 
       DelayLineParamIds& params = delayParamIds[i];
       params.input = (PatchParameterId)(PARAMETER_AA + i);
@@ -231,8 +235,10 @@ public:
       }
     }
 
-    accum = AudioBuffer::create(2, blockSize);
-    scratch = AudioBuffer::create(2, blockSize);
+    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+    {
+      delays[i] = DelayLine::create(delayData[i].delayLength, blockSize);
+    }
 
     inputFilter = StereoDcBlockingFilter::create();
     lfo = SineOscillator::create(getBlockRate());
@@ -249,6 +255,8 @@ public:
       StereoDcBlockingFilter::destroy(delayData[i].dcBlock);
       StereoBiquadFilter::destroy(delayData[i].filter);
     }
+
+    FastCrossFadingCircularFloatBuffer::deinit();
 
     AudioBuffer::destroy(accum);
     AudioBuffer::destroy(scratch);
