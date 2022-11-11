@@ -395,7 +395,9 @@ public:
         FloatArray inLeft = input.getSamples(LEFT_CHANNEL);
         FloatArray inRight = input.getSamples(RIGHT_CHANNEL);
 
-        input.clear();
+        //input.clear();
+        input.copyFrom(audio);
+        input.multiply(data.input);
 
         // add feedback from the matrix
         for (int f = 0; f < DELAY_LINE_COUNT; ++f)
@@ -409,11 +411,11 @@ public:
         // remove dc offset
         filter.process(input, input);
 
-        for (int s = 0; s < inSize; ++s)
-        {
-          inLeft[s] += audioLeft[s] * data.input;
-          inRight[s] += audioRight[s] * data.input;
-        }
+        //for (int s = 0; s < inSize; ++s)
+        //{
+        //  inLeft[s] += audioLeft[s] * data.input;
+        //  inRight[s] += audioRight[s] * data.input;
+        //}
 
         // limit the feedback signal
         data.limitLeft.ProcessBlock(inLeft, inSize, 1.125f);
