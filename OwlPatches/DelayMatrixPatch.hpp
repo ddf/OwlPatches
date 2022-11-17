@@ -115,9 +115,9 @@ protected:
   struct DelayLineData
   {
     int delayLength;
-    SmoothFloat time;
+    float time;
     SmoothFloat input;
-    SmoothFloat skew; // in samples
+    float skew; // in samples
     SmoothFloat cutoff;
     SmoothFloat feedback[DELAY_LINE_COUNT];
     StereoDcBlockingFilter* dcBlock;
@@ -130,6 +130,7 @@ protected:
 
   const DelayMatrixParamIds patchParams;
 
+  float       timeRaw;
   SmoothFloat time;
   SmoothFloat spread;
   SmoothFloat skew;
@@ -167,7 +168,7 @@ protected:
 public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
-    , time(0.9f, MIN_TIME_SECONDS*getSampleRate()), clocked(false), freezeState(FreezeOff)
+    , timeRaw(MIN_TIME_SECONDS*getSampleRate()), time(0.9f, timeRaw), clocked(false), freezeState(FreezeOff)
     , clockTriggerMax(MAX_TIME_SECONDS*getSampleRate()*CLOCK_MULT[CLOCK_MULT_COUNT-1]), clockMultIndex((CLOCK_MULT_COUNT-1)/2)
     , tapTempo(getSampleRate(), clockTriggerMax), samplesSinceLastTap(clockTriggerMax), spreadDivMultIndex((SPREAD_DIVMULT_COUNT-1)/2)
   {
@@ -305,7 +306,7 @@ public:
         clockMultIndex = Interpolator::linear(clockMultIndex, 0, (0.47f - timeParam) * 2.12f);
       }
       // equivalent to multiplying the BPM
-      time = tapTempo.getPeriodInSamples() / CLOCK_MULT[clockMultIndex];
+      timeRaw = tapTempo.getPeriodInSamples() / CLOCK_MULT[clockMultIndex];
 
       spreadDivMultIndex = (SPREAD_DIVMULT_COUNT - 1) / 2;
       if (spreadParam >= 0.53f)
@@ -324,7 +325,7 @@ public:
     // not clocked
     else
     {
-      time = clamp(Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam*1.01f), MIN_TIME_SECONDS, MAX_TIME_SECONDS) * getSampleRate();
+      timeRaw = clamp(Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam*1.01f), MIN_TIME_SECONDS, MAX_TIME_SECONDS) * getSampleRate();
 
       if (spreadParam <= 0.5f)
       {
@@ -335,6 +336,11 @@ public:
         spread = clamp(Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f), MID_SPREAD, MAX_SPREAD);
       }
     }
+
+    // increase smoothing duration when time parameter has not changed much since the last block
+    // to help with the drift that tends to occur due to input noise or slightly jittered clock
+    time.lambda = fabsf(timeRaw - time) < 16 ? 0.999f : 0.9f;
+    time = (int)timeRaw;
 
     feedback = getParameterValue(patchParams.feedback);
     dryWet = getParameterValue(patchParams.dryWet);
