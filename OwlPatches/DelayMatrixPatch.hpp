@@ -346,7 +346,7 @@ public:
     dryWet = getParameterValue(patchParams.dryWet);
     skew = getParameterValue(patchParams.skew);
     
-    float modFreq = getSampleRate() / time * 0.0625f;
+    float modFreq = getSampleRate() / time * (1.0f / 32.f);
     
     lfo->setFrequency(modFreq);
     float lfoGen = lfo->generate();
