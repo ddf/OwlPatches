@@ -3,49 +3,6 @@
 
 class DelayMatrixGeniusPatch : public DelayMatrixPatch<4>
 {
-  enum TapDelayLength
-  {
-    Quarter = 32 * 8 * 3 * 3,
-
-    Long = Quarter * 16,
-    Double = Quarter * 8,
-    Whole = Quarter*4,
-    Half = Quarter*2,
-    One8 = Quarter/2,
-    One16 = Quarter/4,
-    One32 = Quarter/8,
-    One64 = Quarter/16,
-    One128 = Quarter/32,
-    One256 = Quarter/64,
-    One512 = Quarter/128,
-    One1028 = Quarter/256,
-
-    DoubleT = Long/3,
-    WholeT = Double/3,
-    HalfT = Whole/3,
-    QuarterT = Half/3,
-    One8T = Quarter/3,
-    One16T = One8/3,
-    One32T = One16/3,
-    One64T = One32/3,
-    One128T = One64/3,
-    One256T = One128/3,
-    One512T = One256/3,
-    One1028T = One512/3,
-
-    WholeTT = DoubleT/3,
-    HalfTT = WholeT/3,
-    QuarterTT = HalfT/3,
-    One8TT = QuarterT/3,
-    One16TT = One8T/3,
-    One32TT = One16T/3,
-    One64TT = One32T/3,
-    One128TT = One64T/3,
-    One256TT = One128T/3,
-    One512TT = One256T/3,
-    One1028TT = One512T/3,
-  };
-
   float dryWetAnim = 0;
 
 public:

@@ -28,6 +28,7 @@ DESCRIPTION:
 #include "BiquadFilter.h"
 #include "TapTempo.h"
 #include "SineOscillator.h"
+#include "SquareWaveOscillator.h"
 #include "Interpolator.h"
 #include "FastCrossFadingCircularBuffer.h"
 
@@ -120,12 +121,57 @@ protected:
     float skew; // in samples
     SmoothFloat cutoff;
     SmoothFloat feedback[DELAY_LINE_COUNT];
-    StereoDcBlockingFilter* dcBlock;
-    StereoBiquadFilter* filter;
     Limiter limitLeft;
     Limiter limitRight;
     AudioBuffer* sigIn;
     AudioBuffer* sigOut;
+    StereoDcBlockingFilter* dcBlock;
+    StereoBiquadFilter* filter;
+    SquareWaveOscillator* gate;
+    int gateResetCounter;
+  };
+
+  enum TapDelayLength
+  {
+    Quarter = 32 * 8 * 3 * 3,
+
+    Long = Quarter * 16,
+    Double = Quarter * 8,
+    Whole = Quarter * 4,
+    Half = Quarter * 2,
+    One8 = Quarter / 2,
+    One16 = Quarter / 4,
+    One32 = Quarter / 8,
+    One64 = Quarter / 16,
+    One128 = Quarter / 32,
+    One256 = Quarter / 64,
+    One512 = Quarter / 128,
+    One1028 = Quarter / 256,
+
+    DoubleT = Long / 3,
+    WholeT = Double / 3,
+    HalfT = Whole / 3,
+    QuarterT = Half / 3,
+    One8T = Quarter / 3,
+    One16T = One8 / 3,
+    One32T = One16 / 3,
+    One64T = One32 / 3,
+    One128T = One64 / 3,
+    One256T = One128 / 3,
+    One512T = One256 / 3,
+    One1028T = One512 / 3,
+
+    WholeTT = DoubleT / 3,
+    HalfTT = WholeT / 3,
+    QuarterTT = HalfT / 3,
+    One8TT = QuarterT / 3,
+    One16TT = One8T / 3,
+    One32TT = One16T / 3,
+    One64TT = One32T / 3,
+    One128TT = One64T / 3,
+    One256TT = One128T / 3,
+    One512TT = One256T / 3,
+    One1028TT = One512T / 3,
   };
 
   const DelayMatrixParamIds patchParams;
@@ -197,6 +243,9 @@ public:
       data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD*i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
       data.dcBlock = StereoDcBlockingFilter::create();
       data.filter = StereoBiquadFilter::create(getSampleRate());
+      data.gate = SquareWaveOscillator::create(getBlockRate());
+      data.gate->setPulseWidth(0.1f);
+      data.gateResetCounter = 0;
       data.sigIn = AudioBuffer::create(2, blockSize);
       data.sigOut = AudioBuffer::create(2, blockSize);
       data.limitLeft.Init();
@@ -253,6 +302,7 @@ public:
       AudioBuffer::destroy(delayData[i].sigOut);
       StereoDcBlockingFilter::destroy(delayData[i].dcBlock);
       StereoBiquadFilter::destroy(delayData[i].filter);
+      SquareWaveOscillator::destroy(delayData[i].gate);
     }
 
     FastCrossFadingCircularFloatBuffer::deinit();
@@ -272,6 +322,34 @@ public:
       if (on)
       {
         samplesSinceLastTap = 0;
+        const int clockMult = CLOCK_MULT[clockMultIndex];
+        const int spreadDivMult = SPREAD_DIVMULT[spreadDivMultIndex];
+        const int tapFirst = Quarter / clockMult;
+        for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+        {
+          const int spreadInc = spreadDivMult < 0 ? tapFirst / -spreadDivMult : tapFirst * spreadDivMult;
+          const int tapLength = (tapFirst + spreadInc * i);
+          int quarter = Quarter;
+          int resetAt = 1;
+          int tap = 0;
+          while (tap < quarter)
+          {
+            tap += tapLength;
+            while (tap > quarter)
+            {
+              quarter += Quarter;
+              resetAt += 1;
+            }
+            if (tap == quarter) break;
+          }
+
+          DelayLineData& data = delayData[i];
+          if (++data.gateResetCounter >= resetAt)
+          {
+            data.gate->reset();
+            data.gateResetCounter = 0;
+          }
+        }
       }
     }
 
@@ -444,6 +522,9 @@ public:
       }
     }
 
+    
+    uint16_t delayGate = 0;
+
     // process all delays
     scratch->clear();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
@@ -451,6 +532,7 @@ public:
       DelayLine* delay = delays[i];
       DelayLineData& data = delayData[i];
       StereoBiquadFilter& filter = *data.filter;
+      SquareWaveOscillator& gate = *data.gate;
       AudioBuffer& input = *data.sigIn;
       AudioBuffer& output = *data.sigOut;
 
@@ -480,6 +562,9 @@ public:
 
       // accumulate wet delay signals
       scratch->add(output);
+
+      gate.setFrequency(getSampleRate() / delaySamples);
+      delayGate |= (gate.generate()*data.input > 0.1f) ? 1 : 0;
     }
 
     if (freezeState == FreezeEnter)
@@ -499,6 +584,7 @@ public:
 
     setParameterValue(patchParams.lfoOut, clamp(lfoGen*0.5f + 0.5f, 0.f, 1.f));
     setParameterValue(patchParams.rndOut, clamp(rndGen*0.5f + 0.5f, 0.f, 1.f));
+    setButton(BUTTON_1, delayGate);
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
