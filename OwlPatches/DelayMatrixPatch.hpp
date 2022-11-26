@@ -365,6 +365,13 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+#ifdef PROFILE
+    char debugMsg[64];
+    char* debugCpy = stpcpy(debugMsg, "blk ");
+    debugCpy = stpcpy(debugCpy, msg_itoa(audio.getSize(), 10));
+    const float processStart = getElapsedBlockTime();
+#endif
+
     tapTempo.clock(audio.getSize());
     clocked = samplesSinceLastTap < clockTriggerMax;
 
@@ -463,8 +470,14 @@ public:
 
     inputFilter->process(audio, audio);
 
+#ifdef PROFILE
+    const float inputStart = getElapsedBlockTime();
+#endif
     if (freezeState != FreezeOn)
     {
+      FloatArray audioLeft = audio.getSamples(LEFT_CHANNEL);
+      FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
+
       // setup delay inputs with last blocks results
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
@@ -474,32 +487,34 @@ public:
         StereoDcBlockingFilter& filter = *data.dcBlock;
 
         int inSize = input.getSize();
-        FloatArray audioLeft = audio.getSamples(LEFT_CHANNEL);
-        FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
         FloatArray inLeft = input.getSamples(LEFT_CHANNEL);
         FloatArray inRight = input.getSamples(RIGHT_CHANNEL);
 
-        //input.clear();
-        input.copyFrom(audio);
-        input.multiply(data.input);
+        // faster than using block operations
+        for (int s = 0; s < inSize; ++s)
+        {
+          inLeft[s] = audioLeft[s] * data.input;
+          inRight[s] = audioRight[s] * data.input;
+        }
 
         // add feedback from the matrix
         for (int f = 0; f < DELAY_LINE_COUNT; ++f)
         {
+          // much faster to copy in a loop like this applying feedback
+          // than to copy through scratch with block operations
           AudioBuffer& recv = *delayData[f].sigOut;
-          scratch->copyFrom(recv);
-          scratch->multiply(data.feedback[f]);
-          input.add(*scratch);
+          FloatArray recvLeft = recv.getSamples(LEFT_CHANNEL);
+          FloatArray recvRight = recv.getSamples(RIGHT_CHANNEL);
+          const float fbk = data.feedback[f];
+          for (int s = 0; s < inSize; ++s)
+          {
+            inLeft[s] += recvLeft[s] * fbk;
+            inRight[s] += recvLeft[s] * fbk;
+          }
         }
 
         // remove dc offset
         filter.process(input, input);
-
-        //for (int s = 0; s < inSize; ++s)
-        //{
-        //  inLeft[s] += audioLeft[s] * data.input;
-        //  inRight[s] += audioRight[s] * data.input;
-        //}
 
         // limit the feedback signal
         data.limitLeft.ProcessBlock(inLeft, inSize, 1.125f);
@@ -521,10 +536,17 @@ public:
         //input.getSamples(RIGHT_CHANNEL).tanh();
       }
     }
+#ifdef PROFILE
+    const float inputTime = getElapsedBlockTime() - inputStart;
+    debugCpy = stpcpy(debugCpy, " input ");
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)(inputTime * 1000), 10));
+#endif
 
-    
     uint16_t delayGate = 0;
 
+#ifdef PROFILE
+    const float genStart = getElapsedBlockTime();
+#endif
     // process all delays
     scratch->clear();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
@@ -566,6 +588,11 @@ public:
       gate.setFrequency(getSampleRate() / delaySamples);
       delayGate |= (gate.generate()*data.input > 0.1f) ? 1 : 0;
     }
+#ifdef PROFILE
+    const float genTime = getElapsedBlockTime() - genStart;
+    debugCpy = stpcpy(debugCpy, " gen ");
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)(genTime * 1000), 10));
+#endif
 
     if (freezeState == FreezeEnter)
     {
@@ -586,6 +613,13 @@ public:
     setParameterValue(patchParams.rndOut, clamp(rndGen*0.5f + 0.5f, 0.f, 1.f));
     setButton(BUTTON_1, delayGate);
     setButton(BUTTON_2, freezeState == FreezeOn ? 1 : 0);
+
+#ifdef PROFILE
+    const float processTime = getElapsedBlockTime() - processStart - genTime - inputTime;
+    debugCpy = stpcpy(debugCpy, " proc ");
+    debugCpy = stpcpy(debugCpy, msg_itoa((int)(processTime * 1000), 10));
+    debugMessage(debugMsg);
+#endif
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
