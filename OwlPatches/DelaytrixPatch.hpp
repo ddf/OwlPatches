@@ -1,7 +1,7 @@
 #include "DelayMatrixPatch.hpp"
 #include "Noise.hpp"
 
-class DelayMatrixGeniusPatch : public DelayMatrixPatch<4>
+class DelaytrixPatch : public DelayMatrixPatch<4>
 {
   float dryWetAnim = 0;
 
