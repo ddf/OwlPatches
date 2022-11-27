@@ -611,7 +611,7 @@ public:
 
     setParameterValue(patchParams.lfoOut, clamp(lfoGen*0.5f + 0.5f, 0.f, 1.f));
     setParameterValue(patchParams.rndOut, clamp(rndGen*0.5f + 0.5f, 0.f, 1.f));
-    setButton(BUTTON_1, delayGate);
+    setButton(PUSHBUTTON, delayGate);
     setButton(BUTTON_2, freezeState == FreezeOn ? 1 : 0);
 
 #ifdef PROFILE
