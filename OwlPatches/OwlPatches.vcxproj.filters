@@ -135,10 +135,10 @@
     <ClInclude Include="Delay.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DelayMatrixGeniusPatch.hpp">
+    <ClInclude Include="FastCrossFadingCircularBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FastCrossFadingCircularBuffer.h">
+    <ClInclude Include="DelaytrixPatch.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
