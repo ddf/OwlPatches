@@ -646,7 +646,7 @@ public:
     screen.print(tapTempo.isOn() ? " X" : " O");
     screen.setCursor(0, 40);
     screen.print("Dly: ");
-    screen.print((int)time.getValue());
+    screen.print((int)time);
     screen.print(freezeState != FreezeOff ? " F:X" : " F:O");
     screen.setCursor(0, 48);
     screen.print("MODF: ");
