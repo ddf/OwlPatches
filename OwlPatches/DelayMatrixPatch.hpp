@@ -31,6 +31,7 @@ DESCRIPTION:
 #include "SquareWaveOscillator.h"
 #include "Interpolator.h"
 #include "FastCrossFadingCircularBuffer.h"
+#include "SmoothValue.h"
 
 // daisysp includes
 #include "Dynamics/limiter.h"
