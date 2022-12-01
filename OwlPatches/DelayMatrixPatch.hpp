@@ -620,6 +620,8 @@ public:
     setParameterValue(patchParams.rndOut, clamp(rndGen*0.5f + 0.5f, 0.f, 1.f));
     setButton(PUSHBUTTON, delayGate);
     setButton(BUTTON_2, freezeState == FreezeOn ? 1 : 0);
+    // this is the second gate output on the Witch
+    setButton(BUTTON_6, freezeState == FreezeOn ? 1 : 0);
 
 #ifdef PROFILE
     const float processTime = getElapsedBlockTime() - processStart - genTime - inputTime;
