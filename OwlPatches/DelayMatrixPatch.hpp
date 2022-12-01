@@ -410,7 +410,7 @@ public:
     // not clocked
     else
     {
-      timeRaw = clamp(Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam*1.01f), MIN_TIME_SECONDS, MAX_TIME_SECONDS) * getSampleRate();
+      timeRaw = clamp(Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam / 0.99f), MIN_TIME_SECONDS, MAX_TIME_SECONDS) * getSampleRate();
 
       if (spreadParam <= 0.5f)
       {
