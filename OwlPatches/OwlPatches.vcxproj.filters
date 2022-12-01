@@ -126,6 +126,21 @@
     <ClInclude Include="KnoscillatorGeniusPatch.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DelayMatrixPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="StereoDelayProcessor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Delay.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FastCrossFadingCircularBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DelaytrixPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="KissFFT.cpp">
