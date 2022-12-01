@@ -243,7 +243,7 @@ public:
       data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD*i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
       data.dcBlock = StereoDcBlockingFilter::create();
       data.filter = StereoBiquadFilter::create(getSampleRate());
-      data.gate = SquareWaveOscillator::create(getBlockRate());
+      data.gate = SquareWaveOscillator::create(getSampleRate());
       data.gate->setPulseWidth(0.1f);
       data.gateResetCounter = 0;
       data.sigIn = AudioBuffer::create(2, blockSize);
@@ -549,6 +549,7 @@ public:
 #endif
     // process all delays
     scratch->clear();
+    const int outSize = scratch->getSize();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLine* delay = delays[i];
@@ -585,8 +586,14 @@ public:
       // accumulate wet delay signals
       scratch->add(output);
 
-      gate.setFrequency(getSampleRate() / delaySamples);
-      delayGate |= (gate.generate()*data.input > 0.1f) ? 1 : 0;
+      // when clocked remove delay time modulation so that the gate output
+      // stays in sync with the clock, keeping it true to the musical durations displayed on screen.
+      const float gfreq = getSampleRate() / (clocked ? (delaySamples - modValue) : delaySamples);
+      gate.setFrequency(gfreq);
+      for (int s = 0; s < outSize; ++s)
+      {
+        delayGate |= (gate.generate()*data.input > 0.1f) ? 1 : 0;
+      }
     }
 #ifdef PROFILE
     const float genTime = getElapsedBlockTime() - genStart;
