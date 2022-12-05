@@ -493,6 +493,7 @@ public:
       FloatArray audioRight = audio.getSamples(RIGHT_CHANNEL);
 
       // setup delay inputs with last blocks results
+      const float cross = skew < 0.5f ? 0.0f : (skew - 0.5f)*0.15f;
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
         DelayLine* delay = delays[i];
@@ -519,11 +520,14 @@ public:
           AudioBuffer& recv = *delayData[f].sigOut;
           FloatArray recvLeft = recv.getSamples(LEFT_CHANNEL);
           FloatArray recvRight = recv.getSamples(RIGHT_CHANNEL);
-          const float fbk = data.feedback[f];
+          const float fbk = data.feedback[f] * (1.0f - cross);
+          const float xbk = data.feedback[f] * cross;
           for (int s = 0; s < inSize; ++s)
           {
-            inLeft[s] += recvLeft[s] * fbk;
-            inRight[s] += recvLeft[s] * fbk;
+            const float rl = recvLeft[s];
+            const float rr = recvRight[s];
+            inLeft[s] += rl * fbk + rr * xbk;
+            inRight[s] += rr * fbk + rl * xbk;
           }
         }
 
