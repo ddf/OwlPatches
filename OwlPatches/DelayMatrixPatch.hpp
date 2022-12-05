@@ -117,7 +117,7 @@ protected:
   struct DelayLineData
   {
     int delayLength;
-    float time;
+    SmoothFloat time;
     SmoothFloat input;
     float skew; // in samples
     SmoothFloat cutoff;
@@ -130,6 +130,8 @@ protected:
     StereoBiquadFilter* filter;
     SquareWaveOscillator* gate;
     int gateResetCounter;
+    int timeUpdateInterval;
+    int timeUpdateCount;
   };
 
   enum TapDelayLength
@@ -240,6 +242,10 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
+      data.time.lambda = 0;
+      data.time = MIN_TIME_SECONDS * getSampleRate();
+      // want all lines to update immediately at startup
+      data.timeUpdateCount = 9999;
       // calculate the longest this particular delay will ever need to get
       data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD*i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
       data.dcBlock = StereoDcBlockingFilter::create();
@@ -451,14 +457,21 @@ public:
       modAmount = rndGen * clamp(Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f), 0.f, MAX_MOD_AMT);
     }
 
-    float modValue = modAmount * time;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
       DelayLineParamIds& params = delayParamIds[i];
 
       float invert = i % 2 ? 1.0f : -1.0f;
-      data.time = time + spread * i * time + modValue;
+      float targetTime = time + spread * i * time;
+      float timeDelta = fabsf(targetTime - data.time);
+      data.timeUpdateInterval = 8 + int(timeDelta) / (64*32);
+      if (data.timeUpdateCount++ >= data.timeUpdateInterval)
+      {
+        data.time.lambda = 0.9f - clamp(timeDelta / 2048.0f, 0.0f, 0.9f);
+        data.time = targetTime;
+        data.timeUpdateCount = 0;
+      }
       data.input = getParameterValue(params.input);
       data.skew = skew * MAX_SKEW_SAMPLES * invert;
       data.cutoff = Interpolator::linear(400, 18000, getParameterValue(params.cutoff));
@@ -551,6 +564,7 @@ public:
     // process all delays
     scratch->clear();
     const int outSize = scratch->getSize();
+    const float modValue = modAmount * time;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLine* delay = delays[i];
@@ -560,7 +574,7 @@ public:
       AudioBuffer& input = *data.sigIn;
       AudioBuffer& output = *data.sigOut;
 
-      const float delaySamples = data.time;
+      const float delaySamples = data.time + modValue;
       if (freezeState == FreezeOn)
       {
         // how far back we can go depends on how big the frozen section is, we don't want to push past the size of the buffer
