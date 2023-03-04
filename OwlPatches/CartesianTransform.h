@@ -1,15 +1,31 @@
 #ifndef __CartesianTransform_h__
 #define __CartesianTransform_h__
 
-#include "ComplexTransform.h"
+#include "CartesianFloat.h"
 
 template<typename Operation>
-class CartesianTransform : public AbstractMatrix<3>
+class CartesianTransform
 {
 public:
-  using AbstractMatrix<3>::AbstractMatrix;
-  using AbstractMatrix<3>::matrix;
+  CartesianTransform() : matrix(matrixData, 3, 3)
+  {
+    resetMatrix();
+  }
+  FloatMatrix getMatrix() {
+    return matrix;
+  }
+  void resetMatrix() {
+    matrix.clear();
+    for (size_t i = 0; i < 3; i++) {
+      matrix[i][i] = 1;
+    }
+  }
 
+protected:
+  float matrixData[3 * 3];
+  FloatMatrix matrix;
+
+public:
   CartesianFloat process(CartesianFloat input)
   {
     CartesianFloat output;
@@ -25,11 +41,9 @@ public:
   }
 
   static Operation* create() {
-    FloatMatrix matrix = FloatMatrix::create(3, 3);
-    return new Operation(matrix);
+    return new Operation();
   }
   static void destroy(Operation* transform) {
-    FloatMatrix::destroy(transform->matrix);
     delete transform;
   }
 };
