@@ -65,6 +65,7 @@ public:
     morph = -0.5f*cosf(amt*M_PI) + 0.5f;
   }
 
+  template<bool smooth_pq = true>
   CartesianFloat generate(float fm, float pm, float qm)
   {
     // calculate coefficients based on the morph setting
@@ -80,13 +81,8 @@ public:
     const float cz1 = interp(z1, i, j, lerp);
     const float cz2 = interp(z2, i, j, lerp);
 
-    // support fractional P and Q values by generating a curve
-    // that is a bilinear interpolation of phase-sync'd curves
-    // for F(P,Q), F(P+1,Q), F(P,Q+1), F(P+1,Q+1).
     const float kp = (int)knotP;
     const float kq = (int)knotQ;
-    const float pd = knotP - kp;
-    const float qd = knotQ - kq;
 
     // the four phases we need for sampling the curves
     // are calculated as multiples of phases running
@@ -94,8 +90,6 @@ public:
     // this keeps the four curves properly aligned for blending.
     const float phaseP1 = phaseP * kp + fm;
     const float phaseQ1 = phaseQ * kq + fm;
-    const float phaseP2 = phaseP * (kp + 1) + fm;
-    const float phaseQ2 = phaseQ * (kq + 1) + fm;
 
     x2[TORUS] = sinf(phaseQ1);
     y3[TORUS] = cosf(phaseQ1);
@@ -104,20 +98,32 @@ public:
     float cy3 = interp(y3, i, j, lerp);
 
     CartesianFloat a = sample(phaseP1, phaseQ1, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
-    CartesianFloat b = sample(phaseP2, phaseQ1, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
 
-    x2[TORUS] = sinf(phaseQ2);
-    y3[TORUS] = cosf(phaseQ2);
+    // support fractional P and Q values by generating a curve
+    // that is a bilinear interpolation of phase-sync'd curves
+    // for F(P,Q), F(P+1,Q), F(P,Q+1), F(P+1,Q+1).
+    if (smooth_pq)
+    {
+      const float pd = knotP - kp;
+      const float qd = knotQ - kq;
+      const float phaseP2 = phaseP * (kp + 1) + fm;
+      const float phaseQ2 = phaseQ * (kq + 1) + fm;
 
-    cx2 = interp(x2, i, j, lerp);
-    cy3 = interp(y3, i, j, lerp);
+      CartesianFloat b = sample(phaseP2, phaseQ1, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
 
-    CartesianFloat c = sample(phaseP1, phaseQ2, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
-    CartesianFloat d = sample(phaseP2, phaseQ2, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
+      x2[TORUS] = sinf(phaseQ2);
+      y3[TORUS] = cosf(phaseQ2);
 
-    a = a + (b - a)*pd;
-    b = c + (d - c)*pd;
-    a = a + (b - a)*qd;
+      cx2 = interp(x2, i, j, lerp);
+      cy3 = interp(y3, i, j, lerp);
+
+      CartesianFloat c = sample(phaseP1, phaseQ2, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
+      CartesianFloat d = sample(phaseP2, phaseQ2, phaseZ + fm, cx1, cx2, cx3, cy1, cy2, cy3, cz1, cz2);
+
+      a = a + (b - a) * pd;
+      b = c + (d - c) * pd;
+      a = a + (b - a) * qd;
+    }
 
     stepPhase(phaseP, phaseInc*(1 + pm));
     stepPhase(phaseQ, phaseInc*(1 + qm));
