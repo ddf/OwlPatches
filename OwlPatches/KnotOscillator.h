@@ -32,9 +32,10 @@ class KnotOscillator
 
 public:
   KnotOscillator(float sampleRate) 
-    : stepRate(TWO_PI/sampleRate)
-    , knotP(1), knotQ(1), morph(0)
+    : knotP(1), knotQ(1)
     , phaseP(0), phaseQ(0), phaseZ(0), phaseInc(1)
+    , morph(0)
+    , stepRate(TWO_PI / sampleRate)
   {
     x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
     y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
