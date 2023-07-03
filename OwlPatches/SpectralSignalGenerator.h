@@ -24,9 +24,8 @@ class SpectralSignalGenerator : public SignalGenerator
     // the frequency of this band, for faster conversion between index and frequency
     float frequency;
     float amplitude;
-    float decay;
     float phase;
-    ComplexFloat complex[2];
+    float weight;
     int   partials[kSpectralBandPartials];
   };
 
@@ -43,7 +42,6 @@ class SpectralSignalGenerator : public SignalGenerator
   FloatArray specBright;
   FloatArray specSpread;
 
-  FloatArray specMag;
   ComplexFloatArray complex;
   FloatArray outputBufferA;
   FloatArray outputBufferB;
@@ -65,13 +63,13 @@ class SpectralSignalGenerator : public SignalGenerator
 public:
   SpectralSignalGenerator(FFT* fft, float sampleRate, 
                           // these need to all be the same length
-                          Band* bandsData, float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
+                          Band* bandsData, float* specBrightData, float* specSpreadData, int specSize,
                           // these need to all be the same length
                           ComplexFloat* complexData, float* outputDataA, float* outputDataB, float* windowData, int blockSize)
     : fft(fft), window(windowData, blockSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
     , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
     , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
-    , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
+    , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize)
     , complex(complexData, blockSize), outputBufferA(outputDataA, blockSize), outputBufferB(outputDataB, blockSize)
     , outIndexA(0), outIndexB(blockSize/2), outIndexMask(blockSize-1), phaseIdx(0)
     , spread(0), spreadBandsMax(specSize/4), brightness(0)
@@ -86,20 +84,8 @@ public:
       // boost low frequencies and attenuate high frequencies with an equal loudness curve.
       // attenuation of high frequencies is to try to prevent distortion that happens when 
       // the spectrum is particularly overloaded in the high end.
-      float weight = bands[i].frequency < 1000.0f ? clamp(1.0f / elc::b(bands[i].frequency), 0.0f, 4.0f) : elc::b(bands[i].frequency);
-      bands[i].complex[0].setPolar(weight, bands[i].phase);
-      // ODD bands need to be 180 out of phase every other buffer generation
-      // because our overlap is half the size of the buffer generated.
-      // this ensure that phase lines up for those sinusoids in every buffer.
-      if (i % 2 == 1)
-      {
-        bands[i].complex[1].setPolar(weight, bands[i].phase + M_PI);
-      }
-      else
-      {
-        bands[i].complex[1] = bands[i].complex[0];
-      }
-
+      bands[i].weight = bands[i].frequency < 1000.0f ? clamp(1.0f / elc::b(bands[i].frequency), 0.0f, 4.0f) : elc::b(bands[i].frequency);
+     
       for (int p = 0; p < kSpectralBandPartials; ++p)
       {
         float partialFreq = bands[i].frequency*(2 + p);
@@ -108,7 +94,6 @@ public:
       }
     }
     specSpread.clear();
-    specMag.clear();
     complex.clear();
     outputBufferA.clear();
     outputBufferB.clear();
@@ -156,7 +141,6 @@ public:
     if (bidx > 0 && bidx < bands.getSize())
     {
       bands[bidx].amplitude = amp;
-      bands[bidx].decay = 1;
     }
   }
 
@@ -170,7 +154,6 @@ public:
       if (ea > ba)
       {
         b.amplitude = ba + 0.9f*(ea - ba);
-        b.decay = 1;
       }
       b.phase = phase;
     }
@@ -223,13 +206,12 @@ public:
     Band* bandsData = new Band[specSize];
     float* brightData = new float[specSize];
     float* spreadData = new float[specSize];
-    float* magData = new float[specSize];
     float* outputB = new float[blockSize];
     Window window  = Window::create(Window::TriangularWindow, blockSize);
     ComplexFloat* complexData = new ComplexFloat[blockSize];
     float* outputA = new float[blockSize];
     return new SpectralSignalGenerator(FFT::create(blockSize), sampleRate,
-      bandsData, brightData, spreadData, magData, specSize,
+      bandsData, brightData, spreadData, specSize,
       complexData, outputA, outputB, window.getData(), blockSize
     );
   }
@@ -240,7 +222,6 @@ public:
     delete[] spectralGen->bands.getData();
     delete[] spectralGen->specBright.getData();
     delete[] spectralGen->specSpread.getData();
-    delete[] spectralGen->specMag.getData();
     delete[] spectralGen->outputBufferA.getData();
     delete[] spectralGen->outputBufferB.getData();
     delete[] spectralGen->window.getData();
@@ -273,7 +254,7 @@ public:
     // get from bands array for phase
     Band b = bands[idx];
     // set normalized amplitude based on magnitude array (which includes spread and brightness)
-    b.amplitude = specMag[idx] / spectralMagnitude;
+    b.amplitude = specSpread[idx];
     return b;
   }
 
@@ -281,66 +262,10 @@ public:
 
   float getMagnitudeMean()
   {
-    return specMag.getMean() / spectralMagnitude;
+    return specSpread.getMean();
   }
 
 private:
-  ExponentialDecayEnvelope falloffEnv;
-
-  void addSinusoidWithSpread(const int idx, const float amp, const int lidx, const int hidx)
-  {
-    specSpread[idx] += amp;
-
-    if (lidx < idx)
-    {
-      falloffEnv.setDecaySamples(idx - lidx + 1);
-      falloffEnv.setLevel(1);
-      falloffEnv.generate();
-      for (int bidx = idx-1; bidx >= lidx && bidx > 0; --bidx)
-      {
-        specSpread[bidx] += amp * falloffEnv.generate();
-      }
-    }
-
-    if (hidx > idx)
-    {
-      falloffEnv.setDecaySamples(hidx - idx + 1);
-      falloffEnv.setLevel(1);
-      falloffEnv.generate();
-      for (int bidx = idx + 1; bidx <= hidx && bidx < bands.getSize(); ++bidx)
-      {
-        specSpread[bidx] += amp * falloffEnv.generate();
-      }
-    }
-
-    //const int range = idx - lidx;
-    //for (int bidx = lidx; bidx <= hidx; ++bidx)
-    //{
-    //  if (bidx > 0 && bidx < bands.getSize())
-    //  {
-    //    if (bidx == idx)
-    //    {
-    //      specSpread[bidx] += amp;
-    //    }
-    //    else
-    //    {
-    //      const float fn = fabsf(bidx - idx) / range;
-    //      // exponential fall off from the center, see: https://www.desmos.com/calculator/gzqrz4isyb
-    //      specSpread[bidx] += amp * exp(-10 * fn);
-    //    }
-    //  }
-    //}
-  }
-
-  void addSinusoidWithSpread(float bandFreq, float amp)
-  {
-    // get low and high frequencies for spread
-    const int midx = freqToIndex(bandFreq);
-    const int lidx = midx - spreadBandsMax * spread; // freqToIndex(bandFreq - bandFreq * 0.5f*spread);
-    const int hidx = midx + spreadBandsMax * spread; // freqToIndex(bandFreq + bandFreq * spread);
-    addSinusoidWithSpread(midx, amp, lidx, hidx);
-  }
-
   void fillComplex()
   {
     const int specSize = bands.getSize();
@@ -350,19 +275,12 @@ private:
     spectralMagnitude = (complex.getSize() / 8.0f)*volume;
     for (int i = 1; i < specSize; ++i)
     {
-      // grab the magnitude as set by our pluck with spread pass
+      const Band& band = bands[i];
+      // grab the magnitude as set by our pluck with spread pass, scale by spectral magnitude
       const float a = fmin(specSpread[i] * spectralMagnitude, spectralMagnitude);
-
-      // copy accumulated result into the magnitude array, scaling by our max amplitude
-      specMag[i] = a;
-
-      // #TODO probably sounds better to do the pitch-shift here?
-      // At this point we have gAnaMagn and gAnaFreq from
-      // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
-
-      // done with this band, we can construct the complex representation.
-      //complex[i] = bands[i].complex[phaseIdx] * a;
-      complex[i].setPolar(a, bands[i].phase + (M_PI*phaseIdx*(i%2)));
+      // construct the complex representation. 
+      // odd bands need to be 180 degrees off phase every other overlap to prevent beating.
+      complex[i].setPolar(a*band.weight, band.phase + (M_PI*phaseIdx*(i%2)));
     }
   }
 
@@ -406,16 +324,15 @@ private:
     Band& b = bands[idx];
     if (linearDecay)
     {
-      b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
+      // this is probably wrong, but keeping it for now
+      b.amplitude = b.amplitude > decayDec ? b.amplitude - decayDec : 0;
     }
     else
     {
-      //b.decay *= decayDec;
       b.amplitude *= decayDec;
     }
-    //if (b.decay > 0)
+
     {
-      //float a = b.decay*b.amplitude;
       float a = b.amplitude;
       specBright[idx] += a;
       for (int i = 0; i < kSpectralBandPartials && b.partials[i] < specSize; ++i)
