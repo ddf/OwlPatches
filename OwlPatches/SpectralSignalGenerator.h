@@ -277,6 +277,8 @@ public:
     return b;
   }
 
+  float getBandWidth() const { return bandWidth; }
+
   float getMagnitudeMean()
   {
     return specMag.getMean() / spectralMagnitude;

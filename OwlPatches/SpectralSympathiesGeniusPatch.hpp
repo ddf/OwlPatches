@@ -104,6 +104,7 @@ public:
     screen.print(" Hz");
 
     screen.setCursor(screen.getWidth() / 2 - 16, top);
+    //screen.print((int)(inputAtten*1000));
     screen.print(highElapsedTime);
     //screen.print(spectralGen->getMagnitudeMean());
 

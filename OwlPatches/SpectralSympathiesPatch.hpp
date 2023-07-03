@@ -81,7 +81,7 @@ protected:
   const float decayMax;
   const float decayDefault = 0.5f;
   const int   densityMin = 24;
-  const int   densityMax = 512;
+  const int   densityMax = 127;
   const float octavesMin = 2;
   const float octavesMax = 8;
   const int   fundamentalNoteMin = 36;
@@ -91,6 +91,7 @@ protected:
   const float crushRateMin = 1000.0f;
 
   int inputBufferWrite;
+  float inputAtten;
   FloatArray inputBuffer;
   Window inputWindow;
   FloatArray inputAnalyze;
@@ -125,7 +126,7 @@ protected:
 public:
 
   SpectralSympathiesPatch(SpectralSympathiesParameterIds paramIds) : MonochromeScreenPatch()
-    , params(paramIds), inputBufferWrite(0), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
+    , params(paramIds), inputBufferWrite(0), inputAtten(0), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
     , bandFirst(1.f), bandLast(1.f)
   {
@@ -264,29 +265,30 @@ public:
     spectralGen->setVolume(volume);
     bitCrusher->setBitRate(crush);
 
-    // TODO: this needs to dynamically adjust to band density somehow,
-    // but using band density directly doesn't work. it's more to do with 
-    // the distance between bands that we are exciting.
-    // when band step is small, attenuation needs to also be small.
     // probably this means applying attenuation to inputAnalyze instead of while we record.
-    const int bandStep = max((bandLastIdx - bandFirstIdx) / getStringCount(), 1);
-    const float inputAtten = 1.0f / 512.0f;
+    // for the purposes of input attenuation we ignore linlog
+    const float bandSpacing = (bandLast - bandFirst) / getStringCount();
+    const float maxSpacing = (bandMax - bandMin) / densityMin;
+    const float attenT = (bandSpacing - spectralGen->getBandWidth()) / (maxSpacing - spectralGen->getBandWidth());
+    inputAtten = Interpolator::linear(1.0f / 512.0f, 1.0f / 64.0f, attenT);
     for (int i = 0; i < blockSize; ++i)
     {
-      inputBuffer[inputBufferWrite++] = left[i]*inputAtten;
+      inputBuffer[inputBufferWrite++] = left[i];
       if (inputBufferWrite == spectrumSize)
       {
         // window the input and output to an analysis buffer
         // because running the fft messes up the input samples.
         inputWindow.process(inputBuffer, inputAnalyze);
+        inputAnalyze.multiply(inputAtten);
         inputTransform->fft(inputAnalyze, inputSpectrum);
-        // we may still want to excite using frequency, not band index.
-        // this way we can still use the Tuning parameter.
-        for (int b = bandFirstIdx; b < bandLastIdx; b+= bandStep)
+        const int stringCount = getStringCount();
+        for(int s = 0; s < stringCount; ++s)
         {
-          const float inMag = inputSpectrum[b].getMagnitude();
-          const float inPhase = inputSpectrum[b].getPhase();
-          spectralGen->excite(b, inMag, inPhase);
+          const float freq = frequencyOfString(s);
+          const int bidx = spectralGen->freqToIndex(freq);
+          const float inMag = inputSpectrum[bidx].getMagnitude();
+          const float inPhase = inputSpectrum[bidx].getPhase();
+          spectralGen->excite(bidx, inMag, inPhase);
         }
         // copy the back half of the array to the front half
         // continue recording input from the middle of the array.
