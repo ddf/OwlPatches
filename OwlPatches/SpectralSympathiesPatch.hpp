@@ -1,7 +1,7 @@
 /**
 
 AUTHOR:
-    (c) 2022 Damien Quartz
+    (c) 2023 Damien Quartz
 
 LICENSE:
     This program is free software: you can redistribute it and/or modify
@@ -20,25 +20,22 @@ LICENSE:
 
 DESCRIPTION:
     Synthesizes sound by using overlap-add IFFT synthesis of spectral data.
-    Send a trigger to Gate input 1 or a gate to Gate input 2 to excite a 
-    frequency band in the sound spectrum based on the signal at L In and 
-    the Fundamental, Octaves, Density, and Tuning settings. Fundamental 
-    and Octaves are used to determine the portion of the spectrum that 
-    L In strums (shown at the top of the screen in Hz). Density determines 
-    how many "strings" are available in that range, acting like a kind of 
-    quantizer on the input. Tuning determines how strings are spaced within 
-    the frequency range from logarithmic to linear. In R determines the
-    amplitude of a pluck and Decay controls how  quickly strings decay 
-    to silence after being plucked, Spread will excite nearby strings with 
-    each pluck, Brightness fades in overtones of plucked strings, and Crush 
-    reduces the sample rate of the harp output. Width stereoizes the harp 
-    output with a diffuser, which is followed by reverb with controls for 
-    blend, time, and tone.
+    Send audio to L In to excite a portion of the spectrum using the 
+    Fundamental, Octaves, Density, and Tuning settings. Fundamental
+    and Octaves are used to determine the portion of the spectrum that
+    L In excites (shown at the top of the screen in Hz). Density determines
+    how many "strings" are available in that range, acting like a kind of
+    comb filter on the input. Tuning determines how strings are spaced within
+    the frequency range from logarithmic to linear. Decay controls how 
+    quickly strings decay to silence after being excited, Spread will excite 
+    nearby strings, Brightness fades in overtones of excited strings, and Crush
+    reduces the sample rate of the output. Width stereoizes the output with a diffuser,
+    which is followed by reverb with controls for blend, time, and tone.
 */
 
 #define USE_MIDI_CALLBACK
 
-#include "Patch.h"
+#include "MonochromeScreenPatch.h"
 #include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
 #include "BitCrusher.hpp"
@@ -48,8 +45,9 @@ DESCRIPTION:
 #include "Interpolator.h"
 #include "Easing.h"
 #include "SmoothValue.h"
+#include "Window.h"
 
-struct SpectralHarpParameterIds
+struct SpectralSympathiesParameterIds
 {
   PatchParameterId inHarpFundamental; // = PARAMETER_A;
   PatchParameterId inHarpOctaves; // = PARAMETER_B;
@@ -69,21 +67,21 @@ struct SpectralHarpParameterIds
   PatchParameterId outStrumY; // = PARAMETER_AF;
 };
 
-template<int spectrumSize, bool reverb_enabled, typename PatchClass = Patch>
-class SpectralHarpPatch : public PatchClass
+template<int spectrumSize, bool reverb_enabled>
+class SpectralSympathiesPatch : public MonochromeScreenPatch
 {
   using SpectralGen = SpectralSignalGenerator<false>;
   using BitCrush = BitCrusher<24>;
 
 protected:
-  const SpectralHarpParameterIds params;
+  const SpectralSympathiesParameterIds params;
 
   const float spreadMax = 1.0f;
   const float decayMin;
   const float decayMax;
   const float decayDefault = 0.5f;
-  const int   densityMin = 6;
-  const int   densityMax = 129;
+  const int   densityMin = 24;
+  const int   densityMax = 512;
   const float octavesMin = 2;
   const float octavesMax = 8;
   const int   fundamentalNoteMin = 36;
@@ -92,11 +90,18 @@ protected:
   const float bandMax = Frequency::ofMidiNote(128).asHz();
   const float crushRateMin = 1000.0f;
 
+  int inputBufferWrite;
+  FloatArray inputBuffer;
+  Window inputWindow;
+  FloatArray inputAnalyze;
+  ComplexFloatArray inputSpectrum;
+  FastFourierTransform* inputTransform;
+
   SpectralGen* spectralGen;
   BitCrush* bitCrusher;
   Diffuser* diffuser;
   Reverb*   reverb;
-  
+
   int        pluckAtSample;
   int        gateOnAtSample;
   int        gateOffAtSample;
@@ -119,17 +124,17 @@ protected:
 
 public:
 
-  using PatchClass::registerParameter;
-  using PatchClass::getParameterValue;
-  using PatchClass::setParameterValue;
-  using PatchClass::getSampleRate;
-  using PatchClass::isButtonPressed;
-
-  SpectralHarpPatch(SpectralHarpParameterIds paramIds) : PatchClass()
-    , params(paramIds), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
+  SpectralSympathiesPatch(SpectralSympathiesParameterIds paramIds) : MonochromeScreenPatch()
+    , params(paramIds), inputBufferWrite(0), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
     , bandFirst(1.f), bandLast(1.f)
   {
+    inputBuffer = FloatArray::create(spectrumSize);
+    inputWindow = Window::create(Window::HanningWindow, spectrumSize);
+    inputAnalyze = FloatArray::create(spectrumSize);
+    inputSpectrum = ComplexFloatArray::create(spectrumSize);
+    inputTransform = FastFourierTransform::create(spectrumSize);
+
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
 
@@ -140,7 +145,7 @@ public:
     }
 
     midiNotes = new MidiMessage[128];
-    memset(midiNotes, 0, sizeof(MidiMessage)*128);
+    memset(midiNotes, 0, sizeof(MidiMessage) * 128);
 
     // register Decay and Spread first
     // so that these wind up as the default CV A and B parameters on Genius
@@ -178,8 +183,13 @@ public:
     }
   }
 
-  ~SpectralHarpPatch()
+  ~SpectralSympathiesPatch()
   {
+    FloatArray::destroy(inputBuffer);
+    Window::destroy(inputWindow);
+    FloatArray::destroy(inputAnalyze);
+    ComplexFloatArray::destroy(inputSpectrum);
+    FastFourierTransform::destroy(inputTransform);
     SpectralGen::destroy(spectralGen);
     BitCrush::destroy(bitCrusher);
     if (reverb_enabled)
@@ -212,15 +222,15 @@ public:
 
   void processMidi(MidiMessage msg) override
   {
-    if (msg.isNote())
-    {
-      midiNotes[msg.getNote()] = msg;
+    //if (msg.isNote())
+    //{
+    //  midiNotes[msg.getNote()] = msg;
 
-      if (msg.isNoteOn())
-      {
-        pluck(spectralGen, msg);
-      }
-    }
+    //  if (msg.isNoteOn())
+    //  {
+    //    pluck(spectralGen, msg);
+    //  }
+    //}
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -232,7 +242,7 @@ public:
     float harpFund = Interpolator::linear(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
     float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
-    bandLast  = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
+    bandLast = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
     int bandFirstIdx = spectralGen->freqToIndex(bandFirst);
     int bandLastIdx = spectralGen->freqToIndex(bandLast);
     bandDensity = Interpolator::linear(densityMin, min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
@@ -245,8 +255,8 @@ public:
 
     // reduce volume based on combination of decay, spread, and brightness parameters
     volume = Easing::expoOut(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
-                                        + 0.7f*getParameterValue(params.inSpread)
-                                        + 0.1f*getParameterValue(params.inBrightness));
+      + 0.7f*getParameterValue(params.inSpread)
+      + 0.1f*getParameterValue(params.inBrightness));
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
@@ -254,42 +264,35 @@ public:
     spectralGen->setVolume(volume);
     bitCrusher->setBitRate(crush);
 
-    float strumX = 0;
-    float strumY = 0;
-
-    if (pluckAtSample != -1)
-    {
-      float location = left[pluckAtSample] * 0.5f + 0.5f;
-      float amplitude = clamp(right[pluckAtSample], 0.0f, 1.0f);
-      pluck(spectralGen, location, amplitude);
-      pluckAtSample = -1;
-      strumX = location;
-      strumY = amplitude;
-    }
-
+    // TODO: this needs to dynamically adjust to band density somehow,
+    // but using band density directly doesn't work. it's more to do with 
+    // the distance between bands that we are exciting.
+    // when band step is small, attenuation needs to also be small.
+    // probably this means applying attenuation to inputAnalyze instead of while we record.
+    const int bandStep = max((bandLastIdx - bandFirstIdx) / getStringCount(), 1);
+    const float inputAtten = 1.0f / 512.0f;
     for (int i = 0; i < blockSize; ++i)
     {
-      if (i == gateOnAtSample) gateState = true;
-      if (i == gateOffAtSample) gateState = false;
-
-      if (gateState)
+      inputBuffer[inputBufferWrite++] = left[i]*inputAtten;
+      if (inputBufferWrite == spectrumSize)
       {
-        float location = left[i] * 0.5f + 0.5f;
-        float amplitude = clamp(right[i], 0.0f, 1.0f);
-        pluck(spectralGen, location, amplitude);
-        strumX = fmax(strumX, location);
-        strumY = fmax(strumY, amplitude);
-      }
-    }
-    
-    gateOnAtSample = -1;
-    gateOffAtSample = -1;
-
-    for (int i = 0; i < 128; ++i)
-    {
-      if (midiNotes[i].isNoteOn())
-      {
-        pluck(spectralGen, midiNotes[i]);
+        // window the input and output to an analysis buffer
+        // because running the fft messes up the input samples.
+        inputWindow.process(inputBuffer, inputAnalyze);
+        inputTransform->fft(inputAnalyze, inputSpectrum);
+        // we may still want to excite using frequency, not band index.
+        // this way we can still use the Tuning parameter.
+        for (int b = bandFirstIdx; b < bandLastIdx; b+= bandStep)
+        {
+          const float inMag = inputSpectrum[b].getMagnitude();
+          const float inPhase = inputSpectrum[b].getPhase();
+          spectralGen->excite(b, inMag, inPhase);
+        }
+        // copy the back half of the array to the front half
+        // continue recording input from the middle of the array.
+        // doing this means we can update the spectral data for sound generation every overlap.
+        inputBufferWrite = spectrumSize / 2;
+        inputBuffer.copyFrom(inputBuffer.subArray(inputBufferWrite, spectrumSize / 2));
       }
     }
 
@@ -319,15 +322,17 @@ public:
       reverb->process(audio, audio);
     }
 
-    setParameterValue(params.outStrumX, strumX);
-    setParameterValue(params.outStrumY, strumY);
+    //setParameterValue(params.outStrumX, strumX);
+    //setParameterValue(params.outStrumY, strumY);
   }
+
+  virtual void processScreen(MonochromeScreenBuffer& screen) override {}
 
 protected:
   // get the current string count based on the density setting
   int getStringCount()
   {
-    return (int)(bandDensity+0.5f);
+    return (int)(bandDensity + 0.5f);
   }
 
   float frequencyOfString(int stringNum)
@@ -346,18 +351,18 @@ protected:
   }
 
 private:
-  void pluck(SpectralGen* spectrum, float location, float amp)
-  {
-    const int   numBands = getStringCount();
-    const int   band = roundf(Interpolator::linear(0, numBands, location));
-    const float freq = frequencyOfString(band);
-    spectrum->pluck(freq, amp);
-  }
+  //void pluck(SpectralGen* spectrum, float location, float amp)
+  //{
+  //  const int   numBands = getStringCount();
+  //  const int   band = roundf(Interpolator::linear(0, numBands, location));
+  //  const float freq = frequencyOfString(band);
+  //  spectrum->pluck(freq, amp);
+  //}
 
-  void pluck(SpectralGen* spectrum, MidiMessage msg)
-  {
-    float freq = Frequency::ofMidiNote(msg.getNote()).asHz();
-    float amp = msg.getVelocity() / 127.0f;
-    spectrum->pluck(freq, amp);
-  }
-}; 
+  //void pluck(SpectralGen* spectrum, MidiMessage msg)
+  //{
+  //  float freq = Frequency::ofMidiNote(msg.getNote()).asHz();
+  //  float amp = msg.getVelocity() / 127.0f;
+  //  spectrum->pluck(freq, amp);
+  //}
+};

@@ -160,6 +160,22 @@ public:
     }
   }
 
+  void excite(int bidx, float amp, float phase)
+  {
+    if (bidx > 0 && bidx < bands.getSize())
+    {
+      Band& b = bands[bidx];
+      const float ea = amp;
+      const float ba = b.amplitude;
+      if (ea > ba)
+      {
+        b.amplitude = ba + 0.9f*(ea - ba);
+        b.decay = 1;
+      }
+      b.phase = phase;
+    }
+  }
+
   void generate(FloatArray output) override
   {
     const int blockSize = complex.getSize();
@@ -253,7 +269,7 @@ public:
 
   Band getBand(float freq)
   {
-    int idx = freqToIndex(freq);
+    const int idx = freqToIndex(freq);
     // get from bands array for phase
     Band b = bands[idx];
     // set normalized amplitude based on magnitude array (which includes spread and brightness)
@@ -343,7 +359,8 @@ private:
       // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
 
       // done with this band, we can construct the complex representation.
-      complex[i] = bands[i].complex[phaseIdx] * a;
+      //complex[i] = bands[i].complex[phaseIdx] * a;
+      complex[i].setPolar(a, bands[i].phase + (M_PI*phaseIdx*(i%2)));
     }
   }
 
@@ -391,11 +408,13 @@ private:
     }
     else
     {
-      b.decay *= decayDec;
+      //b.decay *= decayDec;
+      b.amplitude *= decayDec;
     }
     //if (b.decay > 0)
     {
-      float a = b.decay*b.amplitude;
+      //float a = b.decay*b.amplitude;
+      float a = b.amplitude;
       specBright[idx] += a;
       for (int i = 0; i < kSpectralBandPartials && b.partials[i] < specSize; ++i)
       {
