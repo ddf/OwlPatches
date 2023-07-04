@@ -153,7 +153,7 @@ public:
       const float ba = b.amplitude;
       if (ea > ba)
       {
-        b.amplitude = ba + 0.9f*(ea - ba);
+        b.amplitude = ba + 0.99f*(ea - ba);
       }
       b.phase = phase;
     }

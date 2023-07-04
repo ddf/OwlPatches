@@ -54,8 +54,18 @@ struct SpectralSympathiesParameterIds
   PatchParameterId inDecay; // = PARAMETER_E;
   PatchParameterId inSpread; // = PARAMETER_F;
   PatchParameterId inBrightness; // = PARAMETER_G;
+  // TODO: probably remove crush
   PatchParameterId inCrush; // = PARAMETER_H;
   PatchParameterId inWidth; // = PARAMETER_AA;
+  // TODO: add parameter for excitation response
+  // (currently hardcoded in SpectralSignalGenerator.excite)
+  // TODO: input gain to apply to input before analysis
+  // TODO: dry signal amount
+  // TODO: wet signal amount
+  // Note: I think being able to adjust dry and wet
+  // separately will be nicer than a single dry/wet.
+  // TODO: feedback (will probably give similar results to increasing Decay,
+  // but almost certainly be weirder)
 };
 
 template<int spectrumSize>
@@ -238,6 +248,7 @@ public:
 
     stereoWidth = getParameterValue(params.inWidth);
     diffuser->setAmount(stereoWidth);
+    // TODO: version of process that takes a mono input and outputs stereo
     diffuser->process(audio, audio);
   }
 
