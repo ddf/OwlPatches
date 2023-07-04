@@ -206,10 +206,10 @@ public:
     Band* bandsData = new Band[specSize];
     float* brightData = new float[specSize];
     float* spreadData = new float[specSize];
-    float* outputB = new float[blockSize];
-    Window window  = Window::create(Window::TriangularWindow, blockSize);
     ComplexFloat* complexData = new ComplexFloat[blockSize];
+    float* outputB = new float[blockSize];
     float* outputA = new float[blockSize];
+    Window window = Window::create(Window::TriangularWindow, blockSize);
     return new SpectralSignalGenerator(FFT::create(blockSize), sampleRate,
       bandsData, brightData, spreadData, specSize,
       complexData, outputA, outputB, window.getData(), blockSize
