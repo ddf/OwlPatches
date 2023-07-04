@@ -1,6 +1,6 @@
 #include "SpectralSympathiesPatch.hpp"
 
-typedef SpectralSympathiesPatch<4096, true> BasePatch;
+typedef SpectralSympathiesPatch<4096> BasePatch;
 
 static const SpectralSympathiesParameterIds spectraHarpGeniusParams =
 {
@@ -14,12 +14,6 @@ static const SpectralSympathiesParameterIds spectraHarpGeniusParams =
   .inCrush = PARAMETER_H,
 
   .inWidth = PARAMETER_AA,
-  .inReverbBlend = PARAMETER_AB,
-  .inReverbTime = PARAMETER_AC,
-  .inReverbTone = PARAMETER_AD,
-
-  .outStrumX = PARAMETER_AE,
-  .outStrumY = PARAMETER_AF,
 };
 
 class SpectralSympathiesGeniusPatch : public BasePatch

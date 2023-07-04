@@ -33,8 +33,6 @@ DESCRIPTION:
     which is followed by reverb with controls for blend, time, and tone.
 */
 
-#define USE_MIDI_CALLBACK
-
 #include "MonochromeScreenPatch.h"
 #include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
@@ -57,17 +55,10 @@ struct SpectralSympathiesParameterIds
   PatchParameterId inSpread; // = PARAMETER_F;
   PatchParameterId inBrightness; // = PARAMETER_G;
   PatchParameterId inCrush; // = PARAMETER_H;
-
   PatchParameterId inWidth; // = PARAMETER_AA;
-  PatchParameterId inReverbBlend; // = PARAMETER_AB;
-  PatchParameterId inReverbTime; // = PARAMETER_AC;
-  PatchParameterId inReverbTone; // = PARAMETER_AD;
-
-  PatchParameterId outStrumX; // = PARAMETER_AE;
-  PatchParameterId outStrumY; // = PARAMETER_AF;
 };
 
-template<int spectrumSize, bool reverb_enabled>
+template<int spectrumSize>
 class SpectralSympathiesPatch : public MonochromeScreenPatch
 {
   using SpectralGen = SpectralSignalGenerator<false>;
@@ -101,12 +92,7 @@ protected:
   SpectralGen* spectralGen;
   BitCrush* bitCrusher;
   Diffuser* diffuser;
-  Reverb*   reverb;
 
-  int        pluckAtSample;
-  int        gateOnAtSample;
-  int        gateOffAtSample;
-  bool       gateState;
   StiffFloat bandFirst;
   StiffFloat bandLast;
   SmoothFloat spread;
@@ -121,12 +107,10 @@ protected:
   SmoothFloat reverbTone;
   SmoothFloat reverbBlend;
 
-  MidiMessage* midiNotes;
-
 public:
 
   SpectralSympathiesPatch(SpectralSympathiesParameterIds paramIds) : MonochromeScreenPatch()
-    , params(paramIds), inputBufferWrite(0), inputAtten(0), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
+    , params(paramIds), inputBufferWrite(0), inputAtten(0)
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
     , bandFirst(1.f), bandLast(1.f)
   {
@@ -138,15 +122,7 @@ public:
 
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
     bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
-
-    if (reverb_enabled)
-    {
-      diffuser = Diffuser::create();
-      reverb = Reverb::create(getSampleRate());
-    }
-
-    midiNotes = new MidiMessage[128];
-    memset(midiNotes, 0, sizeof(MidiMessage) * 128);
+    diffuser = Diffuser::create();
 
     // register Decay and Spread first
     // so that these wind up as the default CV A and B parameters on Genius
@@ -158,16 +134,7 @@ public:
     registerParameter(params.inHarpOctaves, "Octaves");
     registerParameter(params.inDensity, "Density");
     registerParameter(params.inTuning, "Tuning");
-    if (reverb_enabled)
-    {
-      registerParameter(params.inWidth, "Width");
-      registerParameter(params.inReverbTime, "Verb Time");
-      registerParameter(params.inReverbTone, "Verb Tone");
-      registerParameter(params.inReverbBlend, "Verb Blend");
-    }
-
-    registerParameter(params.outStrumX, "Strum X>");
-    registerParameter(params.outStrumY, "Strum Y>");
+    registerParameter(params.inWidth, "Width");
 
     setParameterValue(params.inHarpFundamental, 0.0f);
     setParameterValue(params.inHarpOctaves, 1.0f);
@@ -177,11 +144,7 @@ public:
     setParameterValue(params.inBrightness, 0.0f);
     setParameterValue(params.inCrush, 0.0f);
     setParameterValue(params.inTuning, 0.0f);
-
-    if (reverb_enabled)
-    {
-      setParameterValue(params.inReverbTone, 1.0f);
-    }
+    setParameterValue(params.inWidth, 0.0f);
   }
 
   ~SpectralSympathiesPatch()
@@ -193,45 +156,15 @@ public:
     FastFourierTransform::destroy(inputTransform);
     SpectralGen::destroy(spectralGen);
     BitCrush::destroy(bitCrusher);
-    if (reverb_enabled)
-    {
-      Diffuser::destroy(diffuser);
-      Reverb::destroy(reverb);
-    }
-    delete[] midiNotes;
+    Diffuser::destroy(diffuser);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples)
   {
-    if ((bid == PUSHBUTTON || bid == BUTTON_1) && value == Patch::ON)
-    {
-      pluckAtSample = samples;
-    }
-
-    if (bid == BUTTON_2)
-    {
-      if (value == Patch::ON)
-      {
-        gateOnAtSample = samples;
-      }
-      else
-      {
-        gateOffAtSample = samples;
-      }
-    }
   }
 
   void processMidi(MidiMessage msg) override
   {
-    //if (msg.isNote())
-    //{
-    //  midiNotes[msg.getNote()] = msg;
-
-    //  if (msg.isNoteOn())
-    //  {
-    //    pluck(spectralGen, msg);
-    //  }
-    //}
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -303,29 +236,9 @@ public:
 
     left.copyTo(right);
 
-    if (reverb_enabled)
-    {
-      stereoWidth = getParameterValue(params.inWidth);
-      reverbTime = 0.35f + 0.6f*getParameterValue(params.inReverbTime);
-      reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(params.inReverbTone));
-      reverbBlend = getParameterValue(params.inReverbBlend) * 0.56f;
-
-      diffuser->setAmount(stereoWidth);
-      diffuser->process(audio, audio);
-
-      float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
-      float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
-
-      reverb->setDiffusion(0.7f);
-      reverb->setInputGain(reverbInputGain);
-      reverb->setReverbTime(reverbTime);
-      reverb->setLowPass(reverbTone);
-      reverb->setAmount(reverbBlend);
-      reverb->process(audio, audio);
-    }
-
-    //setParameterValue(params.outStrumX, strumX);
-    //setParameterValue(params.outStrumY, strumY);
+    stereoWidth = getParameterValue(params.inWidth);
+    diffuser->setAmount(stereoWidth);
+    diffuser->process(audio, audio);
   }
 
   virtual void processScreen(MonochromeScreenBuffer& screen) override {}
@@ -351,20 +264,4 @@ protected:
     // and lowering this param, you'll hear the pitch drop, which makes more sense than vice-versa.
     return Interpolator::linear(logFreq, linFreq, linLogLerp);
   }
-
-private:
-  //void pluck(SpectralGen* spectrum, float location, float amp)
-  //{
-  //  const int   numBands = getStringCount();
-  //  const int   band = roundf(Interpolator::linear(0, numBands, location));
-  //  const float freq = frequencyOfString(band);
-  //  spectrum->pluck(freq, amp);
-  //}
-
-  //void pluck(SpectralGen* spectrum, MidiMessage msg)
-  //{
-  //  float freq = Frequency::ofMidiNote(msg.getNote()).asHz();
-  //  float amp = msg.getVelocity() / 127.0f;
-  //  spectrum->pluck(freq, amp);
-  //}
 };
