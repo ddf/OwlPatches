@@ -8,10 +8,11 @@ static const SpectralSympathiesParameterIds spectraHarpGeniusParams =
   .inHarpOctaves = PARAMETER_B,
   .inDensity = PARAMETER_C,
   .inTuning = PARAMETER_D,
-  .inDecay = PARAMETER_E,
-  .inSpread = PARAMETER_F,
-  .inBrightness = PARAMETER_G,
-  .inCrush = PARAMETER_H,
+  .inAttack = PARAMETER_E,
+  .inDecay = PARAMETER_F,
+  .inSpread = PARAMETER_G,
+  .inBrightness = PARAMETER_H,
+  .inCrush = PARAMETER_AB,
 
   .inWidth = PARAMETER_AA,
 };

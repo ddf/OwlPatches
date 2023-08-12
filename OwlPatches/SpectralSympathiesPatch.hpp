@@ -51,14 +51,13 @@ struct SpectralSympathiesParameterIds
   PatchParameterId inHarpOctaves; // = PARAMETER_B;
   PatchParameterId inDensity; // = PARAMETER_C;
   PatchParameterId inTuning; // PARAMETER_D;
+  PatchParameterId inAttack;
   PatchParameterId inDecay; // = PARAMETER_E;
   PatchParameterId inSpread; // = PARAMETER_F;
   PatchParameterId inBrightness; // = PARAMETER_G;
   // TODO: probably remove crush
   PatchParameterId inCrush; // = PARAMETER_H;
   PatchParameterId inWidth; // = PARAMETER_AA;
-  // TODO: add parameter for excitation response
-  // (currently hardcoded in SpectralSignalGenerator.excite)
   // TODO: input gain to apply to input before analysis
   // TODO: dry signal amount
   // TODO: wet signal amount
@@ -78,6 +77,8 @@ protected:
   const SpectralSympathiesParameterIds params;
 
   const float spreadMax = 1.0f;
+  const float attackMin = 0.999;
+  const float attackMax = 0.01;
   const float decayMin;
   const float decayMax;
   const float decayDefault = 0.5f;
@@ -105,6 +106,7 @@ protected:
 
   StiffFloat bandFirst;
   StiffFloat bandLast;
+  SmoothFloat attack;
   SmoothFloat spread;
   SmoothFloat decay;
   SmoothFloat brightness;
@@ -138,6 +140,7 @@ public:
     // so that these wind up as the default CV A and B parameters on Genius
     registerParameter(params.inDecay, "Decay");
     registerParameter(params.inSpread, "Spread");
+    registerParameter(params.inAttack, "Attack");
     registerParameter(params.inBrightness, "Brightness");
     registerParameter(params.inCrush, "Crush");
     registerParameter(params.inHarpFundamental, "Fundamentl");
@@ -148,6 +151,7 @@ public:
 
     setParameterValue(params.inHarpFundamental, 0.0f);
     setParameterValue(params.inHarpOctaves, 1.0f);
+    setParameterValue(params.inAttack, 0);
     setParameterValue(params.inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
     setParameterValue(params.inDensity, 1.0f);
     setParameterValue(params.inSpread, 0.0f);
@@ -193,6 +197,7 @@ public:
     linLogLerp = getParameterValue(params.inTuning);
 
     spread = getParameterValue(params.inSpread)*spreadMax;
+    attack = Interpolator::linear(attackMin, attackMax, getParameterValue(params.inAttack));
     decay = Interpolator::linear(decayMin, decayMax, getParameterValue(params.inDecay));
     brightness = getParameterValue(params.inBrightness);
     crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
@@ -231,7 +236,7 @@ public:
           const int bidx = spectralGen->freqToIndex(freq);
           const float inMag = inputSpectrum[bidx].getMagnitude();
           const float inPhase = inputSpectrum[bidx].getPhase();
-          spectralGen->excite(bidx, inMag, inPhase);
+          spectralGen->excite(bidx, inMag, inPhase, attack);
         }
         // copy the back half of the array to the front half
         // continue recording input from the middle of the array.

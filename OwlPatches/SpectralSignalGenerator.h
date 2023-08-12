@@ -144,7 +144,7 @@ public:
     }
   }
 
-  void excite(int bidx, float amp, float phase)
+  void excite(int bidx, float amp, float phase, float response)
   {
     if (bidx > 0 && bidx < bands.getSize())
     {
@@ -153,7 +153,7 @@ public:
       const float ba = b.amplitude;
       if (ea > ba)
       {
-        b.amplitude = ba + 0.99f*(ea - ba);
+        b.amplitude = ba + response*(ea - ba);
       }
       b.phase = phase;
     }
