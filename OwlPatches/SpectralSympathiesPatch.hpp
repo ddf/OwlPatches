@@ -58,6 +58,9 @@ struct SpectralSympathiesParameterIds
   // TODO: probably remove crush
   PatchParameterId inCrush; // = PARAMETER_H;
   PatchParameterId inWidth; // = PARAMETER_AA;
+  PatchParameterId inInputLevel;
+  PatchParameterId inDryLevel;
+  PatchParameterId inWetLevel;
   // TODO: input gain to apply to input before analysis
   // TODO: dry signal amount
   // TODO: wet signal amount
@@ -92,6 +95,7 @@ protected:
   const float bandMax = Frequency::ofMidiNote(128).asHz();
   const float crushRateMin = 1000.0f;
 
+  FloatArray dryBuffer;
   int inputBufferWrite;
   float inputAtten;
   FloatArray inputBuffer;
@@ -115,9 +119,9 @@ protected:
   SmoothFloat linLogLerp;
   SmoothFloat bandDensity;
   SmoothFloat stereoWidth;
-  SmoothFloat reverbTime;
-  SmoothFloat reverbTone;
-  SmoothFloat reverbBlend;
+  SmoothFloat inputLevel;
+  SmoothFloat dryLevel;
+  SmoothFloat wetLevel;
 
 public:
 
@@ -126,6 +130,7 @@ public:
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
     , bandFirst(1.f), bandLast(1.f)
   {
+    dryBuffer = FloatArray::create(getBlockSize());
     inputBuffer = FloatArray::create(spectrumSize);
     inputWindow = Window::create(Window::HanningWindow, spectrumSize);
     inputAnalyze = FloatArray::create(spectrumSize);
@@ -148,6 +153,9 @@ public:
     registerParameter(params.inDensity, "Density");
     registerParameter(params.inTuning, "Tuning");
     registerParameter(params.inWidth, "Width");
+    registerParameter(params.inInputLevel, "In Level");
+    registerParameter(params.inDryLevel, "Dry Level");
+    registerParameter(params.inWetLevel, "Wet Level");
 
     setParameterValue(params.inHarpFundamental, 0.0f);
     setParameterValue(params.inHarpOctaves, 1.0f);
@@ -159,10 +167,15 @@ public:
     setParameterValue(params.inCrush, 0.0f);
     setParameterValue(params.inTuning, 0.0f);
     setParameterValue(params.inWidth, 0.0f);
+    // start with input, dry, and wet levels at unity
+    setParameterValue(params.inInputLevel, 0.5f);
+    setParameterValue(params.inDryLevel, 0.5f);
+    setParameterValue(params.inWetLevel, 0.5f);
   }
 
   ~SpectralSympathiesPatch()
   {
+    FloatArray::destroy(dryBuffer);
     FloatArray::destroy(inputBuffer);
     Window::destroy(inputWindow);
     FloatArray::destroy(inputAnalyze);
@@ -187,6 +200,8 @@ public:
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
 
+    left.copyTo(dryBuffer);
+
     float harpFund = Interpolator::linear(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
     float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
@@ -201,6 +216,9 @@ public:
     decay = Interpolator::linear(decayMin, decayMax, getParameterValue(params.inDecay));
     brightness = getParameterValue(params.inBrightness);
     crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
+    inputLevel = getParameterValue(params.inInputLevel)*2;
+    dryLevel = getParameterValue(params.inDryLevel) * 2;
+    wetLevel = getParameterValue(params.inWetLevel) * 2;
 
     // reduce volume based on combination of decay, spread, and brightness parameters
     volume = Easing::expoOut(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
@@ -221,7 +239,7 @@ public:
     inputAtten = Interpolator::linear(1.0f / 512.0f, 1.0f / 64.0f, attenT);
     for (int i = 0; i < blockSize; ++i)
     {
-      inputBuffer[inputBufferWrite++] = left[i];
+      inputBuffer[inputBufferWrite++] = left[i]*inputLevel;
       if (inputBufferWrite == spectrumSize)
       {
         // window the input and output to an analysis buffer
@@ -249,12 +267,16 @@ public:
     spectralGen->generate(left);
     bitCrusher->process(left, left);
 
-    left.copyTo(right);
-
     stereoWidth = getParameterValue(params.inWidth);
     diffuser->setAmount(stereoWidth);
-    // TODO: version of process that takes a mono input and outputs stereo
-    diffuser->process(audio, audio);
+    diffuser->process(left, audio);
+
+    for (int i = 0; i < blockSize; ++i)
+    {
+      const float dry = dryBuffer[i] * dryLevel;
+      left[i] = dry + left[i] * wetLevel;
+      right[i] = dry + right[i] * wetLevel;
+    }
   }
 
   virtual void processScreen(MonochromeScreenBuffer& screen) override {}

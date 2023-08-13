@@ -151,7 +151,6 @@
     <ClInclude Include="EqualLoudnessCurves.h" />
     <ClInclude Include="FastCrossFadingCircularBuffer.h" />
     <ClInclude Include="FFTTestPatch.hpp" />
-    <ClInclude Include="KissFFT.h" />
     <ClInclude Include="Frequency.h" />
     <ClInclude Include="GaussianBlur2DGeniusPatch.hpp" />
     <ClInclude Include="GaussianBlur2DLichPatch.hpp" />
@@ -179,9 +178,6 @@
     <ClInclude Include="SpectralSympathiesPatch.hpp" />
     <ClInclude Include="StereoDelayProcessor.h" />
     <ClInclude Include="TapTempo.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="KissFFT.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

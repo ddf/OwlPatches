@@ -24,9 +24,14 @@ public:
     apr->setAmount(amt);
   }
 
+  void process(FloatArray input, AudioBuffer& output)
+  {
+    apl->process(input, output.getSamples(0));
+    apr->process(input, output.getSamples(1));
+  }
+
   void process(AudioBuffer& input, AudioBuffer& output) override
   {
-    int size = input.getSize();
     FloatArray inL = input.getSamples(0);
     FloatArray inR = input.getSamples(1);
     FloatArray outL = output.getSamples(0);

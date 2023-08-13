@@ -12,9 +12,12 @@ static const SpectralSympathiesParameterIds spectraHarpGeniusParams =
   .inDecay = PARAMETER_F,
   .inSpread = PARAMETER_G,
   .inBrightness = PARAMETER_H,
-  .inCrush = PARAMETER_AB,
+  .inCrush = PARAMETER_AE,
 
   .inWidth = PARAMETER_AA,
+  .inInputLevel = PARAMETER_AB,
+  .inDryLevel = PARAMETER_AC,
+  .inWetLevel = PARAMETER_AD
 };
 
 class SpectralSympathiesGeniusPatch : public BasePatch
