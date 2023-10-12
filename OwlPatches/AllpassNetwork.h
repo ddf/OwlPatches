@@ -24,7 +24,7 @@ class AllpassNetwork : public SignalProcessor
   AllpassNetwork(float* bufferData, size_t bufferSize, DelayLine* delayData, size_t apSize, float diffusion)
     : buffer(bufferData, bufferSize)
     , delays(delayData, apSize)
-    , coeff(diffusion), amount(0)
+    , coeff(diffusion), amount(1)
   {
 
   }
