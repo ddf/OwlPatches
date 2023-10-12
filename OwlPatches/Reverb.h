@@ -131,23 +131,19 @@ public:
       }
       // low pass filter
       lp1 += lpAmount * (accum - lp1);
-      accum = lp1;
       // through two allpass filters
-      accum = dap1->process(accum);
+      accum = dap1->process(lp1);
       delay1->write(accum);
-      accum *= 2;
 
-      *outL++ = left + (accum - left) * wetAmount;
+      *outL++ = left + (accum*2 - left) * wetAmount;
 
       accum = d;
       accum += delay1->read() * reverbTime;
       lp2 += lpAmount * (accum - lp2);
-      accum = lp2;
-      accum = dap2->process(accum);
+      accum = dap2->process(lp2);
       delay2->write(accum);
-      accum *= 2;
 
-      *outR++ = right + (accum - right) * wetAmount;
+      *outR++ = right + (accum*2 - right) * wetAmount;
     }
 
     lpDecay1 = lp1;

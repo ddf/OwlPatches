@@ -22,32 +22,32 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{9CDD2BF9-178C-4163-93A2-DF6B5DB47238}</ProjectGuid>
     <RootNamespace>OwlPatches</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -151,6 +151,8 @@
     <ClInclude Include="EqualLoudnessCurves.h" />
     <ClInclude Include="FastCrossFadingCircularBuffer.h" />
     <ClInclude Include="FFTTestPatch.hpp" />
+    <ClInclude Include="GrainzV2Patch.hpp" />
+    <ClInclude Include="GrainzV3Patch.hpp" />
     <ClInclude Include="KissFFT.h" />
     <ClInclude Include="Frequency.h" />
     <ClInclude Include="GaussianBlur2DGeniusPatch.hpp" />
@@ -170,6 +172,7 @@
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
     <ClInclude Include="Reverb.h" />
+    <ClInclude Include="ReverbPatch.hpp" />
     <ClInclude Include="SkewedValue.h" />
     <ClInclude Include="SpectralHarpGeniusPatch.hpp" />
     <ClInclude Include="SpectralHarpLichPatch.hpp" />

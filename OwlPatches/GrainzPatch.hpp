@@ -3,6 +3,7 @@
 #include "CircularBuffer.h"
 #include "VoltsPerOctave.h"
 #include "BiquadFilter.h"
+#include "Reverb.h"
 #include "Grain.hpp"
 #include "custom_dsp.h" // for SoftLimit
 
@@ -14,12 +15,11 @@
 
 using namespace daisysp;
 
-// TODO: want more grains, but not sure how much more optimizing can be done
-static const int MAX_GRAINS = 24;
 // must be power of two
 static const int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
 static const int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 
+template <int MAX_GRAINS, bool WITH_REVERB>
 class GrainzPatch : public Patch
 {
   // panel controls
@@ -27,6 +27,8 @@ class GrainzPatch : public Patch
   const PatchParameterId inSize = PARAMETER_B;
   const PatchParameterId inSpeed = PARAMETER_C;
   const PatchParameterId inDensity = PARAMETER_D;
+  const PatchParameterId inDryWet = PARAMETER_E;
+  const PatchParameterId inReverb = PARAMETER_H;
   const PatchButtonId    inFreeze = BUTTON_1;
   const PatchButtonId    inTrigger = BUTTON_2;
 
@@ -35,7 +37,6 @@ class GrainzPatch : public Patch
   const PatchParameterId inSpread = PARAMETER_AB;
   const PatchParameterId inVelocity = PARAMETER_AC;
   const PatchParameterId inFeedback = PARAMETER_AD;
-  const PatchParameterId inDryWet = PARAMETER_AE;
 
   // outputs
   const PatchButtonId outGrainPlayed = PUSHBUTTON;
@@ -67,6 +68,7 @@ class GrainzPatch : public Patch
   AudioBuffer* feedbackBuffer;
   BiquadFilter* feedbackFilterLeft;
   BiquadFilter* feedbackFilterRight;
+  Reverb* reverb;
 
   SmoothFloat grainOverlap;
   SmoothFloat grainPosition;
@@ -76,6 +78,7 @@ class GrainzPatch : public Patch
   SmoothFloat grainSpread;
   SmoothFloat grainVelocity;
   SmoothFloat feedback;
+  SmoothFloat reverbAmount;
   SmoothFloat dryWet;
   float norms[MAX_GRAINS + 1];
 
@@ -106,6 +109,11 @@ public:
       grains[i] = Grain::create(recordBuffer, RECORD_BUFFER_SIZE);
     }
 
+    if constexpr (WITH_REVERB)
+    {
+      reverb = Reverb::create(getSampleRate());
+    }
+
     registerParameter(inPosition, "Position");
     registerParameter(inSize, "Size");
     registerParameter(inSpeed, "Speed");
@@ -115,6 +123,10 @@ public:
     registerParameter(inVelocity, "Velocity Variation");
     registerParameter(inFeedback, "Feedback");
     registerParameter(inDryWet, "Dry/Wet");
+    if constexpr (WITH_REVERB)
+    {
+      registerParameter(inReverb, "Reverb");
+    }
     registerParameter(outGrainPlayback, "Playback>");
     registerParameter(outGrainEnvelope, "Envelope>");
 
@@ -125,6 +137,7 @@ public:
     setParameterValue(inFeedback, 0);
     setParameterValue(inDryWet, 1);
     setParameterValue(inFeedback, 0);
+    setParameterValue(inReverb, 0);
   }
 
   ~GrainzPatch()
@@ -140,6 +153,11 @@ public:
     for (int i = 0; i < MAX_GRAINS; i+=2)
     {
       Grain::destroy(grains[i]);
+    }
+
+    if constexpr (WITH_REVERB)
+    {
+      Reverb::destroy(reverb);
     }
   }
 
@@ -191,6 +209,7 @@ public:
     grainSpread = getParameterValue(inSpread);
     grainVelocity = getParameterValue(inVelocity);
     feedback = getParameterValue(inFeedback);
+    reverbAmount = getParameterValue(inReverb);
     dryWet = getParameterValue(inDryWet);
 
     dcFilter->process(audio, audio);
@@ -200,6 +219,12 @@ public:
       playedGate -= getBlockSize();
     }
 
+    // #TODO: clouds does a cool thing where when freeze is enabled
+    // it continues recording input for 256 samples into a "tail" buffer
+    // and then when freeze is disabled it crossfades from the tail to 
+    // the new incoming audio as it writes into the record buffer,
+    // which prevents discontinuities in the record buffer.
+    // #TODO: add smoothed freeze state for fading feedback in/out.
     if (freeze == OFF)
     {
       // Note: the way feedback is applied is based on how Clouds does it
@@ -271,7 +296,7 @@ public:
 
     for (int gi = 0; gi < MAX_GRAINS; ++gi)
     {
-      auto g = grains[gi];
+      Grain* g = grains[gi];
 
       if (!g->isDone)
       {
@@ -310,6 +335,22 @@ public:
     debugCpy = stpcpy(debugCpy, ") ");
     debugCpy = stpcpy(debugCpy, msg_itoa((int)(genTime * 1000), 10));
 #endif
+
+    // #TODO reverb can also wind up with DC offset 
+    // in freeze mode when feedback is engaged.
+    if constexpr (WITH_REVERB)
+    {
+      float reverbLevel = reverbAmount * 0.95f;
+      reverbLevel += feedback * (2.0f - feedback) * freeze;
+      reverbLevel = fclamp(reverbLevel, 0.0f, 1.0f);
+
+      reverb->setAmount(reverbLevel * 0.54f);
+      reverb->setDiffusion(0.7f);
+      reverb->setReverbTime(0.35f + 0.63f * reverbLevel);
+      reverb->setInputGain(0.2f);
+      reverb->setLowPass(0.6f + 0.37f * feedback);
+      reverb->process(*grainBuffer, *grainBuffer);
+    }
 
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;

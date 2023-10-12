@@ -144,6 +144,21 @@
     <ClInclude Include="FFTTestPatch.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="SpectralSympathiesGeniusPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SpectralSympathiesPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GrainzV2Patch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GrainzV3Patch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ReverbPatch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="KissFFT.cpp">
