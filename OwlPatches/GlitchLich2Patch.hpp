@@ -51,6 +51,7 @@ DESCRIPTION:
     which rises with forward playback and descends when reversed.
 
 */
+#pragma once
 
 #include "Patch.h"
 #include "DcBlockingFilter.h"
@@ -62,53 +63,53 @@ DESCRIPTION:
 typedef CircularBuffer<float> RecordBuffer;
 typedef BitCrusher<24> BitCrush;
 
-static const size_t RECORD_BUFFER_SIZE = (1 << 17);
+static constexpr size_t RECORD_BUFFER_SIZE = (1 << 17);
 typedef TapTempo<RECORD_BUFFER_SIZE> Clock;
 
 // these are expressed as multiples of the clock
 // and used to determine how long the frozen section of audio should be.
-static const int FREEZE_RATIOS_COUNT = 9;
-static const float freezeRatios[FREEZE_RATIOS_COUNT] = {
-              1.0 / 4,
-              1.0 / 3,
-              1.0 / 2,
-              2.0 / 3,
-              1.0,
-              3.0 / 2,
-              2.0,
-              3.0,
-              4.0
+static constexpr int FREEZE_RATIOS_COUNT = 9;
+static constexpr float FREEZE_RATIOS[FREEZE_RATIOS_COUNT] = {
+              1.0f / 4,
+              1.0f / 3,
+              1.0f / 2,
+              2.0f / 3,
+              1.0f,
+              3.0f / 2,
+              2.0f,
+              3.0f,
+              4.0f
 };
 
 // these are the speeds at which the frozen audio should be played back.
 // negative numbers mean the frozen audio should be played in reverse.
-static const int PLAYBACK_SPEEDS_COUNT = 18;
-static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = {
-             -4.0,
-             -3.0,
-             -2.0,
-             -3.0 / 2,
-             -1.0,
-             -2.0 / 3,
-             -1.0 / 2,
-             -1.0 / 3,
-             -1.0 / 4,
-              1.0 / 4,
-              1.0 / 3,
-              1.0 / 2,
-              2.0 / 3,
-              1.0,
-              3.0 / 2,
-              2.0,
-              3.0,
-              4.0
+static constexpr int PLAYBACK_SPEEDS_COUNT = 18;
+static constexpr float PLAYBACK_SPEEDS[PLAYBACK_SPEEDS_COUNT] = {
+             -4.0f,
+             -3.0f,
+             -2.0f,
+             -3.0f / 2,
+             -1.0f,
+             -2.0f / 3,
+             -1.0f / 2,
+             -1.0f / 3,
+             -1.0f / 4,
+              1.0f / 4,
+              1.0f / 3,
+              1.0f / 2,
+              2.0f / 3,
+              1.0f,
+              3.0f / 2,
+              2.0f,
+              3.0f,
+              4.0f
 };
 
 // these are counters that indicate how many clock ticks should occur
 // before resetting the read LFO when not frozen, in order to keep it in sync with the clock.
 // it is a matrix because the period of the LFO, relative to the clock,
 // is the speed divided by the freeze ratio, where the counter is the lowest common denominator
-static const uint32_t freezeCounters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
+static const uint32_t FREEZE_COUNTERS[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
   // speed: -4  -3  -2  -3/2  -1  -2/3  -1/2  -1/3  -1/4  1/4  1/3  1/2  2/3  1  3/2  2  3  4  |     freeze ratio
            { 1,  1,  1,   1,   1,   3,    1,    3,    1,   1,   3,   1,   3,  1,  1,  1, 1, 1  }, // 1/4
            { 1,  1,  1,   2,   1,   1,    2,    1,    4,   4,   1,   2,   1,  1,  2,  1, 1, 1  }, // 1/3
@@ -131,43 +132,43 @@ struct FreezeSettings
   // in order to keep it in sync with the clock.
   // the period of the LFO, relative to the clock, is the speed divided by the freeze ratio,
   // where the counter is the lowest common denominator
-  int readResetCount;
+  size_t readResetCount;
 };
 
-static const FreezeSettings freezeSettings[] = {
+static const FreezeSettings FREEZE_SETTINGS[] = {
 //  { 1.0 / 4, 1.0, 1 },
 //  { 1.0 / 3, 1.0, 1 },
 //  { 1.0 / 2, 1.0, 1 },
 //  { 2.0 / 3, 1.0, 2 },
-  { 1.0,     1.0, 1 },
-  { 4.0 / 3, 1.0, 3 },
-  { 2.0,     1.0, 2 },
-  { 3.0 / 2, 1.0, 3 },
-  { 4.0,     1.0, 4 },
-  { 6.0,     1.0, 6 },
-  { 8.0,     1.0, 8 },
+  { 1.0f,     1.0f, 1 },
+  { 4.0f / 3, 1.0f, 3 },
+  { 2.0f,     1.0f, 2 },
+  { 3.0f / 2, 1.0f, 3 },
+  { 4.0f,     1.0f, 4 },
+  { 6.0f,     1.0f, 6 },
+  { 8.0f,     1.0f, 8 },
 //  { 9.0,     1.0, 9 },
-  { 12.0,    1.0, 12 },
-  { 16.0,    1.0, 16 },
+  { 12.0f,    1.0f, 12 },
+  { 16.0f,    1.0f, 16 },
 };
-static const int freezeSettingsCount = sizeof(freezeSettings) / sizeof(FreezeSettings);
+static constexpr size_t FREEZE_SETTINGS_COUNT = sizeof(FREEZE_SETTINGS) / sizeof(FreezeSettings);
 
-static const int DROP_RATIOS_COUNT = 11;
-static const float dropRatios[DROP_RATIOS_COUNT] = {
+static constexpr int DROP_RATIOS_COUNT = 11;
+static constexpr float DROP_RATIOS[DROP_RATIOS_COUNT] = {
            8,
            6,
            4,
            3,
            2,
            1,
-           1.0 / 2,
-           1.0 / 3,
-           1.0 / 4,
-           1.0 / 6,
-           1.0 / 8
+           1.0f / 2,
+           1.0f / 3,
+           1.0f / 4,
+           1.0f / 6,
+           1.0f / 8
 };
 
-static const uint32_t dropCounters[DROP_RATIOS_COUNT] = {
+static const uint32_t DROP_COUNTERS[DROP_RATIOS_COUNT] = {
            8,
            6,
            4,
@@ -181,15 +182,15 @@ static const uint32_t dropCounters[DROP_RATIOS_COUNT] = {
            1
 };
 
-class GlitchLich2Patch : public Patch
-{
-  const PatchParameterId inSize = PARAMETER_A;
-  const PatchParameterId inSpeed = PARAMETER_B;
-  const PatchParameterId inDrop = PARAMETER_C;
-  const PatchParameterId inCrush = PARAMETER_D;
-  const PatchParameterId outRamp = PARAMETER_F;
-  const PatchParameterId outRand = PARAMETER_G;
+constexpr PatchParameterId IN_SIZE = PARAMETER_A;
+constexpr PatchParameterId IN_SPEED = PARAMETER_B;
+constexpr PatchParameterId IN_DROP = PARAMETER_C;
+constexpr PatchParameterId IN_CRUSH = PARAMETER_D;
+constexpr PatchParameterId OUT_RAMP = PARAMETER_F;
+constexpr PatchParameterId OUT_RAND = PARAMETER_G;
 
+class GlitchLich2Patch final : public Patch
+{
   StereoDcBlockingFilter* dcFilter;
   RecordBuffer* bufferL;
   RecordBuffer* bufferR;
@@ -211,9 +212,10 @@ class GlitchLich2Patch : public Patch
 
 public:
   GlitchLich2Patch()
-    : dcFilter(0), bufferL(0), bufferR(0), crushL(0), crushR(0)
-    , clock(getSampleRate() * 60 / 120), samplesSinceLastTap(RECORD_BUFFER_SIZE)
-    , freeze(false), freezeIdx(0), dropRatio(0)
+  : dcFilter(nullptr), bufferL(nullptr), bufferR(nullptr), crushL(nullptr), crushR(nullptr)
+  , clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
+  , samplesSinceLastTap(RECORD_BUFFER_SIZE)
+  , freezeIdx(0), freeze(false), dropRatio(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferL = RecordBuffer::create(RECORD_BUFFER_SIZE);
@@ -225,20 +227,20 @@ public:
     readSpeed = 1;
     dropLfo = 0;
 
-    registerParameter(inSize, "Size");
-    registerParameter(inSpeed, "Speed");
-    registerParameter(inDrop, "Drop");
-    registerParameter(inCrush, "Crush");
-    registerParameter(outRamp, "Ramp>");
-    registerParameter(outRand, "Rand>");
+    registerParameter(IN_SIZE, "Size");
+    registerParameter(IN_SPEED, "Speed");
+    registerParameter(IN_DROP, "Drop");
+    registerParameter(IN_CRUSH, "Crush");
+    registerParameter(OUT_RAMP, "Ramp>");
+    registerParameter(OUT_RAND, "Rand>");
 
-    setParameterValue(inSize, 0.5f);
-    setParameterValue(inSpeed, 0.75f);
-    setParameterValue(inDrop, 0);
-    setParameterValue(inCrush, 0);
+    setParameterValue(IN_SIZE, 0.5f);
+    setParameterValue(IN_SPEED, 0.75f);
+    setParameterValue(IN_DROP, 0);
+    setParameterValue(IN_CRUSH, 0);
   }
 
-  ~GlitchLich2Patch()
+  ~GlitchLich2Patch() override
   {
     StereoDcBlockingFilter::destroy(dcFilter);
     RecordBuffer::destroy(bufferL);
@@ -248,7 +250,7 @@ public:
   }
 
 
-  float stepReadLFO(float speed)
+  float stepReadLfo(const float speed)
   {
     readLfo = readLfo + speed;
     if (readLfo >= 1)
@@ -262,7 +264,7 @@ public:
     return readLfo;
   }
 
-  bool stepDropLFO(float speed)
+  bool stepDropLfo(const float speed)
   {
     dropLfo = dropLfo + speed;
     if (dropLfo >= 1)
@@ -278,33 +280,33 @@ public:
     return false;
   }
 
-  inline float interpolatedReadAt(RecordBuffer* buffer, float index)
+  static float interpolatedReadAt(RecordBuffer* buffer, float index)
   {
     // index can be negative, we ensure it is positive.
     // readAt will wrap value of the argument it receives.
     index += RECORD_BUFFER_SIZE;
-    size_t idx = (size_t)(index);
-    float low = buffer->readAt(idx);
-    float high = buffer->readAt(idx + 1);
-    float frac = index - idx;
+    const size_t idx = (size_t)index;
+    const float low = buffer->readAt(idx);
+    const float high = buffer->readAt(idx + 1);
+    const float frac = index - static_cast<float>(idx);
     return high + frac * (low - high);
   }
 
-  float freezeDuration(int idx)
+  float freezeDuration(const int idx)
   {
-    float dur = clock.getPeriod() * freezeSettings[idx].clockRatio;
+    float dur = clock.getPeriod() * FREEZE_SETTINGS[idx].clockRatio;
     dur = max(0.0001f, min(0.9999f, dur));
     return dur;
   }
 
-  float freezeSpeed(int idx)
+  static float freezeSpeed(const int idx)
   {
-    return freezeSettings[idx].playbackSpeed;
+    return FREEZE_SETTINGS[idx].playbackSpeed;
   }
 
-  float dropDuration(int ratio)
+  float dropDuration(const int ratio)
   {
-    float dur = clock.getPeriod() * dropRatios[ratio];
+    float dur = clock.getPeriod() * DROP_RATIOS[ratio];
     dur = max(0.0001f, min(0.9999f, dur));
     return dur;
   }
@@ -316,10 +318,10 @@ public:
     clock.clock(size);
 
     // button 2 is for tap tempo now
-    const bool mangle = false; // isButtonPressed(BUTTON_2);
+    constexpr bool mangle = false; // isButtonPressed(BUTTON_2);
 
-    const float smoothFreeze = getParameterValue(inSize) * freezeSettingsCount;
-    const int freezeIdx = (int)(smoothFreeze);
+    const float smoothFreeze = getParameterValue(IN_SIZE) * FREEZE_SETTINGS_COUNT;
+    freezeIdx = static_cast<int>(smoothFreeze);
 
     float newFreezeLength = freezeDuration(freezeIdx) * (RECORD_BUFFER_SIZE - 1);
     float newReadSpeed = freezeSpeed(freezeIdx) / newFreezeLength;
@@ -330,17 +332,17 @@ public:
     {
       if (freezeIdx < FREEZE_RATIOS_COUNT - 1)
       {
-        float x1 = smoothFreeze - freezeIdx;
-        float x0 = 1.0f - x1;
+        const float x1 = smoothFreeze - static_cast<float>(freezeIdx);
+        const float x0 = 1.0f - x1;
         newFreezeLength = newFreezeLength * x0 + (freezeDuration(freezeIdx + 1)*(RECORD_BUFFER_SIZE - 1))*x1;
         newReadSpeed = newReadSpeed * x0 + (freezeSpeed(freezeIdx + 1) / newFreezeLength)*x1;
       }
     }
 
     const float sr = getSampleRate();
-    const float crush = getParameterValue(inCrush);
+    const float crush = getParameterValue(IN_CRUSH);
     const float bits = crush > 0.001f ? (8.f - crush * 6) : 24;
-    const float rate = crush > 0.001f ? sr * 0.25f + getParameterValue(inCrush)*(100 - sr * 0.25f) : sr;
+    const float rate = crush > 0.001f ? sr * 0.25f + getParameterValue(IN_CRUSH)*(100 - sr * 0.25f) : sr;
     crushL->setBitDepth(bits);
     crushL->setBitRate(rate);
     crushL->setMangle(mangle);
@@ -361,20 +363,22 @@ public:
     }
     freezeWriteCount = 0;
 
+    const float fSize = static_cast<float>(size);
+    const float fEnd = static_cast<float>(readEndIdx);
     for (int i = 0; i < size; ++i)
     {
-      float x1 = (float)i / size;
-      float x0 = 1.0f - x1;
+      const float x1 = static_cast<float>(i) / fSize;
+      const float x0 = 1.0f - x1;
       if (freeze)
       {
-        float read0 = readEndIdx - freezeLength + readLfo * freezeLength;
-        float read1 = readEndIdx - newFreezeLength + readLfo * newFreezeLength;
+        const float read0 = fEnd - freezeLength + readLfo * freezeLength;
+        const float read1 = fEnd - newFreezeLength + readLfo * newFreezeLength;
         left[i]  = interpolatedReadAt(bufferL, read0)*x0
                  + interpolatedReadAt(bufferL, read1)*x1;
         right[i] = interpolatedReadAt(bufferR, read0)*x0
                  + interpolatedReadAt(bufferR, read1)*x1;
       }
-      stepReadLFO(readSpeed*x0 + newReadSpeed * x1);
+      stepReadLfo(readSpeed*x0 + newReadSpeed * x1);
     }
 
     freezeLength = newFreezeLength;
@@ -383,13 +387,13 @@ public:
     crushL->process(left, left);
     crushR->process(right, right);
 
-    float dropParam = getParameterValue(inDrop);
-    dropRatio = (int)(dropParam * DROP_RATIOS_COUNT);
-    float dropSpeed = 1.0f / (dropDuration(dropRatio) * (RECORD_BUFFER_SIZE - 1));
-    float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9*dropParam;
+    const float dropParam = getParameterValue(IN_DROP);
+    dropRatio = static_cast<int>(dropParam * DROP_RATIOS_COUNT);
+    const float dropSpeed = 1.0f / (dropDuration(dropRatio) * (RECORD_BUFFER_SIZE - 1));
+    const float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9f*dropParam;
     for (int i = 0; i < size; ++i)
     {
-      if (stepDropLFO(dropSpeed))
+      if (stepDropLfo(dropSpeed))
       {
         dropRand = randf();
         dropSamples = dropRand < dropProb;
@@ -407,8 +411,8 @@ public:
       samplesSinceLastTap += size;
     }
 
-    setParameterValue(outRamp, readLfo);
-    setParameterValue(outRand, dropRand);
+    setParameterValue(OUT_RAMP, readLfo);
+    setParameterValue(OUT_RAND, dropRand);
     setButton(PUSHBUTTON, readLfo < 0.5f);
   }
 
@@ -443,8 +447,9 @@ public:
         samplesSinceLastTap = 0;
       }
 
+      // TODO: I think this needs to reset while frozen as well.
       // reset readLfo based on the counter for our combined ratios
-      if (on && !freeze && ++freezeCounter >= freezeSettings[freezeIdx].readResetCount)
+      if (on && !freeze && ++freezeCounter >= FREEZE_SETTINGS[freezeIdx].readResetCount)
       {
         readLfo = 0;
         freezeCounter = 0;
@@ -452,7 +457,7 @@ public:
 
       // we use one instead of zero because our logic in process
       // is checking for the flip from 1 to 0 to generate a new random value.
-      if (on && ++dropCounter >= dropCounters[dropRatio])
+      if (on && ++dropCounter >= DROP_COUNTERS[dropRatio])
       {
         dropLfo = 1;
         dropCounter = 0;

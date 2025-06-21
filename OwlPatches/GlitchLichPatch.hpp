@@ -64,7 +64,7 @@ static const uint32_t TRIGGER_LIMIT = (1 << 17);
 // these are expressed multiples of the clock
 // and used to determine how long the frozen section of audio should be.
 static const int FREEZE_RATIOS_COUNT = 9;
-static const float freezeRatios[FREEZE_RATIOS_COUNT] = { 
+static const float FREEZE_RATIOS[FREEZE_RATIOS_COUNT] = { 
               1.0 / 4,
               1.0 / 3,
               1.0 / 2,
@@ -79,7 +79,7 @@ static const float freezeRatios[FREEZE_RATIOS_COUNT] = {
 // these are the speeds at which the frozen audio should be played back.
 // negative numbers mean the frozen audio should be played in reverse.
 static const int PLAYBACK_SPEEDS_COUNT = 18;
-static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = { 
+static const float PLAYBACK_SPEEDS[PLAYBACK_SPEEDS_COUNT] = { 
              -4.0,
              -3.0,
              -2.0,
@@ -104,7 +104,7 @@ static const float playbackSpeeds[PLAYBACK_SPEEDS_COUNT] = {
 // before resetting the read LFO when not frozen, in order to keep it in sync with the clock.
 // it is a matrix because the period of the LFO, relative to the clock,
 // is the speed divided by the freeze ratio, where the counter is the lowest common denominator
-static const uint32_t freezeCounters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
+static const uint32_t FREEZE_COUNTERS[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
 // speed: -4  -3  -2  -3/2  -1  -2/3  -1/2  -1/3  -1/4  1/4  1/3  1/2  2/3  1  3/2  2  3  4  |     freeze ratio
          { 1,  1,  1,   1,   1,   3,    1,    3,    1,   1,   3,   1,   3,  1,  1,  1, 1, 1  }, // 1/4
          { 1,  1,  1,   2,   1,   1,    2,    1,    4,   4,   1,   2,   1,  1,  2,  1, 1, 1  }, // 1/3
@@ -118,7 +118,7 @@ static const uint32_t freezeCounters[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT]
 };
 
 static const int DROP_RATIOS_COUNT = 11;
-static const float dropRatios[DROP_RATIOS_COUNT] = { 
+static const float DROP_RATIOS[DROP_RATIOS_COUNT] = { 
            8,
            6,
            4,
@@ -132,7 +132,7 @@ static const float dropRatios[DROP_RATIOS_COUNT] = {
            1.0/8
 };
 
-static const uint32_t dropCounters[DROP_RATIOS_COUNT] = {
+static const uint32_t DROP_COUNTERS[DROP_RATIOS_COUNT] = {
            8,
            6,
            4,
@@ -255,14 +255,14 @@ public:
 
   float freezeDuration(int ratio)
   {
-    float dur = tempo.getPeriod() * freezeRatios[ratio];
+    float dur = tempo.getPeriod() * FREEZE_RATIOS[ratio];
     dur = max(0.0001f, min(0.9999f, dur));
     return dur;
   }
 
   float dropDuration(int ratio)
   {
-    float dur = tempo.getPeriod() * dropRatios[ratio];
+    float dur = tempo.getPeriod() * DROP_RATIOS[ratio];
     dur = max(0.0001f, min(0.9999f, dur));
     return dur;
   }
@@ -282,7 +282,7 @@ public:
     playbackSpeed = (int)(smoothSpeed);
 
     float newFreezeLength = freezeDuration(freezeRatio) * (TRIGGER_LIMIT - 1);
-    float newReadSpeed    = playbackSpeeds[playbackSpeed] / newFreezeLength;
+    float newReadSpeed    = PLAYBACK_SPEEDS[playbackSpeed] / newFreezeLength;
 
     // smooth size and speed changes when not clocked
     bool clocked = samplesSinceLastTap < TRIGGER_LIMIT;
@@ -299,7 +299,7 @@ public:
       {
         float x1 = smoothSpeed - playbackSpeed;
         float x0 = 1.0f - x1;
-        newReadSpeed = newReadSpeed * x0 + (playbackSpeeds[playbackSpeed + 1] / newFreezeLength)*x1;
+        newReadSpeed = newReadSpeed * x0 + (PLAYBACK_SPEEDS[playbackSpeed + 1] / newFreezeLength)*x1;
       }
     }
 
@@ -420,7 +420,7 @@ public:
       }
 
       // reset readLfo based on the counter for our combined ratios
-      if (on && !freeze && ++freezeCounter >= freezeCounters[freezeRatio][playbackSpeed])
+      if (on && !freeze && ++freezeCounter >= FREEZE_COUNTERS[freezeRatio][playbackSpeed])
       {
         readLfo = 0;
         freezeCounter = 0;
@@ -428,7 +428,7 @@ public:
 
       // we use one instead of zero because our logic in process
       // is checking for the flip from 1 to 0 to generate a new random value.
-      if (on && ++dropCounter >= dropCounters[dropRatio])
+      if (on && ++dropCounter >= DROP_COUNTERS[dropRatio])
       {
         dropLfo = 1;
         dropCounter = 0;
