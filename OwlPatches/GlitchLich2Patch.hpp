@@ -133,25 +133,22 @@ struct FreezeSettings
   // the period of the LFO, relative to the clock, is the speed divided by the freeze ratio,
   // where the counter is the lowest common denominator
   size_t readResetCount;
+  // param value at which to choose this setting
+  float paramThresh;
 };
 
 static const FreezeSettings FREEZE_SETTINGS[] = {
-//  { 1.0 / 4, 1.0, 1 },
-//  { 1.0 / 3, 1.0, 1 },
-//  { 1.0 / 2, 1.0, 1 },
-//  { 2.0 / 3, 1.0, 2 },
-  { 1.0f,     1.0f, 1 },
-  { 4.0f / 3, 1.0f, 3 },
-  { 2.0f,     1.0f, 2 },
-  { 3.0f / 2, 1.0f, 3 },
-  { 4.0f,     1.0f, 4 },
-  { 6.0f,     1.0f, 6 },
-  { 8.0f,     1.0f, 8 },
-//  { 9.0,     1.0, 9 },
-  { 12.0f,    1.0f, 12 },
-  { 16.0f,    1.0f, 16 },
+  { 4.0f,     4.0f, 1, 0.0f },
+  { 6.0f,     3.0f, 3, 0.02f},
+  { 4.0f,     2.0f, 1, 0.06f},
+  { 3.0f,     2.0f, 3, 0.20f }, // need to think about this one more
+  { 2.0f,     1.0f, 2, 0.4f },
+  { 3.0f,     1.0f, 3, 0.6f },
+  { 4.0f,     1.0f, 4, 0.7f },
+  { 6.0f,    1.0f, 6, 0.85f },
+  { 8.0f,    1.0f, 8, 0.95f },
 };
-static constexpr size_t FREEZE_SETTINGS_COUNT = sizeof(FREEZE_SETTINGS) / sizeof(FreezeSettings);
+static constexpr int FREEZE_SETTINGS_COUNT = sizeof(FREEZE_SETTINGS) / sizeof(FreezeSettings);
 
 static constexpr int DROP_RATIOS_COUNT = 11;
 static constexpr float DROP_RATIOS[DROP_RATIOS_COUNT] = {
@@ -320,9 +317,13 @@ public:
     // button 2 is for tap tempo now
     constexpr bool mangle = false; // isButtonPressed(BUTTON_2);
 
-    const float smoothFreeze = getParameterValue(IN_SIZE) * FREEZE_SETTINGS_COUNT;
-    freezeIdx = static_cast<int>(smoothFreeze);
-
+    const float smoothFreeze = getParameterValue(IN_SIZE);
+    for (freezeIdx = 0; freezeIdx < FREEZE_SETTINGS_COUNT - 1; freezeIdx++)
+    {
+      if (smoothFreeze >= FREEZE_SETTINGS[freezeIdx].paramThresh && smoothFreeze < FREEZE_SETTINGS[freezeIdx+1].paramThresh)
+        break;
+    }
+    
     float newFreezeLength = freezeDuration(freezeIdx) * (RECORD_BUFFER_SIZE - 1);
     float newReadSpeed = freezeSpeed(freezeIdx) / newFreezeLength;
 
@@ -411,8 +412,8 @@ public:
       samplesSinceLastTap += size;
     }
 
-    setParameterValue(OUT_RAMP, readLfo);
-    setParameterValue(OUT_RAND, dropRand);
+    setParameterValue(OUT_RAMP, smoothFreeze /* readLfo*/);
+    setParameterValue(OUT_RAND, FREEZE_SETTINGS[freezeIdx].paramThresh /* dropRand*/);
     setButton(PUSHBUTTON, readLfo < 0.5f);
   }
 
@@ -429,7 +430,7 @@ public:
         freeze = true;
         freezeWriteCount = samples;
         readEndIdx = bufferL->getWriteIndex() + samples;
-        readLfo = 0;
+        //readLfo = 0;
       }
       else
       {
@@ -446,10 +447,9 @@ public:
       {
         samplesSinceLastTap = 0;
       }
-
-      // TODO: I think this needs to reset while frozen as well.
-      // reset readLfo based on the counter for our combined ratios
-      if (on && !freeze && ++freezeCounter >= FREEZE_SETTINGS[freezeIdx].readResetCount)
+      
+      // reset readLfo based on the counter for our current setting
+      if (on && ++freezeCounter >= FREEZE_SETTINGS[freezeIdx].readResetCount)
       {
         readLfo = 0;
         freezeCounter = 0;
