@@ -62,8 +62,8 @@ DESCRIPTION:
 typedef CircularBuffer<float> RecordBuffer;
 typedef BitCrusher<24> BitCrush;
 
-static const uint32_t TRIGGER_LIMIT = (1 << 17);
-typedef TapTempo<TRIGGER_LIMIT> Clock;
+static const size_t RECORD_BUFFER_SIZE = (1 << 17);
+typedef TapTempo<RECORD_BUFFER_SIZE> Clock;
 
 // these are expressed as multiples of the clock
 // and used to determine how long the frozen section of audio should be.
@@ -135,15 +135,20 @@ struct FreezeSettings
 };
 
 static const FreezeSettings freezeSettings[] = {
-  { 1.0 / 4, 1.0, 1 },
-  { 1.0 / 3, 1.0, 1 },
-  { 1.0 / 2, 1.0, 1 },
-  { 2.0 / 3, 1.0, 2 },
+//  { 1.0 / 4, 1.0, 1 },
+//  { 1.0 / 3, 1.0, 1 },
+//  { 1.0 / 2, 1.0, 1 },
+//  { 2.0 / 3, 1.0, 2 },
   { 1.0,     1.0, 1 },
-  { 3.0 / 2, 1.0, 3 },
+  { 4.0 / 3, 1.0, 3 },
   { 2.0,     1.0, 2 },
-  { 3.0,     1.0, 3 },
-  { 4.0,     1.0, 4 }
+  { 3.0 / 2, 1.0, 3 },
+  { 4.0,     1.0, 4 },
+  { 6.0,     1.0, 6 },
+  { 8.0,     1.0, 8 },
+//  { 9.0,     1.0, 9 },
+  { 12.0,    1.0, 12 },
+  { 16.0,    1.0, 16 },
 };
 static const int freezeSettingsCount = sizeof(freezeSettings) / sizeof(FreezeSettings);
 
@@ -191,12 +196,12 @@ class GlitchLich2Patch : public Patch
   BitCrush* crushL;
   BitCrush* crushR;
   Clock clock;
-  uint32_t samplesSinceLastTap;
+  size_t samplesSinceLastTap;
   int freezeIdx;
   float freezeLength;
   bool freeze;
   int freezeWriteCount;
-  int readStartIdx;
+  size_t readEndIdx;
   float readLfo;
   float readSpeed;
   float dropLfo;
@@ -207,12 +212,12 @@ class GlitchLich2Patch : public Patch
 public:
   GlitchLich2Patch()
     : dcFilter(0), bufferL(0), bufferR(0), crushL(0), crushR(0)
-    , clock(getSampleRate() * 60 / 120), samplesSinceLastTap(TRIGGER_LIMIT)
+    , clock(getSampleRate() * 60 / 120), samplesSinceLastTap(RECORD_BUFFER_SIZE)
     , freeze(false), freezeIdx(0), dropRatio(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
-    bufferL = RecordBuffer::create(TRIGGER_LIMIT);
-    bufferR = RecordBuffer::create(TRIGGER_LIMIT);
+    bufferL = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    bufferR = RecordBuffer::create(RECORD_BUFFER_SIZE);
     crushL = BitCrush::create(getSampleRate(), getSampleRate());
     crushR = BitCrush::create(getSampleRate(), getSampleRate());
 
@@ -273,9 +278,12 @@ public:
     return false;
   }
 
-  inline float interpolatedReadAt(CircularBuffer<float>* buffer, float index)
+  inline float interpolatedReadAt(RecordBuffer* buffer, float index)
   {
-    size_t idx = (size_t)index;
+    // index can be negative, we ensure it is positive.
+    // readAt will wrap value of the argument it receives.
+    index += RECORD_BUFFER_SIZE;
+    size_t idx = (size_t)(index);
     float low = buffer->readAt(idx);
     float high = buffer->readAt(idx + 1);
     float frac = index - idx;
@@ -313,18 +321,18 @@ public:
     const float smoothFreeze = getParameterValue(inSize) * freezeSettingsCount;
     const int freezeIdx = (int)(smoothFreeze);
 
-    float newFreezeLength = freezeDuration(freezeIdx) * (TRIGGER_LIMIT - 1);
+    float newFreezeLength = freezeDuration(freezeIdx) * (RECORD_BUFFER_SIZE - 1);
     float newReadSpeed = freezeSpeed(freezeIdx) / newFreezeLength;
 
     // smooth size and speed changes when not clocked
-    const bool clocked = samplesSinceLastTap < TRIGGER_LIMIT;
+    const bool clocked = samplesSinceLastTap < RECORD_BUFFER_SIZE;
     if (!clocked)
     {
       if (freezeIdx < FREEZE_RATIOS_COUNT - 1)
       {
         float x1 = smoothFreeze - freezeIdx;
         float x0 = 1.0f - x1;
-        newFreezeLength = newFreezeLength * x0 + (freezeDuration(freezeIdx + 1)*(TRIGGER_LIMIT - 1))*x1;
+        newFreezeLength = newFreezeLength * x0 + (freezeDuration(freezeIdx + 1)*(RECORD_BUFFER_SIZE - 1))*x1;
         newReadSpeed = newReadSpeed * x0 + (freezeSpeed(freezeIdx + 1) / newFreezeLength)*x1;
       }
     }
@@ -345,17 +353,13 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    for (int i = 0; i < size; ++i)
+    const int writeSize = freeze ? freezeWriteCount : size;
+    for (int i = 0; i < writeSize; ++i)
     {
-      if (freeze && freezeWriteCount == TRIGGER_LIMIT)
-        break;
-
       bufferL->write(left[i]);
       bufferR->write(right[i]);
-
-      if (freeze)
-        ++freezeWriteCount;
     }
+    freezeWriteCount = 0;
 
     for (int i = 0; i < size; ++i)
     {
@@ -363,8 +367,8 @@ public:
       float x0 = 1.0f - x1;
       if (freeze)
       {
-        float read0 = readStartIdx + readLfo * freezeLength;
-        float read1 = readStartIdx + readLfo * newFreezeLength;
+        float read0 = readEndIdx - freezeLength + readLfo * freezeLength;
+        float read1 = readEndIdx - newFreezeLength + readLfo * newFreezeLength;
         left[i]  = interpolatedReadAt(bufferL, read0)*x0
                  + interpolatedReadAt(bufferL, read1)*x1;
         right[i] = interpolatedReadAt(bufferR, read0)*x0
@@ -381,7 +385,7 @@ public:
 
     float dropParam = getParameterValue(inDrop);
     dropRatio = (int)(dropParam * DROP_RATIOS_COUNT);
-    float dropSpeed = 1.0f / (dropDuration(dropRatio) * (TRIGGER_LIMIT - 1));
+    float dropSpeed = 1.0f / (dropDuration(dropRatio) * (RECORD_BUFFER_SIZE - 1));
     float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9*dropParam;
     for (int i = 0; i < size; ++i)
     {
@@ -398,7 +402,7 @@ public:
       }
     }
 
-    if (samplesSinceLastTap < TRIGGER_LIMIT)
+    if (samplesSinceLastTap < RECORD_BUFFER_SIZE)
     {
       samplesSinceLastTap += size;
     }
@@ -420,11 +424,7 @@ public:
       {
         freeze = true;
         freezeWriteCount = samples;
-        readStartIdx = bufferL->getWriteIndex() - samples;
-        if (readStartIdx < 0)
-        {
-          readStartIdx += TRIGGER_LIMIT;
-        }
+        readEndIdx = bufferL->getWriteIndex() + samples;
         readLfo = 0;
       }
       else
