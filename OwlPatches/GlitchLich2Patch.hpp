@@ -130,23 +130,21 @@ struct FreezeSettings
   float playbackSpeed;
   // how many clock ticks should occur before resetting the read LFO when not frozen,
   // in order to keep it in sync with the clock.
-  // the period of the LFO, relative to the clock, is the speed divided by the freeze ratio,
-  // where the counter is the lowest common denominator
   size_t readResetCount;
   // param value at which to choose this setting
   float paramThresh;
 };
 
 static const FreezeSettings FREEZE_SETTINGS[] = {
-  { 4.0f,     4.0f, 1, 0.0f },
-  { 6.0f,     3.0f, 3, 0.02f},
-  { 4.0f,     2.0f, 1, 0.06f},
-  { 3.0f,     2.0f, 3, 0.20f }, // need to think about this one more
-  { 2.0f,     1.0f, 2, 0.4f },
-  { 3.0f,     1.0f, 3, 0.6f },
-  { 4.0f,     1.0f, 4, 0.7f },
-  { 6.0f,    1.0f, 6, 0.85f },
-  { 8.0f,    1.0f, 8, 0.95f },
+  { 2.0f,     4.0f, 1, 0.0f  },
+  { 2.0f,     3.0f, 2, 0.02f },
+  { 2.0f,     2.0f, 1, 0.06f },
+  { 4.0f/3.0f,1.0f, 4, 0.20f },
+  { 2.0f,     1.0f, 2, 0.4f  },
+  { 3.0f,     1.0f, 3, 0.6f  },
+  { 4.0f,     1.0f, 4, 0.7f  },
+  { 6.0f,     1.0f, 6, 0.85f },
+  { 8.0f,     1.0f, 8, 0.95f },
 };
 static constexpr int FREEZE_SETTINGS_COUNT = sizeof(FREEZE_SETTINGS) / sizeof(FreezeSettings);
 
