@@ -67,62 +67,6 @@ typedef BitCrusher<24> BitCrush;
 static constexpr size_t RECORD_BUFFER_SIZE = (1 << 17);
 typedef TapTempo<RECORD_BUFFER_SIZE> Clock;
 
-// these are expressed as multiples of the clock
-// and used to determine how long the frozen section of audio should be.
-static constexpr int FREEZE_RATIOS_COUNT = 9;
-static constexpr float FREEZE_RATIOS[FREEZE_RATIOS_COUNT] = {
-              1.0f / 4,
-              1.0f / 3,
-              1.0f / 2,
-              2.0f / 3,
-              1.0f,
-              3.0f / 2,
-              2.0f,
-              3.0f,
-              4.0f
-};
-
-// these are the speeds at which the frozen audio should be played back.
-// negative numbers mean the frozen audio should be played in reverse.
-static constexpr int PLAYBACK_SPEEDS_COUNT = 18;
-static constexpr float PLAYBACK_SPEEDS[PLAYBACK_SPEEDS_COUNT] = {
-             -4.0f,
-             -3.0f,
-             -2.0f,
-             -3.0f / 2,
-             -1.0f,
-             -2.0f / 3,
-             -1.0f / 2,
-             -1.0f / 3,
-             -1.0f / 4,
-              1.0f / 4,
-              1.0f / 3,
-              1.0f / 2,
-              2.0f / 3,
-              1.0f,
-              3.0f / 2,
-              2.0f,
-              3.0f,
-              4.0f
-};
-
-// these are counters that indicate how many clock ticks should occur
-// before resetting the read LFO when not frozen, in order to keep it in sync with the clock.
-// it is a matrix because the period of the LFO, relative to the clock,
-// is the speed divided by the freeze ratio, where the counter is the lowest common denominator
-static const uint32_t FREEZE_COUNTERS[FREEZE_RATIOS_COUNT][PLAYBACK_SPEEDS_COUNT] = {
-  // speed: -4  -3  -2  -3/2  -1  -2/3  -1/2  -1/3  -1/4  1/4  1/3  1/2  2/3  1  3/2  2  3  4  |     freeze ratio
-           { 1,  1,  1,   1,   1,   3,    1,    3,    1,   1,   3,   1,   3,  1,  1,  1, 1, 1  }, // 1/4
-           { 1,  1,  1,   2,   1,   1,    2,    1,    4,   4,   1,   2,   1,  1,  2,  1, 1, 1  }, // 1/3
-           { 1,  1,  1,   1,   1,   3,    1,    3,    2,   2,   3,   1,   3,  1,  1,  1, 1, 1  }, // 1/2
-           { 1,  2,  1,   4,   2,   1,    4,    2,    8,   8,   2,   4,   1,  2,  4,  1, 2, 1  }, // 2/3
-           { 1,  1,  1,   2,   1,   3,    2,    3,    4,   4,   3,   2,   3,  1,  2,  1, 1, 1  }, // 1
-           { 3,  1,  3,   1,   3,   9,    3,    9,    6,   6,   9,   3,   9,  3,  1,  3, 1, 3  }, // 3/2
-           { 1,  2,  1,   4,   2,   3,    4,    6,    8,   8,   6,   4,   3,  2,  4,  1, 2, 1  }, // 2
-           { 3,  1,  3,   2,   3,   9,    6,    9,   12,  12,   9,   6,   9,  3,  2,  3, 1, 3  }, // 3
-           { 1,  4,  2,   8,   4,   6,    8,   12,   16,  16,  12,   8,   6,  4,  8,  2, 4, 1  }, // 4
-};
-
 struct FreezeSettings
 {
   // used to determine how long the frozen section of audio should be.
@@ -149,70 +93,73 @@ static const FreezeSettings FREEZE_SETTINGS[] = {
 };
 static constexpr int FREEZE_SETTINGS_COUNT = sizeof(FREEZE_SETTINGS) / sizeof(FreezeSettings);
 
-static constexpr int DROP_RATIOS_COUNT = 11;
-static constexpr float DROP_RATIOS[DROP_RATIOS_COUNT] = {
-           8,
-           6,
-           4,
-           3,
-           2,
-           1,
-           1.0f / 2,
-           1.0f / 3,
-           1.0f / 4,
-           1.0f / 6,
-           1.0f / 8
+struct GlitchSettings
+{
+  float clockRatio;
+  size_t lfoResetCount;
 };
 
-static const uint32_t DROP_COUNTERS[DROP_RATIOS_COUNT] = {
-           8,
-           6,
-           4,
-           3,
-           2,
-           1,
-           1,
-           1,
-           1,
-           1,
-           1
+static constexpr GlitchSettings GLITCH_SETTINGS[] = {
+  { 8, 8},
+  { 6, 6 },
+  { 4, 4 },
+  { 3, 3 },
+  { 2, 2 },
+  { 1, 1 },
+  { 1.0f / 2, 1 },
+  { 1.0f / 3, 1 },
+  { 1.0f / 4, 1 },
+  { 1.0f / 6, 1 },
+  { 1.0f / 8, 1 },
 };
+static constexpr int GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
 
 constexpr PatchParameterId IN_REPEATS = PARAMETER_A;
 constexpr PatchParameterId IN_SPEED = PARAMETER_B;
-constexpr PatchParameterId IN_DROP = PARAMETER_C;
+constexpr PatchParameterId IN_GLITCH = PARAMETER_C;
 constexpr PatchParameterId IN_CRUSH = PARAMETER_D;
 constexpr PatchParameterId OUT_RAMP = PARAMETER_F;
 constexpr PatchParameterId OUT_RAND = PARAMETER_G;
 
 class GlitchLich2Patch final : public Patch
 {
+  typedef uint32_t count_t;
+  
+  count_t freezeIdx;
+  count_t freezeWriteCount;
+  float freezeLength;
+  float readLfo;
+  float readSpeed;
+
+  count_t glitchSettingsIdx;
+  float glitchLfo;
+  float glitchRand;
+
+  count_t readEndIdx;
+  count_t freezeCounter;
+  count_t glitchCounter;
+  count_t samplesSinceLastTap;
+  
   StereoDcBlockingFilter* dcFilter;
   EnvelopeFollower* envelopeFollower;
-  FloatArray inputEnvelope;
   RecordBuffer* bufferL;
   RecordBuffer* bufferR;
   BitCrush* crushL;
   BitCrush* crushR;
+
+  FloatArray inputEnvelope;
   Clock clock;
-  size_t samplesSinceLastTap;
-  int freezeIdx;
-  float freezeLength;
-  bool freeze;
-  int freezeWriteCount;
-  size_t readEndIdx;
-  float readLfo;
-  float readSpeed;
-  float dropLfo;
-  int dropRatio;
-  bool dropSamples;
-  float dropRand;
+  
+  bool freezeEnabled;
+  bool glitchEnabled;
 
 public:
   GlitchLich2Patch()
-  : clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
-  , samplesSinceLastTap(RECORD_BUFFER_SIZE)
-  , freezeIdx(0), freeze(false), dropRatio(0)
+  : freezeIdx(0), freezeWriteCount(0)
+  , freezeLength(0), readLfo(0), readSpeed(1), glitchSettingsIdx(0)
+  , glitchLfo(0), glitchRand(0), readEndIdx(0), freezeCounter(0), glitchCounter(0)
+  , samplesSinceLastTap(RECORD_BUFFER_SIZE), clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
+  , freezeEnabled(false), glitchEnabled(false)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize()*8, getSampleRate());
@@ -222,20 +169,16 @@ public:
     crushL = BitCrush::create(getSampleRate(), getSampleRate());
     crushR = BitCrush::create(getSampleRate(), getSampleRate());
 
-    readLfo = 0;
-    readSpeed = 1;
-    dropLfo = 0;
-
     registerParameter(IN_REPEATS, "Repeats");
     registerParameter(IN_SPEED, "Speed");
-    registerParameter(IN_DROP, "Drop");
+    registerParameter(IN_GLITCH, "Glitch");
     registerParameter(IN_CRUSH, "Crush");
     registerParameter(OUT_RAMP, "Ramp>");
     registerParameter(OUT_RAND, "Rand>");
 
     setParameterValue(IN_REPEATS, 0.5f);
     setParameterValue(IN_SPEED, 0.75f);
-    setParameterValue(IN_DROP, 0);
+    setParameterValue(IN_GLITCH, 0);
     setParameterValue(IN_CRUSH, 0);
   }
 
@@ -265,17 +208,17 @@ public:
     return readLfo;
   }
 
-  bool stepDropLfo(const float speed)
+  bool stepGlitchLfo(const float speed)
   {
-    dropLfo = dropLfo + speed;
-    if (dropLfo >= 1)
+    glitchLfo = glitchLfo + speed;
+    if (glitchLfo >= 1)
     {
-      dropLfo -= 1;
+      glitchLfo -= 1;
       return true;
     }
-    else if (dropLfo < 0)
+    else if (glitchLfo < 0)
     {
-      dropLfo += 1;
+      glitchLfo += 1;
       return true;
     }
     return false;
@@ -293,23 +236,29 @@ public:
     return high + frac * (low - high);
   }
 
-  float freezeDuration(const int idx)
+  float freezeDuration(const count_t idx)
   {
     float dur = clock.getPeriod() * FREEZE_SETTINGS[idx].clockRatio;
     dur = max(0.0001f, min(0.9999f, dur));
     return dur;
   }
 
-  static float freezeSpeed(const int idx)
+  static float freezeSpeed(const count_t idx)
   {
     return FREEZE_SETTINGS[idx].playbackSpeed;
   }
 
-  float dropDuration()
+  float glitchDuration(const count_t idx)
   {
-    float dur = clock.getPeriod();
+    float dur = clock.getPeriod() * GLITCH_SETTINGS[idx].clockRatio;
     dur = max(0.0001f, min(0.9999f, dur));
     return dur;
+  }
+
+  static float glitch(const float a, const float b)
+  {
+    const int glitched = static_cast<int>(a*24) ^ static_cast<int>(b*24);
+    return static_cast<float>(glitched) / 24;
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -335,7 +284,7 @@ public:
     const bool clocked = samplesSinceLastTap < RECORD_BUFFER_SIZE;
     if (!clocked)
     {
-      if (freezeIdx < FREEZE_RATIOS_COUNT - 1)
+      if (freezeIdx < FREEZE_SETTINGS_COUNT - 1)
       {
         const float x1 = smoothFreeze - static_cast<float>(freezeIdx);
         const float x0 = 1.0f - x1;
@@ -361,8 +310,8 @@ public:
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
-    const int writeSize = freeze ? freezeWriteCount : size;
-    for (int i = 0; i < writeSize; ++i)
+    const count_t writeSize = freezeEnabled ? freezeWriteCount : size;
+    for (count_t i = 0; i < writeSize; ++i)
     {
       bufferL->write(left[i]);
       bufferR->write(right[i]);
@@ -375,7 +324,7 @@ public:
     {
       const float x1 = static_cast<float>(i) / fSize;
       const float x0 = 1.0f - x1;
-      if (freeze)
+      if (freezeEnabled)
       {
         const float read0 = fEnd - freezeLength + readLfo * freezeLength;
         const float read1 = fEnd - newFreezeLength + readLfo * newFreezeLength;
@@ -396,22 +345,22 @@ public:
     crushL->process(left, left);
     crushR->process(right, right);
 
-    const float dropParam = getParameterValue(IN_DROP);
-    dropRatio = static_cast<int>(dropParam * DROP_RATIOS_COUNT);
-    const float dropSpeed = 1.0f / (dropDuration() * 0.25f * (RECORD_BUFFER_SIZE - 1));
-    const float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9f*dropParam;
+    const float glitchParam = getParameterValue(IN_GLITCH);
+    glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
+    const float dropSpeed = 1.0f / (glitchDuration(glitchSettingsIdx) * (RECORD_BUFFER_SIZE - 1));
+    const float dropProb = glitchParam < 0.0001f ? 0 : 0.1f + 0.9f*glitchParam;
     for (int i = 0; i < size; ++i)
     {
-      if (stepDropLfo(dropSpeed))
+      if (stepGlitchLfo(dropSpeed))
       {
-        dropRand = randf();
-        dropSamples = dropRand < dropProb;
+        glitchRand = randf();
+        glitchEnabled = glitchRand < dropProb;
       }
 
-      if (dropSamples)
+      if (glitchEnabled)
       {
-        left[i] = 0;
-        right[i] = 0;
+        left[i] = glitch(left[i], bufferL->read());
+        right[i] = glitch(right[i], bufferR->read());
       }
     }
 
@@ -426,28 +375,25 @@ public:
   }
 
 
-  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
+  void buttonChanged(const PatchButtonId bid, const uint16_t value, const uint16_t samples) override
   {
-    static uint32_t freezeCounter = 0;
-    static uint32_t dropCounter = 0;
-
     if (bid == BUTTON_1)
     {
       if (value == ON)
       {
-        freeze = true;
+        freezeEnabled = true;
         freezeWriteCount = samples;
-        readEndIdx = bufferL->getWriteIndex() + samples;
+        readEndIdx = static_cast<count_t>(bufferL->getWriteIndex()) + samples;
       }
       else
       {
-        freeze = false;
+        freezeEnabled = false;
       }
     }
 
     if (bid == BUTTON_2)
     {
-      bool on = value == ON;
+      const bool on = value == ON;
       clock.trigger(on, samples);
 
       if (on)
@@ -464,10 +410,10 @@ public:
 
       // we use one instead of zero because our logic in process
       // is checking for the flip from 1 to 0 to generate a new random value.
-      if (on && ++dropCounter >= DROP_COUNTERS[dropRatio])
+      if (on && ++glitchCounter >= GLITCH_SETTINGS[glitchSettingsIdx].lfoResetCount)
       {
-        dropLfo = 1;
-        dropCounter = 0;
+        glitchLfo = 1;
+        glitchCounter = 0;
       }
     }
   }
