@@ -59,6 +59,7 @@ DESCRIPTION:
 
 #include "TapTempo.hpp"
 #include "BitCrusher.hpp"
+#include "EnvelopeFollower.h"
 
 typedef CircularBuffer<float> RecordBuffer;
 typedef BitCrusher<24> BitCrush;
@@ -177,7 +178,7 @@ static const uint32_t DROP_COUNTERS[DROP_RATIOS_COUNT] = {
            1
 };
 
-constexpr PatchParameterId IN_SIZE = PARAMETER_A;
+constexpr PatchParameterId IN_REPEATS = PARAMETER_A;
 constexpr PatchParameterId IN_SPEED = PARAMETER_B;
 constexpr PatchParameterId IN_DROP = PARAMETER_C;
 constexpr PatchParameterId IN_CRUSH = PARAMETER_D;
@@ -187,6 +188,8 @@ constexpr PatchParameterId OUT_RAND = PARAMETER_G;
 class GlitchLich2Patch final : public Patch
 {
   StereoDcBlockingFilter* dcFilter;
+  EnvelopeFollower* envelopeFollower;
+  FloatArray inputEnvelope;
   RecordBuffer* bufferL;
   RecordBuffer* bufferR;
   BitCrush* crushL;
@@ -207,12 +210,13 @@ class GlitchLich2Patch final : public Patch
 
 public:
   GlitchLich2Patch()
-  : dcFilter(nullptr), bufferL(nullptr), bufferR(nullptr), crushL(nullptr), crushR(nullptr)
-  , clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
+  : clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
   , samplesSinceLastTap(RECORD_BUFFER_SIZE)
   , freezeIdx(0), freeze(false), dropRatio(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
+    envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize()*8, getSampleRate());
+    inputEnvelope = FloatArray::create(getBlockSize());
     bufferL = RecordBuffer::create(RECORD_BUFFER_SIZE);
     bufferR = RecordBuffer::create(RECORD_BUFFER_SIZE);
     crushL = BitCrush::create(getSampleRate(), getSampleRate());
@@ -222,14 +226,14 @@ public:
     readSpeed = 1;
     dropLfo = 0;
 
-    registerParameter(IN_SIZE, "Size");
+    registerParameter(IN_REPEATS, "Repeats");
     registerParameter(IN_SPEED, "Speed");
     registerParameter(IN_DROP, "Drop");
     registerParameter(IN_CRUSH, "Crush");
     registerParameter(OUT_RAMP, "Ramp>");
     registerParameter(OUT_RAND, "Rand>");
 
-    setParameterValue(IN_SIZE, 0.5f);
+    setParameterValue(IN_REPEATS, 0.5f);
     setParameterValue(IN_SPEED, 0.75f);
     setParameterValue(IN_DROP, 0);
     setParameterValue(IN_CRUSH, 0);
@@ -238,6 +242,8 @@ public:
   ~GlitchLich2Patch() override
   {
     StereoDcBlockingFilter::destroy(dcFilter);
+    EnvelopeFollower::destroy(envelopeFollower);
+    FloatArray::destroy(inputEnvelope);
     RecordBuffer::destroy(bufferL);
     RecordBuffer::destroy(bufferR);
     BitCrush::destroy(crushL);
@@ -299,9 +305,9 @@ public:
     return FREEZE_SETTINGS[idx].playbackSpeed;
   }
 
-  float dropDuration(const int ratio)
+  float dropDuration()
   {
-    float dur = clock.getPeriod() * DROP_RATIOS[ratio];
+    float dur = clock.getPeriod();
     dur = max(0.0001f, min(0.9999f, dur));
     return dur;
   }
@@ -315,7 +321,7 @@ public:
     // button 2 is for tap tempo now
     constexpr bool mangle = false; // isButtonPressed(BUTTON_2);
 
-    const float smoothFreeze = getParameterValue(IN_SIZE);
+    const float smoothFreeze = getParameterValue(IN_REPEATS);
     for (freezeIdx = 0; freezeIdx < FREEZE_SETTINGS_COUNT - 1; freezeIdx++)
     {
       if (smoothFreeze >= FREEZE_SETTINGS[freezeIdx].paramThresh && smoothFreeze < FREEZE_SETTINGS[freezeIdx+1].paramThresh)
@@ -350,6 +356,7 @@ public:
     crushR->setMangle(mangle);
 
     dcFilter->process(audio, audio);
+    envelopeFollower->process(audio, inputEnvelope);
 
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
@@ -380,6 +387,9 @@ public:
       stepReadLfo(readSpeed*x0 + newReadSpeed * x1);
     }
 
+    // so we can monitor it to make sure it's working correctly
+    inputEnvelope.copyTo(right);
+    
     freezeLength = newFreezeLength;
     readSpeed = newReadSpeed;
 
@@ -388,7 +398,7 @@ public:
 
     const float dropParam = getParameterValue(IN_DROP);
     dropRatio = static_cast<int>(dropParam * DROP_RATIOS_COUNT);
-    const float dropSpeed = 1.0f / (dropDuration(dropRatio) * (RECORD_BUFFER_SIZE - 1));
+    const float dropSpeed = 1.0f / (dropDuration() * 0.25f * (RECORD_BUFFER_SIZE - 1));
     const float dropProb = dropParam < 0.0001f ? 0 : 0.1f + 0.9f*dropParam;
     for (int i = 0; i < size; ++i)
     {
@@ -428,7 +438,6 @@ public:
         freeze = true;
         freezeWriteCount = samples;
         readEndIdx = bufferL->getWriteIndex() + samples;
-        //readLfo = 0;
       }
       else
       {

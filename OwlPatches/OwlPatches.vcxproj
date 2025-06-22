@@ -148,6 +148,7 @@
     <ClInclude Include="DelayMatrixPatch.hpp" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="Easing.h" />
+    <ClInclude Include="EnvelopeFollower.h" />
     <ClInclude Include="EqualLoudnessCurves.h" />
     <ClInclude Include="FastCrossFadingCircularBuffer.h" />
     <ClInclude Include="FFTTestPatch.hpp" />
