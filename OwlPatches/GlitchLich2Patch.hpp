@@ -61,10 +61,11 @@ DESCRIPTION:
 #include "BitCrusher.hpp"
 #include "EnvelopeFollower.h"
 
+typedef uint32_t count_t;
 typedef CircularBuffer<float> RecordBuffer;
 typedef BitCrusher<24> BitCrush;
 
-static constexpr size_t RECORD_BUFFER_SIZE = (1 << 17);
+static constexpr count_t RECORD_BUFFER_SIZE = (1 << 17);
 typedef TapTempo<RECORD_BUFFER_SIZE> Clock;
 
 struct FreezeSettings
@@ -75,7 +76,7 @@ struct FreezeSettings
   float playbackSpeed;
   // how many clock ticks should occur before resetting the read LFO when not frozen,
   // in order to keep it in sync with the clock.
-  size_t readResetCount;
+  count_t readResetCount;
   // param value at which to choose this setting
   float paramThresh;
 };
@@ -91,12 +92,12 @@ static const FreezeSettings FREEZE_SETTINGS[] = {
   { 6.0f,     1.0f, 6, 0.85f },
   { 8.0f,     1.0f, 8, 0.95f },
 };
-static constexpr int FREEZE_SETTINGS_COUNT = sizeof(FREEZE_SETTINGS) / sizeof(FreezeSettings);
+static constexpr count_t FREEZE_SETTINGS_COUNT = sizeof(FREEZE_SETTINGS) / sizeof(FreezeSettings);
 
 struct GlitchSettings
 {
   float clockRatio;
-  size_t lfoResetCount;
+  count_t lfoResetCount;
 };
 
 static constexpr GlitchSettings GLITCH_SETTINGS[] = {
@@ -112,7 +113,7 @@ static constexpr GlitchSettings GLITCH_SETTINGS[] = {
   { 1.0f / 6, 1 },
   { 1.0f / 8, 1 },
 };
-static constexpr int GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
+static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
 
 constexpr PatchParameterId IN_REPEATS = PARAMETER_A;
 constexpr PatchParameterId IN_SPEED = PARAMETER_B;
@@ -123,8 +124,6 @@ constexpr PatchParameterId OUT_RAND = PARAMETER_G;
 
 class GlitchLich2Patch final : public Patch
 {
-  typedef uint32_t count_t;
-  
   count_t freezeIdx;
   count_t freezeWriteCount;
   float freezeLength;
