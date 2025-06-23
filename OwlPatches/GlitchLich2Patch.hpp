@@ -101,17 +101,16 @@ struct GlitchSettings
 };
 
 static constexpr GlitchSettings GLITCH_SETTINGS[] = {
-  { 8, 8},
-  { 6, 6 },
-  { 4, 4 },
-  { 3, 3 },
-  { 2, 2 },
-  { 1, 1 },
-  { 1.0f / 2, 1 },
-  { 1.0f / 3, 1 },
-  { 1.0f / 4, 1 },
-  { 1.0f / 6, 1 },
+  { 1.0f / 32, 1 },
+  { 1.0f / 24, 1 },
+  { 1.0f / 16, 1 },
+  { 1.0f / 12, 1 },
   { 1.0f / 8, 1 },
+  { 1.0f / 6, 1 },
+  { 1.0f / 4, 1 },
+  { 1.0f / 3, 1 },
+  { 1.0f / 2, 1 },
+  { 1, 1 },
 };
 static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
 
@@ -358,6 +357,8 @@ public:
 
       if (glitchEnabled)
       {
+        bufferL->setDelay(i+1);
+        bufferR->setDelay(i+1);
         left[i] = glitch(left[i], bufferL->read());
         right[i] = glitch(right[i], bufferR->read());
       }
