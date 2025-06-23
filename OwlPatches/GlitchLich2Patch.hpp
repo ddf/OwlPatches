@@ -53,6 +53,8 @@ DESCRIPTION:
 */
 #pragma once
 
+#include <ios>
+
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
@@ -62,7 +64,7 @@ DESCRIPTION:
 #include "EnvelopeFollower.h"
 
 typedef uint32_t count_t;
-typedef CircularBuffer<float> RecordBuffer;
+typedef CircularBuffer<float, count_t> RecordBuffer;
 typedef BitCrusher<24> BitCrush;
 
 static constexpr count_t RECORD_BUFFER_SIZE = (1 << 17);
@@ -115,10 +117,10 @@ static constexpr GlitchSettings GLITCH_SETTINGS[] = {
 static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
 
 constexpr PatchParameterId IN_REPEATS = PARAMETER_A;
-constexpr PatchParameterId IN_SPEED = PARAMETER_B;
-constexpr PatchParameterId IN_GLITCH = PARAMETER_C;
+constexpr PatchParameterId IN_GLITCH = PARAMETER_B;
+constexpr PatchParameterId IN_SHAPE = PARAMETER_C;
 constexpr PatchParameterId IN_CRUSH = PARAMETER_D;
-constexpr PatchParameterId OUT_RAMP = PARAMETER_F;
+constexpr PatchParameterId OUT_ENV = PARAMETER_F;
 constexpr PatchParameterId OUT_RAND = PARAMETER_G;
 
 class GlitchLich2Patch final : public Patch
@@ -140,6 +142,8 @@ class GlitchLich2Patch final : public Patch
   
   StereoDcBlockingFilter* dcFilter;
   EnvelopeFollower* envelopeFollower;
+  RecordBuffer* inputL;
+  RecordBuffer* inputR;
   RecordBuffer* bufferL;
   RecordBuffer* bufferR;
   BitCrush* crushL;
@@ -159,23 +163,26 @@ public:
   , samplesSinceLastTap(RECORD_BUFFER_SIZE), clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
   , freezeEnabled(false), glitchEnabled(false)
   {
-    dcFilter = StereoDcBlockingFilter::create(0.995f);
-    envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize()*8, getSampleRate());
+    inputL = RecordBuffer::create(getBlockSize());
+    inputR = RecordBuffer::create(getBlockSize());
     inputEnvelope = FloatArray::create(getBlockSize());
     bufferL = RecordBuffer::create(RECORD_BUFFER_SIZE);
     bufferR = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    
+    dcFilter = StereoDcBlockingFilter::create(0.995f);
+    envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize()*8, getSampleRate());
     crushL = BitCrush::create(getSampleRate(), getSampleRate());
     crushR = BitCrush::create(getSampleRate(), getSampleRate());
 
     registerParameter(IN_REPEATS, "Repeats");
-    registerParameter(IN_SPEED, "Speed");
+    registerParameter(IN_SHAPE, "Shape");
     registerParameter(IN_GLITCH, "Glitch");
     registerParameter(IN_CRUSH, "Crush");
-    registerParameter(OUT_RAMP, "Ramp>");
+    registerParameter(OUT_ENV, "Env>");
     registerParameter(OUT_RAND, "Rand>");
 
     setParameterValue(IN_REPEATS, 0.5f);
-    setParameterValue(IN_SPEED, 0.75f);
+    setParameterValue(IN_SHAPE, 0.75f);
     setParameterValue(IN_GLITCH, 0);
     setParameterValue(IN_CRUSH, 0);
   }
@@ -226,12 +233,12 @@ public:
   {
     // index can be negative, we ensure it is positive.
     // readAt will wrap value of the argument it receives.
-    index += RECORD_BUFFER_SIZE;
-    const size_t idx = (size_t)index;
+    index += static_cast<float>(buffer->getSize());
+    const count_t idx = static_cast<count_t>(index);
     const float low = buffer->readAt(idx);
     const float high = buffer->readAt(idx + 1);
     const float frac = index - static_cast<float>(idx);
-    return high + frac * (low - high);
+    return low + frac * (high - low);
   }
 
   float freezeDuration(const count_t idx)
@@ -261,12 +268,9 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    const int size = audio.getSize();
+    const count_t size = audio.getSize();
 
     clock.clock(size);
-
-    // button 2 is for tap tempo now
-    constexpr bool mangle = false; // isButtonPressed(BUTTON_2);
 
     const float smoothFreeze = getParameterValue(IN_REPEATS);
     for (freezeIdx = 0; freezeIdx < FREEZE_SETTINGS_COUNT - 1; freezeIdx++)
@@ -297,22 +301,20 @@ public:
     const float rate = crush > 0.001f ? sr * 0.25f + getParameterValue(IN_CRUSH)*(100 - sr * 0.25f) : sr;
     crushL->setBitDepth(bits);
     crushL->setBitRate(rate);
-    crushL->setMangle(mangle);
     crushR->setBitDepth(bits);
     crushR->setBitRate(rate);
-    crushR->setMangle(mangle);
 
     dcFilter->process(audio, audio);
     envelopeFollower->process(audio, inputEnvelope);
 
-    FloatArray left = audio.getSamples(LEFT_CHANNEL);
-    FloatArray right = audio.getSamples(RIGHT_CHANNEL);
+    FloatArray audioL = audio.getSamples(LEFT_CHANNEL);
+    FloatArray audioR = audio.getSamples(RIGHT_CHANNEL);
 
     const count_t writeSize = freezeEnabled ? freezeWriteCount : size;
     for (count_t i = 0; i < writeSize; ++i)
     {
-      bufferL->write(left[i]);
-      bufferR->write(right[i]);
+      bufferL->write(audioL[i]);
+      bufferR->write(audioR[i]);
     }
     freezeWriteCount = 0;
 
@@ -322,26 +324,23 @@ public:
     {
       const float x1 = static_cast<float>(i) / fSize;
       const float x0 = 1.0f - x1;
+      float outL = audioL[i];
+      float outR = audioR[i];
       if (freezeEnabled)
       {
         const float read0 = fEnd - freezeLength + readLfo * freezeLength;
         const float read1 = fEnd - newFreezeLength + readLfo * newFreezeLength;
-        left[i]  = interpolatedReadAt(bufferL, read0)*x0
-                 + interpolatedReadAt(bufferL, read1)*x1;
-        right[i] = interpolatedReadAt(bufferR, read0)*x0
-                 + interpolatedReadAt(bufferR, read1)*x1;
+        outL = interpolatedReadAt(bufferL, read0)*x0 + interpolatedReadAt(bufferL, read1)*x1;
+        outR = interpolatedReadAt(bufferR, read0)*x0 + interpolatedReadAt(bufferR, read1)*x1;
       }
       stepReadLfo(readSpeed*x0 + newReadSpeed * x1);
-    }
 
-    // so we can monitor it to make sure it's working correctly
-    inputEnvelope.copyTo(right);
+      audioL[i] = outL;
+      audioR[i] = outR;
+    }
     
     freezeLength = newFreezeLength;
     readSpeed = newReadSpeed;
-
-    crushL->process(left, left);
-    crushR->process(right, right);
 
     const float glitchParam = getParameterValue(IN_GLITCH);
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
@@ -359,18 +358,37 @@ public:
       {
         bufferL->setDelay(i+1);
         bufferR->setDelay(i+1);
-        left[i] = glitch(left[i], bufferL->read());
-        right[i] = glitch(right[i], bufferR->read());
+        audioL[i] = glitch(audioL[i], bufferL->read());
+        audioR[i] = glitch(audioR[i], bufferR->read());
       }
     }
+
+    FloatArray::copy(inputL->getData(), audioL.getData(), size);
+    FloatArray::copy(inputR->getData(), audioR.getData(), size);
+
+    const float shapeParam = getParameterValue(IN_SHAPE);
+    const float shapeWet = shapeParam;
+    const float shapeDry = 1.0f - shapeWet;
+    for (count_t i = 0; i < size; ++i)
+    {
+      const float shapeScale = inputEnvelope[i]*fSize*(10.0f + 90.0f*shapeParam);
+      const float dryIdx = static_cast<float>(i);
+      const float readL = shapeDry*dryIdx + shapeWet*clamp(shapeScale*audioL[i], -fSize, fSize);
+      const float readR = shapeDry*dryIdx + shapeWet*clamp(shapeScale*audioR[i], -fSize, fSize);
+      audioL[i] = interpolatedReadAt(inputL, readL);
+      audioR[i] = interpolatedReadAt(inputR, readR);
+    }
+    
+    crushL->process(audioL, audioL);
+    crushR->process(audioR, audioR);
 
     if (samplesSinceLastTap < RECORD_BUFFER_SIZE)
     {
       samplesSinceLastTap += size;
     }
-
-    setParameterValue(OUT_RAMP, smoothFreeze /* readLfo*/);
-    setParameterValue(OUT_RAND, FREEZE_SETTINGS[freezeIdx].paramThresh /* dropRand*/);
+    
+    setParameterValue(OUT_ENV, inputEnvelope[0]);
+    setParameterValue(OUT_RAND, glitchRand);
     setButton(PUSHBUTTON, readLfo < 0.5f);
   }
 
@@ -415,6 +433,10 @@ public:
         glitchLfo = 1;
         glitchCounter = 0;
       }
+
+      const bool mangle = freezeEnabled && on;
+      crushL->setMangle(mangle);
+      crushR->setMangle(mangle);
     }
   }
 
