@@ -117,9 +117,9 @@ static constexpr GlitchSettings GLITCH_SETTINGS[] = {
 static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
 
 constexpr PatchParameterId IN_REPEATS = PARAMETER_A;
-constexpr PatchParameterId IN_GLITCH = PARAMETER_B;
-constexpr PatchParameterId IN_SHAPE = PARAMETER_C;
-constexpr PatchParameterId IN_CRUSH = PARAMETER_D;
+constexpr PatchParameterId IN_GLITCH = PARAMETER_C;
+constexpr PatchParameterId IN_SHAPE = PARAMETER_D;
+constexpr PatchParameterId IN_CRUSH = PARAMETER_B;
 constexpr PatchParameterId OUT_ENV = PARAMETER_F;
 constexpr PatchParameterId OUT_RAND = PARAMETER_G;
 
@@ -297,7 +297,7 @@ public:
 
     const float sr = getSampleRate();
     const float crush = getParameterValue(IN_CRUSH);
-    const float bits = crush > 0.001f ? (8.f - crush * 6) : 24;
+    const float bits = crush > 0.001f ? (16.f - crush * 12.0f) : 24;
     const float rate = crush > 0.001f ? sr * 0.25f + getParameterValue(IN_CRUSH)*(100 - sr * 0.25f) : sr;
     crushL->setBitDepth(bits);
     crushL->setBitRate(rate);
@@ -320,7 +320,7 @@ public:
 
     const float fSize = static_cast<float>(size);
     const float fEnd = static_cast<float>(readEndIdx);
-    for (int i = 0; i < size; ++i)
+    for (count_t i = 0; i < size; ++i)
     {
       const float x1 = static_cast<float>(i) / fSize;
       const float x0 = 1.0f - x1;
@@ -342,11 +342,14 @@ public:
     freezeLength = newFreezeLength;
     readSpeed = newReadSpeed;
 
+    crushL->process(audioL, audioL);
+    crushR->process(audioR, audioR);
+
     const float glitchParam = getParameterValue(IN_GLITCH);
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
     const float dropSpeed = 1.0f / (glitchDuration(glitchSettingsIdx) * (RECORD_BUFFER_SIZE - 1));
     const float dropProb = glitchParam < 0.0001f ? 0 : 0.1f + 0.9f*glitchParam;
-    for (int i = 0; i < size; ++i)
+    for (count_t i = 0; i < size; ++i)
     {
       if (stepGlitchLfo(dropSpeed))
       {
@@ -356,8 +359,9 @@ public:
 
       if (glitchEnabled)
       {
-        bufferL->setDelay(i+1);
-        bufferR->setDelay(i+1);
+        const int d = static_cast<int>(i) + 1;
+        bufferL->setDelay(d);
+        bufferR->setDelay(d);
         audioL[i] = glitch(audioL[i], bufferL->read());
         audioR[i] = glitch(audioR[i], bufferR->read());
       }
@@ -378,9 +382,6 @@ public:
       audioL[i] = interpolatedReadAt(inputL, readL);
       audioR[i] = interpolatedReadAt(inputR, readR);
     }
-    
-    crushL->process(audioL, audioL);
-    crushR->process(audioR, audioR);
 
     if (samplesSinceLastTap < RECORD_BUFFER_SIZE)
     {
