@@ -7,67 +7,68 @@
 
 // #define TAP_THRESHOLD     64// 256 // 78Hz at 20kHz sampling rate, or 16th notes at 293BPM
 
-template<int TRIGGER_LIMIT>
+template<uint32_t TRIGGER_LIMIT>
 class TapTempo 
 {
 private:
   uint32_t limit;
   uint32_t trig;
   uint16_t speed;
-  bool ison;
+  bool bIsOn;
 public:
-  TapTempo(uint32_t tempo) : 
+  explicit TapTempo(const uint32_t tempo) : 
     limit(tempo), trig(TRIGGER_LIMIT), 
-    speed(2048), ison(false) {}
+    speed(2048), bIsOn(false) {}
 
-  void trigger(bool on)
+  void trigger(const bool on)
   {
     trigger(on, 0);
   }
 
-  bool isOn()
+  bool isOn() const
   {
-    return ison;
+    return bIsOn;
   }
 
-  void trigger(bool on, int delay)
+  void trigger(const bool on, const int delay)
   {
     // if(trig < TAP_THRESHOLD)
     //   return;
-    if(on && !ison)
+    if(on && !bIsOn)
     {
       if(trig < TRIGGER_LIMIT)
       {
+        // TODO: needs to be clamped I think, like in clock below.
         limit = trig + delay;
       }
       trig = 0;
 //      debugMessage("limit/delay", (int)limit, (int)delay);
     }
-    ison = on;
+    bIsOn = on;
   }
 
-  void setLimit(uint32_t value)
+  void setLimit(const uint32_t value)
   {
     limit = value;
   }
 
-  void setSpeed(int16_t s)
+  void setSpeed(const int16_t s)
   {
     if(abs(speed-s) > 16){
-      int64_t delta = (int64_t)limit*(speed-s)/2048;
-      limit = max((int64_t)1, limit+delta);
+      const int64_t delta = static_cast<int64_t>(limit)*(speed-s)/2048;
+      limit = max(static_cast<int64_t>(1), limit+delta);
       speed = s;
     }
   }
 
-  float getPeriod()
+  float getPeriod() const
   {
-    return float(limit)/TRIGGER_LIMIT;
+    return static_cast<float>(limit)/TRIGGER_LIMIT;
   }
 
-  float getFrequency()
+  float getFrequency() const
   {
-    return TRIGGER_LIMIT/float(limit);
+    return TRIGGER_LIMIT/static_cast<float>(limit);
   }
 
   void clock()
@@ -76,11 +77,10 @@ public:
       trig++;
   }
 
-  void clock(uint32_t steps)
+  void clock(const uint32_t steps)
   {
     trig += steps;
-    if(trig > TRIGGER_LIMIT)
-      trig = TRIGGER_LIMIT;
+    trig = min(trig, TRIGGER_LIMIT);
   }
 };
 
