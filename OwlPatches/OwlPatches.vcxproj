@@ -218,6 +218,17 @@
     <ClInclude Include="..\..\OwlProgram\LibSource\WavetableOscillator.h" />
     <ClInclude Include="..\..\OwlProgram\LibSource\WavFile.h" />
     <ClInclude Include="..\..\OwlProgram\LibSource\Window.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\device.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\heap.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\main.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\MemoryBuffer.hpp" />
+    <ClInclude Include="..\..\OwlProgram\Source\PatchMetadata.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\PatchProcessor.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\ProgramVector.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\SampleBuffer.hpp" />
+    <ClInclude Include="..\..\OwlProgram\Source\ServiceCall.h" />
+    <ClInclude Include="..\..\OwlProgram\Source\ShortBuffer.hpp" />
+    <ClInclude Include="..\..\OwlProgram\Source\system_tables.h" />
     <ClInclude Include="AllpassNetwork.h" />
     <ClInclude Include="BitCrusher.hpp" />
     <ClInclude Include="BlurKernel.h" />
@@ -253,6 +264,7 @@
     <ClInclude Include="MarkovChain.hpp" />
     <ClInclude Include="MarkovPatch.hpp" />
     <ClInclude Include="Noise.hpp" />
+    <ClInclude Include="PatchParameterDescription.h" />
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
     <ClInclude Include="Reverb.h" />
@@ -286,7 +298,30 @@
     <ClCompile Include="..\..\OwlProgram\LibSource\VoltsPerOctave.cpp" />
     <ClCompile Include="..\..\OwlProgram\LibSource\WavetableOscillator.cpp" />
     <ClCompile Include="..\..\OwlProgram\LibSource\Window.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\font.c" />
+    <ClCompile Include="..\..\OwlProgram\Source\heap_5.c" />
+    <ClCompile Include="..\..\OwlProgram\Source\main.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\message.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\operators.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\Patch.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\PatchMetadata.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\PatchProcessor.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\PatchProgram.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\SampleBufferTest.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\sbrk.c" />
+    <ClCompile Include="..\..\OwlProgram\Source\ShortPatchProgram.cpp" />
+    <ClCompile Include="..\..\OwlProgram\Source\system_tables.cpp" />
     <ClCompile Include="KissFFT.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\..\OwlProgram\Source\ccmheap.ld" />
+    <Content Include="..\..\OwlProgram\Source\flash.ld" />
+    <Content Include="..\..\OwlProgram\Source\owl1.ld" />
+    <Content Include="..\..\OwlProgram\Source\owl2.ld" />
+    <Content Include="..\..\OwlProgram\Source\owl3.ld" />
+    <Content Include="..\..\OwlProgram\Source\sramheap.ld" />
+    <Content Include="..\..\OwlProgram\Source\startup.s" />
+    <Content Include="..\..\OwlProgram\Source\STM32F746ZGTx_FLASH.ld" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

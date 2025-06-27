@@ -56,9 +56,10 @@ DESCRIPTION:
 #include <ios>
 
 #include "Patch.h"
+#include "PatchParameterDescription.h"
+
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
-
 #include "TapTempo.hpp"
 #include "BitCrusher.hpp"
 #include "EnvelopeFollower.h"
@@ -116,15 +117,25 @@ static constexpr GlitchSettings GLITCH_SETTINGS[] = {
 };
 static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
 
-constexpr PatchParameterId IN_REPEATS = PARAMETER_A;
-constexpr PatchParameterId IN_GLITCH = PARAMETER_C;
-constexpr PatchParameterId IN_SHAPE = PARAMETER_D;
-constexpr PatchParameterId IN_CRUSH = PARAMETER_B;
-constexpr PatchParameterId OUT_ENV = PARAMETER_F;
-constexpr PatchParameterId OUT_RAND = PARAMETER_G;
+constexpr FloatPatchParameterDescription IN_REPEATS = { "Repeats", 0, 1, 0.5f, 0.0f, 0.01f };
+constexpr FloatPatchParameterDescription IN_SHAPE = { "Shape", 0, 1, 0.75f };
+constexpr FloatPatchParameterDescription IN_CRUSH = { "Crush", 0, 1, 0.0f };
+constexpr FloatPatchParameterDescription IN_GLITCH = { "Glitch", 0, 1, 0 };
+constexpr FloatPatchParameterDescription IN_MIX = {"Mix", 0, 1, 0 };
+
+constexpr OutputParameterDescription OUT_ENV = { "Env", PARAMETER_F };
+constexpr OutputParameterDescription OUT_RAND = { "Rand", PARAMETER_G };
 
 class GlitchLich2Patch final : public Patch
 {
+  FloatParameter pinRepeats;
+  FloatParameter pinGlitch;
+  FloatParameter pinShape;
+  FloatParameter pinCrush;
+  FloatParameter pinMix;
+  OutputParameter poutEnv;
+  OutputParameter poutRand;
+  
   count_t freezeIdx;
   count_t freezeWriteCount;
   float freezeLength;
@@ -157,34 +168,31 @@ class GlitchLich2Patch final : public Patch
 
 public:
   GlitchLich2Patch()
-  : freezeIdx(0), freezeWriteCount(0)
-  , freezeLength(0), readLfo(0), readSpeed(1), glitchSettingsIdx(0)
-  , glitchLfo(0), glitchRand(0), readEndIdx(0), freezeCounter(0), glitchCounter(0)
-  , samplesSinceLastTap(RECORD_BUFFER_SIZE), clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
-  , freezeEnabled(false), glitchEnabled(false)
+    : poutEnv(this, OUT_ENV), poutRand(this, OUT_RAND)
+    , freezeIdx(0), freezeWriteCount(0), freezeLength(0)
+    , readLfo(0), readSpeed(1)
+    , glitchSettingsIdx(0), glitchLfo(0), glitchRand(0)
+    , readEndIdx(0), freezeCounter(0), glitchCounter(0)
+    , samplesSinceLastTap(RECORD_BUFFER_SIZE), clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
+    , freezeEnabled(false), glitchEnabled(false)
   {
     inputL = RecordBuffer::create(getBlockSize());
     inputR = RecordBuffer::create(getBlockSize());
     inputEnvelope = FloatArray::create(getBlockSize());
     bufferL = RecordBuffer::create(RECORD_BUFFER_SIZE);
     bufferR = RecordBuffer::create(RECORD_BUFFER_SIZE);
-    
+
     dcFilter = StereoDcBlockingFilter::create(0.995f);
-    envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize()*8, getSampleRate());
+    envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize() * 8, getSampleRate());
     crushL = BitCrush::create(getSampleRate(), getSampleRate());
     crushR = BitCrush::create(getSampleRate(), getSampleRate());
 
-    registerParameter(IN_REPEATS, "Repeats");
-    registerParameter(IN_SHAPE, "Shape");
-    registerParameter(IN_GLITCH, "Glitch");
-    registerParameter(IN_CRUSH, "Crush");
-    registerParameter(OUT_ENV, "Env>");
-    registerParameter(OUT_RAND, "Rand>");
-
-    setParameterValue(IN_REPEATS, 0.5f);
-    setParameterValue(IN_SHAPE, 0.75f);
-    setParameterValue(IN_GLITCH, 0);
-    setParameterValue(IN_CRUSH, 0);
+    // order of registration determines parameter assignment, starting from PARAMETER_A
+    pinRepeats = IN_REPEATS.registerParameter(this);
+    pinCrush = IN_CRUSH.registerParameter(this);
+    pinGlitch = IN_GLITCH.registerParameter(this);
+    pinShape = IN_SHAPE.registerParameter(this);
+    pinMix = IN_MIX.registerParameter(this);
   }
 
   ~GlitchLich2Patch() override
@@ -272,7 +280,7 @@ public:
 
     clock.clock(size);
 
-    const float smoothFreeze = getParameterValue(IN_REPEATS);
+    const float smoothFreeze = pinRepeats.getValue(); // getParameterValue(IN_REPEATS);
     for (freezeIdx = 0; freezeIdx < FREEZE_SETTINGS_COUNT - 1; freezeIdx++)
     {
       if (smoothFreeze >= FREEZE_SETTINGS[freezeIdx].paramThresh && smoothFreeze < FREEZE_SETTINGS[freezeIdx+1].paramThresh)
@@ -288,17 +296,19 @@ public:
     {
       if (freezeIdx < FREEZE_SETTINGS_COUNT - 1)
       {
-        const float x1 = smoothFreeze - static_cast<float>(freezeIdx);
-        const float x0 = 1.0f - x1;
-        newFreezeLength = newFreezeLength * x0 + (freezeDuration(freezeIdx + 1)*(RECORD_BUFFER_SIZE - 1))*x1;
-        newReadSpeed = newReadSpeed * x0 + (freezeSpeed(freezeIdx + 1) / newFreezeLength)*x1;
+        const float p0 = FREEZE_SETTINGS[freezeIdx].paramThresh;
+        const float p1 = FREEZE_SETTINGS[freezeIdx+1].paramThresh;
+        const float t = (smoothFreeze - p0) / (p1 - p0);
+        const float d1 = freezeDuration(freezeIdx + 1)*(RECORD_BUFFER_SIZE - 1);
+        newFreezeLength = newFreezeLength + (d1 - newFreezeLength)*t;
+        newReadSpeed = newReadSpeed + (freezeSpeed(freezeIdx + 1) / d1 - newReadSpeed)*t;
       }
     }
 
     const float sr = getSampleRate();
-    const float crush = getParameterValue(IN_CRUSH);
+    const float crush = pinCrush.getValue(); // getParameterValue(IN_CRUSH);
     const float bits = crush > 0.001f ? (16.f - crush * 12.0f) : 24;
-    const float rate = crush > 0.001f ? sr * 0.25f + getParameterValue(IN_CRUSH)*(100 - sr * 0.25f) : sr;
+    const float rate = crush > 0.001f ? sr * 0.25f + crush*(100 - sr * 0.25f) : sr;
     crushL->setBitDepth(bits);
     crushL->setBitRate(rate);
     crushR->setBitDepth(bits);
@@ -345,7 +355,7 @@ public:
     crushL->process(audioL, audioL);
     crushR->process(audioR, audioR);
 
-    const float glitchParam = getParameterValue(IN_GLITCH);
+    const float glitchParam = pinGlitch.getValue(); // getParameterValue(IN_GLITCH);
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
     const float dropSpeed = 1.0f / (glitchDuration(glitchSettingsIdx) * (RECORD_BUFFER_SIZE - 1));
     const float dropProb = glitchParam < 0.0001f ? 0 : 0.1f + 0.9f*glitchParam;
@@ -370,7 +380,7 @@ public:
     FloatArray::copy(inputL->getData(), audioL.getData(), size);
     FloatArray::copy(inputR->getData(), audioR.getData(), size);
 
-    const float shapeParam = getParameterValue(IN_SHAPE);
+    const float shapeParam = pinShape.getValue(); // getParameterValue(IN_SHAPE);
     const float shapeWet = shapeParam;
     const float shapeDry = 1.0f - shapeWet;
     for (count_t i = 0; i < size; ++i)
@@ -387,9 +397,9 @@ public:
     {
       samplesSinceLastTap += size;
     }
-    
-    setParameterValue(OUT_ENV, inputEnvelope[0]);
-    setParameterValue(OUT_RAND, glitchRand);
+
+    poutEnv.setValue(inputEnvelope[0]);
+    poutRand.setValue(glitchRand);
     setButton(PUSHBUTTON, readLfo < 0.5f);
   }
 
