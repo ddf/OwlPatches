@@ -249,7 +249,7 @@ public:
     return low + frac * (high - low);
   }
 
-  float freezeDuration(const count_t idx)
+  float freezeDuration(const count_t idx) const
   {
     float dur = clock.getPeriod() * FREEZE_SETTINGS[idx].clockRatio;
     dur = max(0.0001f, min(0.9999f, dur));
@@ -261,7 +261,7 @@ public:
     return FREEZE_SETTINGS[idx].playbackSpeed;
   }
 
-  float glitchDuration(const count_t idx)
+  float glitchDuration(const count_t idx) const
   {
     float dur = clock.getPeriod() * GLITCH_SETTINGS[idx].clockRatio;
     dur = max(0.0001f, min(0.9999f, dur));
