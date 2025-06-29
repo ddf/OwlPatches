@@ -445,9 +445,11 @@ public:
         glitchCounter = 0;
       }
 
-      const bool mangle = freezeEnabled && on;
-      crushL->setMangle(mangle);
-      crushR->setMangle(mangle);
+      // decided to remove this because it makes it impossible to get clean repeats, even with crush turned all the way down.
+      // may revisit the idea later - might be interesting to do this as something that can blend in.
+      // const bool mangle = freezeEnabled && on;
+      // crushL->setMangle(mangle);
+      // crushR->setMangle(mangle);
     }
   }
 
