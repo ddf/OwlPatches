@@ -36,11 +36,24 @@ struct InputParameterDescription
   }
 };
 
+// explicit instantiation declarations to suppress clang warnings
+template<>
+PatchParameter<float>::PatchParameter();
+
+template<>
+PatchParameter<float>& PatchParameter<float>::operator=(const PatchParameter<float>& other);  // NOLINT(clang-diagnostic-deprecated-copy-with-user-provided-copy)
+
 template<>
 inline PatchParameter<float> InputParameterDescription<float>::registerParameter(Patch* withPatch) const
 {
   return withPatch->getFloatParameter(name, minValue, maxValue, defaultValue, lambda, delta, skewToFloat());
 }
+
+template<>
+PatchParameter<int>::PatchParameter();
+
+template<>
+PatchParameter<int>& PatchParameter<int>::operator=(const PatchParameter<int>& other);   // NOLINT(clang-diagnostic-deprecated-copy-with-user-provided-copy)
 
 template<>
 inline PatchParameter<int> InputParameterDescription<int>::registerParameter(Patch* withPatch) const
