@@ -31,9 +31,9 @@ DESCRIPTION:
     The ball will reflect off of all four sides of the screen (walls) as well as the paddles.
     @todo When the ball reflects off of a wall, a trigger is emitted at Gate Out 1.
     @todo When the ball reflects off of a paddle, a trigger is emitted at Gate Out 2.
-    @todo The left audio output is the normalized x coordinate of the ball.
-    @todo The right audio output is the normalized Y coordinate of the ball.
-    @todo (0,0) is the center of the screen with positive coordinates to the right and above, negative to the left and below.
+    The left audio output is the normalized x coordinate of the ball.
+    The right audio output is the normalized Y coordinate of the ball.
+    (0,0) is the center of the screen with positive coordinates to the right and above, negative to the left and below.
 */
 
 #pragma once
@@ -41,6 +41,7 @@ DESCRIPTION:
 #include "MonochromeScreenPatch.h"
 #include "PatchParameter.h"
 #include "basicmaths.h"
+#include "Easing.h"
 #include "PatchParameterDescription.h"
 
 typedef uint32_t count_t;
@@ -65,20 +66,22 @@ class Ball
   float dx, dy;
   coord_t r;
 public:
-  Ball(const coord_t cx, const coord_t cy, const coord_t r): cx(cx), cy(cy), dx(1), dy(1), r(r) {}
+  Ball(const coord_t cx, const coord_t cy, const coord_t r): cx(cx), cy(cy), dx(2), dy(1), r(r) {}
   void draw(MonochromeScreenBuffer& screen) const;
   void moveBy(float sx, float sy);
   void collideWith(const Paddle& paddle, const float dt);
+  float getX() const { return cx; }
+  float getY() const { return cy; }
 };
 
-static constexpr coord_t PAD_HW = 1;
-static constexpr coord_t PAD_HH = 8;
-static constexpr float   PAD_MAX_SPEED = 150;
-static constexpr coord_t BALL_R = 1;
-static constexpr float   BALL_MAX_SPEED = 150;
 // hard-coding until I can get this implemented in MonochromeScreenPatch
 static constexpr coord_t SCREEN_W = 128;
 static constexpr coord_t SCREEN_H = 64;
+static constexpr coord_t PAD_HW = 1;
+static constexpr coord_t PAD_HH = 8;
+static constexpr float   PAD_MAX_SPEED = 220.0f;
+static constexpr coord_t BALL_R = 1;
+static constexpr float   BALL_MAX_SPEED = SCREEN_H*440.0f;
 
 class PlingPatch final : public MonochromeScreenPatch
 {
@@ -97,8 +100,8 @@ public:
   : poutPadLeft(this, { "Pad Left", PARAMETER_F })
   , poutPadRight(this, {"Pad Right", PARAMETER_G})
   {
-    pinPadLeft = getFloatParameter("Pad Left", 0, 1, 0.25f, 0.95f);
-    pinPadRight = getFloatParameter("Pad Right", 0, 1, 0.25f, 0.95f);
+    pinPadLeft = getFloatParameter("Pad Left", 0, 1, 0.25f, 0.95f, 0, Patch::LIN);
+    pinPadRight = getFloatParameter("Pad Right", 0, 1, 0.25f, 0.95f, 0, Patch::LIN);
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -111,6 +114,9 @@ public:
 
     FloatArray inputLeft = audio.getSamples(LEFT_CHANNEL);
     FloatArray inputRight = audio.getSamples(RIGHT_CHANNEL);
+
+    FloatArray outputLeft = audio.getSamples(LEFT_CHANNEL);
+    FloatArray outputRight = audio.getSamples(RIGHT_CHANNEL);
     
     for (count_t i = 0; i < size; i++)
     {
@@ -120,12 +126,17 @@ public:
       // pad move may have caused overlap with the ball
       ballLeft.collideWith(padLeft, dt);
       ballLeft.collideWith(padRight, dt);
-
-      ballLeft.moveBy(ballStep*abs(inputLeft[i]), -ballStep*abs(inputRight[i]));
+      
+      const float sl = 1.0f - Easing::expoOut(inputLeft[i]*0.5f + 0.5f);
+      const float sr = 1.0f - Easing::expoOut(inputRight[i]*0.5f + 0.5f);
+      ballLeft.moveBy(ballStep*sl, ballStep*sr);
 
       // ball move may have caused overlap with a pad
       ballLeft.collideWith(padLeft, dt);
       ballLeft.collideWith(padRight, dt);
+
+      outputLeft[i] = Easing::interp(-1.f, 1.f, ballLeft.getX()/SCREEN_W);
+      outputRight[i] = Easing::interp(-1.f, 1.f, ballLeft.getY()/SCREEN_H);
       
       // ballRight.moveBy(dt*abs(inputRight[i]));
       // ballRight.collideWith(padLeft, dt);

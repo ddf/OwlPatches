@@ -8,6 +8,7 @@
 // s is sigmoid, I think.
 
 #include "basicmaths.h"
+#include "EqualLoudnessCurves.h"
 
 namespace Easing
 {
@@ -37,10 +38,23 @@ namespace Easing
   {
     return t < 0.5f ? quadOut(2.0f*t) * 0.5f : 1.0f - quadOut(2.0f*t) * 0.5f;
   }
-  
-  static float expoOut(float begin, float end, float t, float d = 1.0f)
+
+  static float expoIn(const float t)
   {
-    return (end-begin) * (-powf(2, -10 * t / d) + 1) + begin;
+    return t == 0.0f ? 0 : powf(2.0f, 10*t - 10);
+  }
+  
+  static float expoOut(const float t)
+  {
+    return t == 1.0f ? 1.0f : 1.0f - powf(2.0f, -10*t);
+  }
+
+  static float expoInOut(const float t)
+  {
+    return t == 0.0f ? 0.0f
+                     : t == 1.0f ? 1.0f
+                                 : t < 0.5f ? powf(2, 20*t-10)*0.5f
+                                            : 2.0f - powf(2, -20*t+10)*0.5f;
   }
 
   static float interp(const float begin, const float end, const float t, const Func func = linear)
