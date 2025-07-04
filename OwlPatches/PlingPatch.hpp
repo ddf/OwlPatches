@@ -29,12 +29,17 @@ DESCRIPTION:
     The right audio input controls the speed of the ball's motion along the y-axis.
     Negative signals slow the ball down along that axis, positive speed it up with an exponential response.
     The ball will reflect off of all four sides of the screen (walls) as well as the paddles.
-    Reflections give the ball a small burst of speed that decays over time (i.e. walls and paddles are "bouncy").
     When the ball reflects off of a wall, a trigger is emitted at Gate Out 1.
     When the ball reflects off of a paddle, a trigger is emitted at Gate Out 2.
+    Reflections off of paddles adds some extra velocity to the ball based on how fast a paddle is moving on contact.
+    Reflections off of walls dampen added velocity to slow the ball down.
+    A small amount of drag is applied to the added velocity when the ball moves through empty space.
     The left audio output is the normalized x coordinate of the ball.
     The right audio output is the normalized Y coordinate of the ball.
     (0,0) is the center of the screen with positive coordinates to the right and above, negative to the left and below.
+    A trigger at Gate In 1 or pressing Button 1 will relaunch the ball from the center of the left paddle.
+    A trigger at Gate In 2 or pressing Button 2 will relaunch the ball from the center of the right paddle.
+    Ball velocity is cleared when relaunched.
 */
 
 #pragma once
@@ -61,6 +66,9 @@ public:
   float getPositionNormalized() const;
   void  setSpeed(const float v) { s = v;}
   float getSpeed() const {return s;}
+  float getX() const { return cx; }
+  float getY() const { return cy; }
+  float getD() const { return d; }
 };
 
 class Ball
@@ -76,6 +84,9 @@ public:
   bool collideWith(const Paddle& paddle, const float dt);
   float getX() const { return cx; }
   float getY() const { return cy; }
+  void moveTo(const float x, const float y) { cx = x; cy = y; }
+  void setDirection(const float dxn, const float dyn) { dx = 2*dxn; dy = dyn; }
+  void clearVelocity() { vx = vy = 0.0f; }
 };
 
 // hard-coding until I can get this implemented in MonochromeScreenPatch
@@ -97,8 +108,7 @@ class PlingPatch final : public MonochromeScreenPatch
   
   Paddle padLeft{ PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH, 1 };
   Paddle padRight{ SCREEN_W-PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH, -1 };
-  Ball ballLeft{ BALL_R, SCREEN_H/2, BALL_R };
-  Ball ballRight{ SCREEN_W-BALL_R, SCREEN_H/2, BALL_R };
+  Ball ball{ BALL_R, SCREEN_H/2, BALL_R };
   
 public:
   PlingPatch()
@@ -133,19 +143,19 @@ public:
       padRight.tick(dt);
       
       // pad move may have caused overlap with the ball
-      bool padCollide = ballLeft.collideWith(padLeft, dt);
-      padCollide |= ballLeft.collideWith(padRight, dt);
+      bool padCollide = ball.collideWith(padLeft, dt);
+      padCollide |= ball.collideWith(padRight, dt);
       
       const float sl = 1.0f - Easing::expoOut(inputLeft[i]*0.5f + 0.5f);
       const float sr = 1.0f - Easing::expoOut(inputRight[i]*0.5f + 0.5f);
-      const bool wallCollide = ballLeft.tick(BALL_MAX_SPEED*sl, BALL_MAX_SPEED*sr, dt);
+      const bool wallCollide = ball.tick(BALL_MAX_SPEED*sl, BALL_MAX_SPEED*sr, dt);
 
       // ball move may have caused overlap with a pad
-      padCollide |= ballLeft.collideWith(padLeft, dt);
-      padCollide |= ballLeft.collideWith(padRight, dt);
+      padCollide |= ball.collideWith(padLeft, dt);
+      padCollide |= ball.collideWith(padRight, dt);
 
-      outputLeft[i] = Easing::interp(-1.f, 1.f, ballLeft.getX()/SCREEN_W);
-      outputRight[i] = Easing::interp(-1.f, 1.f, ballLeft.getY()/SCREEN_H);
+      outputLeft[i] = Easing::interp(-1.f, 1.f, ball.getX()/SCREEN_W);
+      outputRight[i] = Easing::interp(-1.f, 1.f, ball.getY()/SCREEN_H);
 
       if (padCollide && padCollideSample == size)
       {
@@ -156,10 +166,6 @@ public:
       {
         wallCollideSample = i;
       }
-      
-      // ballRight.moveBy(dt*abs(inputRight[i]));
-      // ballRight.collideWith(padLeft, dt);
-      // ballRight.collideWith(padRight, dt);
     }
 
     setButton(BUTTON_1, wallCollideSample < size, static_cast<uint16_t>(wallCollideSample));
@@ -174,8 +180,23 @@ public:
     
     padLeft.draw(screen);
     padRight.draw(screen);
-    ballLeft.draw(screen);
-    // ballRight.draw(screen);
+    ball.draw(screen);
+  }
+  
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
+  {
+    if (bid == BUTTON_1 && value == ON)
+    {
+      ball.moveTo(padLeft.getX()+PAD_HW*2, padLeft.getY());
+      ball.setDirection(1.0, padLeft.getD());
+      ball.clearVelocity();
+    }
+    else if (bid == BUTTON_2 && value == ON)
+    {
+      ball.moveTo(padRight.getX()-BALL_R*2, padRight.getY());
+      ball.setDirection(-1.0, padRight.getD());
+      ball.clearVelocity();
+    }
   }
 };
 
@@ -287,7 +308,6 @@ inline bool Ball::collideWith(const Paddle& paddle, const float dt)
   coord_t rx = lx+r+r;
   coord_t by = static_cast<coord_t>(cy) - r;
   coord_t ty = by+r+r;
-  const float step = 10.0f;
   bool collided = false;
   if (dx < 0)
   {
@@ -300,6 +320,7 @@ inline bool Ball::collideWith(const Paddle& paddle, const float dt)
 
   if (collided)
   {
+    constexpr float step = 10.0f;
     dx *= -1;
     vx += paddle.getSpeed()*0.25f;
     vy += paddle.getSpeed()*0.25f;
