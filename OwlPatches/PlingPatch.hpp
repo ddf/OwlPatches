@@ -86,7 +86,10 @@ public:
   float getY() const { return cy; }
   void moveTo(const float x, const float y) { cx = x; cy = y; }
   void setDirection(const float dxn, const float dyn) { dx = 2*dxn; dy = dyn; }
+  void addVelocity(const float avx, const float avy) { vx += avx; vy += avy; }
   void clearVelocity() { vx = vy = 0.0f; }
+  float getDX() const { return dx*0.5f; }
+  float getDY() const { return dy; }
 };
 
 // hard-coding until I can get this implemented in MonochromeScreenPatch
@@ -99,7 +102,8 @@ static constexpr float PAD_MAX_SPEED = 2*440.0f - PAD_MIN_SPEED;
 static constexpr coord_t BALL_R = 1;
 static constexpr float   BALL_DRAG = 0.0001f;
 static constexpr float   BALL_SPEED_PARAM_MAX = 2200;
-static constexpr  float  BALL_SPEED_MAX = BALL_SPEED_PARAM_MAX*24000;
+static constexpr float   BALL_SPEED_MAX = BALL_SPEED_PARAM_MAX*24000;
+static constexpr float   BALL_KICK_SPEED = BALL_SPEED_PARAM_MAX*0.25f;
 
 class PlingPatch final : public MonochromeScreenPatch
 {
@@ -189,15 +193,22 @@ public:
   {
     if (bid == BUTTON_1 && value == ON)
     {
-      ball.moveTo(padLeft.getX()+PAD_HW*2, padLeft.getY());
-      ball.setDirection(1.0, padLeft.getD());
-      ball.clearVelocity();
+      // ball.moveTo(padLeft.getX()+PAD_HW*2, padLeft.getY());
+      // ball.setDirection(1.0, padLeft.getD());
+      // ball.clearVelocity();
+
+      ball.setDirection(1, ball.getDY());
+      ball.addVelocity(BALL_KICK_SPEED, BALL_KICK_SPEED);
     }
     else if (bid == BUTTON_2 && value == ON)
     {
-      ball.moveTo(padRight.getX()-BALL_R*2, padRight.getY());
-      ball.setDirection(-1.0, padRight.getD());
-      ball.clearVelocity();
+      // ball.moveTo(padRight.getX()-BALL_R*2, padRight.getY());
+      // ball.setDirection(-1.0, padRight.getD());
+      // ball.clearVelocity();
+
+      ball.setDirection(-1, ball.getDY());
+      
+      ball.addVelocity(BALL_KICK_SPEED, BALL_KICK_SPEED);
     }
   }
 };
