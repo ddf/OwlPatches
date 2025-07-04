@@ -37,8 +37,8 @@ DESCRIPTION:
     The left audio output is the normalized x coordinate of the ball.
     The right audio output is the normalized Y coordinate of the ball.
     (0,0) is the center of the screen with positive coordinates to the right and above, negative to the left and below.
-    A trigger at Gate In 1 or pressing Button 1 will relaunch the ball from the center of the left paddle.
-    A trigger at Gate In 2 or pressing Button 2 will relaunch the ball from the center of the right paddle.
+    A trigger at Gate In 1 or pressing Button 1 will "kick" the ball to right.
+    A trigger at Gate In 2 or pressing Button 2 will "kick" the ball to the left.
     Ball velocity is cleared when relaunched.
 */
 
