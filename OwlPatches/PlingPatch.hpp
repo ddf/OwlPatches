@@ -94,10 +94,12 @@ static constexpr coord_t SCREEN_W = 128;
 static constexpr coord_t SCREEN_H = 64;
 static constexpr coord_t PAD_HW = 1;
 static constexpr coord_t PAD_HH = 8;
-static constexpr float   PAD_MAX_SPEED = 220.0f;
+static constexpr float PAD_MIN_SPEED = 10.0f;
+static constexpr float PAD_MAX_SPEED = 2*440.0f - PAD_MIN_SPEED;
 static constexpr coord_t BALL_R = 1;
-static constexpr float   BALL_DRAG = 0.00001f;
-static constexpr float   BALL_MAX_SPEED = SCREEN_H*440.0f;
+static constexpr float   BALL_DRAG = 0.0001f;
+static constexpr float   BALL_SPEED_PARAM_MAX = 2200;
+static constexpr  float  BALL_SPEED_MAX = BALL_SPEED_PARAM_MAX*24000;
 
 class PlingPatch final : public MonochromeScreenPatch
 {
@@ -115,16 +117,16 @@ public:
   : poutPadLeft(this, { "Pad Left", PARAMETER_F })
   , poutPadRight(this, {"Pad Right", PARAMETER_G})
   {
-    pinPadLeft = getFloatParameter("Pad Left", 0, 1, 0.25f, 0.95f, 0, Patch::LIN);
-    pinPadRight = getFloatParameter("Pad Right", 0, 1, 0.25f, 0.95f, 0, Patch::LIN);
+    pinPadLeft = getFloatParameter("Pad Left", 0, 1, 0.f, 0.95f, 0, Patch::LIN);
+    pinPadRight = getFloatParameter("Pad Right", 0, 1, 0.f, 0.95f, 0, Patch::LIN);
   }
 
   void processAudio(AudioBuffer& audio) override
   {
     const count_t size = audio.getSize();
     const float dt = 1.0f / getSampleRate();
-    const float padLeftSpeed  = PAD_MAX_SPEED*pinPadLeft.getValue();
-    const float padRightSpeed = PAD_MAX_SPEED*pinPadRight.getValue();
+    const float padLeftSpeed  = PAD_MIN_SPEED + PAD_MAX_SPEED*pinPadLeft.getValue();
+    const float padRightSpeed = PAD_MIN_SPEED + PAD_MAX_SPEED*pinPadRight.getValue();
 
     padLeft.setSpeed(padLeftSpeed);
     padRight.setSpeed(padRightSpeed);
@@ -148,7 +150,7 @@ public:
       
       const float sl = 1.0f - Easing::expoOut(inputLeft[i]*0.5f + 0.5f);
       const float sr = 1.0f - Easing::expoOut(inputRight[i]*0.5f + 0.5f);
-      const bool wallCollide = ball.tick(BALL_MAX_SPEED*sl, BALL_MAX_SPEED*sr, dt);
+      const bool wallCollide = ball.tick(BALL_SPEED_PARAM_MAX*sl, BALL_SPEED_PARAM_MAX*sr, dt);
 
       // ball move may have caused overlap with a pad
       padCollide |= ball.collideWith(padLeft, dt);
@@ -258,7 +260,7 @@ inline bool Ball::tick(const float sx, const float sy, const float dt)
   bool collidedX = false;
   bool collidedY = false;
   
-  cx += dx*clamp(sx+vx, 0, BALL_MAX_SPEED*50)*dt;
+  cx += dx*clamp(sx+vx, 0, BALL_SPEED_MAX)*dt;
   if (cx < 0)
   {
     cx = -cx;
@@ -272,7 +274,7 @@ inline bool Ball::tick(const float sx, const float sy, const float dt)
     collidedX = true;
   }
   
-  cy += dy*clamp(sy+vy, 0, BALL_MAX_SPEED*50)*dt;
+  cy += dy*clamp(sy+vy, 0, BALL_SPEED_MAX)*dt;
   if (cy < 0)
   {
     cy = -cy;
@@ -322,8 +324,8 @@ inline bool Ball::collideWith(const Paddle& paddle, const float dt)
   {
     constexpr float step = 10.0f;
     dx *= -1;
-    vx += paddle.getSpeed()*0.25f;
-    vy += paddle.getSpeed()*0.25f;
+    vx += paddle.getSpeed();
+    vy += paddle.getSpeed();
     tick(step, step, dt);
     return true;
   }
