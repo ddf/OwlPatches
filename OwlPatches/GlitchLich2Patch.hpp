@@ -1,7 +1,7 @@
 /**
 
 AUTHOR:
-    (c) 2021 Damien Quartz
+    (c) 2021-2025 Damien Quartz
 
 LICENSE:
     This program is free software: you can redistribute it and/or modify
@@ -19,36 +19,30 @@ LICENSE:
 
 
 DESCRIPTION:
-    A clockable freeze / stutter / bit crush effect.
+    A clockable freeze / bitcrush / glitch effect.
 
     Parameter A controls the length of the freeze buffer.
-    Parameter B controls the speed at which it is looped.
-    At 12 o'clock, the freeze buffer length is one clock tick.
-    Turning CCW divides down to 1/4 of a clock tick
-    and CW increases to 4 clock ticks, using musical divisions.
-    Speed works the same way with the right-hand side of the knob
-    going from 1/4x to 4x and the left-hand side doing the same,
-    but in reverse. When not externally clocked, buffer length
-    and speed are not snapped to fixed ratios.
 
-    Knob C is a stutter effect inspired by Paratek's P3PB.
-    Fully CCW the effect is off and turning CW it will
-    randomly drop out audio on musical divisions of the clock
-    from /8 to 8x with a higher probably of drop out as the rate
-    increases.  CV Out 2 is the random value used by stutter
-    to test if drop out should occur.
+    Parameter B controls the amount of bitcrush,
+    which is a mix of bit reduction and rate reduction.
 
-    Knob D is a bit crush effect that reduces both sample rate
-    and bit depth as it is turned from fully CCW to CW.
+    Parameter C controls a glitch effect,
+    which mangles the result of frozen, bitcrushed input
+    at regular intervals based on the clock,
+    increasing in frequency as the parameter is increased.
 
-    The first button and Gate A enable freeze.
-    The second button is for tap tempo and Gate B for external clock.
+    Parameter D controls the mix of a wave shaping effect that
+    reinterprets the result of the glitch effect as if it is a
+    wave table, using the dry input as phase, modulated by
+    an envelope follower that tracks the dry input signal level.
+
+    Button 1 and Gate A enable freeze.
+    Button 2 is for tap tempo and Gate B for external clock.
     Gate Out is the internal clock for the freeze loop,
-    which is influenced by both the A and B knobs,
-    even when freeze is not activated.
+    which is influenced by Parameter A even when freeze is not activated.
 
-    CV Out 1 is a ramp that represents the read head for the freeze loop,
-    which rises with forward playback and descends when reversed.
+    CV Out 1 is the envelope follower sampled at block rate.
+    CV Out 2 is the random value used to determine when the engage glitch.
 
 */
 #pragma once
@@ -126,7 +120,7 @@ constexpr FloatPatchParameterDescription IN_MIX = {"Mix", 0, 1, 0 };
 constexpr OutputParameterDescription OUT_ENV = { "Env", PARAMETER_F };
 constexpr OutputParameterDescription OUT_RAND = { "Rand", PARAMETER_G };
 
-class GlitchLich2Patch final : public Patch
+class GlitchLich2Patch final : public Patch  // NOLINT(cppcoreguidelines-special-member-functions)
 {
   FloatParameter pinRepeats;
   FloatParameter pinGlitch;
@@ -153,12 +147,10 @@ class GlitchLich2Patch final : public Patch
   
   StereoDcBlockingFilter* dcFilter;
   EnvelopeFollower* envelopeFollower;
-  RecordBuffer* inputL;
-  RecordBuffer* inputR;
-  RecordBuffer* bufferL;
-  RecordBuffer* bufferR;
-  BitCrush* crushL;
-  BitCrush* crushR;
+  BitCrush* crush[2];
+  
+  RecordBuffer* processBuffer[2];
+  RecordBuffer* freezeBuffer[2];
 
   FloatArray inputEnvelope;
   Clock clock;
@@ -176,16 +168,16 @@ public:
     , samplesSinceLastTap(RECORD_BUFFER_SIZE), clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
     , freezeEnabled(false), glitchEnabled(false)
   {
-    inputL = RecordBuffer::create(getBlockSize());
-    inputR = RecordBuffer::create(getBlockSize());
     inputEnvelope = FloatArray::create(getBlockSize());
-    bufferL = RecordBuffer::create(RECORD_BUFFER_SIZE);
-    bufferR = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    processBuffer[LEFT_CHANNEL]  = RecordBuffer::create(getBlockSize());
+    processBuffer[RIGHT_CHANNEL] = RecordBuffer::create(getBlockSize());
+    freezeBuffer[LEFT_CHANNEL]  = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    freezeBuffer[RIGHT_CHANNEL] = RecordBuffer::create(RECORD_BUFFER_SIZE);
 
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize() * 8, getSampleRate());
-    crushL = BitCrush::create(getSampleRate(), getSampleRate());
-    crushR = BitCrush::create(getSampleRate(), getSampleRate());
+    crush[LEFT_CHANNEL] = BitCrush::create(getSampleRate(), getSampleRate());
+    crush[RIGHT_CHANNEL] = BitCrush::create(getSampleRate(), getSampleRate());
 
     // order of registration determines parameter assignment, starting from PARAMETER_A
     pinRepeats = IN_REPEATS.registerParameter(this);
@@ -200,10 +192,12 @@ public:
     StereoDcBlockingFilter::destroy(dcFilter);
     EnvelopeFollower::destroy(envelopeFollower);
     FloatArray::destroy(inputEnvelope);
-    RecordBuffer::destroy(bufferL);
-    RecordBuffer::destroy(bufferR);
-    BitCrush::destroy(crushL);
-    BitCrush::destroy(crushR);
+    RecordBuffer::destroy(processBuffer[LEFT_CHANNEL]);
+    RecordBuffer::destroy(processBuffer[RIGHT_CHANNEL]);
+    RecordBuffer::destroy(freezeBuffer[LEFT_CHANNEL]);
+    RecordBuffer::destroy(freezeBuffer[RIGHT_CHANNEL]);
+    BitCrush::destroy(crush[LEFT_CHANNEL]);
+    BitCrush::destroy(crush[RIGHT_CHANNEL]);
   }
 
 
@@ -306,25 +300,38 @@ public:
     }
 
     const float sr = getSampleRate();
-    const float crush = pinCrush.getValue(); // getParameterValue(IN_CRUSH);
-    const float bits = crush > 0.001f ? (16.f - crush * 12.0f) : 24;
-    const float rate = crush > 0.001f ? sr * 0.25f + crush*(100 - sr * 0.25f) : sr;
-    crushL->setBitDepth(bits);
-    crushL->setBitRate(rate);
-    crushR->setBitDepth(bits);
-    crushR->setBitRate(rate);
+    const float crushParam = pinCrush.getValue(); // getParameterValue(IN_CRUSH);
+    const float bits = crushParam > 0.001f ? (16.f - crushParam*12.0f) : 24;
+    const float rate = crushParam > 0.001f ? sr * 0.25f + crushParam*(100 - sr * 0.25f) : sr;
+    crush[LEFT_CHANNEL]->setBitDepth(bits);
+    crush[LEFT_CHANNEL]->setBitRate(rate);
+    crush[RIGHT_CHANNEL]->setBitDepth(bits);
+    crush[RIGHT_CHANNEL]->setBitRate(rate);
 
     dcFilter->process(audio, audio);
     envelopeFollower->process(audio, inputEnvelope);
 
-    FloatArray audioL = audio.getSamples(LEFT_CHANNEL);
-    FloatArray audioR = audio.getSamples(RIGHT_CHANNEL);
+    FloatArray inputL = audio.getSamples(LEFT_CHANNEL);
+    FloatArray inputR = audio.getSamples(RIGHT_CHANNEL);
 
+    // just for readability in the final processing loop
+    FloatArray outputL = audio.getSamples(LEFT_CHANNEL);
+    FloatArray outputR = audio.getSamples(RIGHT_CHANNEL);
+
+    FloatArray processedL(processBuffer[LEFT_CHANNEL]->getData(), processBuffer[LEFT_CHANNEL]->getSize());
+    FloatArray processedR(processBuffer[RIGHT_CHANNEL]->getData(), processBuffer[RIGHT_CHANNEL]->getSize());
+
+    inputL.copyTo(processedL);
+    inputR.copyTo(processedR);
+
+    RecordBuffer* freezeBufferL = freezeBuffer[LEFT_CHANNEL];
+    RecordBuffer* freezeBufferR = freezeBuffer[RIGHT_CHANNEL];
+    
     const count_t writeSize = freezeEnabled ? freezeWriteCount : size;
     for (count_t i = 0; i < writeSize; ++i)
     {
-      bufferL->write(audioL[i]);
-      bufferR->write(audioR[i]);
+      freezeBufferL->write(inputL[i]);
+      freezeBufferR->write(inputR[i]);
     }
     freezeWriteCount = 0;
 
@@ -334,26 +341,21 @@ public:
     {
       const float x1 = static_cast<float>(i) / fSize;
       const float x0 = 1.0f - x1;
-      float outL = audioL[i];
-      float outR = audioR[i];
       if (freezeEnabled)
       {
         const float read0 = fEnd - freezeLength + readLfo * freezeLength;
         const float read1 = fEnd - newFreezeLength + readLfo * newFreezeLength;
-        outL = interpolatedReadAt(bufferL, read0)*x0 + interpolatedReadAt(bufferL, read1)*x1;
-        outR = interpolatedReadAt(bufferR, read0)*x0 + interpolatedReadAt(bufferR, read1)*x1;
+        processedL[i] = interpolatedReadAt(freezeBufferL, read0)*x0 + interpolatedReadAt(freezeBufferL, read1)*x1;
+        processedR[i] = interpolatedReadAt(freezeBufferR, read0)*x0 + interpolatedReadAt(freezeBufferR, read1)*x1;
       }
       stepReadLfo(readSpeed*x0 + newReadSpeed * x1);
-
-      audioL[i] = outL;
-      audioR[i] = outR;
     }
     
     freezeLength = newFreezeLength;
     readSpeed = newReadSpeed;
 
-    crushL->process(audioL, audioL);
-    crushR->process(audioR, audioR);
+    crush[LEFT_CHANNEL]->process(processedL, processedL);
+    crush[RIGHT_CHANNEL]->process(processedR, processedR);
 
     const float glitchParam = pinGlitch.getValue(); // getParameterValue(IN_GLITCH);
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
@@ -370,15 +372,12 @@ public:
       if (glitchEnabled)
       {
         const int d = static_cast<int>(i) + 1;
-        bufferL->setDelay(d);
-        bufferR->setDelay(d);
-        audioL[i] = glitch(audioL[i], bufferL->read());
-        audioR[i] = glitch(audioR[i], bufferR->read());
+        freezeBufferL->setDelay(d);
+        freezeBufferR->setDelay(d);
+        processedL[i] = glitch(processedL[i], freezeBufferL->read());
+        processedR[i] = glitch(processedR[i], freezeBufferR->read());
       }
     }
-
-    FloatArray::copy(inputL->getData(), audioL.getData(), size);
-    FloatArray::copy(inputR->getData(), audioR.getData(), size);
 
     const float shapeParam = pinShape.getValue(); // getParameterValue(IN_SHAPE);
     const float shapeWet = shapeParam;
@@ -387,10 +386,12 @@ public:
     {
       const float shapeScale = inputEnvelope[i]*fSize*(10.0f + 90.0f*shapeParam);
       const float dryIdx = static_cast<float>(i);
-      const float readL = shapeDry*dryIdx + shapeWet*clamp(shapeScale*audioL[i], -fSize, fSize);
-      const float readR = shapeDry*dryIdx + shapeWet*clamp(shapeScale*audioR[i], -fSize, fSize);
-      audioL[i] = interpolatedReadAt(inputL, readL);
-      audioR[i] = interpolatedReadAt(inputR, readR);
+      // treat the process buffer like a wave table and use the dry input as phase, modulated by the envelope follower,
+      // using shapeParam both dry/wet mix and scaling of the envelope value.
+      const float readL = shapeDry*dryIdx + shapeWet*clamp(shapeScale*inputL[i], -fSize, fSize);
+      const float readR = shapeDry*dryIdx + shapeWet*clamp(shapeScale*inputR[i], -fSize, fSize);
+      outputL[i] = interpolatedReadAt(processBuffer[LEFT_CHANNEL], readL);
+      outputR[i] = interpolatedReadAt(processBuffer[RIGHT_CHANNEL], readR);
     }
 
     if (samplesSinceLastTap < RECORD_BUFFER_SIZE)
@@ -412,7 +413,7 @@ public:
       {
         freezeEnabled = true;
         freezeWriteCount = samples;
-        readEndIdx = static_cast<count_t>(bufferL->getWriteIndex()) + samples;
+        readEndIdx = freezeBuffer[LEFT_CHANNEL]->getWriteIndex() + samples;
       }
       else
       {
