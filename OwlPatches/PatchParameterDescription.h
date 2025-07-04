@@ -85,6 +85,8 @@ public:
     strncpy(name, desc.name, copyLen);  // NOLINT(clang-diagnostic-deprecated-declarations)
     name[copyLen] = '>';
     name[copyLen+1] = 0;
+    owningPatch->registerParameter(pid, name);
+    owningPatch->setParameterValue(pid, 0);
   }
 
   void setValue(const float value) const

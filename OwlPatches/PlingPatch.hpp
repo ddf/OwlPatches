@@ -23,8 +23,8 @@ DESCRIPTION:
 
     Parameters A and B control the speed at which the left and right paddles move.
     The paddles switch directions automatically when they reach the edge of the screen.
-    @todo CV Out A tracks the vertical position of the left paddle.
-    @todo CV Out B tracks the vertical position of the right paddle.
+    CV Out A tracks the vertical position of the left paddle.
+    CV Out B tracks the vertical position of the right paddle.
     The left audio input controls the speed of the ball's motion along the x-axis.
     The right audio input controls the speed of the ball's motion along the y-axis.
     Input signals are rectified (i.e. you can't change the direction the ball is traveling).
@@ -41,15 +41,10 @@ DESCRIPTION:
 #include "MonochromeScreenPatch.h"
 #include "PatchParameter.h"
 #include "basicmaths.h"
+#include "PatchParameterDescription.h"
 
 typedef uint32_t count_t;
 typedef uint16_t coord_t;
-
-template<>
-FloatParameter::PatchParameter();
-
-template<>
-FloatParameter& FloatParameter::operator=(const FloatParameter& other);
 
 class Paddle
 {
@@ -61,6 +56,7 @@ public:
   void moveTo(coord_t y);
   void moveBy(float s);
   bool pointInside(const coord_t x, const coord_t y) const;
+  float getPositionNormalized() const;
 };
 
 class Ball
@@ -80,7 +76,7 @@ static constexpr coord_t PAD_HH = 8;
 static constexpr float   PAD_MAX_SPEED = 150;
 static constexpr coord_t BALL_R = 1;
 static constexpr float   BALL_MAX_SPEED = 150;
-// hard-coding until I can get this implemented in the patch class
+// hard-coding until I can get this implemented in MonochromeScreenPatch
 static constexpr coord_t SCREEN_W = 128;
 static constexpr coord_t SCREEN_H = 64;
 
@@ -88,6 +84,8 @@ class PlingPatch final : public MonochromeScreenPatch
 {
   FloatParameter pinPadLeft;
   FloatParameter pinPadRight;
+  OutputParameter poutPadLeft;
+  OutputParameter poutPadRight;
   
   Paddle padLeft{ PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH };
   Paddle padRight{ SCREEN_W-PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH };
@@ -96,6 +94,8 @@ class PlingPatch final : public MonochromeScreenPatch
   
 public:
   PlingPatch()
+  : poutPadLeft(this, { "Pad Left", PARAMETER_F })
+  , poutPadRight(this, {"Pad Right", PARAMETER_G})
   {
     pinPadLeft = getFloatParameter("Pad Left", 0, 1, 0.25f, 0.95f);
     pinPadRight = getFloatParameter("Pad Right", 0, 1, 0.25f, 0.95f);
@@ -131,6 +131,9 @@ public:
       // ballRight.collideWith(padLeft, dt);
       // ballRight.collideWith(padRight, dt);
     }
+
+    poutPadLeft.setValue(padLeft.getPositionNormalized());
+    poutPadRight.setValue(padRight.getPositionNormalized());
   }
   
   void processScreen(MonochromeScreenBuffer& screen) override
@@ -181,7 +184,13 @@ inline void Paddle::moveBy(const float s)
 
 inline bool Paddle::pointInside(const coord_t x, const coord_t y) const
 {
-  return !(x < cx-hw || x > cx+hw || y < cy-hh || y > cy+hh); 
+  const coord_t cyc = static_cast<coord_t>(cy);
+  return !(x < cx-hw || x > cx+hw || y < cyc-hh || y > cyc+hh); 
+}
+
+inline float Paddle::getPositionNormalized() const
+{
+  return (cy - static_cast<float>(hh)) / static_cast<float>(SCREEN_H - hh - hh);
 }
 
 inline void Ball::draw(MonochromeScreenBuffer& screen) const
