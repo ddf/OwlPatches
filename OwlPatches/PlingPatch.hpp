@@ -19,7 +19,21 @@ LICENSE:
 
 
 DESCRIPTION:
+    A Trigger and CV generator based on Pong.
 
+    Parameters A and B control the speed at which the left and right paddles move.
+    The paddles switch directions automatically when they reach the edge of the screen.
+    @todo CV Out A tracks the vertical position of the left paddle.
+    @todo CV Out B tracks the vertical position of the right paddle.
+    The left audio input controls the speed of the ball's motion along the x-axis.
+    The right audio input controls the speed of the ball's motion along the y-axis.
+    Input signals are rectified (i.e. you can't change the direction the ball is traveling).
+    The ball will reflect off of all four sides of the screen (walls) as well as the paddles.
+    @todo When the ball reflects off of a wall, a trigger is emitted at Gate Out 1.
+    @todo When the ball reflects off of a paddle, a trigger is emitted at Gate Out 2.
+    @todo The left audio output is the normalized x coordinate of the ball.
+    @todo The right audio output is the normalized Y coordinate of the ball.
+    @todo (0,0) is the center of the screen with positive coordinates to the right and above, negative to the left and below.
 */
 
 #pragma once
@@ -32,19 +46,20 @@ typedef uint32_t count_t;
 typedef uint16_t coord_t;
 
 template<>
-IntParameter::PatchParameter();
+FloatParameter::PatchParameter();
 
 template<>
-IntParameter& IntParameter::operator=(const IntParameter& other);
+FloatParameter& FloatParameter::operator=(const FloatParameter& other);
 
 class Paddle
 {
-  coord_t cx, cy;
-  coord_t hw, hh;
+  coord_t cx, hw, hh;
+  float   cy, d;
 public:
-  Paddle(const coord_t cx, const coord_t cy, const coord_t hw, const coord_t hh): cx(cx), cy(cy), hw(hw), hh(hh) {}
+  Paddle(const coord_t cx, const coord_t cy, const coord_t hw, const coord_t hh) : cx(cx), hw(hw), hh(hh), cy(cy), d(1) {}
   void draw(MonochromeScreenBuffer& screen) const;
   void moveTo(coord_t y);
+  void moveBy(float s);
   bool pointInside(const coord_t x, const coord_t y) const;
 };
 
@@ -54,7 +69,7 @@ class Ball
   float dx, dy;
   coord_t r;
 public:
-  Ball(const coord_t cx, const coord_t cy, const float dx, const float dy, const coord_t r): cx(cx), cy(cy), dx(dx), dy(dy), r(r) {}
+  Ball(const coord_t cx, const coord_t cy, const coord_t r): cx(cx), cy(cy), dx(1), dy(1), r(r) {}
   void draw(MonochromeScreenBuffer& screen) const;
   void moveBy(float sx, float sy);
   void collideWith(const Paddle& paddle, const float dt);
@@ -62,42 +77,53 @@ public:
 
 static constexpr coord_t PAD_HW = 1;
 static constexpr coord_t PAD_HH = 8;
+static constexpr float   PAD_MAX_SPEED = 150;
 static constexpr coord_t BALL_R = 1;
+static constexpr float   BALL_MAX_SPEED = 150;
 // hard-coding until I can get this implemented in the patch class
 static constexpr coord_t SCREEN_W = 128;
 static constexpr coord_t SCREEN_H = 64;
 
 class PlingPatch final : public MonochromeScreenPatch
 {
-  IntParameter pinPadLeft;
-  IntParameter pinPadRight;
+  FloatParameter pinPadLeft;
+  FloatParameter pinPadRight;
   
-  Paddle padLeft{ PAD_HW*8, 0, PAD_HW, PAD_HH };
-  Paddle padRight{ SCREEN_W-PAD_HW*8, 0, PAD_HW, PAD_HH };
-  Ball ballLeft{ BALL_R, SCREEN_H/2, 100, 100, BALL_R };
-  Ball ballRight{ SCREEN_W-BALL_R, SCREEN_H/2, -100, -150, BALL_R };
+  Paddle padLeft{ PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH };
+  Paddle padRight{ SCREEN_W-PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH };
+  Ball ballLeft{ BALL_R, SCREEN_H/2, BALL_R };
+  Ball ballRight{ SCREEN_W-BALL_R, SCREEN_H/2, BALL_R };
   
 public:
   PlingPatch()
   {
-    pinPadLeft = getIntParameter("Pad Left", PAD_HH, SCREEN_H-PAD_HH);
-    pinPadRight = getIntParameter("Pad Right", PAD_HH, SCREEN_H-PAD_HH);
+    pinPadLeft = getFloatParameter("Pad Left", 0, 1, 0.25f, 0.95f);
+    pinPadRight = getFloatParameter("Pad Right", 0, 1, 0.25f, 0.95f);
   }
 
   void processAudio(AudioBuffer& audio) override
   {
     const count_t size = audio.getSize();
     const float dt = 1.0f / getSampleRate();
-
-    padLeft.moveTo(static_cast<coord_t>(pinPadLeft.getValue()));
-    padRight.moveTo(static_cast<coord_t>(pinPadRight.getValue()));
+    const float ballStep = dt*BALL_MAX_SPEED;
+    const float padLeftStep = dt*PAD_MAX_SPEED*pinPadLeft.getValue();
+    const float padRightStep = -dt*PAD_MAX_SPEED*pinPadRight.getValue();
 
     FloatArray inputLeft = audio.getSamples(LEFT_CHANNEL);
     FloatArray inputRight = audio.getSamples(RIGHT_CHANNEL);
     
     for (count_t i = 0; i < size; i++)
     {
-      ballLeft.moveBy(dt*abs(inputLeft[i]), dt*abs(inputRight[i]));
+      padLeft.moveBy(padLeftStep);
+      padRight.moveBy(padRightStep);
+
+      // pad move may have caused overlap with the ball
+      ballLeft.collideWith(padLeft, dt);
+      ballLeft.collideWith(padRight, dt);
+
+      ballLeft.moveBy(ballStep*abs(inputLeft[i]), -ballStep*abs(inputRight[i]));
+
+      // ball move may have caused overlap with a pad
       ballLeft.collideWith(padLeft, dt);
       ballLeft.collideWith(padRight, dt);
       
@@ -121,14 +147,38 @@ public:
 inline void Paddle::draw(MonochromeScreenBuffer& screen) const
 {
   const int x = cx;
-  const int y = screen.getHeight() - cy;
+  const int y = screen.getHeight() - static_cast<int>(cy);
   screen.fillRectangle(x-hw, y-hh, hw*2, hh*2, WHITE);
+  
+  // screen.setCursor(x, 10);
+  // screen.print(cy);
 }
 
 inline void Paddle::moveTo(const coord_t y)
 {
   cy = y;
 }
+
+inline void Paddle::moveBy(const float s)
+{
+  cy += d*s;
+  const float hhf = hh;
+  
+  const float top = cy - hhf;
+  if (top < 0)
+  {
+    cy = hhf;
+    d  *= -1;
+  }
+
+  const float btm = cy + hhf;
+  if (btm > SCREEN_H)
+  {
+    cy = SCREEN_H - hhf;
+    d  *= -1;
+  }
+}
+
 inline bool Paddle::pointInside(const coord_t x, const coord_t y) const
 {
   return !(x < cx-hw || x > cx+hw || y < cy-hh || y > cy+hh); 
