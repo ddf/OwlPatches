@@ -72,7 +72,7 @@ struct OutputParameterDescription
 
 class OutputParameter
 {
-  char name[16];
+  char name[32];
   PatchParameterId pid;
   Patch* owner;
 
