@@ -99,7 +99,7 @@ public:
   float getDY() const { return dy; }
 };
 
-// hard-coding until I can get this implemented in MonochromeScreenPatch
+// hard-coding screen size until I can get this implemented in MonochromeScreenPatch
 static constexpr coord_t SCREEN_W = 128;
 static constexpr coord_t SCREEN_H = 64;
 static constexpr coord_t PAD_HW = 1;
@@ -111,10 +111,10 @@ static constexpr float PAD_MAX_SPEED = 2*440.0f - PAD_MIN_SPEED;
 static constexpr coord_t PAD_MAX_X_OFFSET = SCREEN_W / 4;
 static constexpr coord_t BALL_R = 1;
 static constexpr float   BALL_DRAG = 0.0001f;
-static constexpr float   BALL_SPEED_PARAM_MAX = 2200;
-static constexpr float   BALL_SPEED_MIN = 10;
-static constexpr float   BALL_SPEED_MAX = BALL_SPEED_PARAM_MAX*24000;
-static constexpr float   BALL_KICK_SPEED = BALL_SPEED_PARAM_MAX*0.25f;
+static constexpr float   BALL_SPEED_PARAM_MAX = 55 * SCREEN_H;
+static constexpr float   BALL_SPEED_MIN = 6.4f;
+static constexpr float   BALL_SPEED_MAX = 24000 * SCREEN_H;
+static constexpr float   BALL_KICK_SPEED = BALL_SPEED_MIN*12;
 
 class PlingPatch final : public MonochromeScreenPatch
 {
@@ -365,24 +365,15 @@ inline bool Ball::collideWith(const Paddle& paddle, const float dt)
   const coord_t rx = static_cast<coord_t>(cx) + r;
   const coord_t by = static_cast<coord_t>(cy) - r;
   const coord_t ty = static_cast<coord_t>(cy) + r;
-  bool collided = false;
-  if (dx < 0)
-  {
-    collided = paddle.pointInside(lx, ty) || paddle.pointInside(lx, by);
-  }
-  else
-  {
-    collided = paddle.pointInside(rx, ty) || paddle.pointInside(rx, by);
-  }
 
+  const bool collided = dx < 0 ? paddle.pointInside(lx, ty) || paddle.pointInside(lx, by)
+                               : paddle.pointInside(rx, ty) || paddle.pointInside(rx, by);
   if (collided)
   {
-    constexpr float step = 10.0f;
     dx *= -1;
     vx += paddle.getSpeed();
     vy += paddle.getSpeed();
-    tick(step, step, dt);
-    return true;
+    tick(BALL_SPEED_MIN, BALL_SPEED_MIN, dt);
   }
 
   return collided;
