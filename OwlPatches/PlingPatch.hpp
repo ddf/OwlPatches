@@ -112,6 +112,7 @@ static constexpr coord_t PAD_MAX_X_OFFSET = SCREEN_W / 4;
 static constexpr coord_t BALL_R = 1;
 static constexpr float   BALL_DRAG = 0.0001f;
 static constexpr float   BALL_SPEED_PARAM_MAX = 2200;
+static constexpr float   BALL_SPEED_MIN = 10;
 static constexpr float   BALL_SPEED_MAX = BALL_SPEED_PARAM_MAX*24000;
 static constexpr float   BALL_KICK_SPEED = BALL_SPEED_PARAM_MAX*0.25f;
 
@@ -183,7 +184,13 @@ public:
       
       const float sl = 1.0f - Easing::expoOut(inputLeft[i]*0.5f + 0.5f);
       const float sr = 1.0f - Easing::expoOut(inputRight[i]*0.5f + 0.5f);
-      const bool wallCollide = ball.tick(BALL_SPEED_PARAM_MAX*sl, BALL_SPEED_PARAM_MAX*sr, dt);
+
+      // setting speed directly has a nice "creep" feel to it when speed fluctuates wildly between very fast and very slow
+      //const bool wallCollide = ball.tick(BALL_SPEED_PARAM_MAX*sl, BALL_SPEED_PARAM_MAX*sr, dt);
+
+      // but adding velocity is must nicer looking...
+      ball.addVelocity((BALL_SPEED_MIN+BALL_SPEED_PARAM_MAX*sl)*dt, (BALL_SPEED_MIN+BALL_SPEED_PARAM_MAX*sr)*dt);
+      const bool wallCollide = ball.tick(0, 0, dt);
 
       // ball move may have caused overlap with a pad
       padCollide |= ball.collideWith(padLeft, dt);
@@ -299,38 +306,39 @@ inline void Ball::draw(MonochromeScreenBuffer& screen) const
 {
   const int x = static_cast<int>(cx);
   const int y = screen.getHeight() - static_cast<int>(cy);
-  screen.fillRectangle(x-r, y-r, r*2, r*2, WHITE);
+  screen.fillRectangle(x-r, y-r, r*2 + 1, r*2 + 1, WHITE);
 }
 
 inline bool Ball::tick(const float sx, const float sy, const float dt)
 {
   bool collidedX = false;
   bool collidedY = false;
+  const float rf = r;
   
   cx += dx*clamp(sx+vx, 0, BALL_SPEED_MAX)*dt;
-  if (cx < 0)
+  if (cx < rf)
   {
-    cx = -cx;
+    cx = rf;
     dx *= -1;
     collidedX = true;
   }
-  else if (cx > SCREEN_W)
+  else if (cx > SCREEN_W - rf)
   {
-    cx = SCREEN_W - (cx - SCREEN_W);
+    cx = SCREEN_W - rf;
     dx *= -1;
     collidedX = true;
   }
   
   cy += dy*clamp(sy+vy, 0, BALL_SPEED_MAX)*dt;
-  if (cy < 0)
+  if (cy < rf)
   {
-    cy = -cy;
+    cy = rf;
     dy *= -1;
     collidedY = true;
   }
-  else if (cy > SCREEN_H)
+  else if (cy > SCREEN_H - rf)
   {
-    cy = SCREEN_H - (cy - SCREEN_H);
+    cy = SCREEN_H - rf;
     dy *= -1;
     collidedY = true;
   }
@@ -353,10 +361,10 @@ inline bool Ball::tick(const float sx, const float sy, const float dt)
 
 inline bool Ball::collideWith(const Paddle& paddle, const float dt)
 {
-  coord_t lx = static_cast<coord_t>(cx) - r;
-  coord_t rx = lx+r+r;
-  coord_t by = static_cast<coord_t>(cy) - r;
-  coord_t ty = by+r+r;
+  const coord_t lx = static_cast<coord_t>(cx) - r;
+  const coord_t rx = static_cast<coord_t>(cx) + r;
+  const coord_t by = static_cast<coord_t>(cy) - r;
+  const coord_t ty = static_cast<coord_t>(cy) + r;
   bool collided = false;
   if (dx < 0)
   {
