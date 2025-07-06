@@ -44,10 +44,16 @@ DESCRIPTION:
     Parameter D does the same for the right paddle.
     Parameter E increases the height of the left paddle,
     Parameter F increases the height of the right paddle.
+
+    @todo
+    Input Gates/Buttons trigger paddles to move forward towards the center and enlarge holding there for as long as the gate is high.
+    todo When the gate goes off they move back to the original position and size. Essentially a kind of pinball paddle simulation.
+    This replaces "kicking" the ball directly.
 */
 
 #pragma once
 
+#include "AdsrEnvelope.h"
 #include "MonochromeScreenPatch.h"
 #include "PatchParameter.h"
 #include "basicmaths.h"
@@ -106,8 +112,10 @@ static constexpr coord_t PAD_HW = 1;
 static constexpr int PAD_HH_MIN = 2;
 static constexpr int PAD_HH_DEF = 8;
 static constexpr int PAD_HH_MAX = 24;
-static constexpr float PAD_MIN_SPEED = 10.0f;
-static constexpr float PAD_MAX_SPEED = 2*440.0f - PAD_MIN_SPEED;
+static constexpr float PAD_SPEED_MIN = 10.0f;
+static constexpr float PAD_SPEED_MAX = 2*440.0f - PAD_SPEED_MIN;
+static constexpr float PAD_ENV_MIN = 0.1f; // in seconds
+static constexpr float PAD_ENV_MAX = 1.5f; // in seconds
 static constexpr coord_t PAD_MAX_X_OFFSET = SCREEN_W / 4;
 static constexpr coord_t BALL_R = 1;
 static constexpr float   BALL_DRAG = 0.0001f;
@@ -131,11 +139,14 @@ class PnogPatch final : public MonochromeScreenPatch
   Paddle padLeft{ PAD_HW*8,           SCREEN_H/2, PAD_HW, PAD_HH_DEF, 1 };
   Paddle padRight{ SCREEN_W-PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH_DEF, -1 };
   Ball ball{ BALL_R, SCREEN_H/2, BALL_R };
+
+  ExponentialAdsrEnvelope padLeftEnvelope;
+  ExponentialAdsrEnvelope padRightEnvelope;
   
 public:
   PnogPatch()
-  : poutPadLeft(this, { "PL Y", PARAMETER_AA }) // if these don't start here setting the gate outputs interferes with setting these.
-  , poutPadRight(this, {"PR Y", PARAMETER_AB })
+    : poutPadLeft(this, { "PL Y", PARAMETER_AA }) // if these don't start here setting the gate outputs interferes with setting these.
+    , poutPadRight(this, { "PR Y", PARAMETER_AB }), padLeftEnvelope(getSampleRate()), padRightEnvelope(getSampleRate())
   {
     pinPadLeftSpeed = getFloatParameter("PL Spd", 0, 1, 0.f, 0.95f, 0);
     pinPadRightSpeed = getFloatParameter("PR Spd", 0, 1, 0.f, 0.95f, 0);
@@ -145,7 +156,7 @@ public:
     pinPadRightHalfHeight = getIntParameter("PR HH", PAD_HH_MIN, PAD_HH_MAX, PAD_HH_DEF, 0, 0);
 
     // HACK: getIntParameter doesn't set the default value, so we do it here.
-    constexpr float phhDefault = static_cast<float>(PAD_HH_DEF - PAD_HH_MIN)/(PAD_HH_MAX - PAD_HH_MIN);
+    constexpr float phhDefault = static_cast<float>(PAD_HH_DEF - PAD_HH_MIN) / (PAD_HH_MAX - PAD_HH_MIN);
     setParameterValue(static_cast<PatchParameterId>(pinPadLeftHalfHeight.id()), phhDefault);
     setParameterValue(static_cast<PatchParameterId>(pinPadRightHalfHeight.id()), phhDefault);
   }
@@ -154,16 +165,24 @@ public:
   {
     const count_t size = audio.getSize();
     const float dt = 1.0f / getSampleRate();
-    const float padLeftSpeed  = PAD_MIN_SPEED + PAD_MAX_SPEED*pinPadLeftSpeed.getValue();
-    const float padRightSpeed = PAD_MIN_SPEED + PAD_MAX_SPEED*pinPadRightSpeed.getValue();
+    const float padLeftSpeed  = PAD_SPEED_MIN + PAD_SPEED_MAX*pinPadLeftSpeed.getValue();
+    const float padLeftEnvTime = Easing::interp(PAD_ENV_MAX, PAD_ENV_MIN, pinPadLeftSpeed.getValue(), Easing::expoOut);
+    const float padRightSpeed = PAD_SPEED_MIN + PAD_SPEED_MAX*pinPadRightSpeed.getValue();
+    const float padRightEnvTime = Easing::interp(PAD_ENV_MAX, PAD_ENV_MIN, pinPadRightSpeed.getValue(), Easing::expoOut);
 
     padLeft.setSpeed(padLeftSpeed);
-    padLeft.setXOff(pinPadLeftXOffset.getValue());
-    padLeft.setHalfHeight(static_cast<coord_t>(pinPadLeftHalfHeight.getValue()));
+    //padLeft.setXOff(pinPadLeftXOffset.getValue());
+    //padLeft.setHalfHeight(static_cast<coord_t>(pinPadLeftHalfHeight.getValue()));
+
+    padLeftEnvelope.setAttack(padLeftEnvTime);
+    padLeftEnvelope.setRelease(padLeftEnvTime);
     
     padRight.setSpeed(padRightSpeed);
     padRight.setXOff(-pinPadRightXOffset.getValue());
-    padRight.setHalfHeight(static_cast<coord_t>(pinPadRightHalfHeight.getValue()));
+    //padRight.setHalfHeight(static_cast<coord_t>(pinPadRightHalfHeight.getValue()));
+
+    padRightEnvelope.setAttack(padRightEnvTime);
+    padRightEnvelope.setRelease(padRightEnvTime);
 
     FloatArray inputLeft = audio.getSamples(LEFT_CHANNEL);
     FloatArray inputRight = audio.getSamples(RIGHT_CHANNEL);
@@ -175,7 +194,15 @@ public:
     count_t wallCollideSample = size;
     for (count_t i = 0; i < size; i++)
     {
+      const float padLeftEnv = padLeftEnvelope.generate();
+      const float padRightEnv = padRightEnvelope.generate();
+      
+      padLeft.setXOff(padLeftEnv*PAD_MAX_X_OFFSET);
+      padLeft.setHalfHeight(static_cast<coord_t>(Easing::interp(PAD_HH_DEF, PAD_HH_MAX, padLeftEnv)));
       padLeft.tick(dt);
+
+      padRight.setXOff(-padRightEnv*PAD_MAX_X_OFFSET);
+      padRight.setHalfHeight(static_cast<coord_t>(Easing::interp(PAD_HH_DEF, PAD_HH_MAX, padRightEnv)));
       padRight.tick(dt);
       
       // pad move may have caused overlap with the ball
@@ -185,7 +212,7 @@ public:
       const float sl = 1.0f - Easing::expoOut(inputLeft[i]*0.5f + 0.5f);
       const float sr = 1.0f - Easing::expoOut(inputRight[i]*0.5f + 0.5f);
 
-      // setting speed directly has a nice "creep" feel to it when speed fluctuates wildly between very fast and very slow
+      // setting speed directly has a nice "creepy" feel to it when speed fluctuates wildly between very fast and very slow
       //const bool wallCollide = ball.tick(BALL_SPEED_PARAM_MAX*sl, BALL_SPEED_PARAM_MAX*sr, dt);
 
       // but adding velocity is must nicer looking...
@@ -233,24 +260,35 @@ public:
   
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (bid == BUTTON_1 && value == ON)
-    {
-      // ball.moveTo(padLeft.getX()+PAD_HW*2, padLeft.getY());
-      // ball.setDirection(1.0, padLeft.getD());
-      // ball.clearVelocity();
+    // "kicking" the ball directly
+    // if (bid == BUTTON_1 && value == ON)
+    // {
+    //   // ball.moveTo(padLeft.getX()+PAD_HW*2, padLeft.getY());
+    //   // ball.setDirection(1.0, padLeft.getD());
+    //   // ball.clearVelocity();
+    //
+    //   ball.setDirection(1, ball.getDY());
+    //   ball.addVelocity(BALL_KICK_SPEED, BALL_KICK_SPEED);
+    // }
+    // else if (bid == BUTTON_2 && value == ON)
+    // {
+    //   // ball.moveTo(padRight.getX()-BALL_R*2, padRight.getY());
+    //   // ball.setDirection(-1.0, padRight.getD());
+    //   // ball.clearVelocity();
+    //
+    //   ball.setDirection(-1, ball.getDY());
+    //   
+    //   ball.addVelocity(BALL_KICK_SPEED, BALL_KICK_SPEED);
+    // }
 
-      ball.setDirection(1, ball.getDY());
-      ball.addVelocity(BALL_KICK_SPEED, BALL_KICK_SPEED);
+    // triggering a pad move, which might hit the ball
+    if (bid == BUTTON_1)
+    {
+      padLeftEnvelope.gate(value == ON, samples);
     }
-    else if (bid == BUTTON_2 && value == ON)
+    else if (bid == BUTTON_2)
     {
-      // ball.moveTo(padRight.getX()-BALL_R*2, padRight.getY());
-      // ball.setDirection(-1.0, padRight.getD());
-      // ball.clearVelocity();
-
-      ball.setDirection(-1, ball.getDY());
-      
-      ball.addVelocity(BALL_KICK_SPEED, BALL_KICK_SPEED);
+      padRightEnvelope.gate(value == ON, samples);
     }
   }
 };
