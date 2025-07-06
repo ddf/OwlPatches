@@ -116,7 +116,7 @@ static constexpr float   BALL_SPEED_MIN = 6.4f;
 static constexpr float   BALL_SPEED_MAX = 24000 * SCREEN_H;
 static constexpr float   BALL_KICK_SPEED = BALL_SPEED_MIN*12;
 
-class PlingPatch final : public MonochromeScreenPatch
+class PnogPatch final : public MonochromeScreenPatch
 {
   FloatParameter pinPadLeftSpeed;
   FloatParameter pinPadRightSpeed;
@@ -133,7 +133,7 @@ class PlingPatch final : public MonochromeScreenPatch
   Ball ball{ BALL_R, SCREEN_H/2, BALL_R };
   
 public:
-  PlingPatch()
+  PnogPatch()
   : poutPadLeft(this, { "PL Y", PARAMETER_AA }) // if these don't start here setting the gate outputs interferes with setting these.
   , poutPadRight(this, {"PR Y", PARAMETER_AB })
   {

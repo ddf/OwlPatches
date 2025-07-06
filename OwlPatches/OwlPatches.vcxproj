@@ -267,7 +267,7 @@
     <ClInclude Include="PatchParameterDescription.h" />
     <ClInclude Include="PerlinNoiseField.hpp" />
     <ClInclude Include="PerlinNoiseFieldLichPatch.hpp" />
-    <ClInclude Include="PlingPatch.hpp" />
+    <ClInclude Include="PnogPatch.hpp" />
     <ClInclude Include="Reverb.h" />
     <ClInclude Include="SkewedValue.h" />
     <ClInclude Include="SpectralHarpGeniusPatch.hpp" />
