@@ -37,18 +37,11 @@ DESCRIPTION:
     The left audio output is the normalized x coordinate of the ball.
     The right audio output is the normalized Y coordinate of the ball.
     (0,0) is the center of the screen with positive coordinates to the right and above, negative to the left and below.
-    A trigger at Gate In 1 or pressing Button 1 will "kick" the ball to right.
-    A trigger at Gate In 2 or pressing Button 2 will "kick" the ball to the left.
 
-    Parameter C moves the left paddle horizontally towards the center,
-    Parameter D does the same for the right paddle.
-    Parameter E increases the height of the left paddle,
-    Parameter F increases the height of the right paddle.
-
-    @todo
-    Input Gates/Buttons trigger paddles to move forward towards the center and enlarge holding there for as long as the gate is high.
-    todo When the gate goes off they move back to the original position and size. Essentially a kind of pinball paddle simulation.
-    This replaces "kicking" the ball directly.
+    Input Gates & Buttons trigger paddles to move forward towards the center and enlarge.
+    Paddles will hold there for as long as the gate is high or button is pressed.
+    When the gate goes off they move back to the original position and size.
+    The speed at which they moved forward and back is based on the speed of their vertical movement.
 */
 
 #pragma once
