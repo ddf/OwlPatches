@@ -110,11 +110,11 @@ static constexpr coord_t SCREEN_W = 128;
 static constexpr coord_t SCREEN_H = 64;
 static constexpr coord_t PAD_HW = 1;
 static constexpr int PAD_HH_MIN = 2;
-static constexpr int PAD_HH_DEF = 8;
-static constexpr int PAD_HH_MAX = 24;
+static constexpr int PAD_HH_DEF = 4;
+static constexpr int PAD_HH_MAX = 12;
 static constexpr float PAD_SPEED_MIN = 10.0f;
-static constexpr float PAD_SPEED_MAX = 2*440.0f - PAD_SPEED_MIN;
-static constexpr float PAD_ENV_MIN = 0.1f; // in seconds
+static constexpr float PAD_SPEED_MAX = 440.0f - PAD_SPEED_MIN;
+static constexpr float PAD_ENV_MIN = 0.15f; // in seconds
 static constexpr float PAD_ENV_MAX = 1.5f; // in seconds
 static constexpr coord_t PAD_MAX_X_OFFSET = SCREEN_W / 4;
 static constexpr coord_t BALL_R = 1;
@@ -138,7 +138,7 @@ class PnogPatch final : public MonochromeScreenPatch
   
   Paddle padLeft{ PAD_HW*8,           SCREEN_H/2, PAD_HW, PAD_HH_DEF, 1 };
   Paddle padRight{ SCREEN_W-PAD_HW*8, SCREEN_H/2, PAD_HW, PAD_HH_DEF, -1 };
-  Ball ball{ BALL_R, SCREEN_H/2, BALL_R };
+  Ball ball{ SCREEN_W/2, SCREEN_H/2, BALL_R };
 
   ExponentialAdsrEnvelope padLeftEnvelope;
   ExponentialAdsrEnvelope padRightEnvelope;
@@ -166,9 +166,9 @@ public:
     const count_t size = audio.getSize();
     const float dt = 1.0f / getSampleRate();
     const float padLeftSpeed  = PAD_SPEED_MIN + PAD_SPEED_MAX*pinPadLeftSpeed.getValue();
-    const float padLeftEnvTime = Easing::interp(PAD_ENV_MAX, PAD_ENV_MIN, pinPadLeftSpeed.getValue(), Easing::expoOut);
+    const float padLeftEnvTime = Easing::interp(PAD_ENV_MAX, PAD_ENV_MIN, pinPadLeftSpeed.getValue(), Easing::expoIn);
     const float padRightSpeed = PAD_SPEED_MIN + PAD_SPEED_MAX*pinPadRightSpeed.getValue();
-    const float padRightEnvTime = Easing::interp(PAD_ENV_MAX, PAD_ENV_MIN, pinPadRightSpeed.getValue(), Easing::expoOut);
+    const float padRightEnvTime = Easing::interp(PAD_ENV_MAX, PAD_ENV_MIN, pinPadRightSpeed.getValue(), Easing::expoIn);
 
     padLeft.setSpeed(padLeftSpeed);
     //padLeft.setXOff(pinPadLeftXOffset.getValue());
@@ -289,6 +289,32 @@ public:
     else if (bid == BUTTON_2)
     {
       padRightEnvelope.gate(value == ON, samples);
+    }
+  }
+  
+  void processMidi(MidiMessage msg) override
+  {
+    if (msg.isNoteOn())
+    {
+      if (msg.getNote() == 60)
+      {
+        padLeftEnvelope.gate(true);
+      }
+      else if (msg.getNote() == 62)
+      {
+        padRightEnvelope.gate(true);
+      }
+    }
+    else if (msg.isNoteOff())
+    {
+      if (msg.getNote() == 60)
+      {
+        padLeftEnvelope.gate(false);
+      }
+      else if (msg.getNote() == 62)
+      {
+        padRightEnvelope.gate(false);
+      }
     }
   }
 };
