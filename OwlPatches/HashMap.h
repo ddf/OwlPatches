@@ -82,7 +82,7 @@ public:
     }
   }
 
-  Node* get(K key)
+  Node* get(const K& key)
   {
     uint32_t idx = hash(key) & (TABLE_SIZE - 1);
     Node* node = nodeTable[idx];
@@ -94,7 +94,7 @@ public:
     return node;
   }
 
-  Node* put(K key)
+  Node* put(const K& key)
   {
     if (nodeCount < MAX_NODES)
     {
@@ -116,13 +116,23 @@ public:
       }
       return node;
     }
-    return 0;
+    return nullptr;
+  }
+
+  Node* put(const K& key, const V& value)
+  {
+    Node* node = put(key);
+    if (node)
+    {
+      node->value = value;
+    }
+    return node;
   }
 
   void remove(K key)
   {
     uint32_t idx = hash(key) & (TABLE_SIZE - 1);
-    Node* prevNode = 0;
+    Node* prevNode = nullptr;
     Node* node = nodeTable[idx];
     while (node && node->key != key)
     {
@@ -147,7 +157,7 @@ public:
 
 private:
 
-  Node* allocateNode(K key)
+  Node* allocateNode(const K& key)
   {
     Node* node = nodePool[nodeCount];
     nodePool[nodeCount] = 0;

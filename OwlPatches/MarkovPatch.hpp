@@ -386,12 +386,12 @@ public:
 
       updateEnvelope();
 
-      ComplexFloat sample = markov->generate() * getEnvelopeLevel();
+      const ComplexFloat sample = markov->generate() * getEnvelopeLevel();
       genLeft[i] = sample.re;
       genRight[i] = sample.im;
     }
 
-    float dryWet = std::clamp(getParameterValue(inDryWet)*1.02f, 0.0f, 1.0f);
+    const float dryWet = clamp(getParameterValue(inDryWet)*1.02f, 0.0f, 1.0f);
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     inLeft.multiply(dryAmt);

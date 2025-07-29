@@ -1,67 +1,13 @@
+#pragma once
+
 #include "SignalGenerator.h"
 #include "ComplexShortArray.h"
 #include "basicmaths.h"
 #include "HashMap.h"
 
-#define MEMORY_SIZE (1<<16)
-#define MEMORY_MAX_NODES MEMORY_SIZE*1
-#define MEMORY_PER_NODE 8
-
-template<class Sample, int channels>
+template<class SAMPLE_T, int CHANNEL_COUNT>
 class MarkovChain
 {
-  class MemorySample
-  {
-    int      values[MEMORY_PER_NODE];
-    uint8_t  valuesLength;
-
-  public:
-
-    MemorySample() : valuesLength(0)
-    {
-    }
-
-    int get(int idx) const
-    {
-      return values[idx];
-    }
-
-    bool write(int value)
-    {
-      if (valuesLength < MEMORY_PER_NODE)
-      {
-        // don't write samples we already know about
-        for (int i = 0; i < valuesLength; ++i)
-        {
-          if (values[i] == value) return false;
-        }
-        values[valuesLength++] = value;
-        return true;
-      }
-      return false;
-    }
-
-    bool erase(int value)
-    {
-      for (int i = 0; i < valuesLength; ++i)
-      {
-        // when we find the value in the list, swap with value at end of list, reduce list length
-        if (values[i] == value)
-        {
-          values[i] = values[valuesLength - 1];
-          --valuesLength;
-          return true;
-        }
-      }
-      return false;
-    }
-
-    int length() const { return valuesLength; }
-  };
-
-  typedef HashMap<Sample, MemorySample, MEMORY_SIZE, MEMORY_MAX_NODES> Memory;
-  typedef HashNode<Sample, MemorySample> MemoryNode;
-
 protected:
   template<class S, int C>
   struct Frame
@@ -90,8 +36,8 @@ protected:
     S x;
 
     Frame() : x(0) {}
-    Frame(S v) : x(v) {}
-    operator S() const { return x; }
+    explicit Frame(S v) : x(v) {}
+    explicit operator S() const { return x; }
     S key() const { return x; }
   };
 
@@ -101,14 +47,23 @@ protected:
     S x, y;
 
     Frame() : x(0), y(0) {}
-    Frame(S _x) : x(_x), y(_x) {}
-    Frame(S _x, S _y) : x(_x), y(_y) {}
+    explicit Frame(S x) : x(x), y(x) {}
+    Frame(S x, S y) : x(x), y(y) {}
     S left() const { return x; }
     S right() const { return y; }
-    S key() const { return x*0.5f + y*0.5f; }
+    S key() const { return x; }
   };
 
-  typedef Frame<Sample, channels> SampleFrame;
+  typedef Frame<SAMPLE_T, CHANNEL_COUNT> SampleFrame;
+
+  struct MemoryNode
+  {
+    SampleFrame sampleFrame;
+    // next node with same sampleFrame key
+    MemoryNode* next = nullptr;
+    // prev nod with same sampleFrame key
+    MemoryNode* prev = nullptr;
+  };
 
 public:
   struct Stats
@@ -122,44 +77,50 @@ public:
   };
 
 private:
-  SampleFrame* buffer;
-  int bufferSize;
-  int bufferWritePos;
-  Memory*  memory;
-  MemoryNode* zeroNode;
-  SampleFrame lastLearn;
-  SampleFrame lastGenerate;
-  int      maxWordSize;
-  int      currentWordBegin;
-  int      currentWordSize;
-  int      letterCount;
-
-  int nodeLengthCounts[MEMORY_PER_NODE+1];
+  MemoryNode* memory;
+  MemoryNode* prevGenerateNode;
+  int memorySize;
+  int memoryWriteIdx;
+  int maxWordSize;
+  int currentWordBegin;
+  int currentWordSize;
+  int letterCount;
+  
+  struct KeyCount
+  {
+    MemoryNode* nodeList;
+    uint32_t count;
+  };
+  typedef HashMap<SAMPLE_T, KeyCount, 4096, 1<<16> KeyCountMap;
+  // keep track of how many nodes in our memory have a particular key
+  KeyCountMap sampleFrameKeyCounts;
 
 public:
-  MarkovChain(int inBufferSize)
-    : buffer(0), bufferWritePos(0), memory(0), bufferSize(inBufferSize)
-    , currentWordBegin(0), maxWordSize(1), currentWordSize(1), letterCount(0)
-    , lastLearn(0), lastGenerate(0)
+  explicit MarkovChain(const int inBufferSize)
+    : memory(nullptr), memorySize(inBufferSize), memoryWriteIdx(0)
+    , maxWordSize(2), currentWordBegin(0), currentWordSize(1), letterCount(0)
   {
-    buffer = new SampleFrame[bufferSize];
-    memory = new Memory();
-
-    for (int i = 0; i < MEMORY_PER_NODE + 1; ++i)
+    memory = new MemoryNode[memorySize];
+    // so that we don't have to deal with nullptr when writing to memory the first time,
+    // we assign all prev and next nodes
+    MemoryNode* head = memory;
+    MemoryNode* tail = memory + memorySize - 1;
+    head->prev = tail;
+    tail->next = head;
+    while (head != tail)
     {
-      nodeLengthCounts[i] = 0;
+      MemoryNode* next = head + 1;
+      head->next = next;
+      next->prev = head;
+      head = next;
     }
 
-    zeroNode = memory->put(lastLearn.key());
-    nodeLengthCounts[1] = 1;
+    prevGenerateNode = &memory[0];
   }
 
   ~MarkovChain()
   {
-    delete[] buffer;
-
-    if (memory)
-      delete memory;
+    delete[] memory;
   }
 
   void resetWord()
@@ -184,52 +145,59 @@ public:
 
   void learn(SampleFrame sampleFrame)
   {
-    const int nextWritePosition = (bufferWritePos + 1) % bufferSize;
-
-    // erase the position we are about to write to from the next sample list of what's already there
-    SampleFrame prevSampleFrame = buffer[bufferWritePos];
-    MemoryNode* node = memory->get(prevSampleFrame.key());
-    if (node)
+    MemoryNode* writeToNode = &memory[memoryWriteIdx];
+    // if the sample frame we are learning has a different key than the one we are overwriting
+    if (sampleFrame.key() != writeToNode->sampleFrame.key())
     {
-      int prevLen = node->value.length();
-      if (node->value.erase(nextWritePosition))
-      {
-        nodeLengthCounts[prevLen] = nodeLengthCounts[prevLen] - 1;
+      // remove this node from its linked list
+      MemoryNode* prev = writeToNode->prev;
+      MemoryNode* next = writeToNode->next;
+      prev->next = next;
+      next->prev = prev;
 
-        // never remove the zero node so we don't have to check for null
-        // when falling back to zeroNode in generate.
-        if (node->value.length() == 0 && node != zeroNode)
+      //  update key counts for the frame we are overwriting
+      const SAMPLE_T prevKey = writeToNode->sampleFrame.key();
+      if (auto prevKeyCount = sampleFrameKeyCounts.get(prevKey))
+      {
+        KeyCount& value = prevKeyCount->value;
+        if (value.count > 0)
         {
-          memory->remove(prevSampleFrame.key());
+          value.count -= 1;
         }
-        else
+        if (value.count == 0)
         {
-          nodeLengthCounts[node->value.length()] = nodeLengthCounts[node->value.length()] + 1;
+          sampleFrameKeyCounts.remove(prevKey);
         }
       }
-    }
 
-    buffer[bufferWritePos] = sampleFrame;
-
-    node = memory->get(lastLearn.key());
-    if (!node)
-    {
-      node = memory->put(lastLearn.key());
-    }
-    if (node)
-    {
-      int prevLen = node->value.length();
-      if (node->value.write(bufferWritePos))
+      const SAMPLE_T newKey = sampleFrame.key();
+      // if we already have some nodes with this key, insert it into the list for the new key 
+      if (auto newKeyCount = sampleFrameKeyCounts.get(newKey))
       {
-        // we don't keep track of zero length nodes because they get removed from memory
-        if (prevLen != 0)
-          nodeLengthCounts[prevLen] = nodeLengthCounts[prevLen] - 1;
-
-        nodeLengthCounts[node->value.length()] = nodeLengthCounts[node->value.length()] + 1;
+        MemoryNode* insertNode = newKeyCount->value.nodeList;
+        writeToNode->next = insertNode;
+        writeToNode->prev = insertNode->prev;
+        insertNode->prev = writeToNode;
+        if (newKeyCount->value.count == 1)
+        {
+          insertNode->next = writeToNode;
+        }
+        //  update the key count
+        newKeyCount->value.count += 1;
+      }
+      else
+      {
+        // this is the only node with the new key in memory, make it point to itself and initialize the count
+        writeToNode->prev = writeToNode;
+        writeToNode->next = writeToNode;
+        sampleFrameKeyCounts.put(newKey, { writeToNode, 1 });
       }
     }
-    bufferWritePos = nextWritePosition;
-    lastLearn = sampleFrame;
+    
+    // finally, update the sample frame value in the node
+    writeToNode->sampleFrame = sampleFrame;
+
+    memoryWriteIdx = (memoryWriteIdx + 1) % memorySize;
   }
 
   void learn(SimpleArray<SampleFrame> input)
@@ -240,50 +208,53 @@ public:
     }
   }
 
-  SampleFrame generate()
+  SampleFrame gen()
   {
+    MemoryNode* genNode = nullptr;
     if (letterCount == 0)
     {
-      MemoryNode* node = memory->get(lastGenerate.key());
-      if (!node) node = zeroNode;
-      switch (node->value.length())
+      SAMPLE_T prevKey = prevGenerateNode ? prevGenerateNode->sampleFrame.key() : 0;
+      auto prevKeyCount = sampleFrameKeyCounts.get(prevKey);
+      const uint32_t keyCountValue = prevKeyCount ? prevKeyCount->value.count : 0;
+      switch (keyCountValue)
       {
-        // nothing follows, restart at zero
+        // there are no samples with this key in memory (this should never happen)
         case 0: 
         {
-          beginWordAtZero();
+          genNode = beginWordAtZero();
         }
         break;
 
-        // node has only one sample that follows it, do that unless it is the same value as the sample itself
+        // this is the only sample with this key in memory, so start a new word
         case 1: 
         {
-          int nextIdx = node->value.get(0);
-          SampleFrame next = buffer[nextIdx];
-          if (node->key != next.key())
-          {
-            lastGenerate = next;
-            currentWordBegin = nextIdx;
-          }
-          else
-          {
-            beginWordAtZero();
-          }
+          genNode = beginWordAtZero();
         }
         break;
 
+        // there are at least 2 nodes with this key, randomly choose one of them
+        // and start the next word at the sample frame that follows it in memory
         default:
         {
-          int idx = rand() % node->value.length();
-          int nextIdx = node->value.get(idx);
-          if (nextIdx == currentWordBegin)
+          uint32_t steps = (static_cast<uint32_t>(rand()) % keyCountValue) + 1;
+          MemoryNode* node = prevGenerateNode;
+          while (steps--)
           {
-            beginWordAtZero();
+            node = node ? node->next : nullptr;
+          }
+          long long nextWordBegin = node ? (node - memory) : currentWordBegin;
+          nextWordBegin %= memorySize;
+          // don't start a new word from the same place as our previous word,
+          // also don't start a new word at the end of the memory buffer
+          // because the next sample value did not actually follow the previous one in time.
+          if (nextWordBegin == currentWordBegin)
+          {
+            genNode = beginWordAtZero();
           }
           else
           {
-            lastGenerate = buffer[nextIdx];
-            currentWordBegin = nextIdx;
+            genNode = &memory[(nextWordBegin+1)%memorySize];
+            currentWordBegin = static_cast<int>(nextWordBegin);
           }
         }
         break;
@@ -294,15 +265,17 @@ public:
     }
     else
     {
-      int genIdx = (currentWordBegin + letterCount) % bufferSize;
-      lastGenerate = buffer[genIdx];
+      int genIdx = (currentWordBegin + letterCount) % memorySize;
+      genNode = &memory[genIdx];
       ++letterCount;
       if (letterCount == currentWordSize)
       {
         letterCount = 0;
       }
     }
-    return lastGenerate;
+
+    prevGenerateNode = genNode;
+    return genNode ? genNode->sampleFrame : SampleFrame();
   }
 
   Stats getStats() const
@@ -313,117 +286,114 @@ public:
     int maxLength = 0;
     int maxCount = 0;
     int totalCount = 0;
-    for (int i = 1; i < MEMORY_PER_NODE + 1; ++i)
-    {
-      int nodeLength = i;
-      int nodeCountWithLength = nodeLengthCounts[i];
-      memSize += nodeCountWithLength;
-      
-      if (nodeCountWithLength > 0 && minLength == 0)
-      {
-        minLength = nodeLength;
-        minCount = nodeCountWithLength;
-      }
-
-      if (nodeCountWithLength > 0 && nodeLength > maxLength)
-      {
-        maxLength = nodeLength;
-        maxCount = nodeCountWithLength;
-      }
-
-      totalCount += nodeCountWithLength * nodeLength;
-    }
+    // for (int i = 1; i < MEMORY_PER_NODE + 1; ++i)
+    // {
+    //   int nodeLength = i;
+    //   int nodeCountWithLength = nodeLengthCounts[i];
+    //   memSize += nodeCountWithLength;
+    //   
+    //   if (nodeCountWithLength > 0 && minLength == 0)
+    //   {
+    //     minLength = nodeLength;
+    //     minCount = nodeCountWithLength;
+    //   }
+    //
+    //   if (nodeCountWithLength > 0 && nodeLength > maxLength)
+    //   {
+    //     maxLength = nodeLength;
+    //     maxCount = nodeCountWithLength;
+    //   }
+    //
+    //   totalCount += nodeCountWithLength * nodeLength;
+    // }
     float avg = memSize > 0 ? (float)totalCount / memSize : 0;
     return Stats{ memSize, minLength, minCount, maxLength, maxCount, avg };
   }
 
 private:
-  void beginWordAtZero()
+  MemoryNode* beginWordAtZero()
   {
-    lastGenerate = SampleFrame(0);
-    if (zeroNode->value.length() > 0)
+    // pick a random offset from the oldest sample frame in memory to start
+    int nextWordBegin = memoryWriteIdx + 1 + (rand() % memorySize);
+    // if there is at least one frame with a key equal to zero, start from the cached node in that list
+    if (auto zeroKeyCount = sampleFrameKeyCounts.get(0))
     {
-      int idx = rand() % zeroNode->value.length();
-      currentWordBegin = zeroNode->value.get(idx);
+      const KeyCount& value = zeroKeyCount->value;
+      nextWordBegin = static_cast<int>(value.nodeList - memory);
     }
-    else
-    {
-      // pick a random position in the buffer, hope for the best?
-      currentWordBegin = rand() % bufferSize;
-    }
+    currentWordBegin = nextWordBegin % memorySize;
+    return &memory[currentWordBegin];
   }
 
 public:
-  static MarkovChain<Sample, channels>* create(int bufferSize)
+  static MarkovChain<SAMPLE_T, CHANNEL_COUNT>* create(int bufferSize)
   {
-    return new MarkovChain<Sample, channels>(bufferSize);
+    return new MarkovChain<SAMPLE_T, CHANNEL_COUNT>(bufferSize);
   }
 
-  static void destroy(MarkovChain<Sample, channels>* markov)
+  static void destroy(MarkovChain<SAMPLE_T, CHANNEL_COUNT>* markov)
   {
     if (markov)
       delete markov;
   }
 };
 
-class ShortMarkovGenerator : public MarkovChain<int16_t, 1>, SignalGenerator
+class ShortMarkovGenerator final : public MarkovChain<int16_t, 1>, SignalGenerator
 {
-  ShortMarkovGenerator(int bufferSize) : MarkovChain(bufferSize)
+  explicit ShortMarkovGenerator(const int bufferSize) : MarkovChain(bufferSize)
   {
 
   }
 
 public:
-  void learn(float value)
+  void learn(const float value)
   {
-    MarkovChain::learn(SampleFrame((int16_t)(value * 32767)));
+    MarkovChain::learn(SampleFrame(static_cast<int16_t>(value * 32767)));
   }
 
   float generate() override 
   {
-    return MarkovChain::generate() * 0.0000305185f;
+    return static_cast<float>(gen().x) * 0.0000305185f;
   }
 
-  static ShortMarkovGenerator* create(int bufferSize)
+  static ShortMarkovGenerator* create(const int bufferSize)
   {
     return new ShortMarkovGenerator(bufferSize);
   }
 
-  static void destroy(ShortMarkovGenerator* markov)
+  static void destroy(const ShortMarkovGenerator* markov)
   {
-    if (markov)
-      delete markov;
+    delete markov;
   }
 };
 
-class ComplexShortMarkovGenerator : public MarkovChain<int16_t, 2>, ComplexSignalGenerator
+class ComplexShortMarkovGenerator final : public MarkovChain<int16_t, 2>, ComplexSignalGenerator
 {
-  ComplexShortMarkovGenerator(int bufferSize) : MarkovChain(bufferSize)
+  explicit ComplexShortMarkovGenerator(const int bufferSize) : MarkovChain(bufferSize)
   {
 
   }
 
 public:
-  void learn(ComplexFloat value)
+  void learn(const ComplexFloat value)
   {
-    const SampleFrame frame((int16_t)(value.re * 32767), (int16_t)(value.im * 32767));
+    const SampleFrame frame(static_cast<int16_t>(value.re * 32767), static_cast<int16_t>(value.im * 32767));
     MarkovChain::learn(frame);
   }
 
   ComplexFloat generate() override
   {
-    SampleFrame frame = MarkovChain::generate();
-    return ComplexFloat(frame.left() * 0.0000305185f, frame.right() * 0.0000305185f);
+    const SampleFrame frame = gen();
+    return { static_cast<float>(frame.left()) * 0.0000305185f, static_cast<float>(frame.right()) * 0.0000305185f };
   }
 
-  static ComplexShortMarkovGenerator* create(int bufferSize)
+  static ComplexShortMarkovGenerator* create(const int bufferSize)
   {
     return new ComplexShortMarkovGenerator(bufferSize);
   }
 
-  static void destroy(ComplexShortMarkovGenerator* markov)
+  static void destroy(const ComplexShortMarkovGenerator* markov)
   {
-    if (markov)
-      delete markov;
+    delete markov;
   }
 };
