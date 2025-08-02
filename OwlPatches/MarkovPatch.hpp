@@ -84,7 +84,7 @@ public:
 
 class MarkovPatch : public Patch 
 {
-  typedef ComplexShortMarkovGenerator MarkovGenerator;
+  typedef ComplexFloatMarkovGenerator MarkovGenerator;
 
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inClock = BUTTON_2;
@@ -130,7 +130,7 @@ class MarkovPatch : public Patch
 
 public: 
   MarkovPatch()
-    : listening(OFF), samplesSinceLastTap(TAP_TRIGGER_LIMIT), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), genBuffer(0)
+    : listening(OFF), genBuffer(0), samplesSinceLastTap(TAP_TRIGGER_LIMIT), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0)
     , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(getSampleRate()*attackSeconds)
     , minWordGateLength((getSampleRate()*attackSeconds)), minWordSizeSamples((getSampleRate()*attackSeconds*2))
   {
@@ -165,7 +165,7 @@ public:
     setParameterValue(inWordSizeVariation, 0.5f);
   }
 
-  ~MarkovPatch()
+  ~MarkovPatch() override
   {
     TapTempo::destroy(tempo);
     MarkovGenerator::destroy(markov);
@@ -225,7 +225,7 @@ public:
 
   void updateEnvelope()
   {
-    bool state = markov->getLetterCount() < wordGateLength;
+    bool state = markov->chain().getLetterCount() < wordGateLength;
     expoGenerateEnvelope->gate(state);
     linearGenerateEnvelope->gate(state);
 
@@ -313,7 +313,7 @@ public:
     int wordSize = std::max(minWordSizeSamples, (int)(tempo->getPeriodInSamples() * wordScale));
     clocksToReset = counters[divMultIdx][intervalIdx] - 1;
 
-    markov->setWordSize(wordSize);
+    markov->chain().setWordSize(wordSize);
     setEnvelopeRelease(wordSize);
   }
 
@@ -359,7 +359,7 @@ public:
     {
       if (samplesToReset == 0)
       {
-        markov->resetWord();
+        markov->chain().resetWord();
       }
 
       if (samplesToReset >= 0)
@@ -368,7 +368,7 @@ public:
       }
 
       // word going to start, update the word size, envelope settings
-      if (markov->getLetterCount() == 0)
+      if (markov->chain().getLetterCount() == 0)
       {
         if (wordsToNewInterval > 0)
         {
@@ -403,11 +403,11 @@ public:
 
     setButton(inToggleListen, listening);
     setButton(outWordEnded, wordStartedGate > 0, wordStartedGateDelay);
-    setParameterValue(outWordProgress, (float)markov->getLetterCount() / markov->getCurrentWordSize());
+    setParameterValue(outWordProgress, (float)markov->chain().getLetterCount() / markov->chain().getCurrentWordSize());
     setParameterValue(outDecayEnvelope, getEnvelopeLevel());
     //setParameterValue(outDecayEnvelope, (float)clocksToReset / 16);
 
-    MarkovGenerator::Stats stats = markov->getStats();
+    const MarkovGenerator::Chain::Stats stats = markov->chain().getStats();
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "n ");
     debugCpy = stpcpy(debugCpy, msg_itoa(stats.memorySize, 10));
@@ -424,7 +424,7 @@ public:
     debugCpy = stpcpy(debugCpy, " C ");
     debugCpy = stpcpy(debugCpy, msg_itoa(clocksToReset, 10));
     debugCpy = stpcpy(debugCpy, " w ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(int((float)markov->getCurrentWordSize() / getSampleRate() * 1000), 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa(int((float)markov->chain().getCurrentWordSize() / getSampleRate() * 1000), 10));
     debugMessage(debugMsg);
   }
 };

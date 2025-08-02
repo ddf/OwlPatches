@@ -1,5 +1,4 @@
-#ifndef __HASH_MAP__
-#define __HASH_MAP__
+#pragma once
 
 template<typename K, typename V>
 class HashNode
@@ -9,13 +8,13 @@ public:
   V     value;
   HashNode* next;
 
-  HashNode() : next(0)
+  HashNode() : next(nullptr)
   {
 
   }
 
   HashNode(K k)
-    : next(0), key(k)
+    : key(k), next(nullptr)
   {
   }
 };
@@ -34,7 +33,7 @@ struct HashFunc<int16_t>
 {
   uint32_t operator()(const int16_t& key) const
   {
-    return int(key) + 32767;
+    return static_cast<int32_t>(key) + 32767;
   }
 };
 
@@ -54,7 +53,7 @@ private:
 public:
   HashMap() : nodeCount(0)
   {
-    memset(nodeTable, 0, TABLE_SIZE * sizeof(Node*));
+    memset(static_cast<void*>(nodeTable), 0, TABLE_SIZE * sizeof(Node*));
     for (int i = 0; i < MAX_NODES; ++i)
     {
       nodePool[i] = new Node();
@@ -177,6 +176,4 @@ private:
     }
   }
 };
-
-#endif // __HASH_MAP__
 
