@@ -229,6 +229,7 @@
     <ClInclude Include="..\..\OwlProgram\Source\ServiceCall.h" />
     <ClInclude Include="..\..\OwlProgram\Source\ShortBuffer.hpp" />
     <ClInclude Include="..\..\OwlProgram\Source\system_tables.h" />
+    <ClInclude Include="Adsr.h" />
     <ClInclude Include="AllpassNetwork.h" />
     <ClInclude Include="BitCrusher.hpp" />
     <ClInclude Include="BlurKernel.h" />

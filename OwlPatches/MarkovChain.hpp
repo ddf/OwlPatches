@@ -15,7 +15,7 @@ struct KeyFunc
 };
 
 template<typename SAMPLE_T, typename KEY_T = SAMPLE_T, typename KEY_FUNC = KeyFunc<SAMPLE_T, KEY_T>>
-class MarkovChain
+class MarkovChain  // NOLINT(cppcoreguidelines-special-member-functions)
 {
   struct MemoryNode
   {
@@ -265,6 +265,11 @@ public:
     // }
     const float avg = memSize > 0 ? static_cast<float>(totalCount) / static_cast<float>(memSize) : 0;
     return Stats{ memSize, minLength, minCount, maxLength, maxCount, avg };
+  }
+  
+  float getWordProgress() const
+  {
+    return static_cast<float>(letterCount) / static_cast<float>(currentWordSize);
   }
 
 private:
