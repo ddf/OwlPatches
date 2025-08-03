@@ -1,7 +1,7 @@
 /**
 
 AUTHOR:
-    (c) 2022 Damien Quartz
+    (c) 2022-2025 Damien Quartz
 
 LICENSE:
     This program is free software: you can redistribute it and/or modify
@@ -53,6 +53,7 @@ DESCRIPTION:
 */
 
 #include "Patch.h"
+#include "PatchParameterDescription.h"
 #include "DcBlockingFilter.h"
 #include "VoltsPerOctave.h"
 #include "AdsrEnvelope.h"
@@ -88,15 +89,15 @@ class MarkovPatch : public Patch
 
   static const PatchButtonId inToggleListen = BUTTON_1;
   static const PatchButtonId inClock = BUTTON_2;
-  static const PatchButtonId outWordEnded = PUSHBUTTON;
+  static const PatchButtonId outWordEnded = OUT_GATE_1;
 
   static const PatchParameterId inWordSize = PARAMETER_A;
   static const PatchParameterId inDecay = PARAMETER_B;
   static const PatchParameterId inWordSizeVariation = PARAMETER_C;
   static const PatchParameterId inDryWet = PARAMETER_D;
 
-  static const PatchParameterId outWordProgress = PARAMETER_F;
-  static const PatchParameterId outDecayEnvelope = PARAMETER_G;
+  static const PatchParameterId outWordProgress = OUT_PARAMETER_A;
+  static const PatchParameterId outDecayEnvelope = OUT_PARAMETER_B;
 
   static const int TAP_TRIGGER_LIMIT = (1 << 17);
 
@@ -239,7 +240,7 @@ public:
     float line = linearGenerateEnvelope->getLevel();
     if (envelopeShape <= 0.47f)
     {
-      float t = (0.47f - envelopeShape) * 2.12f;
+      const float t = (0.47f - envelopeShape) * 2.12f;
       return Interpolator::linear(line, expo, t);
     }
     return line;
@@ -401,12 +402,16 @@ public:
     inLeft.add(genLeft);
     inRight.add(genRight);
 
+#if defined(OWL_LICH)
     setButton(inToggleListen, listening);
+#endif
     setButton(outWordEnded, wordStartedGate > 0, wordStartedGateDelay);
     setParameterValue(outWordProgress, (float)markov->chain().getLetterCount() / markov->chain().getCurrentWordSize());
-    setParameterValue(outDecayEnvelope, getEnvelopeLevel());
+    // setting exactly 1.0 on an output parameter causes a glitch on Genius, so we scale down our envelope value a little bit
+    setParameterValue(outDecayEnvelope, getEnvelopeLevel()*0.98f);
     //setParameterValue(outDecayEnvelope, (float)clocksToReset / 16);
 
+#if defined(OWL_GENIUS)
     const MarkovGenerator::Chain::Stats stats = markov->chain().getStats();
     char debugMsg[64];
     char* debugCpy = stpcpy(debugMsg, "n ");
@@ -426,5 +431,6 @@ public:
     debugCpy = stpcpy(debugCpy, " w ");
     debugCpy = stpcpy(debugCpy, msg_itoa(int((float)markov->chain().getCurrentWordSize() / getSampleRate() * 1000), 10));
     debugMessage(debugMsg);
+#endif
   }
 };

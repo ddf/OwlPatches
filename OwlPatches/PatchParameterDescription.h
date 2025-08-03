@@ -2,6 +2,7 @@
 
 #include "Patch.h"
 #include "PatchParameter.h"
+#include "OpenWareMidiControl.h"
 
 enum class InputParameterSkew : uint8_t
 {
@@ -69,6 +70,26 @@ struct OutputParameterDescription
   const char* name;
   PatchParameterId pid;
 };
+
+// when using the gate outs on Genius we can't use F and G as output parameters
+// so we define standard output parameter names here based on the module we are building for
+#if defined(OWL_GENIUS)
+#define OUT_PARAMETER_A PARAMETER_CA
+#define OUT_PARAMETER_B PARAMETER_CB
+#define OUT_GATE_1 BUTTON_1
+#define OUT_GATE_2 BUTTON_2
+#elif defined(OWL_LICH)
+#define OUT_PARAMETER_A PARAMETER_F
+#define OUT_PARAMETER_B PARAMETER_G
+#define OUT_GATE_1 PUSHBUTTON
+// Lich doesn't have a second output gate, so cause an error
+#define OUT_GATE_2 ERROR 
+#else
+#define OUT_PARAMETER_A PARAMETER_CA
+#define OUT_PARAMETER_B PARAMETER_CB
+#define OUT_GATE_1 BUTTON_1
+#define OUT_GATE_2 BUTTON_2
+#endif
 
 class OutputParameter
 {
