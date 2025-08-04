@@ -19,10 +19,14 @@ class MarkovChain  // NOLINT(cppcoreguidelines-special-member-functions)
 {
   struct MemoryNode
   {
-    SAMPLE_T sampleFrame;
-    // next node with same sampleFrame key
+    // we cache the key in the node so that keyFunc can change behavior over time
+    // without breaking our existing memory chains.
+    KEY_T    key;
+    // the actual sample data we use in generate
+    SAMPLE_T sample;
+    // next node with the same key
     MemoryNode* next = nullptr;
-    // prev node with same sampleFrame key
+    // prev node with the same key
     MemoryNode* prev = nullptr;
   };
 
@@ -38,31 +42,34 @@ public:
   };
 
 private:
+  KEY_FUNC    keyFunc;
   MemoryNode* memory;
-  MemoryNode* prevGenerateNode;
+  const MemoryNode* prevGenerateNode;
   uint32_t memorySize;
   uint32_t memoryWriteIdx;
   uint32_t maxWordSize;
   uint32_t currentWordBegin;
   uint32_t currentWordSize;
   uint32_t letterCount;
-  // for stats, the longest chain ever encountered during generation
-  uint32_t maxKeyCount;
   
-  struct KeyCount
+  struct Chain
   {
-    MemoryNode* nodeList;
-    uint32_t count;
+    MemoryNode* head;
+    uint32_t length;
   };
-  typedef HashMap<KEY_T, KeyCount, 4096, 1<<16> KeyCountMap;
-  KEY_FUNC keyFunc;
-  // keep track of how many nodes in our memory have a particular key
-  KeyCountMap sampleFrameKeyCounts;
+  typedef HashMap<KEY_T, Chain, 4096, 1<<16> ChainsMap;
+  // map of keys to chains of nodes that share that key
+  ChainsMap chainsMap;
+  
+  MemoryNode* get(size_t idx) const
+  {
+    return &memory[idx];
+  }
 
 public:
   explicit MarkovChain(const int inBufferSize)
     : memory(nullptr), memorySize(inBufferSize), memoryWriteIdx(0)
-    , maxWordSize(2), currentWordBegin(0), currentWordSize(1), letterCount(0), maxKeyCount(0)
+    , maxWordSize(2), currentWordBegin(0), currentWordSize(1), letterCount(0)
   {
     memory = new MemoryNode[memorySize];
     // so that we don't have to deal with nullptr when writing to memory the first time,
@@ -79,7 +86,7 @@ public:
       head = next;
     }
 
-    prevGenerateNode = &memory[0];
+    prevGenerateNode = get(0);
   }
 
   ~MarkovChain()
@@ -107,11 +114,13 @@ public:
     maxWordSize = std::max(2, length);
   }
 
-  void learn(const SAMPLE_T& sampleFrame)
+  void learn(const SAMPLE_T& sample)
   {
-    MemoryNode* writeToNode = &memory[memoryWriteIdx];
+    MemoryNode* writeToNode = get(memoryWriteIdx);
+    const KEY_T prevKey = keyFunc(writeToNode->sample);
+    const KEY_T newKey = keyFunc(sample);
     // if the sample frame we are learning has a different key than the one we are overwriting
-    if (keyFunc(sampleFrame) != keyFunc(writeToNode->sampleFrame))
+    if (newKey != prevKey)
     {
       // remove this node from its linked list
       MemoryNode* prev = writeToNode->prev;
@@ -120,47 +129,45 @@ public:
       next->prev = prev;
 
       //  update key counts for the frame we are overwriting
-      const KEY_T prevKey = keyFunc(writeToNode->sampleFrame);
-      if (auto prevKeyCount = sampleFrameKeyCounts.get(prevKey))
+      if (auto pair = chainsMap.get(prevKey))
       {
-        KeyCount& value = prevKeyCount->value;
-        if (value.count > 0)
+        Chain& value = pair->value;
+        if (value.length > 0)
         {
-          value.count -= 1;
+          value.length -= 1;
         }
-        if (value.count == 0)
+        if (value.length == 0)
         {
-          sampleFrameKeyCounts.remove(prevKey);
+          chainsMap.remove(prevKey);
         }
       }
-
-      const KEY_T newKey = keyFunc(sampleFrame);
+      
       // if we already have some nodes with this key, insert it into the list for the new key 
-      if (auto newKeyCount = sampleFrameKeyCounts.get(newKey))
+      if (auto pair = chainsMap.get(newKey))
       {
-        MemoryNode* insertNode = newKeyCount->value.nodeList;
-        writeToNode->next = insertNode;
-        writeToNode->prev = insertNode->prev;
-        insertNode->prev = writeToNode;
-        if (newKeyCount->value.count == 1)
+        Chain& chain = pair->value;
+        MemoryNode* head = chain.head;
+        writeToNode->next = head;
+        writeToNode->prev = head->prev;
+        head->prev = writeToNode;
+        if (chain.length == 1)
         {
-          insertNode->next = writeToNode;
+          head->next = writeToNode;
         }
-        //  update the key count
-        newKeyCount->value.count += 1;
-        //maxKeyCount = max(maxKeyCount, newKeyCount->value.count);
+        //  update the chain length
+        chain.length += 1;
       }
       else
       {
-        // this is the only node with the new key in memory, make it point to itself and initialize the count
+        // this is the only node with the new key in memory, make it point to itself and initialize the chain length
         writeToNode->prev = writeToNode;
         writeToNode->next = writeToNode;
-        sampleFrameKeyCounts.put(newKey, { writeToNode, 1 });
+        chainsMap.put(newKey, { writeToNode, 1 });
       }
     }
     
     // finally, update the sample frame value in the node
-    writeToNode->sampleFrame = sampleFrame;
+    writeToNode->sample = sample;
 
     memoryWriteIdx = (memoryWriteIdx + 1) % memorySize;
   }
@@ -175,15 +182,15 @@ public:
 
   SAMPLE_T generate()
   {
-    MemoryNode* genNode;
+    const MemoryNode* genNode;
     if (letterCount == 0)
     {
-      const KEY_T prevKey = prevGenerateNode ? keyFunc(prevGenerateNode->sampleFrame) : KEY_T();
-      auto prevKeyCount = sampleFrameKeyCounts.get(prevKey);
-      const uint32_t keyCountValue = prevKeyCount ? prevKeyCount->value.count : 0;
-      switch (keyCountValue)
+      const KEY_T prevKey = prevGenerateNode ? prevGenerateNode->key: KEY_T();
+      const auto prevKeyPair = chainsMap.get(prevKey);
+      const uint32_t prevKeyChainLength = prevKeyPair ? prevKeyPair->value.length : 0;
+      switch (prevKeyChainLength)
       {
-        // there are no samples with this key in memory (this should never happen)
+        // there are no samples with this key in memory
         case 0: 
         // this is the only sample with this key in memory, so start a new word
         case 1: 
@@ -196,38 +203,18 @@ public:
         // and start the next word at the sample frame that follows it in memory
         default:
         {
-          uint32_t steps = arm_rand32() % keyCountValue + 1;
-          MemoryNode* node = prevGenerateNode;
-          while (steps--)
-          {
-            node = node ? node->next : nullptr;
-          }
-          long long nextWordBegin = node ? (node - memory) : currentWordBegin;
-          nextWordBegin %= memorySize;
-          // don't start a new word from the same place as our previous word,
-          // also don't start a new word at the end of the memory buffer
-          // because the next sample value did not actually follow the previous one in time.
-          if (nextWordBegin == currentWordBegin)
-          {
-            genNode = beginWordAtZero();
-          }
-          else
-          {
-            genNode = &memory[(nextWordBegin+1)%memorySize];
-            currentWordBegin = static_cast<int>(nextWordBegin);
-          }
+          genNode = beginWordFromChain<true>(prevKeyPair->value);
         }
         break;
       }
 
       letterCount = 1;
       currentWordSize = maxWordSize;
-      maxKeyCount = max(maxKeyCount, keyCountValue);
     }
     else
     {
-      int genIdx = (currentWordBegin + letterCount) % memorySize;
-      genNode = &memory[genIdx];
+      const int genIdx = (currentWordBegin + letterCount) % memorySize;
+      genNode = get(genIdx);
       ++letterCount;
       if (letterCount == currentWordSize)
       {
@@ -236,22 +223,21 @@ public:
     }
 
     prevGenerateNode = genNode;
-    return genNode ? genNode->sampleFrame : SAMPLE_T();
+    return genNode->sample;
   }
 
   Stats getStats()
   {
-    const size_t chainCount = sampleFrameKeyCounts.size();
+    const size_t chainCount = chainsMap.size();
     int minLength = memorySize;
     int minLengthCount = 0;
     int maxLength = 0;
     int maxLengthCount = 0;
     int chainLengthAccum = 0;
-    int iters = 0;
     
-    for (const typename KeyCountMap::Node* node : sampleFrameKeyCounts)
+    for (const typename ChainsMap::Node* node : chainsMap)
     {
-      const int chainLength = node->value.count;
+      const int chainLength = node->value.length;
     
       if (chainLength < minLength)
       {
@@ -284,18 +270,58 @@ public:
   }
 
 private:
+  // always returns a valid node
   MemoryNode* beginWordAtZero()
   {
     // pick a random offset from the oldest sample frame in memory to start
-    int nextWordBegin = memoryWriteIdx + 1 + (arm_rand32() % memorySize);
-    // if there is at least one frame with a key equal to zero, start from the cached node in that list
-    if (auto zeroKeyCount = sampleFrameKeyCounts.get(0))
+    const int nextWordBegin = memoryWriteIdx + (arm_rand32() % memorySize);
+    // if there is at least one frame with a key equal to zero, start from a random node in that list
+    if (auto zeroKeyPair = chainsMap.get(0))
     {
-      const KeyCount& value = zeroKeyCount->value;
-      nextWordBegin = static_cast<int>(value.nodeList - memory);
+      if (MemoryNode* node = beginWordFromChain<false>(zeroKeyPair->value))
+      {
+        return node;
+      }
     }
-    currentWordBegin = nextWordBegin % memorySize;
-    return &memory[currentWordBegin];
+    currentWordBegin = nextWordBegin % memoryWriteIdx;
+    return get(currentWordBegin);
+  }
+
+  template<bool FALLBACK_TO_ZERO>
+  MemoryNode* beginWordFromChain(const Chain& chain)
+  {
+    uint32_t steps = arm_rand32() % chain.length;
+    MemoryNode* node = chain.head;
+    while (steps != 0 && node != nullptr)
+    {
+      node = node->next;
+      --steps;
+    }
+    const long long nodeIdx = node ? (node - memory) : -1;
+    if (nodeIdx == -1)
+    {
+      if (FALLBACK_TO_ZERO)
+      {
+        return beginWordAtZero();
+      }
+      return nullptr;
+    }
+
+    // don't start a new word from the same place as our previous word.
+    // also don't start a new word at our memory write head
+    // because that sample did not actually follow the previous one in time.
+    const uint32_t nextWordBegin = static_cast<int>((nodeIdx+1)%memorySize);
+    if (nextWordBegin == currentWordBegin || nextWordBegin == memoryWriteIdx)
+    {
+      if (FALLBACK_TO_ZERO)
+      {
+        return beginWordAtZero();
+      }
+      return nullptr;
+    }
+
+    currentWordBegin = nextWordBegin;
+    return get(nextWordBegin);
   }
 
 public:
