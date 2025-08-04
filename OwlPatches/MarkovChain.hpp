@@ -29,12 +29,12 @@ class MarkovChain  // NOLINT(cppcoreguidelines-special-member-functions)
 public:
   struct Stats
   {
-    int memorySize;
-    int minChainLength;
-    int minChainCount;
-    int maxChainLength;
-    int maxChainCount;
-    float avgChainLength;
+    int chainCount; // the total number of unique chains (i.e. keys) in our key count map
+    int minChainLength; // the shortest list of nodes with the same key
+    int minChainCount; // the number of keys with a node count equal to minChainLength
+    int maxChainLength; // the longest list of nodes with the same key
+    int maxChainCount; // the number of keys with a node count equal to maxChainLength
+    float avgChainLength; // the average node list length
   };
 
 private:
@@ -46,6 +46,8 @@ private:
   uint32_t currentWordBegin;
   uint32_t currentWordSize;
   uint32_t letterCount;
+  // for stats, the longest chain ever encountered during generation
+  uint32_t maxKeyCount;
   
   struct KeyCount
   {
@@ -60,7 +62,7 @@ private:
 public:
   explicit MarkovChain(const int inBufferSize)
     : memory(nullptr), memorySize(inBufferSize), memoryWriteIdx(0)
-    , maxWordSize(2), currentWordBegin(0), currentWordSize(1), letterCount(0)
+    , maxWordSize(2), currentWordBegin(0), currentWordSize(1), letterCount(0), maxKeyCount(0)
   {
     memory = new MemoryNode[memorySize];
     // so that we don't have to deal with nullptr when writing to memory the first time,
@@ -146,6 +148,7 @@ public:
         }
         //  update the key count
         newKeyCount->value.count += 1;
+        //maxKeyCount = max(maxKeyCount, newKeyCount->value.count);
       }
       else
       {
@@ -219,6 +222,7 @@ public:
 
       letterCount = 1;
       currentWordSize = maxWordSize;
+      maxKeyCount = max(maxKeyCount, keyCountValue);
     }
     else
     {
@@ -235,36 +239,43 @@ public:
     return genNode ? genNode->sampleFrame : SAMPLE_T();
   }
 
-  Stats getStats() const
+  Stats getStats()
   {
-    int memSize = 0;
-    int minLength = 0;
-    int minCount = 0;
+    const size_t chainCount = sampleFrameKeyCounts.size();
+    int minLength = memorySize;
+    int minLengthCount = 0;
     int maxLength = 0;
-    int maxCount = 0;
-    int totalCount = 0;
-    // for (int i = 1; i < MEMORY_PER_NODE + 1; ++i)
-    // {
-    //   int nodeLength = i;
-    //   int nodeCountWithLength = nodeLengthCounts[i];
-    //   memSize += nodeCountWithLength;
-    //   
-    //   if (nodeCountWithLength > 0 && minLength == 0)
-    //   {
-    //     minLength = nodeLength;
-    //     minCount = nodeCountWithLength;
-    //   }
-    //
-    //   if (nodeCountWithLength > 0 && nodeLength > maxLength)
-    //   {
-    //     maxLength = nodeLength;
-    //     maxCount = nodeCountWithLength;
-    //   }
-    //
-    //   totalCount += nodeCountWithLength * nodeLength;
-    // }
-    const float avg = memSize > 0 ? static_cast<float>(totalCount) / static_cast<float>(memSize) : 0;
-    return Stats{ memSize, minLength, minCount, maxLength, maxCount, avg };
+    int maxLengthCount = 0;
+    int chainLengthAccum = 0;
+    int iters = 0;
+    
+    for (const typename KeyCountMap::Node* node : sampleFrameKeyCounts)
+    {
+      const int chainLength = node->value.count;
+    
+      if (chainLength < minLength)
+      {
+        minLength = chainLength;
+        minLengthCount = 1;
+      }
+      else if (chainLength == minLength)
+      {
+        minLengthCount++;
+      }
+      else if (chainLength > maxLength)
+      {
+        maxLength = chainLength;
+        maxLengthCount = 1;
+      }
+      else if (chainLength == maxLength)
+      {
+        maxLengthCount++;
+      }
+      
+      chainLengthAccum += chainLength;
+    }
+    const float avg = chainCount > 0 ? static_cast<float>(chainLengthAccum) / static_cast<float>(chainCount) : 0;
+    return Stats { static_cast<int>(chainCount), minLength, minLengthCount, maxLength, maxLengthCount, avg };
   }
   
   float getWordProgress() const
@@ -391,7 +402,8 @@ public:
     {
       // generate a unique key for this stereo frame
       // not sure what's best here - if frames are too unique, we wind up restarting words at zero all the time
-      static constexpr double SCALE = (1<<16) / (2.0f * M_PI);
+      // what I really want to be able to do is modulate this
+      static constexpr double SCALE = (1<<12) / (2.0f * M_PI);
       return static_cast<uint32_t>((value.getPhase()+M_PI)*SCALE);
     }
   };

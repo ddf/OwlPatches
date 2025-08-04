@@ -76,13 +76,13 @@ static constexpr PatchParameterId IN_DRY_WET = PARAMETER_D;
 static constexpr PatchParameterId OUT_WORD_PROGRESS = OUT_PARAMETER_A;
 static constexpr PatchParameterId OUT_DECAY_ENVELOPE = OUT_PARAMETER_B;
 
-constexpr float ATTACK_SECONDS    = 0.005f;
-constexpr float MIN_DECAY_SECONDS = 0.010f;
-constexpr float MAX_DECAY_SECONDS = 1.0f;
+static constexpr float ATTACK_SECONDS    = 0.005f;
+static constexpr float MIN_DECAY_SECONDS = 0.010f;
+static constexpr float MAX_DECAY_SECONDS = 1.0f;
 
 static constexpr int TAP_TRIGGER_LIMIT = (1 << 17);
 
-// forward declaration for constructor use below to suppress warning
+// forward declaration for constructor used below (to suppress warning)
 template<>
 SmoothValue<float>::SmoothValue(float lambda);
 
@@ -393,17 +393,17 @@ public:
   {
     const MarkovGenerator::Chain::Stats stats = markov->chain().getStats();
     screen.setCursor(0, 8);
-    screen.print("n ");
-    screen.print(stats.memorySize);
-    screen.print("\n min ");
+    screen.print("keys ");
+    screen.print(stats.chainCount);
+    screen.print("\n min len ");
     screen.print(stats.minChainLength);
-    screen.print("(");
+    screen.print(" (");
     screen.print(stats.minChainCount);
-    screen.print(")\n max ");
+    screen.print(")\n max len ");
     screen.print(stats.maxChainLength);
-    screen.print("(");
+    screen.print(" (");
     screen.print(stats.maxChainCount);
-    screen.print(")\n avg ");
+    screen.print(")\n avg len ");
     screen.print(stats.avgChainLength);
     screen.print("\n Wms " );
     const int wordMs = static_cast<int>(static_cast<float>(markov->chain().getCurrentWordSize()) / getSampleRate() * 1000);

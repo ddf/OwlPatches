@@ -47,8 +47,54 @@ private:
 
   Node* nodeTable[TABLE_SIZE];
   Node* nodePool[MAX_NODES];
-  int nodeCount;
+  size_t nodeCount;
   H hash;
+
+  class Iterator
+  {
+    const HashMap* map;
+    size_t tidx;
+    Node* node;
+
+  public:
+    explicit Iterator(const HashMap* map, size_t bidx) : map(map), tidx(bidx)
+    {
+      node = map->nodeTable[tidx];
+    }
+
+    const Iterator& operator++()
+    {
+      if (tidx == TABLE_SIZE) return *this;
+      
+      if (node)
+      {
+        node = node->next;
+      }
+
+      while (!node)
+      {
+        ++tidx;
+        if (tidx == TABLE_SIZE) break;
+        node = map->nodeTable[tidx];
+      }
+
+      return *this;
+    }
+
+    Node*& operator*() { return node; }
+    
+    bool operator==(const Iterator& other)
+    {
+      return this->map == other.map && this->tidx == other.tidx && this->node == other.node;
+    }
+
+    bool operator!=(const Iterator& other)
+    {
+      return !(*this == other);
+    }
+  };
+
+  Iterator iterEnd = Iterator(this, TABLE_SIZE);
 
 public:
   HashMap() : nodeCount(0)
@@ -75,7 +121,7 @@ public:
     }
 
     // delete all nodes that weren't allocated to the table
-    for (int i = nodeCount; i < MAX_NODES; ++i)
+    for (size_t i = nodeCount; i < MAX_NODES; ++i)
     {
       delete nodePool[i];
     }
@@ -152,18 +198,38 @@ public:
     }
   }
 
-  int size() const { return nodeCount; }
+  Iterator begin() const
+  {
+    for (int i = 0; i < TABLE_SIZE; ++i)
+    {
+      if (nodeTable[i])
+      {
+        return Iterator(this, i);
+      }
+    }
+    return iterEnd;
+  }
+
+  const Iterator& end() const
+  {
+    return iterEnd;
+  }
+  
+  size_t size() const { return nodeCount; }
 
 private:
 
   Node* allocateNode(const K& key)
   {
-    Node* node = nodePool[nodeCount];
-    nodePool[nodeCount] = 0;
-    node->key = key;
-    node->value = V();
-    node->next = 0;
-    ++nodeCount;
+    Node* node = nodeCount < MAX_NODES ? nodePool[nodeCount] : nullptr;
+    if (node)
+    {
+      nodePool[nodeCount] = 0;
+      node->key = key;
+      node->value = V();
+      node->next = 0;
+      ++nodeCount;
+    }
     return node;
   }
 
