@@ -24,6 +24,7 @@ class MarkovChain  // NOLINT(cppcoreguidelines-special-member-functions)
     KEY_T    key;
     // the actual sample data we use in generate
     SAMPLE_T sample;
+    // @todo I think we can get away with a singly-linked list here
     // next node with the same key
     MemoryNode* next = nullptr;
     // prev node with the same key
@@ -72,6 +73,7 @@ public:
     , maxWordSize(2), currentWordBegin(0), currentWordSize(1), letterCount(0)
   {
     memory = new MemoryNode[memorySize];
+    // @todo with a singly-linked list it might not be so bad to handle nullptr and we can skip this
     // so that we don't have to deal with nullptr when writing to memory the first time,
     // we assign all prev and next nodes
     MemoryNode* head = memory;
@@ -209,6 +211,8 @@ public:
       }
 
       letterCount = 1;
+      // @todo we should make sure our word won't read past the end of the circular buffer and shorten then word size if it will.
+      // this is also something the beginWord methods could take into account when choosing a node.
       currentWordSize = maxWordSize;
     }
     else

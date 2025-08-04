@@ -88,6 +88,8 @@ SmoothValue<float>::SmoothValue(float lambda);
 
 class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguidelines-special-member-functions)
 {
+  // @todo write a proper MarkovGenerator class that encapsulates our generation logic with the envelopes and everything
+  // so that we can easily run left and right channels independently.
   typedef ComplexFloatMarkovGenerator MarkovGenerator;
 
   TapTempo        tempo;
