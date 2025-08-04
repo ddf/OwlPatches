@@ -50,52 +50,6 @@ private:
   size_t nodeCount;
   H hash;
 
-  class Iterator
-  {
-    const HashMap* map;
-    size_t tidx;
-    Node* node;
-
-  public:
-    explicit Iterator(const HashMap* map, size_t bidx) : map(map), tidx(bidx)
-    {
-      node = map->nodeTable[tidx];
-    }
-
-    const Iterator& operator++()
-    {
-      if (tidx == TABLE_SIZE) return *this;
-      
-      if (node)
-      {
-        node = node->next;
-      }
-
-      while (!node)
-      {
-        ++tidx;
-        if (tidx == TABLE_SIZE) break;
-        node = map->nodeTable[tidx];
-      }
-
-      return *this;
-    }
-
-    Node*& operator*() { return node; }
-    
-    bool operator==(const Iterator& other)
-    {
-      return this->map == other.map && this->tidx == other.tidx && this->node == other.node;
-    }
-
-    bool operator!=(const Iterator& other)
-    {
-      return !(*this == other);
-    }
-  };
-
-  Iterator iterEnd = Iterator(this, TABLE_SIZE);
-
 public:
   HashMap() : nodeCount(0)
   {
@@ -127,7 +81,7 @@ public:
     }
   }
 
-  Node* get(const K& key)
+  Node* get(const K& key) const
   {
     uint32_t idx = hash(key) & (TABLE_SIZE - 1);
     Node* node = nodeTable[idx];
@@ -197,23 +151,6 @@ public:
       deallocateNode(node);
     }
   }
-
-  Iterator begin() const
-  {
-    for (int i = 0; i < TABLE_SIZE; ++i)
-    {
-      if (nodeTable[i])
-      {
-        return Iterator(this, i);
-      }
-    }
-    return iterEnd;
-  }
-
-  const Iterator& end() const
-  {
-    return iterEnd;
-  }
   
   size_t size() const { return nodeCount; }
 
@@ -240,6 +177,71 @@ private:
       --nodeCount;
       nodePool[nodeCount] = node;
     }
+  }
+
+  // iterator for ranged-for support
+  class Iterator
+  {
+    const HashMap* map;
+    size_t tableIdx;
+    Node* node;
+
+  public:
+    explicit Iterator(const HashMap* map, const size_t idx) : map(map), tableIdx(idx)
+    {
+      node = map->nodeTable[tableIdx];
+    }
+
+    const Iterator& operator++()
+    {
+      if (tableIdx == TABLE_SIZE) return *this;
+      
+      if (node)
+      {
+        node = node->next;
+      }
+
+      while (!node)
+      {
+        ++tableIdx;
+        if (tableIdx == TABLE_SIZE) break;
+        node = map->nodeTable[tableIdx];
+      }
+
+      return *this;
+    }
+
+    Node*& operator*() { return node; }
+    
+    bool operator==(const Iterator& other)
+    {
+      return this->map == other.map && this->tableIdx == other.tableIdx && this->node == other.node;
+    }
+
+    bool operator!=(const Iterator& other)
+    {
+      return !(*this == other);
+    }
+  };
+
+  Iterator iterEnd = Iterator(this, TABLE_SIZE);
+
+public:
+  Iterator begin() const
+  {
+    for (int i = 0; i < TABLE_SIZE; ++i)
+    {
+      if (nodeTable[i])
+      {
+        return Iterator(this, i);
+      }
+    }
+    return iterEnd;
+  }
+
+  const Iterator& end() const
+  {
+    return iterEnd;
   }
 };
 
