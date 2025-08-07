@@ -12,10 +12,17 @@ class VesslTestPatch final : public Patch
   VoltsPerOctave voct;
   
 public:
-  VesslTestPatch() : osc(getSampleRate()), voct(true) {}
+  VesslTestPatch() : osc(getSampleRate()), voct(true)
+  {
+    for (int i = 0; i < osc.getParameterCount(); ++i)
+    {
+      registerParameter(static_cast<PatchParameterId>(i), osc.getParameter(i).name());
+    }
+  }
   
   void processAudio(AudioBuffer& audio) override
   {
+    osc.fHz().write(60 + getParameterValue(PARAMETER_A)*4000);
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
     for (int i = 0; i < audio.getSize(); ++i)
