@@ -134,6 +134,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\OwlProgram\Libraries\vessl\vessl.h" />
     <ClInclude Include="..\..\OwlProgram\LibSource\AbstractSynth.h" />
     <ClInclude Include="..\..\OwlProgram\LibSource\AdsrEnvelope.h" />
     <ClInclude Include="..\..\OwlProgram\LibSource\AgnesiOscillator.h" />
@@ -278,6 +279,7 @@
     <ClInclude Include="SpectralSympathiesPatch.hpp" />
     <ClInclude Include="StereoDelayProcessor.h" />
     <ClInclude Include="TapTempo.hpp" />
+    <ClInclude Include="VesslTestPatch.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\OwlProgram\LibSource\basicmaths.c" />
@@ -315,6 +317,10 @@
     <ClCompile Include="KissFFT.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="..\..\OwlProgram\Libraries\vessl\.git" />
+    <Content Include="..\..\OwlProgram\Libraries\vessl\.gitignore" />
+    <Content Include="..\..\OwlProgram\Libraries\vessl\LICENSE" />
+    <Content Include="..\..\OwlProgram\Libraries\vessl\README.md" />
     <Content Include="..\..\OwlProgram\Source\ccmheap.ld" />
     <Content Include="..\..\OwlProgram\Source\flash.ld" />
     <Content Include="..\..\OwlProgram\Source\owl1.ld" />
