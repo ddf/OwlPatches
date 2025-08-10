@@ -17,10 +17,11 @@ public:
   {
     registerParameter(PARAMETER_A, ramp.duration().name());
     setParameterValue(PARAMETER_A, 0.1f);
-    
-    for (int i = 0; i < osc.getSize(); ++i)
+
+    int pid = PARAMETER_B;
+    for (auto& param : osc)
     {
-      registerParameter(static_cast<PatchParameterId>(PARAMETER_B + i), osc[i].name());
+      registerParameter(static_cast<PatchParameterId>(pid++), param.name());
     }
 
     ramp.trigger();
@@ -44,7 +45,7 @@ public:
       if (eorState == OFF && *ramp.eor() > 0)
       {
         eorState = ON;
-        eorIndex = i;
+        eorIndex = static_cast<uint16_t>(i);
       }
     }
 
