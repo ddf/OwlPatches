@@ -34,7 +34,8 @@ public:
     int bufferSize = audio.getSize();
     AudioReader inLeft = AudioReader(audio.getSamples(LEFT_CHANNEL), bufferSize);
     AudioReader inRight = AudioReader(audio.getSamples(RIGHT_CHANNEL), bufferSize);
-    AudioWriter out = AudioWriter(audio.getSamples(LEFT_CHANNEL), bufferSize);
+    AudioWriter outL = AudioWriter(audio.getSamples(LEFT_CHANNEL), bufferSize);
+    AudioWriter outR = AudioWriter(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
     ramp.duration() << getParameterValue(PARAMETER_A);
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
@@ -46,7 +47,7 @@ public:
       osc.pm() << inLeft.read();
       osc.fmExp() << inRight.read();
       
-      out << osc.generate() * ramp.generate();
+      outL << osc.generate() * ramp.generate();
       
       if (eorState == OFF)
       {
@@ -54,8 +55,8 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
-
-    audio.getSamples(LEFT_CHANNEL).copyTo(audio.getSamples(RIGHT_CHANNEL));
+    
+    outR << inLeft.reset();
 
     setButton(BUTTON_1, eorState, eorIndex);
   }
