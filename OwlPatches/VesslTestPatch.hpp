@@ -8,14 +8,18 @@ using Oscil = vessl::oscil<float, vessl::waves::sine<float>>;
 using Ramp = vessl::ramp<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
+using CircularBuffer = vessl::ring<float>;
 
 class VesslTestPatch final : public MonochromeScreenPatch
 {
   Oscil osc;
   VoltsPerOctave voct;
   Ramp ramp;
+
+  float buffData[512];
+  CircularBuffer buffer;
 public:
-  VesslTestPatch() : osc(getSampleRate()), voct(true), ramp(getSampleRate(), 0, 1, 0)
+  VesslTestPatch() : osc(getSampleRate()), voct(true), ramp(getSampleRate(), 0, 1, 0), buffer(buffData, 512)
   {
     registerParameter(PARAMETER_A, ramp.duration().name());
     setParameterValue(PARAMETER_A, 0.1f);
@@ -47,7 +51,7 @@ public:
       osc.pm() << inLeft.read();
       osc.fmExp() << inRight.read();
       
-      outL << osc.generate() * ramp.generate();
+      outL << (osc.generate() * ramp.generate());
       
       if (eorState == OFF)
       {
@@ -55,8 +59,11 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
+
+    buffer << inLeft.reset();
+    outR << buffer;
     
-    outR << inLeft.reset();
+    //outR << inLeft.reset();
 
     setButton(BUTTON_1, eorState, eorIndex);
   }
