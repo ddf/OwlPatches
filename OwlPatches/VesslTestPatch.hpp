@@ -6,6 +6,7 @@
 
 using Oscil = vessl::oscil<float, vessl::waves::sine<float>>;
 using Ramp = vessl::ramp<float>;
+using Delay = vessl::delay<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
 using CircularBuffer = vessl::ring<float>;
@@ -15,12 +16,14 @@ class VesslTestPatch final : public MonochromeScreenPatch
   Oscil osc;
   VoltsPerOctave voct;
   Ramp ramp;
-
-  float buffData[512];
-  CircularBuffer buffer;
+  Delay* delay;
+  SmoothFloat delayTime;
 public:
-  VesslTestPatch() : osc(getSampleRate()), voct(true), ramp(getSampleRate(), 0, 1, 0), buffer(buffData, 512)
+  VesslTestPatch() : osc(getSampleRate()), voct(true), ramp(getSampleRate(), 0, 1, 0)
+  , delay(nullptr)
   {
+    delay = Delay::create(getSampleRate(), 1.5f);
+    
     registerParameter(PARAMETER_A, ramp.duration().name());
     setParameterValue(PARAMETER_A, 0.1f);
 
@@ -30,7 +33,13 @@ public:
       registerParameter(static_cast<PatchParameterId>(pid++), param.name());
     }
 
+    ramp.duration() << 0.1f;
     ramp.trigger();
+  }
+
+  ~VesslTestPatch() override
+  {
+    Delay::destroy(delay);
   }
   
   void processAudio(AudioBuffer& audio) override
@@ -41,17 +50,30 @@ public:
     AudioWriter outL = AudioWriter(audio.getSamples(LEFT_CHANNEL), bufferSize);
     AudioWriter outR = AudioWriter(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
-    ramp.duration() << getParameterValue(PARAMETER_A);
+    //ramp.duration() << getParameterValue(PARAMETER_A);
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
+
+    // without crossfaded delay, we have to both smooth the input parameter
+    // and ramp the delay time across the block 
+    delayTime = getParameterValue(PARAMETER_A)*1.0f;
+    float fromTime = delay->time().read();
+    float toTime = delayTime.getValue();
+    float timeStep = (toTime - fromTime) / getBlockSize();
+
+    delay->feedback() << getParameterValue(PARAMETER_B);
 
     uint16_t eorState = OFF;
     uint16_t eorIndex = 0;
     while (inLeft)
     {
+      delay->time() << fromTime;
+      fromTime += timeStep;
+      
       osc.pm() << inLeft.read();
       osc.fmExp() << inRight.read();
-      
-      outL << (osc.generate() * ramp.generate());
+
+      float s = (osc.generate() * ramp.generate()); 
+      outL << s*0.5f + delay->process(s)*0.5f;
       
       if (eorState == OFF)
       {
@@ -59,11 +81,8 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
-
-    buffer << inLeft.reset();
-    outR << buffer;
     
-    //outR << inLeft.reset();
+    outR << inLeft.reset();
 
     setButton(BUTTON_1, eorState, eorIndex);
   }
