@@ -6,6 +6,8 @@
 
 using Oscil = vessl::oscil<float, vessl::waves::sine<float>>;
 using Ramp = vessl::ramp<float>;
+using AudioReader = vessl::array<float>::reader;
+using AudioWriter = vessl::array<float>::writer;
 
 class VesslTestPatch final : public MonochromeScreenPatch
 {
@@ -29,25 +31,31 @@ public:
   
   void processAudio(AudioBuffer& audio) override
   {
+    int bufferSize = audio.getSize();
+    AudioReader inLeft = AudioReader(audio.getSamples(LEFT_CHANNEL), bufferSize);
+    AudioReader inRight = AudioReader(audio.getSamples(RIGHT_CHANNEL), bufferSize);
+    AudioWriter out = AudioWriter(audio.getSamples(LEFT_CHANNEL), bufferSize);
+    
     ramp.duration() << getParameterValue(PARAMETER_A);
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
-    FloatArray left = audio.getSamples(LEFT_CHANNEL);
-    FloatArray right = audio.getSamples(RIGHT_CHANNEL);
+
     uint16_t eorState = OFF;
     uint16_t eorIndex = 0;
-    for (int i = 0; i < audio.getSize(); ++i)
+    while (inLeft)
     {
-      osc.pm() << left[i];
-      osc.fmExp() << voct.sampleToVolts(right[i]);
-      float s = osc.generate() * ramp.generate();
-      left[i] = s;
-      right[i] = s;
-      if (eorState == OFF && *ramp.eor() > 0)
+      osc.pm() << inLeft.read();
+      osc.fmExp() << inRight.read();
+      
+      out << osc.generate() * ramp.generate();
+      
+      if (eorState == OFF)
       {
-        eorState = ON;
-        eorIndex = static_cast<uint16_t>(i);
+        eorState = *ramp.eor() > 0;
+        eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
+
+    audio.getSamples(LEFT_CHANNEL).copyTo(audio.getSamples(RIGHT_CHANNEL));
 
     setButton(BUTTON_1, eorState, eorIndex);
   }
