@@ -16,21 +16,22 @@ class VesslTestPatch final : public MonochromeScreenPatch
   Oscil osc;
   VoltsPerOctave voct;
   Ramp ramp;
-  Delay* delay;
+
+  FloatArray delayBuffer;
+  Delay delay;
   SmoothFloat delayTime;
 public:
   VesslTestPatch() : osc(getSampleRate()), voct(true), ramp(getSampleRate(), 0, 1, 0)
-  , delay(nullptr)
+  , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
+  , delay(vessl::array<float>(delayBuffer.getData(), delayBuffer.getSize()), getSampleRate(), 0.2f)
   {
-    delay = Delay::create(getSampleRate(), 1.5f);
-    
-    registerParameter(PARAMETER_A, ramp.duration().name());
+    registerParameter(PARAMETER_A, ramp.duration().getName());
     setParameterValue(PARAMETER_A, 0.1f);
 
     int pid = PARAMETER_B;
     for (auto& param : osc)
     {
-      registerParameter(static_cast<PatchParameterId>(pid++), param.name());
+      registerParameter(static_cast<PatchParameterId>(pid++), param.getName());
     }
 
     ramp.duration() << 0.1f;
@@ -39,7 +40,7 @@ public:
 
   ~VesslTestPatch() override
   {
-    Delay::destroy(delay);
+    FloatArray::destroy(delayBuffer);
   }
   
   void processAudio(AudioBuffer& audio) override
@@ -50,34 +51,27 @@ public:
     AudioWriter outL = AudioWriter(audio.getSamples(LEFT_CHANNEL), bufferSize);
     AudioWriter outR = AudioWriter(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
-    //ramp.duration() << getParameterValue(PARAMETER_A);
+    ramp.duration() << getParameterValue(PARAMETER_A);
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
+    
+    delayTime = getParameterValue(PARAMETER_A)*2.0f;
 
-    // without crossfaded delay, we have to both smooth the input parameter
-    // and ramp the delay time across the block 
-    delayTime = getParameterValue(PARAMETER_A)*1.0f;
-    float fromTime = delay->time().read();
-    float toTime = delayTime.getValue();
-    float timeStep = (toTime - fromTime) / getBlockSize();
-
-    delay->feedback() << getParameterValue(PARAMETER_B);
+    delay.time() << delayTime.getValue(); // getParameterValue(PARAMETER_A)*2.0f;
+    delay.feedback() << getParameterValue(PARAMETER_B);
 
     uint16_t eorState = OFF;
     uint16_t eorIndex = 0;
     while (inLeft)
     {
-      delay->time() << fromTime;
-      fromTime += timeStep;
-      
       osc.pm() << inLeft.read();
       osc.fmExp() << inRight.read();
 
       float s = (osc.generate() * ramp.generate()); 
-      outL << s*0.5f + delay->process(s)*0.5f;
+      outL << s*0.5f + delay.process(s)*0.5f;
       
       if (eorState == OFF)
       {
-        eorState = *ramp.eor() > 0;
+        eorState = ramp.eor() > 0;
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
