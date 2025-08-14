@@ -7,6 +7,7 @@
 using Oscil = vessl::oscil<float, vessl::waves::sine<float>>;
 using Ramp = vessl::ramp<float>;
 using Delay = vessl::delay<float>;
+using Array = vessl::array<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
 using CircularBuffer = vessl::ring<float>;
@@ -23,7 +24,7 @@ class VesslTestPatch final : public MonochromeScreenPatch
 public:
   VesslTestPatch() : osc(getSampleRate()), voct(true), ramp(getSampleRate(), 0, 1, 0)
   , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
-  , delay(vessl::array<float>(delayBuffer.getData(), delayBuffer.getSize()), getSampleRate(), 0.2f)
+  , delay(Array(delayBuffer.getData(), delayBuffer.getSize()), getSampleRate(), 0.2f)
   {
     registerParameter(PARAMETER_A, ramp.duration().getName());
     setParameterValue(PARAMETER_A, 0.1f);
@@ -46,10 +47,8 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     int bufferSize = audio.getSize();
-    AudioReader inLeft = AudioReader(audio.getSamples(LEFT_CHANNEL), bufferSize);
-    AudioReader inRight = AudioReader(audio.getSamples(RIGHT_CHANNEL), bufferSize);
-    AudioWriter outL = AudioWriter(audio.getSamples(LEFT_CHANNEL), bufferSize);
-    AudioWriter outR = AudioWriter(audio.getSamples(RIGHT_CHANNEL), bufferSize);
+    Array audioLeft(audio.getSamples(LEFT_CHANNEL), bufferSize);
+    Array audioRight(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
     ramp.duration() << getParameterValue(PARAMETER_A);
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
@@ -61,13 +60,15 @@ public:
 
     uint16_t eorState = OFF;
     uint16_t eorIndex = 0;
-    while (inLeft)
+    AudioReader pmIn(audioLeft);
+    AudioReader fmIn(audioRight);
+    AudioWriter out(audioLeft);
+    while (out)
     {
-      osc.pm() << inLeft.read();
-      osc.fmExp() << inRight.read();
+      osc.pm() << pmIn.read();
+      osc.fmExp() << fmIn.read();
 
-      float s = (osc.generate() * ramp.generate()); 
-      outL << s*0.5f + delay.process(s)*0.5f;
+      out << (osc.generate() * ramp.generate()); 
       
       if (eorState == OFF)
       {
@@ -76,8 +77,10 @@ public:
       }
     }
     
-    outR << inLeft.reset();
+    delay.process(AudioReader(audioLeft), AudioWriter(audioRight));
 
+    audioRight << audioLeft.add(audioRight).scale(0.5f);
+    
     setButton(BUTTON_1, eorState, eorIndex);
   }
 
