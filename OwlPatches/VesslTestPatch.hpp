@@ -26,10 +26,18 @@ class VesslTestPatch final : public MonochromeScreenPatch
   FloatArray delayBuffer;
   Delay delay;
   SmoothFloat delayTime;
+
+  FloatArray delayLineBuffer;
+  vessl::delayline<float> delayLine;
+  Oscil delayOscil;
+  
 public:
   VesslTestPatch() : wave(sine), osc(getSampleRate(), wave), voct(true), ramp(getSampleRate(), 0, 1, 0)
   , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
   , delay(Array(delayBuffer.getData(), delayBuffer.getSize()), getSampleRate(), 0.2f)
+  , delayLineBuffer(FloatArray::create(static_cast<int>(getSampleRate())))
+  , delayLine(delayLineBuffer.getData(), delayLineBuffer.getSize())
+  , delayOscil(getSampleRate(), delayLine, 2.f)
   {
     registerParameter(PARAMETER_A, ramp.duration().getName());
     setParameterValue(PARAMETER_A, 0.1f);
@@ -67,13 +75,23 @@ public:
     uint16_t eorIndex = 0;
     AudioReader pmIn(audioLeft);
     AudioReader fmIn(audioRight);
-    AudioWriter out(audioLeft);
-    while (out)
+    AudioWriter lout(audioLeft);
+    AudioWriter rout(audioRight);
+    while (lout)
     {
-      osc.pm() << pmIn.read();
-      osc.fmExp() << fmIn.read();
+      float pm = pmIn.read();
+      float fm = fmIn.read();
+      osc.pm() << pm;
+      osc.fmExp() << fm;
 
-      out << (osc.generate() * ramp.generate()); 
+      delayOscil.pm() << pm;
+      delayOscil.fmExp() << fm;
+
+      float s = (osc.generate() * ramp.generate());
+      float d = delayOscil.generate();
+      lout << s*0.5f + d*0.5f;
+
+      delayLine.write(-s+d*0.5f);
       
       if (eorState == OFF)
       {
@@ -85,8 +103,12 @@ public:
     AudioReader dry(audioLeft);
     AudioWriter wet(audioRight);
     delay.process(dry, wet);
-
+    
     audioRight << audioLeft.add(audioRight).scale(0.5f);
+    
+    while (rout)
+    {
+    }
     
     setButton(BUTTON_1, eorState, eorIndex);
   }
