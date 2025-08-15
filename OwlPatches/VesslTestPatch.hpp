@@ -76,8 +76,10 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
-    
-    delay.process(AudioReader(audioLeft), AudioWriter(audioRight));
+
+    AudioReader dry(audioLeft);
+    AudioWriter wet(audioRight);
+    delay.process(dry, wet);
 
     audioRight << audioLeft.add(audioRight).scale(0.5f);
     
