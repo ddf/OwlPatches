@@ -1,8 +1,7 @@
 #pragma once
 
-#include "SignalGenerator.h"
-#include "ComplexShortArray.h"
-#include "basicmaths.h"
+#include "vessl/vessl.h"
+#include <cstdlib>
 #include "HashMap.h"
 
 template<typename S, typename K>
@@ -46,17 +45,17 @@ private:
   KEY_FUNC    keyFunc;
   MemoryNode* memory;
   const MemoryNode* prevGenerateNode;
-  uint32_t memorySize;
-  uint32_t memoryWriteIdx;
-  uint32_t maxWordSize;
-  uint32_t currentWordBegin;
-  uint32_t currentWordSize;
-  uint32_t letterCount;
+  size_t memorySize;
+  size_t memoryWriteIdx;
+  size_t maxWordSize;
+  size_t currentWordBegin;
+  size_t currentWordSize;
+  size_t letterCount;
   
   struct Chain
   {
     MemoryNode* head;
-    uint32_t length;
+    size_t length;
   };
   typedef HashMap<KEY_T, Chain, 4096, 1<<16> ChainsMap;
   // map of keys to chains of nodes that share that key
@@ -68,7 +67,7 @@ private:
   }
 
 public:
-  explicit MarkovChain(const int inBufferSize)
+  explicit MarkovChain(size_t inBufferSize)
     : memory(nullptr), memorySize(inBufferSize), memoryWriteIdx(0)
     , maxWordSize(2), currentWordBegin(0), currentWordSize(1), letterCount(0)
   {
@@ -113,7 +112,7 @@ public:
 
   void setWordSize(const int length)
   {
-    maxWordSize = std::max(2, length);
+    maxWordSize = vessl::math::max(2, length);
   }
 
   void learn(const SAMPLE_T& sample)
@@ -278,7 +277,7 @@ private:
   MemoryNode* beginWordAtZero()
   {
     // pick a random offset from the oldest sample frame in memory to start
-    const int nextWordBegin = memoryWriteIdx + (arm_rand32() % memorySize);
+    const int nextWordBegin = memoryWriteIdx + (rand() % memorySize);
     // if there is at least one frame with a key equal to zero, start from a random node in that list
     if (auto zeroKeyPair = chainsMap.get(0))
     {
@@ -294,7 +293,7 @@ private:
   template<bool FALLBACK_TO_ZERO>
   MemoryNode* beginWordFromChain(const Chain& chain)
   {
-    uint32_t steps = arm_rand32() % chain.length;
+    int steps = rand() % chain.length;
     MemoryNode* node = chain.head;
     while (steps != 0 && node != nullptr)
     {
@@ -326,148 +325,5 @@ private:
 
     currentWordBegin = nextWordBegin;
     return get(nextWordBegin);
-  }
-
-public:
-  static MarkovChain* create(int bufferSize)
-  {
-    return new MarkovChain(bufferSize);
-  }
-
-  static void destroy(const MarkovChain* markov)
-  {
-    if (markov) delete markov;
-  }
-};
-
-class ShortMarkovGenerator final : public SignalGenerator
-{
-public:
-  typedef MarkovChain<int16_t> Chain;
-
-private:
-  Chain markovChain;
-  
-  explicit ShortMarkovGenerator(const int bufferSize) : markovChain(bufferSize)
-  {
-
-  }
-
-public:
-  Chain& chain() { return markovChain; }
-  
-  void learn(const float value)
-  {
-    markovChain.learn(static_cast<int16_t>(value * 32767));
-  }
-
-  float generate() override 
-  {
-    return static_cast<float>(markovChain.generate()) * 0.0000305185f;
-  }
-
-  static ShortMarkovGenerator* create(const int bufferSize)
-  {
-    return new ShortMarkovGenerator(bufferSize);
-  }
-
-  static void destroy(const ShortMarkovGenerator* markov)
-  {
-    delete markov;
-  }
-};
-
-class ComplexShortMarkovGenerator final : ComplexSignalGenerator
-{
-public:
-  struct KeyFunc
-  {
-    int16_t operator()(const ComplexShort& value) const
-    {
-      return value.re;
-    }
-  };
-  
-  typedef MarkovChain<ComplexShort, int16_t, KeyFunc> Chain;
-
-private:
-  Chain markovChain;
-  
-  explicit ComplexShortMarkovGenerator(const int bufferSize) : markovChain(bufferSize)
-  {
-
-  }
-
-public:
-  Chain& chain() { return markovChain; }
-  
-  void learn(const ComplexFloat value)
-  {
-    markovChain.learn( { static_cast<int16_t>(value.re * 32767), static_cast<int16_t>(value.im * 32767) } );
-  }
-
-  ComplexFloat generate() override
-  {
-    const ComplexShort frame = markovChain.generate();
-    return { static_cast<float>(frame.re) * 0.0000305185f, static_cast<float>(frame.im) * 0.0000305185f };
-  }
-
-  static ComplexShortMarkovGenerator* create(const int bufferSize)
-  {
-    return new ComplexShortMarkovGenerator(bufferSize);
-  }
-
-  static void destroy(const ComplexShortMarkovGenerator* markov)
-  {
-    delete markov;
-  }
-};
-
-class ComplexFloatMarkovGenerator final : ComplexSignalGenerator
-{
-public:
-  struct KeyFunc
-  {
-    uint32_t operator()(const ComplexFloat& value) const
-    {
-      // generate a unique key for this stereo frame
-      // not sure what's best here - if frames are too unique, we wind up restarting words at zero all the time
-      // what I really want to be able to do is modulate this
-      static constexpr double SCALE = (1<<12) / (2.0f * M_PI);
-      return static_cast<uint32_t>((value.getPhase()+M_PI)*SCALE);
-    }
-  };
-  
-  typedef MarkovChain<ComplexFloat, uint32_t, KeyFunc> Chain;
-
-private:
-  Chain markovChain;
-  
-  explicit ComplexFloatMarkovGenerator(const int bufferSize) : markovChain(bufferSize)
-  {
-
-  }
-
-public:
-  Chain& chain() { return markovChain; }
-  
-  void learn(const ComplexFloat& value)
-  {
-    markovChain.learn(value);
-  }
-
-  ComplexFloat generate() override
-  {
-    return markovChain.generate();
-  }
-
-  static ComplexFloatMarkovGenerator* create(const int bufferSize)
-  {
-    return new ComplexFloatMarkovGenerator(bufferSize);
-  }
-
-  static void destroy(const ComplexFloatMarkovGenerator* markov)
-  {
-    delete markov;
   }
 };

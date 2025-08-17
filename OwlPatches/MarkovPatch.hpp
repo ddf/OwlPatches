@@ -54,6 +54,7 @@ DESCRIPTION:
 
 #pragma once
 
+#include "MarkovGenerator.h"
 #include "MonochromeScreenPatch.h"
 #include "PatchParameterDescription.h"
 #include "DcBlockingFilter.h"
@@ -88,10 +89,19 @@ SmoothValue<float>::SmoothValue(float lambda);
 
 class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguidelines-special-member-functions)
 {
-  // @todo write a proper MarkovGenerator class that encapsulates our generation logic with the envelopes and everything
-  // so that we can easily run left and right channels independently.
-  typedef ComplexFloatMarkovGenerator MarkovGenerator;
-
+  struct KeyFunc
+  {
+    uint32_t operator()(const ComplexFloat& value) const
+    {
+      // generate a unique key for this stereo frame
+      // not sure what's best here - if frames are too unique, we wind up restarting words at zero all the time
+      // what I really want to be able to do is modulate this
+      static constexpr double SCALE = (1<<12) / (2.0f * M_PI);
+      return static_cast<uint32_t>((value.getPhase()+M_PI)*SCALE);
+    }
+  };
+  using Markov = MarkovGenerator<ComplexFloat, KeyFunc>;
+  
   TapTempo        tempo;
   ExponentialAdsr listenEnvelope;
   ExponentialAdsr expoGenerateEnvelope;
@@ -99,7 +109,7 @@ class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguideli
 
   AudioBuffer* genBuffer;
   StereoDcBlockingFilter* dcBlockingFilter;
-  MarkovGenerator* markov;
+  Markov* markov;
   
   int samplesSinceLastTap;
   int clocksToReset;
@@ -127,7 +137,7 @@ public:
     tempo.setBeatsPerMinute(120);
 
     genBuffer = AudioBuffer::create(2, getBlockSize());
-    markov = MarkovGenerator::create(static_cast<int>(getSampleRate()*4));
+    markov = new Markov(getSampleRate(), static_cast<int>(getSampleRate()*4));
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     
     listenEnvelope.setAttack(ATTACK_SECONDS);
@@ -152,8 +162,8 @@ public:
 
   ~MarkovPatch() override
   {
+    delete markov;
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
-    MarkovGenerator::destroy(markov);
     AudioBuffer::destroy(genBuffer);
   }
 
@@ -245,7 +255,7 @@ public:
 
     const float divMultT = Easing::interp(0, DIV_MULT_LEN - 1, getParameterValue(IN_WORD_SIZE));
     const bool smoothDivMult = samplesSinceLastTap >= TAP_TRIGGER_LIMIT;
-    const int divMultIdx = smoothDivMult ? static_cast<int>(divMultT) : static_cast<int>(roundf(divMultT));
+    const int divMultIdx = smoothDivMult ? static_cast<int>(divMultT) : static_cast<int>(round(divMultT));
     int intervalIdx = 3;
     float wordScale = smoothDivMult ? Easing::interp(DIV_MULT[divMultIdx], DIV_MULT[divMultIdx+1], divMultT - static_cast<float>(divMultIdx))
                                     : DIV_MULT[divMultIdx];
@@ -267,7 +277,7 @@ public:
     {
       float scale = Easing::interp(1, 4, randf()*varyAmt);
       // weight towards shorter
-      if (randf() > 0.25f) scale = 1.0f / scale;
+      if (randf() > 0.25f) { scale = 1.0f / scale; }
       wordScale *= scale;
       wordsToNewInterval = 1;
     }
@@ -393,7 +403,7 @@ public:
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    const MarkovGenerator::Chain::Stats stats = markov->chain().getStats();
+    const Markov::Chain::Stats stats = markov->chain().getStats();
     screen.setCursor(0, 8);
     screen.print("keys ");
     screen.print(stats.chainCount);
