@@ -57,9 +57,7 @@ DESCRIPTION:
 #include "MonochromeScreenPatch.h"
 #include "PatchParameterDescription.h"
 #include "DcBlockingFilter.h"
-#include "Easing.h"
 #include "Markov.h"
-#include "MarkovChain.hpp"
 
 static constexpr PatchButtonId IN_TOGGLE_LISTEN = BUTTON_1;
 static constexpr PatchButtonId IN_CLOCK = BUTTON_2;
@@ -121,18 +119,18 @@ public:
   {
     if (bid == IN_TOGGLE_LISTEN && value == ON)
     {
-      bool state = markov->listen().read<bool>();
-      markov->listen() << !state;
+      // bool state = markov->listen().read<bool>();
+      // markov->listen() << !state;
       
-      // uint32_t _;
-      // if (markov->listen().read(&_))
-      // {
-      //   markov->listen().write(false); 
-      // }
-      // else
-      // {
-      //   markov->listen().write(true, samples);
-      // }
+      uint32_t _;
+      if (markov->listen().read(&_))
+      {
+        markov->listen().write(false, 0); 
+      }
+      else
+      {
+        markov->listen().write(true, samples);
+      }
     }
     else if (bid == IN_CLOCK && value == ON)
     {
@@ -182,8 +180,8 @@ public:
 #endif
     //setButton(OUT_WORD_ENDED, wordStartedGate > 0, static_cast<uint16_t>(wordStartedGateDelay));
     uint32_t listenGateDelay = 0;
-    bool listenState = markov->listen().read<bool>();
-    setButton(BUTTON_2, listenState, listenGateDelay);
+    bool listenState = markov->listen().read(&listenGateDelay);
+    setButton(BUTTON_2, listenState, static_cast<uint16_t>(listenGateDelay));
     setParameterValue(OUT_WORD_PROGRESS, markov->progress().read<float>());
     // setting exactly 1.0 on an output parameter causes a glitch on Genius, so we scale down our envelope value a little bit
     setParameterValue(OUT_DECAY_ENVELOPE, markov->envelope().read<float>()*0.98f);
