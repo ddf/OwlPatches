@@ -263,6 +263,7 @@
     <ClInclude Include="KnoscillatorLichPatch.hpp" />
     <ClInclude Include="KnoscillatorPatch.hpp" />
     <ClInclude Include="KnotOscillator.h" />
+    <ClInclude Include="Markov.h" />
     <ClInclude Include="MarkovChain.hpp" />
     <ClInclude Include="MarkovGenerator.h" />
     <ClInclude Include="MarkovPatch.hpp" />

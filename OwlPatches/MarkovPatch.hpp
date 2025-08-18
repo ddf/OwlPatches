@@ -54,15 +54,11 @@ DESCRIPTION:
 
 #pragma once
 
-#include "MarkovGenerator.h"
 #include "MonochromeScreenPatch.h"
 #include "PatchParameterDescription.h"
 #include "DcBlockingFilter.h"
-#include "Adsr.h"
 #include "Easing.h"
-#include "TapTempo.h"
-#include "basicmaths.h"
-
+#include "Markov.h"
 #include "MarkovChain.hpp"
 
 static constexpr PatchButtonId IN_TOGGLE_LISTEN = BUTTON_1;
@@ -77,16 +73,6 @@ static constexpr PatchParameterId IN_DRY_WET = PARAMETER_D;
 static constexpr PatchParameterId OUT_WORD_PROGRESS = OUT_PARAMETER_A;
 static constexpr PatchParameterId OUT_DECAY_ENVELOPE = OUT_PARAMETER_B;
 
-static constexpr float ATTACK_SECONDS    = 0.005f;
-static constexpr float MIN_DECAY_SECONDS = 0.010f;
-static constexpr float MAX_DECAY_SECONDS = 1.0f;
-
-static constexpr int TAP_TRIGGER_LIMIT = (1 << 17);
-
-// forward declaration for constructor used below (to suppress warning)
-template<>
-SmoothValue<float>::SmoothValue(float lambda);
-
 class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguidelines-special-member-functions)
 {
   struct KeyFunc
@@ -100,55 +86,19 @@ class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguideli
       return static_cast<uint32_t>((value.getPhase()+M_PI)*SCALE);
     }
   };
-  using Markov = MarkovGenerator<ComplexFloat, KeyFunc>;
+  using MarkovProcessor = Markov<ComplexFloat, KeyFunc>;
   
-  TapTempo        tempo;
-  ExponentialAdsr listenEnvelope;
-  ExponentialAdsr expoGenerateEnvelope;
-  LinearAdsr      linearGenerateEnvelope;
-
-  AudioBuffer* genBuffer;
   StereoDcBlockingFilter* dcBlockingFilter;
-  Markov* markov;
-  
-  int samplesSinceLastTap;
-  int clocksToReset;
-  int samplesToReset;
-  int wordsToNewInterval;
-  int wordGateLength;
-  int wordStartedGate;
-  int wordStartedGateLength;
-  int minWordGateLength;
-  int minWordSizeSamples;
-
-  SmoothFloat envelopeShape;
-
-  uint16_t listening;
+  MarkovProcessor* markov;
+  ComplexFloat* markovBuffer;
 
 public: 
-  MarkovPatch()
-    : tempo(getSampleRate(), TAP_TRIGGER_LIMIT)
-    , listenEnvelope(getSampleRate()), expoGenerateEnvelope(getSampleRate()), linearGenerateEnvelope(getSampleRate())
-    , genBuffer(nullptr), dcBlockingFilter(nullptr), markov(nullptr)
-    , samplesSinceLastTap(TAP_TRIGGER_LIMIT), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0), wordGateLength(1)
-    , wordStartedGate(0), wordStartedGateLength(static_cast<int>(getSampleRate()*ATTACK_SECONDS)), minWordGateLength(static_cast<int>(getSampleRate()*ATTACK_SECONDS))
-    , minWordSizeSamples(static_cast<int>(getSampleRate()*ATTACK_SECONDS*2)), envelopeShape(0.9f), listening(OFF)
+  MarkovPatch() : dcBlockingFilter(nullptr), markov(nullptr), markovBuffer(nullptr)
   {
-    tempo.setBeatsPerMinute(120);
-
-    genBuffer = AudioBuffer::create(2, getBlockSize());
-    markov = new Markov(getSampleRate(), static_cast<int>(getSampleRate()*4));
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
+    markov = new MarkovProcessor(getSampleRate(), static_cast<size_t>(getSampleRate()*4));
+    markovBuffer = new ComplexFloat[getBlockSize()];
     
-    listenEnvelope.setAttack(ATTACK_SECONDS);
-    listenEnvelope.setRelease(ATTACK_SECONDS);
-    
-    expoGenerateEnvelope.setAttack(ATTACK_SECONDS);
-    expoGenerateEnvelope.setRelease(MIN_DECAY_SECONDS);
-    
-    linearGenerateEnvelope.setAttack(ATTACK_SECONDS);
-    linearGenerateEnvelope.setRelease(MIN_DECAY_SECONDS);
-
     registerParameter(IN_WORD_SIZE, "Word Size");
     registerParameter(IN_WORD_SIZE_VARIATION, "Word Size Variation");
     registerParameter(IN_DRY_WET, "Dry/Wet");
@@ -162,149 +112,32 @@ public:
 
   ~MarkovPatch() override
   {
+    delete[] markovBuffer;
     delete markov;
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
-    AudioBuffer::destroy(genBuffer);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (bid == IN_TOGGLE_LISTEN && value == Patch::ON)
+    if (bid == IN_TOGGLE_LISTEN && value == ON)
     {
-      listening = listening == Patch::ON ? OFF : Patch::ON;
-      listenEnvelope.gate(listening == ON, samples);
+      bool state = markov->listen().read<bool>();
+      markov->listen() << !state;
+      
+      // uint32_t _;
+      // if (markov->listen().read(&_))
+      // {
+      //   markov->listen().write(false); 
+      // }
+      // else
+      // {
+      //   markov->listen().write(true, samples);
+      // }
     }
-    else if (bid == IN_CLOCK)
+    else if (bid == IN_CLOCK && value == ON)
     {
-      const bool on = value == ON;
-      tempo.trigger(on, samples);
-
-      samplesSinceLastTap = -samples;
-
-      // don't reset when doing full random variation
-      if (on && getParameterValue(IN_WORD_SIZE_VARIATION) < 0.53f && clocksToReset == 0)
-      {
-        samplesToReset = samples;
-      }
-
-      if (on && clocksToReset > 0)
-      {
-        --clocksToReset;
-      }
+      markov->clock();
     }
-  }
-
-  void setEnvelopeRelease(const int wordSize)
-  {
-    if (envelopeShape >= 0.99f)
-    {
-      wordGateLength = wordSize;
-    }
-    else if (envelopeShape >= 0.53f)
-    {
-      float t = (envelopeShape - 0.53f) * 2.12f;
-      wordGateLength = static_cast<int>(Easing::interp(static_cast<float>(minWordGateLength), static_cast<float>(wordSize - minWordGateLength), t));
-    }
-    else
-    {
-      wordGateLength = minWordSizeSamples;
-    }
-    const float wordReleaseSeconds = static_cast<float>(wordSize - wordGateLength) / getSampleRate();
-    expoGenerateEnvelope.setRelease(wordReleaseSeconds);
-    linearGenerateEnvelope.setRelease(wordReleaseSeconds);
-  }
-
-  void updateEnvelope()
-  {
-    const bool state = markov->chain().getLetterCount() < wordGateLength;
-    expoGenerateEnvelope.gate(state);
-    linearGenerateEnvelope.gate(state);
-
-    expoGenerateEnvelope.generate();
-    linearGenerateEnvelope.generate();
-  }
-
-  float getEnvelopeLevel()
-  {
-    const float expo = expoGenerateEnvelope.getLevel();
-    const float line = linearGenerateEnvelope.getLevel();
-    if (envelopeShape <= 0.47f)
-    {
-      const float t = (0.47f - envelopeShape) * 2.12f;
-      return Easing::interp(line, expo, t);
-    }
-    return line;
-  }
-
-  void updateWordSettings()
-  {
-    static constexpr int DIV_MULT_LEN = 7;
-    static constexpr float DIV_MULT[DIV_MULT_LEN] = { 1.0f / 4, 1.0f / 3, 1.0f / 2, 1, 2, 3, 4 };
-    static constexpr int INTERVALS_LEN = 7;
-    static constexpr float INTERVALS[INTERVALS_LEN] = { 1.0f / 3, 1.0f / 4, 1.0f / 2, 1, 2, 4, 3 };
-    static const int COUNTERS[DIV_MULT_LEN][INTERVALS_LEN] = {
-      // intervals:    1/3  1/4  1/2  1  2  4   3   |    divMult
-                   { 1,   1,   1,  1, 1, 1,  3   }, // 1/4
-                   { 1,   1,   1,  1, 1, 4,  1   }, // 1/3
-                   { 1,   1,   1,  1, 1, 2,  3   }, // 1/2
-                   { 1,   1,   1,  1, 2, 4,  3   }, // 1
-                   { 2,   1,   1,  2, 4, 8,  6   }, // 2
-                   { 1,   3,   3,  3, 6, 12, 9   }, // 3
-                   { 4,   1,   2,  4, 8, 16, 12  }, // 4
-    };
-
-    const float divMultT = Easing::interp(0, DIV_MULT_LEN - 1, getParameterValue(IN_WORD_SIZE));
-    const bool smoothDivMult = samplesSinceLastTap >= TAP_TRIGGER_LIMIT;
-    const int divMultIdx = smoothDivMult ? static_cast<int>(divMultT) : static_cast<int>(round(divMultT));
-    int intervalIdx = 3;
-    float wordScale = smoothDivMult ? Easing::interp(DIV_MULT[divMultIdx], DIV_MULT[divMultIdx+1], divMultT - static_cast<float>(divMultIdx))
-                                    : DIV_MULT[divMultIdx];
-
-    const float wordVariationParam = getParameterValue(IN_WORD_SIZE_VARIATION);
-    float varyAmt = 0;
-    // maps parameter to [0,1) weight above and below a dead-zone in the center
-    if (wordVariationParam >= 0.53f)
-    {
-      varyAmt = (wordVariationParam - 0.53f) * 2.12f;
-    }
-    else if (wordVariationParam <= 0.47f)
-    {
-      varyAmt = (0.47f - wordVariationParam) * 2.12f;
-    }
-
-    // smooth random variation
-    if (wordVariationParam >= 0.53f)
-    {
-      float scale = Easing::interp(1, 4, randf()*varyAmt);
-      // weight towards shorter
-      if (randf() > 0.25f) { scale = 1.0f / scale; }
-      wordScale *= scale;
-      wordsToNewInterval = 1;
-    }
-    // random variation using musical mult/divs of the current word size
-    else if (wordVariationParam <= 0.47f)
-    {
-      // when varyAmt is zero, we want the interval in the middle of the array (ie 1).
-      // so we offset from 0.5f with a random value between -0.5 and 0.5, scaled by varyAmt
-      // (ie as vary amount gets larger we can pick values at closer to the ends of the array).
-      intervalIdx = static_cast<int>(Easing::interp(0, INTERVALS_LEN - 1, 0.5f + (randf() - 0.5f) * varyAmt));
-      const float interval = INTERVALS[intervalIdx];
-      wordScale *= interval;
-      if (interval < 1)
-      {
-        wordsToNewInterval = static_cast<int>(1.0f / interval);
-      }
-    }
-    else
-    {
-      wordsToNewInterval = 1;
-    }
-
-    const int wordSize = std::max(minWordSizeSamples, static_cast<int>(static_cast<float>(tempo.getPeriodInSamples()) * wordScale));
-    clocksToReset = COUNTERS[divMultIdx][intervalIdx] - 1;
-
-    markov->chain().setWordSize(wordSize);
-    setEnvelopeRelease(wordSize);
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -312,98 +145,54 @@ public:
     const int inSize = audio.getSize();
     FloatArray inLeft = audio.getSamples(0);
     FloatArray inRight = audio.getSamples(1);
-    FloatArray genLeft = genBuffer->getSamples(0);
-    FloatArray genRight = genBuffer->getSamples(1);
-
-    tempo.clock(inSize);
-    if (samplesSinceLastTap < TAP_TRIGGER_LIMIT)
-    {
-      samplesSinceLastTap += getBlockSize();
-    }
 
     dcBlockingFilter->process(audio, audio);
 
+    // set the parameters
+    markov->wordSize() << getParameterValue(IN_WORD_SIZE);
+    markov->variation() << getParameterValue(IN_WORD_SIZE_VARIATION);
+    markov->decay() << getParameterValue(IN_DECAY);
+
+    // copy our input into a processing array
     for (int i = 0; i < inSize; ++i)
     {
-      // need to generate even if we don't use the value otherwise internal state won't update
-      const float env = listenEnvelope.generate();
-      if (!listenEnvelope.isIdle())
-      {
-        markov->learn(ComplexFloat(inLeft[i]*env, inRight[i]*env));
-      }
+      ComplexFloat& c = markovBuffer[i];
+      c.re = inLeft[i];
+      c.im = inRight[i];
     }
 
-    int wordStartedGateDelay = 0;
-    if (wordStartedGate > 0)
-    {
-      if (wordStartedGate < getBlockSize())
-      {
-        wordStartedGateDelay = static_cast<uint16_t>(wordStartedGate);
-      }
-      wordStartedGate -= getBlockSize();
-    }
-
-    envelopeShape = getParameterValue(IN_DECAY);
-
-    for (int i = 0; i < inSize; ++i)
-    {
-      if (samplesToReset == 0)
-      {
-        markov->chain().resetWord();
-      }
-
-      if (samplesToReset >= 0)
-      {
-        --samplesToReset;
-      }
-
-      // word going to start, update the word size, envelope settings
-      if (markov->chain().getLetterCount() == 0)
-      {
-        if (wordsToNewInterval > 0)
-        {
-          --wordsToNewInterval;
-        }
-
-        if (wordsToNewInterval == 0)
-        {
-          updateWordSettings();
-        }
-
-        wordStartedGate = wordStartedGateLength;
-        wordStartedGateDelay = i;
-      }
-
-      updateEnvelope();
-
-      const ComplexFloat sample = markov->generate() * getEnvelopeLevel();
-      genLeft[i] = sample.re;
-      genRight[i] = sample.im;
-    }
-
+    // and process
+    array<ComplexFloat> buf(markovBuffer, inSize);
+    markov->process(buf, buf);
+    
     const float dryWet = clamp(getParameterValue(IN_DRY_WET)*1.02f, 0.0f, 1.0f);
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     inLeft.multiply(dryAmt);
     inRight.multiply(dryAmt);
-    genLeft.multiply(wetAmt);
-    genRight.multiply(wetAmt);
-    inLeft.add(genLeft);
-    inRight.add(genRight);
+    for (int i = 0; i < inSize; ++i)
+    {
+      const ComplexFloat& samp = markovBuffer[i];
+      inLeft[i] += samp.re * wetAmt;
+      inRight[i] += samp.im * wetAmt;
+    }
 
 #if defined(OWL_LICH)
     setButton(inToggleListen, listening);
 #endif
-    setButton(OUT_WORD_ENDED, wordStartedGate > 0, static_cast<uint16_t>(wordStartedGateDelay));
-    setParameterValue(OUT_WORD_PROGRESS, markov->chain().getWordProgress());
+    //setButton(OUT_WORD_ENDED, wordStartedGate > 0, static_cast<uint16_t>(wordStartedGateDelay));
+    uint32_t listenGateDelay = 0;
+    bool listenState = markov->listen().read<bool>();
+    setButton(BUTTON_2, listenState, listenGateDelay);
+    setParameterValue(OUT_WORD_PROGRESS, markov->progress().read<float>());
     // setting exactly 1.0 on an output parameter causes a glitch on Genius, so we scale down our envelope value a little bit
-    setParameterValue(OUT_DECAY_ENVELOPE, getEnvelopeLevel()*0.98f);
+    setParameterValue(OUT_DECAY_ENVELOPE, markov->envelope().read<float>()*0.98f);
     //setParameterValue(outDecayEnvelope, (float)clocksToReset / 16);
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    const Markov::Chain::Stats stats = markov->chain().getStats();
+    const auto stats = markov->getChainStats();
     screen.setCursor(0, 8);
     screen.print("keys ");
     screen.print(stats.chainCount);
@@ -418,9 +207,8 @@ public:
     screen.print(")\n avg len ");
     screen.print(stats.avgChainLength);
     screen.print("\n Wms " );
-    const int wordMs = static_cast<int>(static_cast<float>(markov->chain().getCurrentWordSize()) / getSampleRate() * 1000);
-    screen.print(wordMs);
-    screen.print("\n C ");
-    screen.print(clocksToReset);
+    screen.print(markov->wordSizeMs());
+    screen.print("\n BPM ");
+    screen.print(markov->getBpm());
   }
 };

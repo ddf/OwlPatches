@@ -229,7 +229,7 @@ public:
     return genNode->sample;
   }
 
-  Stats getStats()
+  Stats getStats() const
   {
     const size_t chainCount = chainsMap.size();
     int minLength = memorySize;
