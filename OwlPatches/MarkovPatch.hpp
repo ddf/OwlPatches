@@ -61,7 +61,8 @@ DESCRIPTION:
 
 static constexpr PatchButtonId IN_TOGGLE_LISTEN = BUTTON_1;
 static constexpr PatchButtonId IN_CLOCK = BUTTON_2;
-static constexpr PatchButtonId OUT_WORD_ENDED = OUT_GATE_1;
+static constexpr PatchButtonId OUT_LISTENING = OUT_GATE_1;
+static constexpr PatchButtonId OUT_WORD_STARTED = OUT_GATE_2;
 
 static constexpr PatchParameterId IN_WORD_SIZE = PARAMETER_A;
 static constexpr PatchParameterId IN_DECAY = PARAMETER_B;
@@ -119,9 +120,6 @@ public:
   {
     if (bid == IN_TOGGLE_LISTEN && value == ON)
     {
-      // bool state = markov->listen().read<bool>();
-      // markov->listen() << !state;
-      
       uint32_t _;
       if (markov->listen().read(&_))
       {
@@ -174,18 +172,19 @@ public:
       inLeft[i] += samp.re * wetAmt;
       inRight[i] += samp.im * wetAmt;
     }
-
-#if defined(OWL_LICH)
-    setButton(inToggleListen, listening);
-#endif
-    //setButton(OUT_WORD_ENDED, wordStartedGate > 0, static_cast<uint16_t>(wordStartedGateDelay));
+    
+    uint32_t wordStartDelay;
+    bool wordState = markov->wordStarted().read(&wordStartDelay);
+    setButton(OUT_WORD_STARTED, wordState, static_cast<uint16_t>(wordStartDelay));
+    
     uint32_t listenGateDelay = 0;
     bool listenState = markov->listen().read(&listenGateDelay);
-    setButton(BUTTON_2, listenState, static_cast<uint16_t>(listenGateDelay));
+    setButton(OUT_LISTENING, listenState, static_cast<uint16_t>(listenGateDelay));
+    
     setParameterValue(OUT_WORD_PROGRESS, markov->progress().read<float>());
+    
     // setting exactly 1.0 on an output parameter causes a glitch on Genius, so we scale down our envelope value a little bit
     setParameterValue(OUT_DECAY_ENVELOPE, markov->envelope().read<float>()*0.98f);
-    //setParameterValue(outDecayEnvelope, (float)clocksToReset / 16);
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
