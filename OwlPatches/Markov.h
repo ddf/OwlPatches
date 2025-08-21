@@ -3,13 +3,14 @@
 #include "vessl/vessl.h"
 #include "MarkovGenerator.h"
 #include "Adsr.h"
-#include "SmoothValue.h"
 
 using vessl::unit;
 using vessl::unitProcessor;
 using vessl::parameter;
 using vessl::array;
 using vessl::clockable;
+using Slew = vessl::slew<float>;
+using Smoother = vessl::smoother<float>;
 
 template<typename T, typename H>
 class Markov final : public unitProcessor<T>, public clockable
@@ -17,7 +18,6 @@ class Markov final : public unitProcessor<T>, public clockable
   static constexpr int    CLOCK_PERIOD_MAX  = (1 << 17);
   static constexpr float  ATTACK_SECONDS    = 0.005f;
   static constexpr float  MIN_DECAY_SECONDS = 0.010f;
-  static constexpr float  MAX_DECAY_SECONDS = 1.0f;
   
   unit::init<7> init = {
     "markov",
@@ -32,13 +32,14 @@ class Markov final : public unitProcessor<T>, public clockable
     }
   };
 
+  Slew listenEnvelope;
+  Smoother decaySmoother;
   // @todo implement in vessl
-  ExponentialAdsr listenEnvelope;
   ExponentialAdsr expoGenerateEnvelope;
   LinearAdsr      linearGenerateEnvelope;
-  SmoothFloat     envelopeShape;
   MarkovGenerator<T, H> generator;
-  
+
+  float envelopeShape;
   int samplesSinceLastTock;
   int clocksToReset;
   int samplesToReset;
@@ -56,14 +57,14 @@ class Markov final : public unitProcessor<T>, public clockable
 public:
   Markov(float sampleRate, size_t bufferSize) : unitProcessor<T>(init, sampleRate)
   , clockable(sampleRate, 16, CLOCK_PERIOD_MAX, 120)
-  , listenEnvelope(sampleRate), expoGenerateEnvelope(sampleRate), linearGenerateEnvelope(sampleRate), envelopeShape(0.9f)
+  , listenEnvelope(sampleRate, 5, 5), decaySmoother(MIN_DECAY_SECONDS)
+  , expoGenerateEnvelope(sampleRate), linearGenerateEnvelope(sampleRate)
   , generator(sampleRate, bufferSize)
   , samplesSinceLastTock(CLOCK_PERIOD_MAX), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0)
   , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(static_cast<int>(sampleRate*ATTACK_SECONDS))
   , minWordGateLength(static_cast<int>(sampleRate*ATTACK_SECONDS)), minWordSizeSamples(static_cast<int>(sampleRate*ATTACK_SECONDS*2))
   {
-    listenEnvelope.setAttack(ATTACK_SECONDS);
-    listenEnvelope.setRelease(ATTACK_SECONDS);
+    decay() << MIN_DECAY_SECONDS;
     
     expoGenerateEnvelope.setAttack(ATTACK_SECONDS);
     expoGenerateEnvelope.setRelease(MIN_DECAY_SECONDS);
@@ -104,10 +105,10 @@ public:
     
     for (T s : in)
     {
-      listenEnvelope.gate(listen().template read<bool>());
+      float listenState = *listen();
       // need to generate even if we don't use the value otherwise internal state won't update
-      float env = listenEnvelope.generate();
-      if (!listenEnvelope.isIdle())
+      float env = listenEnvelope.process(listenState);
+      if (env > vessl::math::epsilon<float>())
       {
         generator.learn(s*env);
       }
@@ -124,7 +125,7 @@ public:
       wordStartedGate -= blockSize;
     }
 
-    envelopeShape = *decay();
+    envelopeShape = decaySmoother.process(*decay());
 
     typename array<T>::writer w(out);
     while (w)

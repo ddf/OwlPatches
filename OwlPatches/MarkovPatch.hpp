@@ -89,19 +89,19 @@ class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguideli
   
   StereoDcBlockingFilter* dcBlockingFilter;
   MarkovProcessor* markov;
-  ComplexFloat* markovBuffer;
+  array<ComplexFloat> markovBuffer;
 
 public: 
-  MarkovPatch() : dcBlockingFilter(nullptr), markov(nullptr), markovBuffer(nullptr)
+  MarkovPatch() : dcBlockingFilter(nullptr), markov(nullptr), markovBuffer(new ComplexFloat[getBlockSize()], getBlockSize())
   {
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
     markov = new MarkovProcessor(getSampleRate(), static_cast<size_t>(getSampleRate()*4));
-    markovBuffer = new ComplexFloat[getBlockSize()];
-    
+
+    // registration order matters for which parameters are assign to CV 1 and 2 on Genius on startup
     registerParameter(IN_WORD_SIZE, "Word Size");
+    registerParameter(IN_DECAY, "Decay");
     registerParameter(IN_WORD_SIZE_VARIATION, "Word Size Variation");
     registerParameter(IN_DRY_WET, "Dry/Wet");
-    registerParameter(IN_DECAY, "Decay");
     registerParameter(OUT_WORD_PROGRESS, "Word>");
     registerParameter(OUT_DECAY_ENVELOPE, "Envelope>");
 
@@ -111,7 +111,7 @@ public:
 
   ~MarkovPatch() override
   {
-    delete[] markovBuffer;
+    delete[] markovBuffer.getData();
     delete markov;
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
   }
@@ -158,10 +158,9 @@ public:
     }
 
     // and process
-    array<ComplexFloat> buf(markovBuffer, inSize);
-    markov->process(buf, buf);
+    markov->process(markovBuffer, markovBuffer);
     
-    const float dryWet = clamp(getParameterValue(IN_DRY_WET)*1.02f, 0.0f, 1.0f);
+    const float dryWet = vessl::math::constrain(getParameterValue(IN_DRY_WET)*1.02f, 0.0f, 1.0f);
     const float wetAmt = dryWet;
     const float dryAmt = 1.0f - wetAmt;
     inLeft.multiply(dryAmt);

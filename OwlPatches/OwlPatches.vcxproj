@@ -274,6 +274,7 @@
     <ClInclude Include="PnogPatch.hpp" />
     <ClInclude Include="Reverb.h" />
     <ClInclude Include="SkewedValue.h" />
+    <ClInclude Include="SlewPatch.hpp" />
     <ClInclude Include="SpectralHarpGeniusPatch.hpp" />
     <ClInclude Include="SpectralHarpLichPatch.hpp" />
     <ClInclude Include="SpectralHarpPatch.hpp" />
