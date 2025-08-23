@@ -4,18 +4,19 @@
 #include "FloatArray.h"
 #include "vessl/vessl.h"
 
-// @todo need to test stage independently because it seems to not be working properly
 class EnvTestPatch : public MonochromeScreenPatch
 {
   vessl::envelope<float>::stage envStage;
   vessl::ad<float> ad;
   vessl::asr<float> asr;
+  vessl::adsr<float> adsr;
   
 public:
   EnvTestPatch()
   : envStage(getSampleRate())
   , ad(0.1f, 0.1f, getSampleRate())
   , asr(0.1f, 0.1f, getSampleRate())
+  , adsr(0.1f, 0.1f, 0.5f, 1.0f, getSampleRate())
   {
     envStage.target() << 1.0f;
     envStage.duration() << 4.0f;
@@ -34,9 +35,13 @@ public:
       ad.trigger();
       //envStage.start(0);
     }
-    else if (bid == BUTTON_2 && value == ON)
+    else if (bid == BUTTON_2)
     {
-      asr.trigger();
+      // if (value == ON)
+      // {
+      //   adsr.trigger();
+      // }
+      adsr.gate(value == ON);
     }
   }
   
@@ -48,6 +53,9 @@ public:
     asr.attack().duration() << *ad.attack().duration();
     asr.decay().duration() << *ad.decay().duration();
 
+    adsr.attack().duration() << *ad.attack().duration();
+    adsr.decay().duration() << *ad.decay().duration();
+
     float sustain = getParameterValue(PARAMETER_C); 
     asr.gate(sustain);
     
@@ -55,15 +63,15 @@ public:
     FloatArray outRight = audio.getSamples(RIGHT_CHANNEL);
     for (int i = 0; i < outLeft.getSize(); ++i)
     {
-      outLeft[i] = ad.generate();
-      outRight[i] = asr.generate();
+      outLeft[i] = ad.generate<vessl::easing::expo::in>();
+      outRight[i] = adsr.generate<vessl::easing::expo::out>();
     }
     
-    setButton(BUTTON_1, ad.attack().active().read<uint16_t>());
-    setButton(BUTTON_2, ad.decay().active().read<uint16_t>());
-    setButton(PUSHBUTTON, ad.eoc().read<uint16_t>());
-    setParameterValue(PARAMETER_F, *asr.attack().target());
-    setParameterValue(PARAMETER_G, sustain);
+    setButton(BUTTON_1, adsr.attack().active().read<uint16_t>());
+    //setButton(BUTTON_2, adsr.decay().active().read<uint16_t>());
+    setButton(PUSHBUTTON, adsr.eoc().read<uint16_t>());
+    // setParameterValue(PARAMETER_F, *asr.attack().target());
+    // setParameterValue(PARAMETER_G, sustain);
   }
   
   void processScreen(MonochromeScreenBuffer& screen) override
