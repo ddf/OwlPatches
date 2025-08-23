@@ -51,7 +51,7 @@ public:
     ad.decay().duration() << getParameterValue(PARAMETER_B)*4;
 
     asr.attack().duration() << *ad.attack().duration();
-    asr.decay().duration() << *ad.decay().duration();
+    asr.release().duration() << *ad.decay().duration();
 
     adsr.attack().duration() << *ad.attack().duration();
     adsr.decay().duration() << *ad.decay().duration();
@@ -64,12 +64,12 @@ public:
     for (int i = 0; i < outLeft.getSize(); ++i)
     {
       outLeft[i] = ad.generate<vessl::easing::expo::in>();
-      outRight[i] = adsr.generate<vessl::easing::expo::out>();
+      outRight[i] = asr.generate<vessl::easing::expo::out>();
     }
     
-    setButton(BUTTON_1, adsr.attack().active().read<uint16_t>());
-    //setButton(BUTTON_2, adsr.decay().active().read<uint16_t>());
-    setButton(PUSHBUTTON, adsr.eoc().read<uint16_t>());
+    setButton(BUTTON_1, asr.attack().active().read<uint16_t>());
+    setButton(BUTTON_2, asr.release().active().read<uint16_t>());
+    setButton(PUSHBUTTON, asr.eoc().read<uint16_t>());
     // setParameterValue(PARAMETER_F, *asr.attack().target());
     // setParameterValue(PARAMETER_G, sustain);
   }

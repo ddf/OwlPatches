@@ -2,7 +2,6 @@
 
 #include "vessl/vessl.h"
 #include "MarkovGenerator.h"
-#include "Adsr.h"
 
 using vessl::unit;
 using vessl::unitProcessor;
@@ -11,6 +10,7 @@ using vessl::array;
 using vessl::clockable;
 using Slew = vessl::slew<float>;
 using Smoother = vessl::smoother<float>;
+using Asr = vessl::asr<float>;
 
 template<typename T, typename H>
 class Markov final : public unitProcessor<T>, public clockable
@@ -34,9 +34,8 @@ class Markov final : public unitProcessor<T>, public clockable
 
   Slew listenEnvelope;
   Smoother decaySmoother;
-  // @todo implement in vessl
-  ExponentialAdsr expoGenerateEnvelope;
-  LinearAdsr      linearGenerateEnvelope;
+  Asr expoGenerateEnvelope;
+  Asr linearGenerateEnvelope;
   MarkovGenerator<T, H> generator;
 
   float envelopeShape;
@@ -58,19 +57,13 @@ public:
   Markov(float sampleRate, size_t bufferSize) : unitProcessor<T>(init, sampleRate)
   , clockable(sampleRate, 16, CLOCK_PERIOD_MAX, 120)
   , listenEnvelope(sampleRate, 5, 5), decaySmoother(MIN_DECAY_SECONDS)
-  , expoGenerateEnvelope(sampleRate), linearGenerateEnvelope(sampleRate)
+  , expoGenerateEnvelope(ATTACK_SECONDS, MIN_DECAY_SECONDS, sampleRate), linearGenerateEnvelope(ATTACK_SECONDS, MIN_DECAY_SECONDS, sampleRate)
   , generator(sampleRate, bufferSize)
   , samplesSinceLastTock(CLOCK_PERIOD_MAX), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0)
   , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(static_cast<int>(sampleRate*ATTACK_SECONDS))
   , minWordGateLength(static_cast<int>(sampleRate*ATTACK_SECONDS)), minWordSizeSamples(static_cast<int>(sampleRate*ATTACK_SECONDS*2))
   {
     decay() << MIN_DECAY_SECONDS;
-    
-    expoGenerateEnvelope.setAttack(ATTACK_SECONDS);
-    expoGenerateEnvelope.setRelease(MIN_DECAY_SECONDS);
-    
-    linearGenerateEnvelope.setAttack(ATTACK_SECONDS);
-    linearGenerateEnvelope.setRelease(MIN_DECAY_SECONDS);
   }
 
   // when processing, if listen is greater than 1, this is interpreted as a time-delayed gate
@@ -201,8 +194,8 @@ private:
       wordGateLength = minWordSizeSamples;
     }
     const float wordReleaseSeconds = static_cast<float>(wordSize - wordGateLength) / unit::getSampleRate();
-    expoGenerateEnvelope.setRelease(wordReleaseSeconds);
-    linearGenerateEnvelope.setRelease(wordReleaseSeconds);
+    expoGenerateEnvelope.release().duration() << wordReleaseSeconds;
+    linearGenerateEnvelope.release().duration() << wordReleaseSeconds;
   }
   
   void updateEnvelope()
@@ -211,14 +204,14 @@ private:
     expoGenerateEnvelope.gate(state);
     linearGenerateEnvelope.gate(state);
 
-    expoGenerateEnvelope.generate();
-    linearGenerateEnvelope.generate();
+    expoGenerateEnvelope.generate<vessl::easing::expo::out>();
+    linearGenerateEnvelope.generate<vessl::easing::linear>();
   }
 
-  float getEnvelopeLevel()
+  float getEnvelopeLevel() const
   {
-    float expo = expoGenerateEnvelope.getLevel();
-    float line = linearGenerateEnvelope.getLevel();
+    float expo = *expoGenerateEnvelope.value();
+    float line = *linearGenerateEnvelope.value();
     if (envelopeShape <= 0.47f)
     {
       float t = (0.47f - envelopeShape) * 2.12f;
@@ -244,14 +237,14 @@ private:
                    { 4,   1,   2,  4, 8, 16, 12  }, // 4
     };
 
-    const float divMultT = vessl::easing::interp(0, DIV_MULT_LEN - 1, *wordSize());
-    const bool smoothDivMult = samplesSinceLastTock >= CLOCK_PERIOD_MAX;
-    const int divMultIdx = smoothDivMult ? static_cast<int>(divMultT) : static_cast<int>(round(divMultT));
+    float divMultT = vessl::easing::interp(0.f, static_cast<float>(DIV_MULT_LEN - 1), *wordSize());
+    bool smoothDivMult = samplesSinceLastTock >= CLOCK_PERIOD_MAX;
+    int divMultIdx = smoothDivMult ? static_cast<int>(divMultT) : static_cast<int>(round(divMultT));
     int intervalIdx = 3;
     float wordScale = smoothDivMult ? vessl::easing::interp<float>(DIV_MULT[divMultIdx], DIV_MULT[divMultIdx+1], divMultT - static_cast<float>(divMultIdx))
                                     : DIV_MULT[divMultIdx];
 
-    const float wordVariationParam = *variation();
+    float wordVariationParam = *variation();
     float varyAmt = 0;
     // maps parameter to [0,1) weight above and below a dead-zone in the center
     if (wordVariationParam >= 0.53f)
@@ -277,9 +270,9 @@ private:
     {
       // when varyAmt is zero, we want the interval in the middle of the array (ie 1).
       // so we offset from 0.5f with a random value between -0.5 and 0.5, scaled by varyAmt
-      // (ie as vary amount gets larger we can pick values at closer to the ends of the array).
+      // (ie as vary amount gets larger we can pick values closer to the ends of the array).
       intervalIdx = static_cast<int>(vessl::easing::interp<float>(0, INTERVALS_LEN - 1, 0.5f + (randf() - 0.5f) * varyAmt));
-      const float interval = INTERVALS[intervalIdx];
+      float interval = INTERVALS[intervalIdx];
       wordScale *= interval;
       if (interval < 1)
       {
@@ -292,7 +285,7 @@ private:
     }
 
     float periodInSamples = static_cast<float>(tempo.period);
-    const int wordSize = std::max(minWordSizeSamples, static_cast<int>(periodInSamples * wordScale));
+    int wordSize = std::max(minWordSizeSamples, static_cast<int>(periodInSamples * wordScale));
     clocksToReset = COUNTERS[divMultIdx][intervalIdx] - 1;
 
     generator.chain().setWordSize(wordSize);
