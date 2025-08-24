@@ -61,20 +61,20 @@ DESCRIPTION:
 
 static constexpr PatchButtonId IN_TOGGLE_LISTEN = BUTTON_1;
 static constexpr PatchButtonId IN_CLOCK = BUTTON_2;
-static constexpr PatchButtonId OUT_LISTENING = OUT_GATE_1;
-static constexpr PatchButtonId OUT_WORD_STARTED = OUT_GATE_2;
+static constexpr PatchButtonId OUT_WORD_STARTED_LEFT = OUT_GATE_1;
+static constexpr PatchButtonId OUT_WORD_STARTED_RIGHT = OUT_GATE_2;
 
 static constexpr PatchParameterId IN_WORD_SIZE = PARAMETER_A;
 static constexpr PatchParameterId IN_DECAY = PARAMETER_B;
 static constexpr PatchParameterId IN_WORD_SIZE_VARIATION = PARAMETER_C;
 static constexpr PatchParameterId IN_DRY_WET = PARAMETER_D;
 
-static constexpr PatchParameterId OUT_WORD_PROGRESS = OUT_PARAMETER_A;
-static constexpr PatchParameterId OUT_DECAY_ENVELOPE = OUT_PARAMETER_B;
+static constexpr PatchParameterId OUT_WORD_PROGRESS_LEFT = OUT_PARAMETER_A;
+static constexpr PatchParameterId OUT_WORD_PROGRESS_RIGHT = OUT_PARAMETER_B;
 
 class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguidelines-special-member-functions)
 {
-  struct KeyFunc
+  struct KeyFuncStereo
   {
     uint32_t operator()(const ComplexFloat& value) const
     {
@@ -85,25 +85,38 @@ class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguideli
       return static_cast<uint32_t>((value.getPhase()+M_PI)*SCALE);
     }
   };
-  using MarkovProcessor = Markov<ComplexFloat, KeyFunc>;
+
+  struct KeyFuncMono
+  {
+    uint32_t operator()(const float& value) const
+    {
+      return static_cast<uint32_t>((value*0.5f + 0.5f)*UINT16_MAX);
+    }
+  };
+  
+  //using MarkovProcessor = Markov<ComplexFloat, KeyFuncStereo>;
+  using MarkovProcessor = Markov<float, KeyFuncMono>;
   
   StereoDcBlockingFilter* dcBlockingFilter;
-  MarkovProcessor* markov;
-  array<ComplexFloat> markovBuffer;
+  MarkovProcessor* markovLeft;
+  MarkovProcessor* markovRight;
+  
+  array<float> markovBuffer;
 
 public: 
-  MarkovPatch() : dcBlockingFilter(nullptr), markov(nullptr), markovBuffer(new ComplexFloat[getBlockSize()], getBlockSize())
+  MarkovPatch() : dcBlockingFilter(nullptr), markovBuffer(new float[getBlockSize()], getBlockSize())
   {
     dcBlockingFilter = StereoDcBlockingFilter::create(0.995f);
-    markov = new MarkovProcessor(getSampleRate(), static_cast<size_t>(getSampleRate()*4));
+    markovLeft = new MarkovProcessor(getSampleRate(), static_cast<size_t>(getSampleRate()*2));
+    markovRight = new MarkovProcessor(getSampleRate(), static_cast<size_t>(getSampleRate())*2);
 
     // registration order matters for which parameters are assign to CV 1 and 2 on Genius on startup
     registerParameter(IN_WORD_SIZE, "Word Size");
     registerParameter(IN_DECAY, "Decay");
     registerParameter(IN_WORD_SIZE_VARIATION, "Word Size Variation");
     registerParameter(IN_DRY_WET, "Dry/Wet");
-    registerParameter(OUT_WORD_PROGRESS, "Word>");
-    registerParameter(OUT_DECAY_ENVELOPE, "Envelope>");
+    registerParameter(OUT_WORD_PROGRESS_LEFT, "Word L>");
+    registerParameter(OUT_WORD_PROGRESS_RIGHT, "Word R>");
 
     setParameterValue(IN_WORD_SIZE, 0.5f);
     setParameterValue(IN_WORD_SIZE_VARIATION, 0.5f);
@@ -112,7 +125,8 @@ public:
   ~MarkovPatch() override
   {
     delete[] markovBuffer.getData();
-    delete markov;
+    delete markovLeft;
+    delete markovRight;
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
   }
 
@@ -121,74 +135,86 @@ public:
     if (bid == IN_TOGGLE_LISTEN && value == ON)
     {
       uint32_t _;
-      if (markov->listen().read(&_))
+      if (markovLeft->listen().read(&_))
       {
-        markov->listen().write(false, 0); 
+        markovLeft->listen().write(false, 0); 
       }
       else
       {
-        markov->listen().write(true, samples);
+        markovLeft->listen().write(true, samples);
+      }
+
+      if (markovRight->listen().read(&_))
+      {
+        markovRight->listen().write(false, 0); 
+      }
+      else
+      {
+        markovRight->listen().write(true, samples);
       }
     }
     else if (bid == IN_CLOCK && value == ON)
     {
-      markov->clock();
+      markovLeft->clock();
+      markovRight->clock();
     }
   }
 
   void processAudio(AudioBuffer& audio) override
   {
     const int inSize = audio.getSize();
-    FloatArray inLeft = audio.getSamples(0);
-    FloatArray inRight = audio.getSamples(1);
+    array<float> inLeft(audio.getSamples(0), inSize);
+    array<float> inRight(audio.getSamples(1), inSize);
 
     dcBlockingFilter->process(audio, audio);
 
+    float wsz = getParameterValue(IN_WORD_SIZE);
+    float wszv = getParameterValue(IN_WORD_SIZE_VARIATION);
+    float dcy = getParameterValue(IN_DECAY);
+
     // set the parameters
-    markov->wordSize() << getParameterValue(IN_WORD_SIZE);
-    markov->variation() << getParameterValue(IN_WORD_SIZE_VARIATION);
-    markov->decay() << getParameterValue(IN_DECAY);
+    markovLeft->wordSize() << wsz;
+    markovLeft->variation() << wszv;
+    markovLeft->decay() << dcy;
 
-    // copy our input into a processing array
-    for (int i = 0; i < inSize; ++i)
-    {
-      ComplexFloat& c = markovBuffer[i];
-      c.re = inLeft[i];
-      c.im = inRight[i];
-    }
+    markovRight->wordSize() << wsz;
+    markovRight->variation() << wszv;
+    markovRight->decay() << dcy;
 
-    // and process
-    markov->process(markovBuffer, markovBuffer);
+    // // copy our input into a processing array
+    // for (int i = 0; i < inSize; ++i)
+    // {
+    //   ComplexFloat& c = markovBuffer[i];
+    //   c.re = inLeft[i];
+    //   c.im = inRight[i];
+    // }
+    //
+    // // and process
+    // markov->process(markovBuffer, markovBuffer);
     
-    const float dryWet = vessl::math::constrain(getParameterValue(IN_DRY_WET)*1.02f, 0.0f, 1.0f);
-    const float wetAmt = dryWet;
-    const float dryAmt = 1.0f - wetAmt;
-    inLeft.multiply(dryAmt);
-    inRight.multiply(dryAmt);
-    for (int i = 0; i < inSize; ++i)
-    {
-      const ComplexFloat& samp = markovBuffer[i];
-      inLeft[i] += samp.re * wetAmt;
-      inRight[i] += samp.im * wetAmt;
-    }
+    float wetMix = vessl::math::constrain(getParameterValue(IN_DRY_WET)*1.02f, 0.0f, 1.0f);
+    float dryMix = 1.0f - wetMix;
+    
+    markovLeft->process(inLeft, markovBuffer);
+    inLeft.scale(dryMix).add(markovBuffer.scale(wetMix));
+    
+    markovRight->process(inRight, markovBuffer);
+    inRight.scale(dryMix).add(markovBuffer.scale(wetMix));
     
     uint32_t wordStartDelay;
-    bool wordState = markov->wordStarted().read(&wordStartDelay);
-    setButton(OUT_WORD_STARTED, wordState, static_cast<uint16_t>(wordStartDelay));
+    bool wordState = markovLeft->wordStarted().read(&wordStartDelay);
+    setButton(OUT_WORD_STARTED_LEFT, wordState, static_cast<uint16_t>(wordStartDelay));
     
-    uint32_t listenGateDelay = 0;
-    bool listenState = markov->listen().read(&listenGateDelay);
-    setButton(OUT_LISTENING, listenState, static_cast<uint16_t>(listenGateDelay));
+    wordState = markovRight->wordStarted().read(&wordStartDelay);
+    setButton(OUT_WORD_STARTED_RIGHT, wordState, static_cast<uint16_t>(wordStartDelay));
     
-    setParameterValue(OUT_WORD_PROGRESS, markov->progress().read<float>());
-    
-    // setting exactly 1.0 on an output parameter causes a glitch on Genius, so we scale down our envelope value a little bit
-    setParameterValue(OUT_DECAY_ENVELOPE, markov->envelope().read<float>()*0.98f);
+    setParameterValue(OUT_WORD_PROGRESS_LEFT, markovLeft->progress().read<float>());
+    setParameterValue(OUT_WORD_PROGRESS_RIGHT, markovLeft->progress().read<float>());
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    const auto stats = markov->getChainStats();
+    const auto stats = markovLeft->getChainStats();
     screen.setCursor(0, 8);
     screen.print("keys ");
     screen.print(stats.chainCount);
@@ -203,8 +229,8 @@ public:
     screen.print(")\n avg len ");
     screen.print(stats.avgChainLength);
     screen.print("\n Wms " );
-    screen.print(markov->wordSizeMs());
+    screen.print(markovLeft->wordSizeMs());
     screen.print("\n BPM ");
-    screen.print(markov->getBpm());
+    screen.print(markovLeft->getBpm());
   }
 };
