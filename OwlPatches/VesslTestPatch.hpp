@@ -2,6 +2,9 @@
 
 #include "MonochromeScreenPatch.h"
 #include "VoltsPerOctave.h"
+#include "BlurKernel.h"
+#include "CircularTexture.h"
+#include "BlurSignalProcessor.h"
 #include "vessl/vessl.h"
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
@@ -14,6 +17,7 @@ using Array = vessl::array<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
 using CircularBuffer = vessl::ring<float>;
+using BlurProcessor = BlurSignalProcessor<AxisX>;
 
 class VesslTestPatch final : public MonochromeScreenPatch
 {
@@ -30,6 +34,9 @@ class VesslTestPatch final : public MonochromeScreenPatch
   FloatArray delayLineBuffer;
   vessl::delayline<float> delayLine;
   Oscil delayOscil;
+
+  BlurKernel blurKernel;
+  BlurProcessor* blur;
   
 public:
   VesslTestPatch() : wave(sine), osc(getSampleRate(), wave), voct(true), ramp(getSampleRate(), 0, 1, 0)
@@ -38,6 +45,8 @@ public:
   , delayLineBuffer(FloatArray::create(static_cast<int>(getSampleRate())))
   , delayLine(delayLineBuffer.getData(), delayLineBuffer.getSize())
   , delayOscil(getSampleRate(), delayLine, 2.f)
+  , blurKernel(BlurKernel::create(16))
+  , blur(BlurProcessor::create(256, 0.5f, blurKernel))
   {
     registerParameter(PARAMETER_A, ramp.duration().getName());
     setParameterValue(PARAMETER_A, 0.1f);
@@ -54,6 +63,8 @@ public:
 
   ~VesslTestPatch() override
   {
+    BlurKernel::destroy(blurKernel);
+    BlurProcessor::destroy(blur);
     FloatArray::destroy(delayBuffer);
   }
   

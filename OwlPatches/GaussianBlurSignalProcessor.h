@@ -1,9 +1,12 @@
+#pragma once
+
 #include "SignalProcessor.h"
-#include "BlurSignalProcessor.h"
+#include "BiquadFilter.h"
 #include "custom_dsp.h"
+#include "BlurSignalProcessor.h"
 
 // performs a 2D Gaussian blur on the input signal
-template<typename TextureSizeType = size_t>
+template<typename TextureSizeType = std::size_t>
 class GaussianBlurSignalProcessor : SignalProcessor
 {
 protected:
@@ -52,7 +55,7 @@ public:
   }
 
 public:
-  static GaussianBlurSignalProcessor<TextureSizeType>* create(size_t maxTextureSize, float maxBlurSize, float standardDeviation, int kernelSize)
+  static GaussianBlurSignalProcessor<TextureSizeType>* create(std::size_t maxTextureSize, float maxBlurSize, float standardDeviation, int kernelSize)
   {
     BlurKernel kernelX = BlurKernel::create(kernelSize);
     kernelX.setGauss(0.0f, standardDeviation);
@@ -71,7 +74,7 @@ public:
   }
 };
 
-template<typename TextureSizeType = size_t>
+template<typename TextureSizeType = std::size_t>
 class GaussianBlurWithFeedback : public GaussianBlurSignalProcessor<TextureSizeType>
 {
 protected:
@@ -121,7 +124,7 @@ public:
   }
 
 private:
-  void applyFeedback(FloatArray input, FloatArray feed, float amount, BiquadFilter* filter, FloatArray output)
+  static void applyFeedback(FloatArray input, FloatArray feed, float amount, BiquadFilter* filter, FloatArray output)
   {
     filter->setHighPass(20.0f + 100.0f * (amount*amount), 1);
     filter->process(feed);
@@ -136,7 +139,7 @@ private:
 
 public:
 
-  static GaussianBlurWithFeedback<TextureSizeType>* create(size_t maxTextureSize, float maxBlurSize, float standardDeviation, int kernelSize, float sampleRate, int blockSize)
+  static GaussianBlurWithFeedback<TextureSizeType>* create(std::size_t maxTextureSize, float maxBlurSize, float standardDeviation, int kernelSize, float sampleRate, int blockSize)
   {
     BlurKernel kernelX = BlurKernel::create(kernelSize);
     kernelX.setGauss(0.0f, standardDeviation);

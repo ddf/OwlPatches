@@ -23,22 +23,16 @@ DESCRIPTION:
     a Gaussian blur to it.
 
 */
+#pragma once
 
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
 #include "Resample.h"
-#include "Interpolator.h"
-#include "GaussianBlurSignalProcessor.h"
 #include "SkewedValue.h"
-#include "basicmaths.h"
-#include "custom_dsp.h" // for SoftLimit
-#include "Dynamics/compressor.h"
-#include <string.h>
+#include "GaussianBlurSignalProcessor.h"
 
 //#define DEBUG
-
-typedef daisysp::Compressor Compressor;
 
 #define FRACTIONAL_TEXTURE_SIZE
 //#define USE_BLUR_FEEDBACK
@@ -60,28 +54,28 @@ typedef GaussianBlurSignalProcessor<size_t> GaussianBlur;
 
 struct BlurPatchParameterIds
 {
-  const PatchParameterId inTextureSize; // PARAMETER_A;
-  const PatchParameterId inBlurSize; // PARAMETER_B;
-  const PatchParameterId inFeedMag; // PARAMETER_C;
-  const PatchParameterId inWetDry; // PARAMETER_D;
+  PatchParameterId inTextureSize; // PARAMETER_A;
+  PatchParameterId inBlurSize; // PARAMETER_B;
+  PatchParameterId inFeedMag; // PARAMETER_C;
+  PatchParameterId inWetDry; // PARAMETER_D;
 
-  const PatchParameterId inTextureTilt;
-  const PatchParameterId inBlurTilt;
-  const PatchParameterId inFeedTilt; // PARAMETER_E;
+  PatchParameterId inTextureTilt;
+  PatchParameterId inBlurTilt;
+  PatchParameterId inFeedTilt; // PARAMETER_E;
 
   // attenuate or boost the input signal during the blur
-  const PatchParameterId inBlurBrightness; // PARAMETER_AA;
+  PatchParameterId inBlurBrightness; // PARAMETER_AA;
 
   // compressor parameters, which work as you'd expect
-  const PatchParameterId inCompressionThreshold; // PARAMETER_AB;
-  const PatchParameterId inCompressionRatio; // PARAMETER_AC;
-  const PatchParameterId inCompressionAttack; // PARAMETER_AE;
-  const PatchParameterId inCompressionRelease; // PARAMETER_AF;
-  const PatchParameterId inCompressionMakeupGain; // PARAMETER_AD;
-  const PatchParameterId inCompressionBlend; // PARAMETER_AG;
+  PatchParameterId inCompressionThreshold; // PARAMETER_AB;
+  PatchParameterId inCompressionRatio; // PARAMETER_AC;
+  PatchParameterId inCompressionAttack; // PARAMETER_AE;
+  PatchParameterId inCompressionRelease; // PARAMETER_AF;
+  PatchParameterId inCompressionMakeupGain; // PARAMETER_AD;
+  PatchParameterId inCompressionBlend; // PARAMETER_AG;
 
-  const PatchParameterId outLeftFollow; // PARAMETER_F;
-  const PatchParameterId outRightFollow; // PARAMETER_G;
+  PatchParameterId outLeftFollow; // PARAMETER_F;
+  PatchParameterId outRightFollow; // PARAMETER_G;
 };
 
 template<int blurKernelSize, int blurResampleFactor, int blurResampleStages, typename PatchClass = Patch>
@@ -90,37 +84,37 @@ class BlurPatch : public PatchClass
 protected:
   static const int minTextureSize = 16 / blurResampleFactor;
   static const int maxTextureSize = 256 / blurResampleFactor;
-  const  float minBlurSize        = 0.0f;
-  const  float maxBlurSize        = 0.95f;
+  static constexpr float minBlurSize  = 0.0f;
+  static constexpr float maxBlurSize        = 0.95f;
 
   // maximum standard deviation was chosen based on the recommendation here:
   // https://dsp.stackexchange.com/questions/10057/gaussian-blur-standard-deviation-radius-and-kernel-size
   // where standard deviation should equal (sampleCount - 1)/4.
-  const float standardDeviation = (blurKernelSize - 1) / 4.0f;
+  static constexpr float standardDeviation = (blurKernelSize - 1) / 4.0f;
 
-  const float blurBrightnessMin = 0.5f;
-  const float blurBrightnessMax = 2.0f;
-  const float blurBrightnessDefault = 1.0f;
+  static constexpr float blurBrightnessMin = 0.5f;
+  static constexpr float blurBrightnessMax = 2.0f;
+  static constexpr float blurBrightnessDefault = 1.0f;
 
-  const float compressorThresholdMin = 0.0f;
-  const float compressorThresholdMax = -80.0f;
-  const float compressorThresholdDefault = compressorThresholdMin;
+  static constexpr float compressorThresholdMin = 0.0f;
+  static constexpr float compressorThresholdMax = -80.0f;
+  static constexpr float compressorThresholdDefault = compressorThresholdMin;
 
-  const float compressorRatioMin = 1.0f;
-  const float compressorRatioMax = 40.0f;
-  const float compressorRatioDefault = 1.5f;
+  static constexpr float compressorRatioMin = 1.0f;
+  static constexpr float compressorRatioMax = 40.0f;
+  static constexpr float compressorRatioDefault = 1.5f;
 
-  const float compressorResponseMin = 0.001f;
-  const float compressorResponseMax = 10.0f;
-  const float compressorResponseDefault = 0.01f;
+  static constexpr float compressorResponseMin = 0.001f;
+  static constexpr float compressorResponseMax = 10.0f;
+  static constexpr float compressorResponseDefault = 0.01f;
 
-  const float compressorMakeupGainMin = 0.0f;
-  const float compressorMakeupGainMax = 80.0f;
-  const float compressorMakeupGainDefault = compressorMakeupGainMin;
+  static constexpr float compressorMakeupGainMin = 0.0f;
+  static constexpr float compressorMakeupGainMax = 80.0f;
+  static constexpr float compressorMakeupGainDefault = compressorMakeupGainMin;
 
 private:
 
-  const BlurPatchParameterIds pid;
+  BlurPatchParameterIds pid;
 
   AudioBuffer* blurBuffer;
   AudioBuffer* feedbackBuffer;
@@ -150,8 +144,8 @@ private:
   GaussianBlur* blurRightB;
 #endif
 
-  Compressor blurLeftCompressor;
-  Compressor blurRightCompressor;
+  // Compressor blurLeftCompressor;
+  // Compressor blurRightCompressor;
 
 protected:
   SkewedFloat textureSize;
@@ -185,7 +179,7 @@ protected:
   using PatchClass::setButton;
 
 public:
-  BlurPatch(BlurPatchParameterIds params)
+  BlurPatch(const BlurPatchParameterIds& params)
     : pid(params), textureSize(0), blurSize(0)
     , textureSizeLeft(0.9f, minTextureSize), textureSizeRight(0.9f, minTextureSize)
     , blurSizeLeft(0.9f, 0.0f), blurSizeRight(0.9f, 0.0f)
@@ -283,29 +277,29 @@ public:
     blurKernelStep = BlurKernel::create(blurKernelSize);
 #endif
 
-    blurLeftCompressor.Init(getSampleRate());
-    blurRightCompressor.Init(getSampleRate());
-
-    blurLeftCompressor.SetThreshold(compressionThreshold);
-    blurRightCompressor.SetThreshold(compressionThreshold);
-
-    blurLeftCompressor.SetRatio(compressionRatio);
-    blurRightCompressor.SetRatio(compressionRatio);
-
-    blurLeftCompressor.SetAttack(compressionAttack);
-    blurRightCompressor.SetAttack(compressionAttack);
-
-    blurLeftCompressor.SetRelease(compressionAttack);
-    blurRightCompressor.SetRelease(compressionAttack);
-
-    blurLeftCompressor.AutoMakeup(false);
-    blurLeftCompressor.SetMakeup(compressionMakeupGain);
-
-    blurRightCompressor.AutoMakeup(false);
-    blurRightCompressor.SetMakeup(compressionMakeupGain);
+    // blurLeftCompressor.Init(getSampleRate());
+    // blurRightCompressor.Init(getSampleRate());
+    //
+    // blurLeftCompressor.SetThreshold(compressionThreshold);
+    // blurRightCompressor.SetThreshold(compressionThreshold);
+    //
+    // blurLeftCompressor.SetRatio(compressionRatio);
+    // blurRightCompressor.SetRatio(compressionRatio);
+    //
+    // blurLeftCompressor.SetAttack(compressionAttack);
+    // blurRightCompressor.SetAttack(compressionAttack);
+    //
+    // blurLeftCompressor.SetRelease(compressionAttack);
+    // blurRightCompressor.SetRelease(compressionAttack);
+    //
+    // blurLeftCompressor.AutoMakeup(false);
+    // blurLeftCompressor.SetMakeup(compressionMakeupGain);
+    //
+    // blurRightCompressor.AutoMakeup(false);
+    // blurRightCompressor.SetMakeup(compressionMakeupGain);
   }
 
-  ~BlurPatch()
+  ~BlurPatch() override
   {
     AudioBuffer::destroy(blurBuffer);
     AudioBuffer::destroy(feedbackBuffer);
@@ -401,55 +395,55 @@ public:
     float prevTexRight = textureSizeRight;
 #endif
 
-    textureSizeLeft   = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getLeft(), 0.0f, 1.0f));
-    textureSizeRight  = Interpolator::linear(minTextureSize, maxTextureSize, std::clamp(textureSize.getRight(), 0.0f, 1.0f));
+    textureSizeLeft   = vessl::easing::interp<float>(minTextureSize, maxTextureSize, vessl::math::constrain(textureSize.getLeft(), 0.0f, 1.0f));
+    textureSizeRight  = vessl::easing::interp<float>(minTextureSize, maxTextureSize, vessl::math::constrain(textureSize.getRight(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
     const float leftBlurScale  = minTextureSize / textureSizeLeft;
     const float rightBlurScale = minTextureSize / textureSizeRight;
-    blurSizeLeft  = Interpolator::linear(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, std::clamp(blurSize.getLeft(), 0.0f, 1.0f));
-    blurSizeRight = Interpolator::linear(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, std::clamp(blurSize.getRight(), 0.0f, 1.0f));
+    blurSizeLeft  = vessl::easing::interp(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, vessl::math::constrain(blurSize.getLeft(), 0.0f, 1.0f));
+    blurSizeRight = vessl::easing::interp(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, vessl::math::constrain(blurSize.getRight(), 0.0f, 1.0f));
 
     float brightnessParam = getParameterValue(pid.inBlurBrightness);
     float blurBrightness = blurBrightnessDefault;
     if (brightnessParam >= 0.53f)
     {
-      blurBrightness = Interpolator::linear(blurBrightnessDefault, blurBrightnessMax, (brightnessParam - 0.53f) * 2.12f);
+      blurBrightness = vessl::easing::interp(blurBrightnessDefault, blurBrightnessMax, (brightnessParam - 0.53f) * 2.12f);
     }
     else if (brightnessParam <= 0.47f)
     {
-      blurBrightness = Interpolator::linear(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
+      blurBrightness = vessl::easing::interp(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
     }
 
     // quadratic ease out so we get nice ringing feedback coming in at around 0.5
     float feedParam = getParameterValue(pid.inFeedMag);
     feedbackMagnitude = 1.0f - (1.0f - feedParam) * (1.0f - feedParam);
 #ifdef USE_BLUR_FEEDBACK
-    feedbackAngle = Interpolator::linear(0.0f, M_PI * 2, getParameterValue(pid.inFeedTilt));
+    feedbackAngle = vessl::easing::interp(0.0f, M_PI * 2, getParameterValue(pid.inFeedTilt));
 #else
     feedbackAngle = getParameterValue(pid.inFeedTilt);
 #endif
 
-    compressionThreshold = Interpolator::linear(0, -80, getParameterValue(pid.inCompressionThreshold));
-    blurLeftCompressor.SetThreshold(compressionThreshold);
-    blurRightCompressor.SetThreshold(compressionThreshold);
-
-    compressionRatio = Interpolator::linear(compressorRatioMin, compressorRatioMax, getParameterValue(pid.inCompressionRatio));
-    blurLeftCompressor.SetRatio(compressionRatio);
-    blurRightCompressor.SetRatio(compressionRatio);
-
-    compressionAttack = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(pid.inCompressionAttack));
-    blurLeftCompressor.SetAttack(compressionAttack);
-    blurRightCompressor.SetAttack(compressionAttack);
-
-    compressionRelease = Interpolator::linear(compressorResponseMin, compressorResponseMax, getParameterValue(pid.inCompressionRelease));
-    blurLeftCompressor.SetRelease(compressionRelease);
-    blurRightCompressor.SetRelease(compressionRelease);
-
-    compressionMakeupGain = Interpolator::linear(compressorMakeupGainMin, compressorMakeupGainMax, getParameterValue(pid.inCompressionMakeupGain));
-    blurLeftCompressor.SetMakeup(compressionMakeupGain);
-    blurRightCompressor.SetMakeup(compressionMakeupGain);
-
-    compressionBlend = getParameterValue(pid.inCompressionBlend);
+    // compressionThreshold = vessl::easing::interp<float>(0, -80, getParameterValue(pid.inCompressionThreshold));
+    // blurLeftCompressor.SetThreshold(compressionThreshold);
+    // blurRightCompressor.SetThreshold(compressionThreshold);
+    //
+    // compressionRatio = vessl::easing::interp(compressorRatioMin, compressorRatioMax, getParameterValue(pid.inCompressionRatio));
+    // blurLeftCompressor.SetRatio(compressionRatio);
+    // blurRightCompressor.SetRatio(compressionRatio);
+    //
+    // compressionAttack = vessl::easing::interp(compressorResponseMin, compressorResponseMax, getParameterValue(pid.inCompressionAttack));
+    // blurLeftCompressor.SetAttack(compressionAttack);
+    // blurRightCompressor.SetAttack(compressionAttack);
+    //
+    // compressionRelease = vessl::easing::interp(compressorResponseMin, compressorResponseMax, getParameterValue(pid.inCompressionRelease));
+    // blurLeftCompressor.SetRelease(compressionRelease);
+    // blurRightCompressor.SetRelease(compressionRelease);
+    //
+    // compressionMakeupGain = vessl::easing::interp(compressorMakeupGainMin, compressorMakeupGainMax, getParameterValue(pid.inCompressionMakeupGain));
+    // blurLeftCompressor.SetMakeup(compressionMakeupGain);
+    // blurRightCompressor.SetMakeup(compressionMakeupGain);
+    //
+    // compressionBlend = getParameterValue(pid.inCompressionBlend);
 
     //dcFilter->process(audio, audio);
 
@@ -557,10 +551,10 @@ public:
 #endif
 
       // compress
-      blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchB, blurScratchA.getSize());
-      blurScratchA.multiply(1.0f - compressionBlend);
-      blurScratchB.multiply(compressionBlend);
-      blurScratchA.add(blurScratchB);
+      // blurLeftCompressor.ProcessBlock(blurScratchA, blurScratchB, blurScratchA.getSize());
+      // blurScratchA.multiply(1.0f - compressionBlend);
+      // blurScratchB.multiply(compressionBlend);
+      // blurScratchA.add(blurScratchB);
 
       // upsample to the output
       if (downsamplingEnabled())
@@ -619,10 +613,10 @@ public:
 #endif
 
       // compress
-      blurRightCompressor.ProcessBlock(blurScratchA, blurScratchB, blurScratchA.getSize());
-      blurScratchA.multiply(1.0f - compressionBlend);
-      blurScratchB.multiply(compressionBlend);
-      blurScratchA.add(blurScratchB);
+      // blurRightCompressor.ProcessBlock(blurScratchA, blurScratchB, blurScratchA.getSize());
+      // blurScratchA.multiply(1.0f - compressionBlend);
+      // blurScratchB.multiply(compressionBlend);
+      // blurScratchA.add(blurScratchB);
 
       // upsample to the output
       if (downsamplingEnabled())

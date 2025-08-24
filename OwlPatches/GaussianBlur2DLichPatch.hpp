@@ -1,6 +1,8 @@
+#pragma once
+
 #include "BlurPatch.hpp"
 
-static const BlurPatchParameterIds lichBlurParams =
+static constexpr BlurPatchParameterIds lichBlurParams =
 {
   .inTextureSize = PARAMETER_A,
   .inBlurSize = PARAMETER_B,

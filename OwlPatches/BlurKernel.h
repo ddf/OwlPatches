@@ -1,8 +1,6 @@
-#ifndef __BLUR_KERNEL__
-#define __BLUR_KERNEL__
+#pragma once
 
-#include "SimpleArray.h"
-#include "basicmaths.h"
+#include "vessl/vessl.h"
 
 struct BlurKernelSample
 {
@@ -16,50 +14,49 @@ struct BlurKernelSample
   float weight;
 };
 
-class BlurKernel : public SimpleArray<BlurKernelSample>
+class BlurKernel : public vessl::array<BlurKernelSample>
 {
-
 public:
   float blurSize;
+  
+  BlurKernel() = default;
+  BlurKernel(BlurKernelSample* inData, std::size_t inSize) : array(inData, inSize), blurSize(0) {}
 
-  BlurKernel() : blurSize(0) {}
-  BlurKernel(BlurKernelSample* data, size_t size) :
-    SimpleArray(data, size), blurSize(0) {}
-
-  void setGauss(float blurSize, float standardDeviation, float scale = 1.0f)
+  void setGauss(float withBlurSize, float standardDeviation, float scale = 1.0f)
   {
-    blurSize = std::clamp(blurSize, 0.0f, 0.99f);
-    this->blurSize = blurSize;
-    standardDeviation = std::max(standardDeviation, 0.01f);
+    blurSize = vessl::math::constrain(withBlurSize, 0.0f, 0.99f);
+    standardDeviation = vessl::math::max(standardDeviation, 0.01f);
 
     float sum = 0;
     float standardDevSq = standardDeviation * standardDeviation;
-    float gaussCoeff = 1.0f / sqrtf(2 * M_PI*standardDevSq);
+    float gaussCoeff = 1.0f / vessl::math::sqrt<float>(vessl::math::twoPi<float>()*standardDevSq);
 
-    for (int s = 0; s < size; ++s)
+    for (std::size_t s = 0; s < size; ++s)
     {
-      float offset = ((float)s / (size - 1) - 0.5f)*blurSize;
-      float gaussWeight = gaussCoeff * pow(M_E, -((offset*offset) / (2 * standardDevSq)));
+      float offset = (static_cast<float>(s) / static_cast<float>(size - 1) - 0.5f)*blurSize;
+      float gaussWeight = gaussCoeff * vessl::math::pow(vessl::math::e<float>(), -((offset*offset) / (2 * standardDevSq)));
       data[s] = BlurKernelSample(offset, gaussWeight);
       sum += gaussWeight;
     }
 
     // normalize the weights so we don't have to do this during processing and apply the scale
-    for (int s = 0; s < size; ++s)
+    float weightScale = scale / sum;
+    for (BlurKernelSample& sample : *this)
     {
-      data[s].weight = (data[s].weight/sum) * scale;
+      sample.weight *= weightScale;
     }
   }
 
   void clear()
   {
-    for (int i = 0; i < size; ++i)
+    for (BlurKernelSample& sample : *this)
     {
-      data[i] = BlurKernelSample();
+      sample.offset = 0;
+      sample.weight = 0;
     }
   }
 
-  static BlurKernel create(size_t sampleCount)
+  static BlurKernel create(std::size_t sampleCount)
   {
     BlurKernel kernel(new BlurKernelSample[sampleCount], sampleCount);
     kernel.clear();
@@ -71,5 +68,3 @@ public:
     delete[] kernel.data;
   }
 };
-
-#endif // __BLUR_KERNEL__

@@ -1,9 +1,12 @@
+#pragma once
+
 #include "MonochromeScreenPatch.h"
-#include "BlurPatch.hpp"
 #include "Noise.hpp"
 #include "Effects/reverbsc.h"
+#include "BlurPatch.hpp"
+#include "vessl/vessl.h"
 
-static const BlurPatchParameterIds geniusBlurParams =
+static constexpr BlurPatchParameterIds geniusBlurParams =
 {
   .inTextureSize = PARAMETER_A,
   .inBlurSize = PARAMETER_B,
@@ -39,8 +42,8 @@ typedef daisysp::ReverbSc Reverb;
 // which would be a nice addition to this patch.
 class GaussianBlur2DGeniusPatch : public GeniusBlurPatchBase
 {
-  static const PatchParameterId inReverbFeedback = PARAMETER_AG;
-  static const PatchParameterId inReverbCutoff = PARAMETER_AH;
+  static constexpr PatchParameterId inReverbFeedback = PARAMETER_AG;
+  static constexpr PatchParameterId inReverbCutoff = PARAMETER_AH;
 
   Reverb reverb;
   // at high feedback values this reverb introduces a DC offset that results in distortion
@@ -50,7 +53,7 @@ class GaussianBlur2DGeniusPatch : public GeniusBlurPatchBase
   SmoothFloat reverbFbdk;
   SmoothFloat reverbCutoff;
 
-  const float reverbFdbkMax = 0.99f;
+  static constexpr float reverbFdbkMax = 0.99f;
 
 public:
   GaussianBlur2DGeniusPatch() : BlurPatch(geniusBlurParams) 
@@ -62,13 +65,13 @@ public:
     setParameterValue(inReverbCutoff, 1);
 
     reverb.Init(getSampleRate());
-    reverb.SetLpFreq(getSampleRate() / 2.0);
+    reverb.SetLpFreq(getSampleRate() / 2.0f);
 
     reverbFilter = StereoDcBlockingFilter::create();
     reverbBuffer = AudioBuffer::create(2, getBlockSize());
   }
 
-  ~GaussianBlur2DGeniusPatch()
+  ~GaussianBlur2DGeniusPatch() override
   {
     StereoDcBlockingFilter::destroy(reverbFilter);
     AudioBuffer::destroy(reverbBuffer);
@@ -102,7 +105,7 @@ protected:
 
     // gets real nasty and glitches out when set to max
     reverbFbdk = getParameterValue(inReverbFeedback)*reverbFdbkMax;
-    reverbCutoff = Interpolator::linear(100.0f, getSampleRate() / 4.0f, getParameterValue(inReverbCutoff));
+    reverbCutoff = vessl::easing::interp(100.0f, getSampleRate() / 4.0f, getParameterValue(inReverbCutoff));
 
     reverb.SetFeedback(reverbFbdk.getValue());
     reverb.SetLpFreq(reverbCutoff.getValue());
@@ -156,10 +159,9 @@ public:
     const int cy = displayHeight / 2;
     const int cxL = screen.getWidth() / 4 - 4;
     const int cxR = screen.getWidth() - screen.getWidth() / 4 + 4;
-    const int txLeft = roundf(Interpolator::linear(2, displayHeight, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize)));
-    const int txRight = roundf(Interpolator::linear(2, displayHeight, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize)));
-    const int blurR = roundf(txRight * blurSizeRight);   
-    const int feedWidth = 6;
+    const int txLeft = vessl::math::round(vessl::easing::interp(2, displayHeight, (textureSizeLeft - minTextureSize) / (maxTextureSize - minTextureSize)));
+    const int txRight = vessl::math::round(vessl::easing::interp(2, displayHeight, (textureSizeRight - minTextureSize) / (maxTextureSize - minTextureSize)));
+    constexpr int feedWidth = 6;
     const float feedCross = feedbackAngle * feedbackMagnitude;
 
     drawTexture(screen, cxL, cy, txLeft, blurSizeLeft);
@@ -168,7 +170,7 @@ public:
     drawCrossFeedback(screen, screen.getWidth()/2 + 2, displayHeight-1, feedWidth, feedCross);
   }
 
-  void drawTexture(MonochromeScreenBuffer& screen, const int cx, const int cy, const int texDim, const float blurSize)
+  void drawTexture(MonochromeScreenBuffer& screen, int cx, int cy, int texDim, float withBlurSize)
   {
     const int tx = cx - texDim / 2;
     const int ty = cy - texDim / 2;
@@ -182,7 +184,7 @@ public:
     {
       for (int y = 2; y < texDim - 2; ++y)
       {
-        if (perlin2d(x, y, texDim / 4, 1) + 0.001f < blurSize*2)
+        if (perlin2d(x, y, texDim / 4, 1) + 0.001f < withBlurSize*2)
         {
           screen.invertPixel(tx + x - 1, ty + y - 1);
           screen.invertPixel(tx + x - 1, ty + y);
@@ -201,7 +203,7 @@ public:
   }
 
   template<bool pointLeft>
-  void drawFeedback(MonochromeScreenBuffer& screen, const int x, const int y, const int iconDim, const float amt)
+  void drawFeedback(MonochromeScreenBuffer& screen, int x, int y, int iconDim, float amt)
   {
     const int iconY = y;
     screen.drawLine(x, iconY, x, iconY - iconDim, WHITE);
@@ -225,7 +227,7 @@ public:
     screen.fillRectangle(x, iconY - iconDim - barHeight*amt - 1, iconDim + 1, barHeight*amt, WHITE);
   }
 
-  void drawCrossFeedback(MonochromeScreenBuffer& screen, const int x, const int y, const int iconDim, const float amt)
+  void drawCrossFeedback(MonochromeScreenBuffer& screen, int x, int y, int iconDim, float amt)
   {
     const int arrowLY = y - iconDim/2 - 1;
     const int arrowRY = y;
