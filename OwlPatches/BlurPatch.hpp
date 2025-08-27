@@ -187,18 +187,20 @@ public:
     , compressionAttack(0.9f, compressorResponseDefault), compressionRelease(0.9f, compressorResponseDefault)
     , compressionMakeupGain(0.9f, compressorMakeupGainDefault)
   {
-    registerParameter(pid.inTextureSize, "Tex Size");
     if (pid.inTextureSize != pid.inTextureTilt)
     {
       registerParameter(pid.inTextureTilt, "Tex Tilt");
       setParameterValue(pid.inTextureTilt, 0.5f);
     }
-    registerParameter(pid.inBlurSize, "Blur Size");
+
     if (pid.inBlurSize != pid.inBlurTilt)
     {
       registerParameter(pid.inBlurTilt, "Blur Tilt");
       setParameterValue(pid.inBlurTilt, 0.5f);
     }
+    
+    registerParameter(pid.inTextureSize, "Tex Size");
+    registerParameter(pid.inBlurSize, "Blur Size");
     registerParameter(pid.inFeedMag, "Fdbk Amt");
     registerParameter(pid.inFeedTilt, "Fdbk Tilt");
     registerParameter(pid.inWetDry, "Dry/Wet");
@@ -523,14 +525,15 @@ public:
 #endif
 #ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexLeft, textureSizeLeft);
-      blurKernelStep.setGauss(blurSizeLeft, standardDeviation, blurBrightness);
-      blurKernelStep.blurSize = (blurSizeLeft - blurLeftA->getBlurSize()) / blockSize;
-      for (int i = 0; i < blurKernelSize; ++i)
-      {
-        BlurKernelSample to = blurKernelStep[i];
-        BlurKernelSample from = blurLeftA->getKernelSample(i);
-        blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
-      }
+      BlurKernel::calcKernelStep(blurLeftA->getKernel(), blurSizeLeft, standardDeviation, blurBrightness, blockSize, blurKernelStep);
+      // blurKernelStep.setGauss(blurSizeLeft, standardDeviation, blurBrightness);
+      // blurKernelStep.blurSize = (blurSizeLeft - blurLeftA->getBlurSize()) / blockSize;
+      // for (int i = 0; i < blurKernelSize; ++i)
+      // {
+      //   BlurKernelSample to = blurKernelStep[i];
+      //   BlurKernelSample from = blurLeftA->getKernelSample(i);
+      //   blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
+      // }
       blurLeftA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       blurLeftA->setTextureSize(textureSizeLeft);
@@ -585,14 +588,15 @@ public:
 #endif
 #ifdef SMOOTH_ACROSS_BLOCK
       textureSizeRamp.ramp(prevTexRight, textureSizeRight);
-      blurKernelStep.setGauss(blurSizeRight, standardDeviation, blurBrightness);
-      blurKernelStep.blurSize = (blurSizeRight - blurRightA->getBlurSize()) / blockSize;
-      for (int i = 0; i < blurKernelSize; ++i)
-      {
-        BlurKernelSample to = blurKernelStep[i];
-        BlurKernelSample from = blurRightA->getKernelSample(i);
-        blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
-      }
+      BlurKernel::calcKernelStep(blurRightA->getKernel(), blurSizeRight, standardDeviation, blurBrightness, blockSize, blurKernelStep);
+      // blurKernelStep.setGauss(blurSizeRight, standardDeviation, blurBrightness);
+      // blurKernelStep.blurSize = (blurSizeRight - blurRightA->getBlurSize()) / blockSize;
+      // for (int i = 0; i < blurKernelSize; ++i)
+      // {
+      //   BlurKernelSample to = blurKernelStep[i];
+      //   BlurKernelSample from = blurRightA->getKernelSample(i);
+      //   blurKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
+      // }
       blurRightA->process(blurScratchA, blurScratchA, textureSizeRamp, blurKernelStep);
 #else
       blurRightA->setTextureSize(textureSizeRight);

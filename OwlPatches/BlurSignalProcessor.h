@@ -35,6 +35,8 @@ public:
     texSize = textureSize;
   }
 
+  TextureSizeType getTextureSize() const { return texSize; }
+
   float process(float input) override
   {
     texture.write(input);
@@ -131,6 +133,8 @@ public:
     texSizeHi = texSizeLow + 1;
     texSizeBlend = textureSize - static_cast<float>(texSizeLow);
   }
+
+  float getTextureSize() const { return texSize; }
 
   float process(float input) override
   {

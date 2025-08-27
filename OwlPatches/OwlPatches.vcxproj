@@ -250,6 +250,8 @@
     <ClInclude Include="EqualLoudnessCurves.h" />
     <ClInclude Include="FastCrossFadingCircularBuffer.h" />
     <ClInclude Include="FFTTestPatch.hpp" />
+    <ClInclude Include="Gauss.h" />
+    <ClInclude Include="GaussPatch.hpp" />
     <ClInclude Include="GlitchLich2Patch.hpp" />
     <ClInclude Include="KissFFT.h" />
     <ClInclude Include="Frequency.h" />

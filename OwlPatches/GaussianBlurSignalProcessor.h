@@ -26,6 +26,11 @@ public:
     blurY->setTextureSize(textureSize);
   }
 
+  TextureSizeType getTextureSize() const
+  {
+    return blurX->getTextureSize();
+  }
+
   void setBlur(float size, float standardDeviation, float brightness = 1.0f)
   {
     blurX->kernel.setGauss(size, standardDeviation);
@@ -37,9 +42,16 @@ public:
     return blurX->kernel.blurSize;
   }
 
+  BlurKernel getKernel() { return blurX->kernel; }
+
   BlurKernelSample getKernelSample(int i)
   {
     return blurX->kernel[i];
+  }
+
+  float process(float in) override
+  {
+    return blurY->process(blurX->process(in));
   }
 
   void process(FloatArray input, FloatArray output) override

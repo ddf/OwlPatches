@@ -56,6 +56,33 @@ public:
     }
   }
 
+  static void calcKernelStep(BlurKernel fromKernel, float toBlurSize, float stdDev, float brightness, int blockSize, BlurKernel outKernelStep)
+  {
+    outKernelStep.setGauss(toBlurSize, stdDev, brightness);
+    outKernelStep.blurSize = (toBlurSize - fromKernel.blurSize) / blockSize;
+    for (int i = 0; i < fromKernel.getSize(); ++i)
+    {
+      BlurKernelSample to = outKernelStep[i];
+      BlurKernelSample from = fromKernel[i];
+      outKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
+    }
+    
+  }
+
+  static void lerp(BlurKernel fromKernel, BlurKernel toKernel, float alpha, BlurKernel outKernel)
+  {
+    size_t ksz = fromKernel.getSize();
+    for (size_t i = 0; i < ksz; ++i)
+    {
+      BlurKernelSample& from = fromKernel[i];
+      BlurKernelSample& to = toKernel[i];
+      BlurKernelSample& out = outKernel[i];
+      out.offset = vessl::easing::interp(from.offset, to.offset, alpha);
+      out.weight = vessl::easing::interp(from.weight, to.weight, alpha);
+    }
+    outKernel.blurSize = vessl::easing::interp(fromKernel.blurSize, toKernel.blurSize, alpha);
+  }
+
   static BlurKernel create(std::size_t sampleCount)
   {
     BlurKernel kernel(new BlurKernelSample[sampleCount], sampleCount);
