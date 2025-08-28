@@ -19,14 +19,15 @@ class Gauss : public vessl::unitProcessor<GaussSampleFrame>
       parameter("Gain", parameter::type::analog)
     }
   };
-
-  array<float> textureSizeRamp;
+  
   array<BlurKernel> blurKernels;
-  BlurKernel processKernel;
   GaussProcessor* processorLeft;
   GaussProcessor* processorRight;
   Smoother textureSizeSmoother;
   Smoother blurSizeSmoother;
+  Smoother feedbackAmountSmoother;
+
+  GaussSampleFrame feedbackFrame;
 
   static constexpr int MIN_TEXTURE_SIZE = 16/4;
   static constexpr int MAX_TEXTURE_SIZE = 256/4;
@@ -42,8 +43,10 @@ class Gauss : public vessl::unitProcessor<GaussSampleFrame>
 
 public:
   explicit Gauss(float sampleRate, int blockSize) : unitProcessor(init, sampleRate)
-    , textureSizeRamp(new float[blockSize], blockSize), blurKernels(new BlurKernel[KERNEL_COUNT], KERNEL_COUNT)
-    , processKernel(), textureSizeSmoother(MIN_TEXTURE_SIZE, 0.9f), blurSizeSmoother(MIN_BLUR_SIZE, 0.9f)
+    , blurKernels(new BlurKernel[KERNEL_COUNT], KERNEL_COUNT)
+    , textureSizeSmoother(0.9f, MIN_TEXTURE_SIZE)
+    , blurSizeSmoother(0.9f, MIN_BLUR_SIZE)
+    , feedbackAmountSmoother(0.9f)
   {
     // pre-calculating an array of blur kernels in our blur range
     // and then lerping between them to generate kernels for the processors
@@ -69,7 +72,6 @@ public:
 
   ~Gauss() override
   {
-    delete[] textureSizeRamp.getData();
     for (BlurKernel& kernel : blurKernels)
     {
       BlurKernel::destroy(kernel);
@@ -87,7 +89,21 @@ public:
   
   GaussSampleFrame process(const GaussSampleFrame& in) override
   {
-    float tsz = textureSizeSmoother.process(vessl::easing::interp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, *textureSize()));
+    // @todo high pass the feedback signal
+    // to use CMSIS filters for this, we have to process feedback in blocks, maybe that's overkill here.
+    
+    // Note: the way feedback is applied is based on how Clouds does it
+    // see: https://github.com/pichenettes/eurorack/tree/master/clouds
+    float fdbk = feedbackAmountSmoother.process(vessl::easing::interp<vessl::easing::quad::out>(0.f, 0.99f, *feedback()));
+    float slco = fdbk * 1.4f;
+    float inLeft = in.left();
+    float inRight = in.right();
+    float feedLeft = feedbackFrame.left();
+    float feedRight = feedbackFrame.right();
+    float procLeft = inLeft + fdbk * (vessl::saturation::softlimit(slco*feedLeft + inLeft) - inLeft);
+    float procRight = inRight + fdbk * (vessl::saturation::softlimit(slco*feedRight + inRight) - inRight);
+    
+    float tsz = textureSizeSmoother.process(vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, *textureSize()));
     processorLeft->setTextureSize(tsz);
     processorRight->setTextureSize(tsz);
 
@@ -99,7 +115,10 @@ public:
     BlurKernel::lerp(blurKernels[static_cast<int>(blurLow)], blurKernels[static_cast<int>(blurHigh)], blurFrac, processorRight->getKernel());
 
     float scale  = vessl::gain<float>::decibelsToScale(*gain());
-    return { processorLeft->process(in.left())*scale, processorRight->process(in.right())*scale };
+    GaussSampleFrame procOut = { processorLeft->process(procLeft), processorRight->process(procRight) };
+    feedbackFrame = procOut;
+    procOut.scale(scale);
+    return procOut;
   }
 
   using unitProcessor::process;
