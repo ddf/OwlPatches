@@ -156,7 +156,7 @@ public:
         int x2 = x1 + 1;
         float xt = x - static_cast<float>(x1);
 
-        v += vessl::easing::interp(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
+        v += vessl::easing::lerp(texture.read(x1, 0), texture.read(x2, 0), xt) * samp.weight;
       }
     }
     else
@@ -190,15 +190,15 @@ public:
         int yb2 = yb1 + 1;
         float ybt = yb - static_cast<float>(yb1);
 
-        float xa1 = vessl::easing::interp(texA.read(x1, ya1), texA.read(x2, ya1), xt);
-        float xa2 = vessl::easing::interp(texA.read(x1, ya2), texA.read(x2, ya2), xt);
-        float va  = vessl::easing::interp(xa1, xa2, yat);
+        float xa1 = vessl::easing::lerp(texA.read(x1, ya1), texA.read(x2, ya1), xt);
+        float xa2 = vessl::easing::lerp(texA.read(x1, ya2), texA.read(x2, ya2), xt);
+        float va  = vessl::easing::lerp(xa1, xa2, yat);
 
-        float xb1 = vessl::easing::interp(texB.read(x1, yb1), texB.read(x2, yb1), xt);
-        float xb2 = vessl::easing::interp(texB.read(x1, yb2), texB.read(x2, yb2), xt);
-        float vb  = vessl::easing::interp(xb1, xb2, ybt);
+        float xb1 = vessl::easing::lerp(texB.read(x1, yb1), texB.read(x2, yb1), xt);
+        float xb2 = vessl::easing::lerp(texB.read(x1, yb2), texB.read(x2, yb2), xt);
+        float vb  = vessl::easing::lerp(xb1, xb2, ybt);
 
-        v += vessl::easing::interp(va, vb, texSizeBlend) * samp.weight;
+        v += vessl::easing::lerp(va, vb, texSizeBlend) * samp.weight;
       }
     }
 

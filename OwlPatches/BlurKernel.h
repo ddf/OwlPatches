@@ -77,10 +77,10 @@ public:
       BlurKernelSample& from = fromKernel[i];
       BlurKernelSample& to = toKernel[i];
       BlurKernelSample& out = outKernel[i];
-      out.offset = vessl::easing::interp(from.offset, to.offset, alpha);
-      out.weight = vessl::easing::interp(from.weight, to.weight, alpha);
+      out.offset = vessl::easing::lerp(from.offset, to.offset, alpha);
+      out.weight = vessl::easing::lerp(from.weight, to.weight, alpha);
     }
-    outKernel.blurSize = vessl::easing::interp(fromKernel.blurSize, toKernel.blurSize, alpha);
+    outKernel.blurSize = vessl::easing::lerp(fromKernel.blurSize, toKernel.blurSize, alpha);
   }
 
   static BlurKernel create(std::size_t sampleCount)

@@ -397,23 +397,23 @@ public:
     float prevTexRight = textureSizeRight;
 #endif
 
-    textureSizeLeft   = vessl::easing::interp<float>(minTextureSize, maxTextureSize, vessl::math::constrain(textureSize.getLeft(), 0.0f, 1.0f));
-    textureSizeRight  = vessl::easing::interp<float>(minTextureSize, maxTextureSize, vessl::math::constrain(textureSize.getRight(), 0.0f, 1.0f));
+    textureSizeLeft   = vessl::easing::lerp<float>(minTextureSize, maxTextureSize, vessl::math::constrain(textureSize.getLeft(), 0.0f, 1.0f));
+    textureSizeRight  = vessl::easing::lerp<float>(minTextureSize, maxTextureSize, vessl::math::constrain(textureSize.getRight(), 0.0f, 1.0f));
     // scale max blur down so we never blur more than a maximum number of samples away
     const float leftBlurScale  = minTextureSize / textureSizeLeft;
     const float rightBlurScale = minTextureSize / textureSizeRight;
-    blurSizeLeft  = vessl::easing::interp(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, vessl::math::constrain(blurSize.getLeft(), 0.0f, 1.0f));
-    blurSizeRight = vessl::easing::interp(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, vessl::math::constrain(blurSize.getRight(), 0.0f, 1.0f));
+    blurSizeLeft  = vessl::easing::lerp(minBlurSize * leftBlurScale, maxBlurSize * leftBlurScale, vessl::math::constrain(blurSize.getLeft(), 0.0f, 1.0f));
+    blurSizeRight = vessl::easing::lerp(minBlurSize * rightBlurScale, maxBlurSize * rightBlurScale, vessl::math::constrain(blurSize.getRight(), 0.0f, 1.0f));
 
     float brightnessParam = getParameterValue(pid.inBlurBrightness);
     float blurBrightness = blurBrightnessDefault;
     if (brightnessParam >= 0.53f)
     {
-      blurBrightness = vessl::easing::interp(blurBrightnessDefault, blurBrightnessMax, (brightnessParam - 0.53f) * 2.12f);
+      blurBrightness = vessl::easing::lerp(blurBrightnessDefault, blurBrightnessMax, (brightnessParam - 0.53f) * 2.12f);
     }
     else if (brightnessParam <= 0.47f)
     {
-      blurBrightness = vessl::easing::interp(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
+      blurBrightness = vessl::easing::lerp(blurBrightnessDefault, blurBrightnessMin, (0.47f - brightnessParam) * 2.12f);
     }
 
     // quadratic ease out so we get nice ringing feedback coming in at around 0.5

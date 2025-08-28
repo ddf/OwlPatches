@@ -55,8 +55,8 @@ public:
     size_t y2 = y1 + 1;
     float yt = y - y1;
 
-    float xv1 = vessl::easing::interp(read(x1, y1), read(x2, y1), xt);
-    float xv2 = vessl::easing::interp(read(x1, y2), read(x2, y2), xt);
-    return vessl::easing::interp(xv1, xv2, yt);
+    float xv1 = vessl::easing::lerp(read(x1, y1), read(x2, y1), xt);
+    float xv2 = vessl::easing::lerp(read(x1, y2), read(x2, y2), xt);
+    return vessl::easing::lerp(xv1, xv2, yt);
   }
 };
