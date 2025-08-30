@@ -286,6 +286,7 @@
     <ClInclude Include="SpectralSympathiesPatch.hpp" />
     <ClInclude Include="StereoDelayProcessor.h" />
     <ClInclude Include="TapTempo.hpp" />
+    <ClInclude Include="VesslFilterTestPatch.hpp" />
     <ClInclude Include="VesslTestPatch.hpp" />
   </ItemGroup>
   <ItemGroup>
