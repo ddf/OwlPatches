@@ -234,7 +234,6 @@
     <ClInclude Include="AllpassNetwork.h" />
     <ClInclude Include="BitCrusher.hpp" />
     <ClInclude Include="BlurKernel.h" />
-    <ClInclude Include="BlurPatch.hpp" />
     <ClInclude Include="BlurProcessor1D.h" />
     <ClInclude Include="BlurProcessor2D.h" />
     <ClInclude Include="BlurSignalProcessor.h" />
@@ -257,9 +256,6 @@
     <ClInclude Include="GlitchLich2Patch.hpp" />
     <ClInclude Include="KissFFT.h" />
     <ClInclude Include="Frequency.h" />
-    <ClInclude Include="GaussianBlur2DGeniusPatch.hpp" />
-    <ClInclude Include="GaussianBlur2DLichPatch.hpp" />
-    <ClInclude Include="GaussianBlurSignalProcessor.h" />
     <ClInclude Include="GlitchLichPatch.hpp" />
     <ClInclude Include="Grain.hpp" />
     <ClInclude Include="GrainzPatch.hpp" />
