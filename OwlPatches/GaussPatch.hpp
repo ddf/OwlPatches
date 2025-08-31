@@ -15,6 +15,7 @@ public:
     // registered first so they are the default CV IN assignments on Genius
     registerParameter(PARAMETER_E, gauss.textureTilt().getName());
     registerParameter(PARAMETER_F, gauss.blurTilt().getName());
+    registerParameter(PARAMETER_G, gauss.crossFeedback().getName());
     
     registerParameter(PARAMETER_A, gauss.textureSize().getName());
     registerParameter(PARAMETER_B, gauss.blurSize().getName());
@@ -30,6 +31,7 @@ public:
     gauss.gain() << getParameterValue(PARAMETER_D)*12.0f;
     gauss.textureTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(PARAMETER_E));
     gauss.blurTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(PARAMETER_F));
+    gauss.crossFeedback() << getParameterValue(PARAMETER_G);
 
     // @todo helper classes that implement source<stereo<float>> and sink<stereo<float>> for AudioBuffer.
     FloatArray inLeft = audio.getSamples(LEFT_CHANNEL);
@@ -82,7 +84,7 @@ public:
         );
     int feedWidth = 6;
     float feedbackMagnitude = *gauss.feedback();
-    float feedbackAngle = 0.0f;
+    float feedbackAngle = *gauss.crossFeedback();
     float feedCross = feedbackAngle * feedbackMagnitude;
 
     //screen.setCursor(cxL - 8, cy); screen.print(txLeft); screen.setCursor(cxL - 16, cy+8); screen.print(gauss.getBlurSizeLeft()*100);

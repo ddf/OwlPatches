@@ -12,15 +12,16 @@ using HighPass = vessl::filter<float, FilterType>;
 
 class Gauss : public vessl::unitProcessor<GaussSampleFrame>
 {
-  init<6> init = {
+  init<7> init = {
     "Gauss",
     {
       parameter("Texture Size", parameter::type::analog), // [0,1)
       parameter("Blur Size", parameter::type::analog), // [0, 1)
-      parameter("Feedback", parameter::type::analog), // [0, 1)
+      parameter("Fdbk Amt", parameter::type::analog), // [0, 1)
       parameter("Gain (dB)", parameter::type::analog), // dB, any value
       parameter("Texture Tilt", parameter::type::analog), // (-1, 1)
-      parameter("Blur Tilt", parameter::type::analog) // (-1, 1)
+      parameter("Blur Tilt", parameter::type::analog), // (-1, 1)
+      parameter("Crossfdbk", parameter::type::analog) // [0,1]
     }
   };
   
@@ -35,7 +36,8 @@ class Gauss : public vessl::unitProcessor<GaussSampleFrame>
   Smoother blurSizeLeft;
   Smoother blurSizeRight;
   Smoother blurTiltSmoother;
-  Smoother feedbackAmountSmoother;
+  Smoother feedbackAmount;
+  Smoother feedbackAngle;
 
   GaussSampleFrame feedbackFrame;
   
@@ -60,7 +62,7 @@ public:
     , feedbackFilterRight(getSampleRate(), 20.0f, 1.0f)
     , textureSizeLeft(0.9f, MIN_TEXTURE_SIZE), textureSizeRight(0.9f, MIN_TEXTURE_SIZE), textureTiltSmoother(0.9f)
     , blurSizeLeft(0.9f, MIN_BLUR_SIZE), blurSizeRight(0.9f, MIN_BLUR_SIZE), blurTiltSmoother(0.9f)
-    , feedbackAmountSmoother(0.9f)
+    , feedbackAmount(0.9f), feedbackAngle(0.9f)
   {
     // pre-calculating an array of blur kernels in our blur range
     // and then lerping between them to generate kernels for the processors
@@ -100,6 +102,7 @@ public:
   parameter& blurSize() { return init.params[1]; }
   parameter& blurTilt() { return init.params[5]; }
   parameter& feedback() { return init.params[2]; }
+  parameter& crossFeedback() { return init.params[6]; }
   parameter& gain() { return init.params[3]; }
   BlurKernel kernel() const { return processorLeft->getKernel(); }
 
@@ -112,7 +115,7 @@ public:
   {
     // Note: the way feedback is applied is based on how Clouds does it
     // see: https://github.com/pichenettes/eurorack/tree/master/clouds
-    float fdbk = feedbackAmountSmoother.process(vessl::easing::interp<vessl::easing::quad::out>(0.f, 0.99f, *feedback()));
+    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out>(0.f, 0.99f, *feedback()));
     float feedbackAmtLeft = fdbk;
     float feedbackAmtRight = fdbk;
     float feedLeft = feedbackFrame.left();
@@ -168,7 +171,10 @@ public:
     }
     
     GaussSampleFrame procOut = { processorLeft->process(procLeft), processorRight->process(procRight) };
-    feedbackFrame = procOut;
+    float feedSame = 1.0f - *feedbackAngle.value();
+    float feedCross = *feedbackAngle.value();
+    feedbackFrame.left() = procOut.left()*feedSame + procOut.right()*feedCross;
+    feedbackFrame.right() = procOut.right()*feedSame + procOut.left()*feedCross;
     float scale  = vessl::gain<float>::decibelsToScale(*gain());
     procOut.scale(scale);
     return procOut;
