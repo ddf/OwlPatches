@@ -235,6 +235,8 @@
     <ClInclude Include="BitCrusher.hpp" />
     <ClInclude Include="BlurKernel.h" />
     <ClInclude Include="BlurPatch.hpp" />
+    <ClInclude Include="BlurProcessor1D.h" />
+    <ClInclude Include="BlurProcessor2D.h" />
     <ClInclude Include="BlurSignalProcessor.h" />
     <ClInclude Include="CartesianFloat.h" />
     <ClInclude Include="CartesianFloatArray.h" />

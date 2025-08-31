@@ -4,6 +4,8 @@
 #include "Gauss.h"
 #include "Noise.hpp"
 
+// @todo Lich controls for texture and blur tilt modulation
+// @todo Lich parameter mapping
 class GaussPatch : public MonochromeScreenPatch
 {
   vessl::array<GaussSampleFrame> processArray;

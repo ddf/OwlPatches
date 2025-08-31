@@ -86,16 +86,16 @@ public:
   }
 
 public:
-  static BlurSignalProcessor* create(std::size_t maxTextureSize, float maxBlurSize, BlurKernel blurKernel)
+  static BlurSignalProcessor* create(TextureSizeType maxTextureSize, float maxBlurSize, BlurKernel blurKernel)
   {
     // HACK: extra memory to ensure we don't read outside the bounds
     maxTextureSize += 2;
     if (AXIS == AxisX)
     {
-      return new BlurSignalProcessor(new float[maxTextureSize], maxTextureSize, 1, maxBlurSize, blurKernel);
+      return new BlurSignalProcessor(new float[maxTextureSize], (int)maxTextureSize, 1, maxBlurSize, blurKernel);
     }
 
-    return new BlurSignalProcessor(new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, maxBlurSize, blurKernel);
+    return new BlurSignalProcessor(new float[maxTextureSize*maxTextureSize], (int)maxTextureSize, (int)maxTextureSize, maxBlurSize, blurKernel);
   }
 
   static void destroy(BlurSignalProcessor* blur)

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "vessl/vessl.h"
-#include "GaussianBlurSignalProcessor.h"
+#include "BlurProcessor2D.h"
 
-using GaussProcessor = GaussianBlurSignalProcessor<float>;
+using GaussProcessor = BlurProcessor2D<TextureSizeType::Fractional>;
 using Smoother = vessl::smoother<float>;
 using vessl::parameter;
 using GaussSampleFrame = vessl::frame::stereo<float>;
@@ -77,13 +77,11 @@ public:
       blur += blurStep;
     }
     
-    processorLeft = GaussProcessor::create(MAX_TEXTURE_SIZE, MAX_BLUR_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
-    processorLeft->setTextureSize(MIN_TEXTURE_SIZE);
-    processorLeft->setBlur(MIN_BLUR_SIZE, STANDARD_DEVIATION, 1.0f);
+    processorLeft = GaussProcessor::create(getSampleRate(), MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
+    processorLeft->textureSize() << MIN_TEXTURE_SIZE;
 
-    processorRight = GaussProcessor::create(MAX_TEXTURE_SIZE, MAX_BLUR_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
-    processorRight->setTextureSize(MIN_TEXTURE_SIZE);
-    processorRight->setBlur(MIN_BLUR_SIZE, STANDARD_DEVIATION, 1.0f);
+    processorRight = GaussProcessor::create(getSampleRate(), MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
+    processorRight->textureSize() << MIN_TEXTURE_SIZE;
   }
 
   ~Gauss() override
@@ -104,10 +102,10 @@ public:
   parameter& feedback() { return init.params[2]; }
   parameter& crossFeedback() { return init.params[6]; }
   parameter& gain() { return init.params[3]; }
+  
   BlurKernel kernel() const { return processorLeft->getKernel(); }
-
-  float getTextureSizeLeft() const { return processorLeft->getTextureSize(); }
-  float getTextureSizeRight() const { return processorRight->getTextureSize(); }
+  float getTextureSizeLeft() const { return *processorLeft->textureSize(); }
+  float getTextureSizeRight() const { return *processorRight->textureSize(); }
   float getBlurSizeLeft() const { return *blurSizeLeft.value(); }
   float getBlurSizeRight() const { return *blurSizeRight.value(); }
   
@@ -118,9 +116,7 @@ public:
     float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out>(0.f, 0.99f, *feedback()));
     float feedbackAmtLeft = fdbk;
     float feedbackAmtRight = fdbk;
-    float feedLeft = feedbackFrame.left();
-    float feedRight = feedbackFrame.right();
-
+    
     float cutoffL = (20.0f + 100.0f * feedbackAmtLeft * feedbackAmtLeft);
     float cutoffR = (20.0f + 100.0f * feedbackAmtRight * feedbackAmtRight);
     float slcoL = feedbackAmtLeft * 1.4f;
@@ -128,13 +124,13 @@ public:
 
     feedbackFilterLeft.cutoff() << cutoffL;
     feedbackFilterRight.cutoff() << cutoffR;
-    feedLeft = feedbackFilterLeft.process(feedLeft);
-    feedRight = feedbackFilterRight.process(feedRight);
+    float feedLeft = feedbackFilterLeft.process(feedbackFrame.left());
+    float feedRight = feedbackFilterRight.process(feedbackFrame.right());
 
     float inLeft = in.left();
     float inRight = in.right();
-    float procLeft = inLeft + fdbk * (vessl::saturation::softlimit(slcoL*feedLeft + inLeft) - inLeft);
-    float procRight = inRight + fdbk * (vessl::saturation::softlimit(slcoR*feedRight + inRight) - inRight);
+    float procLeft = inLeft + feedbackAmtLeft * (vessl::saturation::softlimit(slcoL*feedLeft + inLeft) - inLeft);
+    float procRight = inRight + feedbackAmtRight * (vessl::saturation::softlimit(slcoR*feedRight + inRight) - inRight);
 
     static constexpr float TILT_SCALE = 6.0f;
     
@@ -143,8 +139,8 @@ public:
     float tszL = textureSizeLeft.process(vessl::math::constrain<float>(tsz * vessl::gain<float>::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
     float tszR = textureSizeRight.process(vessl::math::constrain<float>(tsz * vessl::gain<float>::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
 
-    processorLeft->setTextureSize(tszL);
-    processorRight->setTextureSize(tszR);
+    processorLeft->textureSize() << tszL;
+    processorRight->textureSize() << tszR;
 
     float bsz = vessl::easing::lerp(MIN_BLUR_SIZE, MAX_BLUR_SIZE, *blurSize());
     float blt = blurTiltSmoother.process(vessl::math::constrain(*blurTilt()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
@@ -171,12 +167,15 @@ public:
     }
     
     GaussSampleFrame procOut = { processorLeft->process(procLeft), processorRight->process(procRight) };
+    
     float feedSame = 1.0f - *feedbackAngle.value();
     float feedCross = *feedbackAngle.value();
     feedbackFrame.left() = procOut.left()*feedSame + procOut.right()*feedCross;
     feedbackFrame.right() = procOut.right()*feedSame + procOut.left()*feedCross;
+    
     float scale  = vessl::gain<float>::decibelsToScale(*gain());
     procOut.scale(scale);
+    
     return procOut;
   }
 
