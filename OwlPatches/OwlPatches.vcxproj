@@ -236,7 +236,6 @@
     <ClInclude Include="BlurKernel.h" />
     <ClInclude Include="BlurProcessor1D.h" />
     <ClInclude Include="BlurProcessor2D.h" />
-    <ClInclude Include="BlurSignalProcessor.h" />
     <ClInclude Include="CartesianFloat.h" />
     <ClInclude Include="CartesianFloatArray.h" />
     <ClInclude Include="CartesianTransform.h" />

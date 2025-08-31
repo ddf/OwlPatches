@@ -22,7 +22,7 @@ using vessl::parameter;
 
 // note: TextureSizeType is used to specialize on float to support textures with non-integral dimensions
 // probably there is a less confusing way to do this.
-template<BlurAxis AXIS, TextureSizeType TextureSizeType = TextureSizeType::Integral>
+template<BlurAxis Axis, TextureSizeType TextureSizeType = TextureSizeType::Integral>
 class BlurProcessor1D : public vessl::unitProcessor<float>
 {
   using TextureType = CircularTexture<float>;
@@ -52,33 +52,52 @@ public:
 
     if (TextureSizeType == TextureSizeType::Integral)
     {
-      return processIntegral(input);
+      return processIntegral();
     }
 
-    return processFractional(input);
+    return processFractional();
   }
 
-  float processIntegral(const float& input)
+  using unitProcessor::process;
+  
+  static BlurProcessor1D* create(float sampleRate, size_t maxTextureSize, BlurKernel blurKernel)
+  {
+    // HACK: extra memory to ensure we don't read outside the bounds
+    maxTextureSize += 2;
+    if (Axis == BlurAxis::X)
+    {
+      return new BlurProcessor1D(sampleRate, new float[maxTextureSize], maxTextureSize, 1, blurKernel);
+    }
+
+    return new BlurProcessor1D(sampleRate, new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, blurKernel);
+  }
+
+  static void destroy(BlurProcessor1D* blur)
+  {
+    delete[] blur->texture.getData();
+    delete blur;
+  }
+
+private:
+  float processIntegral()
   {
     float v = 0;
-    float c = kernel.blurSize * 0.5f;
-    int samples = kernel.getSize();
+    float c = kernel.getBlurSize() * 0.5f;
+    size_t samples = kernel.getSize();
     size_t texSize = textureSize().template read<size_t>();
-    if (AXIS == BlurAxis::X)
+    if (Axis == BlurAxis::X)
     {
       TextureType tex = texture.subtexture(texSize, 1);
-      for (int s = 0; s < samples; ++s)
+      for (const BlurKernelSample& samp : kernel)
       {
-        BlurKernelSample samp = kernel[s];
         v += tex.readBilinear(c + samp.offset, 0) * samp.weight;
       }
     }
     else
     {
       TextureType tex = texture.subtexture(texSize, texSize);
-      for (int s = 0; s < samples; ++s)
+      for (const BlurKernelSample& samp : kernel)
       {
-        BlurKernelSample samp = kernel[s];
         v += tex.readBilinear(0, c + samp.offset) * samp.weight;
       }
     }
@@ -86,18 +105,15 @@ public:
     return v;
   }
 
-  float processFractional(const float& input)
+  float processFractional()
   {
     float v = 0;
-    float c = kernel.blurSize * 0.5f;
-    size_t samples = kernel.getSize();
+    float c = kernel.getBlurSize() * 0.5f;
     float texSize = *textureSize();
-    if (AXIS == BlurAxis::X)
+    if (Axis == BlurAxis::X)
     {
-      for (std::size_t s = 0; s < samples; ++s)
+      for (const BlurKernelSample& samp : kernel)
       {
-        BlurKernelSample samp = kernel[s];
-
         //v += texture.readBilinear(c + samp.offset, 0) * samp.weight;
 
         float x = (c + samp.offset) * texSize;
@@ -110,9 +126,9 @@ public:
     }
     else
     {
-      size_t texSizeLow = texSize;
+      size_t texSizeLow = (size_t)texSize;
       size_t texSizeHi = texSizeLow + 1;
-      float texSizeBlend = texSize - texSizeLow;
+      float texSizeBlend = texSize - static_cast<float>(texSizeLow);
       // read from our two integral texture sizes centered on the same position in the big texture
       // adding texSize to the blur-based offset prevents reading past the write head,
       // which introduces a delay-like echo.
@@ -122,10 +138,8 @@ public:
       float xt = readOffset - static_cast<float>(x1);
       TextureType texA = texture.subtexture(texSizeLow, texSizeLow);
       TextureType texB = texture.subtexture(texSizeHi, texSizeHi);
-      for (std::size_t s = 0; s < samples; ++s)
+      for (const BlurKernelSample& samp : kernel)
       {
-        BlurKernelSample samp = kernel[s];
-
         //v += Interpolator::linear(texA.readBilinear(u1, coord), texB.readBilinear(u2, coord), texSizeBlend) * samp.weight;
 
         // this is essentially the same as the line commented out above,
@@ -155,25 +169,5 @@ public:
     }
 
     return v;
-  }
-
-  using unitProcessor::process;
-  
-  static BlurProcessor1D* create(float sampleRate, size_t maxTextureSize, BlurKernel blurKernel)
-  {
-    // HACK: extra memory to ensure we don't read outside the bounds
-    maxTextureSize += 2;
-    if (AXIS == BlurAxis::X)
-    {
-      return new BlurProcessor1D(sampleRate, new float[maxTextureSize], maxTextureSize, 1, blurKernel);
-    }
-
-    return new BlurProcessor1D(sampleRate, new float[maxTextureSize*maxTextureSize], maxTextureSize, maxTextureSize, blurKernel);
-  }
-
-  static void destroy(BlurProcessor1D* blur)
-  {
-    delete[] blur->texture.getData();
-    delete blur;
   }
 };

@@ -45,15 +45,15 @@ public:
 
   T readBilinear(float u, float v)
   {
-    float x = u * sizeX;
-    size_t x1 = x;
+    float x = u * static_cast<float>(sizeX);
+    size_t x1 = (size_t)x;
     size_t x2 = x1 + 1;
-    float xt = x - x1;
+    float xt = x - static_cast<float>(x1);
 
-    float y = v * sizeY;
-    size_t y1 = y;
+    float y = v * static_cast<float>(sizeY);
+    size_t y1 = (size_t)y;
     size_t y2 = y1 + 1;
-    float yt = y - y1;
+    float yt = y - static_cast<float>(y1);
 
     float xv1 = vessl::easing::lerp(read(x1, y1), read(x2, y1), xt);
     float xv2 = vessl::easing::lerp(read(x1, y2), read(x2, y2), xt);

@@ -15,11 +15,11 @@ class Gauss : public vessl::unitProcessor<GaussSampleFrame>
   init<7> init = {
     "Gauss",
     {
-      parameter("Texture Size", parameter::type::analog), // [0,1)
+      parameter("Tex Size", parameter::type::analog), // [0,1)
       parameter("Blur Size", parameter::type::analog), // [0, 1)
       parameter("Fdbk Amt", parameter::type::analog), // [0, 1)
       parameter("Gain (dB)", parameter::type::analog), // dB, any value
-      parameter("Texture Tilt", parameter::type::analog), // (-1, 1)
+      parameter("Tex Tilt", parameter::type::analog), // (-1, 1)
       parameter("Blur Tilt", parameter::type::analog), // (-1, 1)
       parameter("Crossfdbk", parameter::type::analog) // [0,1]
     }

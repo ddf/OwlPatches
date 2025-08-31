@@ -16,11 +16,11 @@ struct BlurKernelSample
 
 class BlurKernel : public vessl::array<BlurKernelSample>
 {
-public:
   float blurSize;
   
+public:
   BlurKernel() = default;
-  BlurKernel(BlurKernelSample* inData, std::size_t inSize) : array(inData, inSize), blurSize(0) {}
+  BlurKernel(BlurKernelSample* inData, size_t inSize) : array(inData, inSize), blurSize(0) {}
 
   void setGauss(float withBlurSize, float standardDeviation, float scale = 1.0f)
   {
@@ -31,7 +31,7 @@ public:
     float standardDevSq = standardDeviation * standardDeviation;
     float gaussCoeff = 1.0f / vessl::math::sqrt<float>(vessl::math::twoPi<float>()*standardDevSq);
 
-    for (std::size_t s = 0; s < size; ++s)
+    for (size_t s = 0; s < size; ++s)
     {
       float offset = (static_cast<float>(s) / static_cast<float>(size - 1) - 0.5f)*blurSize;
       float gaussWeight = gaussCoeff * vessl::math::pow(vessl::math::e<float>(), -((offset*offset) / (2 * standardDevSq)));
@@ -47,6 +47,8 @@ public:
     }
   }
 
+  float getBlurSize() const { return blurSize; }
+
   void clear()
   {
     for (BlurKernelSample& sample : *this)
@@ -54,19 +56,7 @@ public:
       sample.offset = 0;
       sample.weight = 0;
     }
-  }
-
-  static void calcKernelStep(BlurKernel fromKernel, float toBlurSize, float stdDev, float brightness, int blockSize, BlurKernel outKernelStep)
-  {
-    outKernelStep.setGauss(toBlurSize, stdDev, brightness);
-    outKernelStep.blurSize = (toBlurSize - fromKernel.blurSize) / blockSize;
-    for (int i = 0; i < fromKernel.getSize(); ++i)
-    {
-      BlurKernelSample to = outKernelStep[i];
-      BlurKernelSample from = fromKernel[i];
-      outKernelStep[i] = BlurKernelSample((to.offset - from.offset) / blockSize, (to.weight - from.weight) / blockSize);
-    }
-    
+    blurSize = 0;
   }
 
   static void lerp(BlurKernel fromKernel, BlurKernel toKernel, float alpha, BlurKernel outKernel)
