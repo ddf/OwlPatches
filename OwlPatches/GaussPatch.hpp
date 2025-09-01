@@ -1,58 +1,48 @@
 #pragma once
 
 #include "MonochromeScreenPatch.h"
+#include "PatchParameterIds.h"
+#include "AudioBufferSourceSink.h"
 #include "Gauss.h"
 #include "Noise.hpp"
 
-// @todo Lich controls for texture and blur tilt modulation
-// @todo Lich parameter mapping
 class GaussPatch : public MonochromeScreenPatch
 {
-  vessl::array<GaussSampleFrame> processArray;
   Gauss gauss;
   
 public:
-  GaussPatch() : processArray(new GaussSampleFrame[getBlockSize()], getBlockSize()),  gauss(getSampleRate(), getBlockSize())
+  GaussPatch() : gauss(getSampleRate(), getBlockSize())
   {
     // registered first so they are the default CV IN assignments on Genius
-    registerParameter(PARAMETER_E, gauss.textureTilt().getName());
-    registerParameter(PARAMETER_F, gauss.blurTilt().getName());
-    registerParameter(PARAMETER_G, gauss.crossFeedback().getName());
+    registerParameter(InputParameterId::E, gauss.textureTilt().getName());
+    registerParameter(InputParameterId::F, gauss.blurTilt().getName());
+    registerParameter(InputParameterId::G, gauss.gain().getName());
     
-    registerParameter(PARAMETER_A, gauss.textureSize().getName());
-    registerParameter(PARAMETER_B, gauss.blurSize().getName());
-    registerParameter(PARAMETER_C, gauss.feedback().getName());
-    registerParameter(PARAMETER_D, gauss.gain().getName());
+    registerParameter(InputParameterId::A, gauss.textureSize().getName());
+    registerParameter(InputParameterId::B, gauss.blurSize().getName());
+    registerParameter(InputParameterId::C, gauss.feedback().getName());
+    registerParameter(InputParameterId::D, gauss.crossFeedback().getName());
+
+    setParameterValue(InputParameterId::E, 0.5f);
+    setParameterValue(InputParameterId::F, 0.5f);
   }
   
   void processAudio(AudioBuffer& audio) override
   {
-    gauss.textureSize() << getParameterValue(PARAMETER_A);
-    gauss.blurSize() << getParameterValue(PARAMETER_B);
-    gauss.feedback() << getParameterValue(PARAMETER_C);
-    gauss.gain() << getParameterValue(PARAMETER_D)*12.0f;
-    gauss.textureTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(PARAMETER_E));
-    gauss.blurTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(PARAMETER_F));
-    gauss.crossFeedback() << getParameterValue(PARAMETER_G);
+    gauss.textureSize() << getParameterValue(InputParameterId::A);
+    gauss.textureTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::E));
 
-    // @todo helper classes that implement source<stereo<float>> and sink<stereo<float>> for AudioBuffer.
-    FloatArray inLeft = audio.getSamples(LEFT_CHANNEL);
-    FloatArray inRight = audio.getSamples(RIGHT_CHANNEL);
-    for (int i = 0; i < audio.getSize(); ++i)
-    {
-      GaussSampleFrame& sample = processArray[i];
-      sample.left() = inLeft[i];
-      sample.right() = inRight[i];
-    }
+    gauss.blurSize() << getParameterValue(InputParameterId::B);
+    gauss.blurTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::F));
     
-    gauss.process(processArray, processArray);
+    gauss.feedback() << getParameterValue(InputParameterId::C);
+    gauss.crossFeedback() << getParameterValue(InputParameterId::D);
+    
+    gauss.gain() << getParameterValue(InputParameterId::G)*12.0f;
 
-    for (int i = 0; i < audio.getSize(); ++i)
-    {
-      GaussSampleFrame& sample = processArray[i];
-      inLeft[i] = sample.left();
-      inRight[i] = sample.right();
-    }
+    AudioBufferReader input(audio);
+    AudioBufferWriter output(audio);
+    gauss.process(input, output);
   }
 
 #ifdef DEBUG
