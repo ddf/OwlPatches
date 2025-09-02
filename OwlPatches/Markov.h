@@ -187,7 +187,7 @@ private:
     else if (envelopeShape >= 0.53f)
     {
       float t = (envelopeShape - 0.53f) * 2.12f;
-      wordGateLength = static_cast<int>(vessl::easing::interp(static_cast<float>(minWordGateLength), static_cast<float>(wordSize - minWordGateLength), t));
+      wordGateLength = static_cast<int>(vessl::easing::lerp(static_cast<float>(minWordGateLength), static_cast<float>(wordSize - minWordGateLength), t));
     }
     else
     {
