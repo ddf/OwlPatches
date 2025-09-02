@@ -48,6 +48,7 @@ DESCRIPTION:
 #include "Interpolator.h"
 #include "Easing.h"
 #include "SmoothValue.h"
+#include "vessl/vessl.h"
 
 struct SpectralHarpParameterIds
 {
@@ -73,7 +74,7 @@ template<int spectrumSize, bool reverb_enabled, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
   using SpectralGen = SpectralSignalGenerator<false>;
-  using BitCrush = BitCrusher<24>;
+  using BitCrush = vessl::bitcrush<float, 24>;
 
 protected:
   const SpectralHarpParameterIds params;
@@ -93,9 +94,10 @@ protected:
   const float crushRateMin = 1000.0f;
 
   SpectralGen* spectralGen;
-  BitCrush* bitCrusher;
   Diffuser* diffuser;
   Reverb*   reverb;
+
+  BitCrush bitCrusher;
   
   int        pluckAtSample;
   int        gateOnAtSample;
@@ -126,13 +128,12 @@ public:
   using PatchClass::isButtonPressed;
 
   SpectralHarpPatch(SpectralHarpParameterIds paramIds) : PatchClass()
-    , params(paramIds), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
+    , params(paramIds), bitCrusher(getSampleRate(), getSampleRate()), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
     , bandFirst(1.f), bandLast(1.f)
   {
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
-    bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
-
+    
     if (reverb_enabled)
     {
       diffuser = Diffuser::create();
@@ -181,7 +182,6 @@ public:
   ~SpectralHarpPatch()
   {
     SpectralGen::destroy(spectralGen);
-    BitCrush::destroy(bitCrusher);
     if (reverb_enabled)
     {
       Diffuser::destroy(diffuser);
@@ -225,26 +225,28 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+    using namespace vessl::easing;
+    
     const int blockSize = audio.getSize();
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
 
-    float harpFund = Interpolator::linear(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
-    float harpOctaves = Interpolator::linear(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
+    float harpFund = lerp(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
+    float harpOctaves = lerp(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
     bandLast  = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
     int bandFirstIdx = spectralGen->freqToIndex(bandFirst);
     int bandLastIdx = spectralGen->freqToIndex(bandLast);
-    bandDensity = Interpolator::linear(densityMin, min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
+    bandDensity = lerp(densityMin, min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
     linLogLerp = getParameterValue(params.inTuning);
 
     spread = getParameterValue(params.inSpread)*spreadMax;
-    decay = Interpolator::linear(decayMin, decayMax, getParameterValue(params.inDecay));
+    decay = lerp(decayMin, decayMax, getParameterValue(params.inDecay));
     brightness = getParameterValue(params.inBrightness);
-    crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
+    crush = interp<expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
 
     // reduce volume based on combination of decay, spread, and brightness parameters
-    volume = Easing::expoOut(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
+    volume = interp<expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
                                         + 0.7f*getParameterValue(params.inSpread)
                                         + 0.1f*getParameterValue(params.inBrightness));
 
@@ -252,7 +254,7 @@ public:
     spectralGen->setDecay(decay);
     spectralGen->setBrightness(brightness);
     spectralGen->setVolume(volume);
-    bitCrusher->setBitRate(crush);
+    bitCrusher.rate() << crush.getValue();
 
     float strumX = 0;
     float strumY = 0;
@@ -294,7 +296,9 @@ public:
     }
 
     spectralGen->generate(left);
-    bitCrusher->process(left, left);
+
+    vessl::array<float> bcp(left.getData(), left.getSize());
+    bitCrusher.process(bcp, bcp);
 
     left.copyTo(right);
 
@@ -302,7 +306,7 @@ public:
     {
       stereoWidth = getParameterValue(params.inWidth);
       reverbTime = 0.35f + 0.6f*getParameterValue(params.inReverbTime);
-      reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(params.inReverbTone));
+      reverbTone = lerp(0.2f, 0.97f, getParameterValue(params.inReverbTone));
       reverbBlend = getParameterValue(params.inReverbBlend) * 0.56f;
 
       diffuser->setAmount(stereoWidth);
@@ -332,17 +336,19 @@ protected:
 
   float frequencyOfString(int stringNum)
   {
+    using namespace vessl::easing;
+    
     const float t = (float)stringNum / getStringCount();
     // convert first and last bands to midi notes and then do a linear interp, converting back to Hz at the end.
     Frequency lowFreq = Frequency::ofHertz(bandFirst);
     Frequency hiFreq = Frequency::ofHertz(bandLast);
-    const float linFreq = Interpolator::linear(lowFreq.asHz(), hiFreq.asHz(), t);
-    const float midiNote = Interpolator::linear(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
+    const float linFreq = lerp(lowFreq.asHz(), hiFreq.asHz(), t);
+    const float midiNote = lerp(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
     const float logFreq = Frequency::ofMidiNote(midiNote).asHz();
     // we lerp from logFreq up to linFreq because log spacing clusters frequencies
     // towards the bottom of the range, which means that when holding down the mouse on a string
     // and lowering this param, you'll hear the pitch drop, which makes more sense than vice-versa.
-    return Interpolator::linear(logFreq, linFreq, linLogLerp);
+    return lerp(logFreq, linFreq, linLogLerp);
   }
 
 private:

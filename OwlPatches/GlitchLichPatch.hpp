@@ -57,7 +57,9 @@ DESCRIPTION:
 #include "CircularBuffer.h"
 
 #include "TapTempo.hpp"
-#include "BitCrusher.hpp"
+#include "vessl/vessl.h"
+
+using BitCrush = vessl::bitcrush<float, 24>;
 
 static const uint32_t TRIGGER_LIMIT = (1 << 17);
 
@@ -158,8 +160,8 @@ class GlitchLichPatch : public Patch
   StereoDcBlockingFilter* dcFilter;
   CircularBuffer<float>* bufferL;
   CircularBuffer<float>* bufferR;
-  BitCrusher<24>* crushL;
-  BitCrusher<24>* crushR;
+  BitCrush crushL;
+  BitCrush crushR;
   TapTempo<TRIGGER_LIMIT> tempo;
   uint32_t samplesSinceLastTap;
   int freezeRatio;
@@ -177,15 +179,13 @@ class GlitchLichPatch : public Patch
 
 public:
   GlitchLichPatch()
-    : dcFilter(0), bufferL(0), bufferR(0), crushL(0), crushR(0)
+    : dcFilter(0), bufferL(0), bufferR(0), crushL(getSampleRate(), getSampleRate()), crushR(getSampleRate(), getSampleRate())
     , tempo(getSampleRate()*60/120), samplesSinceLastTap(TRIGGER_LIMIT)
     , freeze(false) , freezeRatio(0), playbackSpeed(0), dropRatio(0)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     bufferL = CircularBuffer<float>::create(TRIGGER_LIMIT);
     bufferR = CircularBuffer<float>::create(TRIGGER_LIMIT);
-    crushL = BitCrusher<24>::create(getSampleRate(), getSampleRate());
-    crushR = BitCrusher<24>::create(getSampleRate(), getSampleRate());
 
     readLfo = 0;
     readSpeed = 1;
@@ -209,8 +209,6 @@ public:
     StereoDcBlockingFilter::destroy(dcFilter);
     CircularBuffer<float>::destroy(bufferL);
     CircularBuffer<float>::destroy(bufferR);
-    BitCrusher<24>::destroy(crushL);
-    BitCrusher<24>::destroy(crushR);
   }
 
 
@@ -309,12 +307,12 @@ public:
                                 : 24;
     float rate = crush > 0.001f ? sr*0.25f + getParameterValue(inCrush)*(100 - sr*0.25f) 
                                 : sr;
-    crushL->setBitDepth(bits);
-    crushL->setBitRate(rate);
-    crushL->setMangle(mangle);
-    crushR->setBitDepth(bits);
-    crushR->setBitRate(rate);
-    crushR->setMangle(mangle);
+    crushL.depth() << bits;
+    crushL.rate() << rate;
+    crushL.mangle() << mangle;
+    crushR.depth() << bits;
+    crushR.rate() << rate;
+    crushR.mangle() << mangle;
 
     dcFilter->process(audio, audio);
 
@@ -352,8 +350,10 @@ public:
     freezeLength = newFreezeLength;
     readSpeed = newReadSpeed;
 
-    crushL->process(left, left);
-    crushR->process(right, right);
+    vessl::array<float> cpl(left.getData(), left.getSize());
+    vessl::array<float> cpr(right.getData(), right.getSize());
+    crushL.process(cpl, cpl);
+    crushR.process(cpr, cpr);
 
     float dropParam = getParameterValue(inDrop);
     dropRatio = (int)(dropParam * DROP_RATIOS_COUNT);

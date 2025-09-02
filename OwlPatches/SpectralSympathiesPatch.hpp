@@ -46,6 +46,7 @@ DESCRIPTION:
 #include "Easing.h"
 #include "SmoothValue.h"
 #include "Window.h"
+#include "vessl/vessl.h"
 
 struct SpectralSympathiesParameterIds
 {
@@ -71,7 +72,7 @@ template<int spectrumSize, bool reverb_enabled>
 class SpectralSympathiesPatch : public MonochromeScreenPatch
 {
   using SpectralGen = SpectralSignalGenerator<false>;
-  using BitCrush = BitCrusher<24>;
+  using BitCrush = vessl::bitcrush<float, 24>;
 
 protected:
   const SpectralSympathiesParameterIds params;
@@ -98,9 +99,10 @@ protected:
   FastFourierTransform* inputTransform;
 
   SpectralGen* spectralGen;
-  BitCrush* bitCrusher;
   Diffuser* diffuser;
   Reverb*   reverb;
+
+  BitCrush bitCrusher;
 
   int        pluckAtSample;
   int        gateOnAtSample;
@@ -125,7 +127,8 @@ protected:
 public:
 
   SpectralSympathiesPatch(SpectralSympathiesParameterIds paramIds) : MonochromeScreenPatch()
-    , params(paramIds), inputBufferWrite(0), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
+    , params(paramIds), bitCrusher(getSampleRate(), getSampleRate())
+    , inputBufferWrite(0), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
     , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
     , bandFirst(1.f), bandLast(1.f)
   {
@@ -136,7 +139,6 @@ public:
     inputTransform = FastFourierTransform::create(spectrumSize);
 
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
-    bitCrusher = BitCrush::create(getSampleRate(), getSampleRate());
 
     if (reverb_enabled)
     {
@@ -191,7 +193,6 @@ public:
     ComplexFloatArray::destroy(inputSpectrum);
     FastFourierTransform::destroy(inputTransform);
     SpectralGen::destroy(spectralGen);
-    BitCrush::destroy(bitCrusher);
     if (reverb_enabled)
     {
       Diffuser::destroy(diffuser);
@@ -235,6 +236,8 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+    using namespace vessl::easing;
+    
     const int blockSize = audio.getSize();
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
@@ -251,10 +254,10 @@ public:
     spread = getParameterValue(params.inSpread)*spreadMax;
     decay = Interpolator::linear(decayMin, decayMax, getParameterValue(params.inDecay));
     brightness = getParameterValue(params.inBrightness);
-    crush = Easing::expoOut(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
+    crush = interp<expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
 
     // reduce volume based on combination of decay, spread, and brightness parameters
-    volume = Easing::expoOut(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
+    volume = interp<expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
       + 0.7f*getParameterValue(params.inSpread)
       + 0.1f*getParameterValue(params.inBrightness));
 
@@ -262,7 +265,7 @@ public:
     spectralGen->setDecay(decay);
     spectralGen->setBrightness(brightness);
     spectralGen->setVolume(volume);
-    bitCrusher->setBitRate(crush);
+    bitCrusher.rate() << crush.getValue();
 
     // TODO: this needs to dynamically adjust to band density somehow,
     // but using band density directly doesn't work. it's more to do with 
@@ -297,7 +300,9 @@ public:
     }
 
     spectralGen->generate(left);
-    bitCrusher->process(left, left);
+
+    vessl::array<float> bcp(left.getData(), left.getSize());
+    bitCrusher.process(bcp, bcp);
 
     left.copyTo(right);
 
@@ -337,17 +342,19 @@ protected:
 
   float frequencyOfString(int stringNum)
   {
+    using namespace vessl::easing;
+    
     const float t = (float)stringNum / getStringCount();
     // convert first and last bands to midi notes and then do a linear interp, converting back to Hz at the end.
     Frequency lowFreq = Frequency::ofHertz(bandFirst);
     Frequency hiFreq = Frequency::ofHertz(bandLast);
-    const float linFreq = Interpolator::linear(lowFreq.asHz(), hiFreq.asHz(), t);
-    const float midiNote = Interpolator::linear(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
+    const float linFreq = lerp(lowFreq.asHz(), hiFreq.asHz(), t);
+    const float midiNote = lerp(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
     const float logFreq = Frequency::ofMidiNote(midiNote).asHz();
     // we lerp from logFreq up to linFreq because log spacing clusters frequencies
     // towards the bottom of the range, which means that when holding down the mouse on a string
     // and lowering this param, you'll hear the pitch drop, which makes more sense than vice-versa.
-    return Interpolator::linear(logFreq, linFreq, linLogLerp);
+    return lerp(logFreq, linFreq, linLogLerp);
   }
 
 private:

@@ -55,12 +55,12 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
 #include "TapTempo.hpp"
-#include "BitCrusher.hpp"
 #include "EnvelopeFollower.h"
+#include "vessl/vessl.h"
 
 typedef uint32_t count_t;
 typedef CircularBuffer<float, count_t> RecordBuffer;
-typedef BitCrusher<24> BitCrush;
+typedef vessl::bitcrush<float, 24> BitCrush;
 
 static constexpr count_t RECORD_BUFFER_SIZE = (1 << 17);
 typedef TapTempo<RECORD_BUFFER_SIZE> Clock;
@@ -147,7 +147,8 @@ class GlitchLich2Patch final : public Patch  // NOLINT(cppcoreguidelines-special
   
   StereoDcBlockingFilter* dcFilter;
   EnvelopeFollower* envelopeFollower;
-  BitCrush* crush[2];
+  BitCrush crushLeft;
+  BitCrush crushRight;
   
   RecordBuffer* processBuffer[2];
   RecordBuffer* freezeBuffer[2];
@@ -165,19 +166,19 @@ public:
     , readLfo(0), readSpeed(1)
     , glitchSettingsIdx(0), glitchLfo(0), glitchRand(0)
     , readEndIdx(0), freezeCounter(0), glitchCounter(0)
-    , samplesSinceLastTap(RECORD_BUFFER_SIZE), clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
+    , samplesSinceLastTap(RECORD_BUFFER_SIZE)
+    , crushLeft(getSampleRate(), getSampleRate()), crushRight(getSampleRate(), getSampleRate())
+    , clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
     , freezeEnabled(false), glitchEnabled(false)
   {
     inputEnvelope = FloatArray::create(getBlockSize());
-    processBuffer[LEFT_CHANNEL]  = RecordBuffer::create(getBlockSize());
+    processBuffer[LEFT_CHANNEL] = RecordBuffer::create(getBlockSize());
     processBuffer[RIGHT_CHANNEL] = RecordBuffer::create(getBlockSize());
-    freezeBuffer[LEFT_CHANNEL]  = RecordBuffer::create(RECORD_BUFFER_SIZE);
+    freezeBuffer[LEFT_CHANNEL] = RecordBuffer::create(RECORD_BUFFER_SIZE);
     freezeBuffer[RIGHT_CHANNEL] = RecordBuffer::create(RECORD_BUFFER_SIZE);
 
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize() * 8, getSampleRate());
-    crush[LEFT_CHANNEL] = BitCrush::create(getSampleRate(), getSampleRate());
-    crush[RIGHT_CHANNEL] = BitCrush::create(getSampleRate(), getSampleRate());
 
     // order of registration determines parameter assignment, starting from PARAMETER_A
     pinRepeats = IN_REPEATS.registerParameter(this);
@@ -196,8 +197,6 @@ public:
     RecordBuffer::destroy(processBuffer[RIGHT_CHANNEL]);
     RecordBuffer::destroy(freezeBuffer[LEFT_CHANNEL]);
     RecordBuffer::destroy(freezeBuffer[RIGHT_CHANNEL]);
-    BitCrush::destroy(crush[LEFT_CHANNEL]);
-    BitCrush::destroy(crush[RIGHT_CHANNEL]);
   }
 
 
@@ -303,10 +302,10 @@ public:
     const float crushParam = pinCrush.getValue(); // getParameterValue(IN_CRUSH);
     const float bits = crushParam > 0.001f ? (16.f - crushParam*12.0f) : 24;
     const float rate = crushParam > 0.001f ? sr * 0.25f + crushParam*(100 - sr * 0.25f) : sr;
-    crush[LEFT_CHANNEL]->setBitDepth(bits);
-    crush[LEFT_CHANNEL]->setBitRate(rate);
-    crush[RIGHT_CHANNEL]->setBitDepth(bits);
-    crush[RIGHT_CHANNEL]->setBitRate(rate);
+    crushLeft.depth() << bits;
+    crushRight.depth() << bits;
+    crushLeft.rate() << rate;
+    crushRight.rate() << rate;
 
     dcFilter->process(audio, audio);
     envelopeFollower->process(audio, inputEnvelope);
@@ -354,8 +353,10 @@ public:
     freezeLength = newFreezeLength;
     readSpeed = newReadSpeed;
 
-    crush[LEFT_CHANNEL]->process(processedL, processedL);
-    crush[RIGHT_CHANNEL]->process(processedR, processedR);
+    vessl::array<float> procL(processedL.getData(), processedL.getSize());
+    vessl::array<float> procR(processedR.getData(), processedR.getSize());
+    crushLeft.process(procL, procL);
+    crushRight.process(procR, procR);
 
     const float glitchParam = pinGlitch.getValue(); // getParameterValue(IN_GLITCH);
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);

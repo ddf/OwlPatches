@@ -233,7 +233,6 @@
     <ClInclude Include="Adsr.h" />
     <ClInclude Include="AllpassNetwork.h" />
     <ClInclude Include="AudioBufferSourceSink.h" />
-    <ClInclude Include="BitCrusher.hpp" />
     <ClInclude Include="BlurKernel.h" />
     <ClInclude Include="BlurProcessor1D.h" />
     <ClInclude Include="BlurProcessor2D.h" />
