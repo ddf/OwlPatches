@@ -230,7 +230,6 @@
     <ClInclude Include="..\..\OwlProgram\Source\ServiceCall.h" />
     <ClInclude Include="..\..\OwlProgram\Source\ShortBuffer.hpp" />
     <ClInclude Include="..\..\OwlProgram\Source\system_tables.h" />
-    <ClInclude Include="Adsr.h" />
     <ClInclude Include="AllpassNetwork.h" />
     <ClInclude Include="AudioBufferSourceSink.h" />
     <ClInclude Include="BlurKernel.h" />
@@ -244,7 +243,6 @@
     <ClInclude Include="DelaytrixPatch.hpp" />
     <ClInclude Include="DelayMatrixPatch.hpp" />
     <ClInclude Include="Diffuser.h" />
-    <ClInclude Include="Easing.h" />
     <ClInclude Include="EnvelopeFollower.h" />
     <ClInclude Include="EnvTestPatch.hpp" />
     <ClInclude Include="EqualLoudnessCurves.h" />

@@ -1,4 +1,4 @@
-#include "basicmaths.h"
+#pragma once
 
 class SkewedFloat
 {
@@ -8,7 +8,7 @@ class SkewedFloat
   bool enabled;
 
 public:
-  SkewedFloat(float value) : value(value), center(value), skew(0), enabled(false) {}
+  explicit SkewedFloat(float value) : value(value), center(value), skew(0), enabled(false) {}
 
   void toggleSkew()
   {
