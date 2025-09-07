@@ -284,7 +284,7 @@ private:
       wordsToNewInterval = 1;
     }
 
-    float periodInSamples = static_cast<float>(tempo.period);
+    float periodInSamples = static_cast<float>(tempo.samples);
     int wordSize = std::max(minWordSizeSamples, static_cast<int>(periodInSamples * wordScale));
     clocksToReset = COUNTERS[divMultIdx][intervalIdx] - 1;
 

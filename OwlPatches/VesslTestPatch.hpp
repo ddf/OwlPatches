@@ -13,7 +13,6 @@ using Delay = vessl::delay<float>;
 using Array = vessl::array<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
-using CircularBuffer = vessl::ring<float>;
 
 class VesslTestPatch final : public MonochromeScreenPatch
 {
@@ -26,18 +25,11 @@ class VesslTestPatch final : public MonochromeScreenPatch
   FloatArray delayBuffer;
   Delay delay;
   SmoothFloat delayTime;
-
-  FloatArray delayLineBuffer;
-  vessl::delayline<float> delayLine;
-  Oscil delayOscil;
   
 public:
   VesslTestPatch() : wave(sine), osc(getSampleRate(), wave), voct(true), ramp(getSampleRate(), 0, 1, 0)
   , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
   , delay(Array(delayBuffer.getData(), delayBuffer.getSize()), getSampleRate(), 0.2f)
-  , delayLineBuffer(FloatArray::create(static_cast<int>(getSampleRate())))
-  , delayLine(delayLineBuffer.getData(), delayLineBuffer.getSize())
-  , delayOscil(getSampleRate(), delayLine, 2.f)
   {
     registerParameter(PARAMETER_A, ramp.duration().getName());
     setParameterValue(PARAMETER_A, 0.1f);
@@ -63,35 +55,30 @@ public:
     Array audioLeft(audio.getSamples(LEFT_CHANNEL), bufferSize);
     Array audioRight(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
-    ramp.duration() << getParameterValue(PARAMETER_A);
+    //ramp.duration() << getParameterValue(PARAMETER_A);
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
     
     delayTime = getParameterValue(PARAMETER_A)*2.0f;
 
-    delay.time() << delayTime.getValue(); // getParameterValue(PARAMETER_A)*2.0f;
-    delay.feedback() << getParameterValue(PARAMETER_B);
+    //delay.time() << vessl::duration::fromSeconds(getParameterValue(PARAMETER_A)*2.0f, getSampleRate());
+    // note: HAS to be double, otherwise the set by pointer conversion won't work.
+    delay.time() << static_cast<double>(getParameterValue(PARAMETER_A)*2*getSampleRate());
+    delay.feedback() << 0.25f; // << getParameterValue(PARAMETER_B);
 
     uint16_t eorState = OFF;
     uint16_t eorIndex = 0;
     AudioReader pmIn(audioLeft);
     AudioReader fmIn(audioRight);
-    AudioWriter lout(audioLeft);
-    AudioWriter rout(audioRight);
-    while (lout)
+    AudioWriter out(audioLeft);
+    while (out)
     {
       float pm = pmIn.read();
       float fm = fmIn.read();
       osc.pm() << pm;
       osc.fmExp() << fm;
 
-      delayOscil.pm() << pm;
-      delayOscil.fmExp() << fm;
-
       float s = (osc.generate() * ramp.generate());
-      float d = delayOscil.generate();
-      lout << s*0.5f + d*0.5f;
-
-      delayLine.write(-s+d*0.5f);
+      out << s;
       
       if (eorState == OFF)
       {
@@ -99,10 +86,7 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
-
-    AudioReader dry(audioLeft);
-    AudioWriter wet(audioRight);
-    delay.process(dry, wet);
+    delay.process<vessl::duration::crossfade>(audioLeft, audioRight);
     
     audioRight << audioLeft.add(audioRight).scale(0.5f);
     
