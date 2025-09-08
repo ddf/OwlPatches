@@ -48,7 +48,7 @@ public:
     }
     else
     {
-      float tsz = *textureSize();
+      vessl::analog_t tsz = *textureSize();
       blurX->textureSize() << tsz;
       blurY->textureSize() << tsz;
     }
@@ -65,7 +65,7 @@ public:
     }
     else
     {
-      float tsz = *textureSize();
+      vessl::analog_t tsz = *textureSize();
       blurX->textureSize() << tsz;
       blurY->textureSize() << tsz;
     }

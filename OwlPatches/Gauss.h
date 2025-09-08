@@ -113,7 +113,7 @@ public:
   {
     // Note: the way feedback is applied is based on how Clouds does it
     // see: https://github.com/pichenettes/eurorack/tree/master/clouds
-    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out>(0.f, 0.99f, *feedback()));
+    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out, float>(0.f, 0.99f, *feedback()));
     float feedbackAmtLeft = fdbk;
     float feedbackAmtRight = fdbk;
     
@@ -135,7 +135,7 @@ public:
     static constexpr float TILT_SCALE = 6.0f;
     
     float tsz = vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, *textureSize());
-    float tlt = textureTiltSmoother.process(vessl::math::constrain(*textureTilt()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
+    float tlt = textureTiltSmoother.process(vessl::math::constrain<float>(textureTilt().read<float>()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
     float tszL = textureSizeLeft.process(vessl::math::constrain<float>(tsz * vessl::gain<float>::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
     float tszR = textureSizeRight.process(vessl::math::constrain<float>(tsz * vessl::gain<float>::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
 
@@ -143,7 +143,7 @@ public:
     processorRight->textureSize() << tszR;
 
     float bsz = vessl::easing::lerp(MIN_BLUR_SIZE, MAX_BLUR_SIZE, *blurSize());
-    float blt = blurTiltSmoother.process(vessl::math::constrain(*blurTilt()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
+    float blt = blurTiltSmoother.process(vessl::math::constrain(blurTilt().read<float>()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
     // set left kernel
     {
       // scale max blur down so we never blur more than a maximum number of samples away

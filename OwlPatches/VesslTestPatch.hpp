@@ -40,7 +40,7 @@ public:
       registerParameter(static_cast<PatchParameterId>(pid++), param.getName());
     }
 
-    ramp.duration() << 0.1f;
+    ramp.duration() << 0.1;
     ramp.trigger();
   }
 
@@ -55,15 +55,15 @@ public:
     Array audioLeft(audio.getSamples(LEFT_CHANNEL), bufferSize);
     Array audioRight(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
-    //ramp.duration() << getParameterValue(PARAMETER_A);
+    ramp.duration() << getParameterValue(PARAMETER_A);
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
     
     delayTime = getParameterValue(PARAMETER_A)*2.0f;
 
     //delay.time() << vessl::duration::fromSeconds(getParameterValue(PARAMETER_A)*2.0f, getSampleRate());
-    // note: HAS to be double, otherwise the set by pointer conversion won't work.
-    delay.time() << static_cast<double>(getParameterValue(PARAMETER_A)*2*getSampleRate());
-    delay.feedback() << 0.25f; // << getParameterValue(PARAMETER_B);
+    // note: HAS to be analog_t, otherwise the set by pointer conversion won't work.
+    delay.time() << static_cast<vessl::analog_t>(getParameterValue(PARAMETER_A)*2*getSampleRate());
+    delay.feedback() << getParameterValue(PARAMETER_B);
 
     uint16_t eorState = OFF;
     uint16_t eorIndex = 0;
@@ -86,9 +86,10 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
-    delay.process<vessl::duration::crossfade>(audioLeft, audioRight);
-    
+    delay.process<vessl::duration::mode::crossfade>(audioLeft, audioRight);
     audioRight << audioLeft.add(audioRight).scale(0.5f);
+    
+    //audioRight << audioLeft;
     
     setButton(BUTTON_1, eorState, eorIndex);
   }
