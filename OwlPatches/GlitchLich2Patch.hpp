@@ -61,6 +61,8 @@ DESCRIPTION:
 typedef uint32_t count_t;
 typedef CircularBuffer<float, count_t> RecordBuffer;
 typedef vessl::bitcrush<float, 24> BitCrush;
+using Freeze = vessl::freeze<float>;
+using FreezeBuffer = vessl::delayline<float>;
 
 static constexpr count_t RECORD_BUFFER_SIZE = (1 << 17);
 typedef TapTempo<RECORD_BUFFER_SIZE> Clock;
@@ -130,17 +132,14 @@ class GlitchLich2Patch final : public Patch  // NOLINT(cppcoreguidelines-special
   OutputParameter poutEnv;
   OutputParameter poutRand;
   
-  count_t freezeIdx;
-  count_t freezeWriteCount;
-  float freezeLength;
-  float readLfo;
-  float readSpeed;
-
+  FreezeBuffer freezeBufferLeft, freezeBufferRight;
+  Freeze freezeLeft, freezeRight;
+  
+  count_t freezeSettingsIdx;
   count_t glitchSettingsIdx;
   float glitchLfo;
   float glitchRand;
 
-  count_t readEndIdx;
   count_t freezeCounter;
   count_t glitchCounter;
   count_t samplesSinceLastTap;
@@ -151,31 +150,31 @@ class GlitchLich2Patch final : public Patch  // NOLINT(cppcoreguidelines-special
   BitCrush crushRight;
   
   RecordBuffer* processBuffer[2];
-  RecordBuffer* freezeBuffer[2];
+  // RecordBuffer* freezeBuffer[2];
 
   FloatArray inputEnvelope;
   Clock clock;
   
-  bool freezeEnabled;
+  // bool freezeEnabled;
   bool glitchEnabled;
 
 public:
   GlitchLich2Patch()
-    : poutEnv(this, OUT_ENV), poutRand(this, OUT_RAND)
-    , freezeIdx(0), freezeWriteCount(0), freezeLength(0)
-    , readLfo(0), readSpeed(1)
-    , glitchSettingsIdx(0), glitchLfo(0), glitchRand(0)
-    , readEndIdx(0), freezeCounter(0), glitchCounter(0)
+    : Patch(), poutEnv(this, OUT_ENV), poutRand(this, OUT_RAND)
+    , freezeBufferLeft(FloatArray::create(RECORD_BUFFER_SIZE), RECORD_BUFFER_SIZE)
+    , freezeBufferRight(FloatArray::create(RECORD_BUFFER_SIZE), RECORD_BUFFER_SIZE)
+    , freezeLeft(&freezeBufferLeft, getSampleRate()), freezeRight(&freezeBufferRight, getSampleRate())
+    , freezeSettingsIdx(0), glitchSettingsIdx(0), glitchLfo(0), glitchRand(0)
+    , freezeCounter(0), glitchCounter(0)
     , samplesSinceLastTap(RECORD_BUFFER_SIZE)
     , crushLeft(getSampleRate(), getSampleRate()), crushRight(getSampleRate(), getSampleRate())
     , clock(static_cast<int32_t>(getSampleRate() * 60.0f / 120.0f))
-    , freezeEnabled(false), glitchEnabled(false)
+    // , freezeEnabled(false)
+    , glitchEnabled(false)
   {
     inputEnvelope = FloatArray::create(getBlockSize());
     processBuffer[LEFT_CHANNEL] = RecordBuffer::create(getBlockSize());
     processBuffer[RIGHT_CHANNEL] = RecordBuffer::create(getBlockSize());
-    freezeBuffer[LEFT_CHANNEL] = RecordBuffer::create(RECORD_BUFFER_SIZE);
-    freezeBuffer[RIGHT_CHANNEL] = RecordBuffer::create(RECORD_BUFFER_SIZE);
 
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     envelopeFollower = EnvelopeFollower::create(0.001f, getBlockSize() * 8, getSampleRate());
@@ -193,25 +192,10 @@ public:
     StereoDcBlockingFilter::destroy(dcFilter);
     EnvelopeFollower::destroy(envelopeFollower);
     FloatArray::destroy(inputEnvelope);
+    FloatArray::destroy(FloatArray(freezeBufferLeft.getData(), freezeBufferRight.getSize()));
+    FloatArray::destroy(FloatArray(freezeBufferRight.getData(), freezeBufferRight.getSize()));
     RecordBuffer::destroy(processBuffer[LEFT_CHANNEL]);
     RecordBuffer::destroy(processBuffer[RIGHT_CHANNEL]);
-    RecordBuffer::destroy(freezeBuffer[LEFT_CHANNEL]);
-    RecordBuffer::destroy(freezeBuffer[RIGHT_CHANNEL]);
-  }
-
-
-  float stepReadLfo(const float speed)
-  {
-    readLfo = readLfo + speed;
-    if (readLfo >= 1)
-    {
-      readLfo -= 1;
-    }
-    else if (readLfo < 0)
-    {
-      readLfo += 1;
-    }
-    return readLfo;
   }
 
   bool stepGlitchLfo(const float speed)
@@ -274,29 +258,36 @@ public:
     clock.clock(size);
 
     const float smoothFreeze = pinRepeats.getValue(); // getParameterValue(IN_REPEATS);
-    for (freezeIdx = 0; freezeIdx < FREEZE_SETTINGS_COUNT - 1; freezeIdx++)
+    for (freezeSettingsIdx = 0; freezeSettingsIdx < FREEZE_SETTINGS_COUNT - 1; freezeSettingsIdx++)
     {
-      if (smoothFreeze >= FREEZE_SETTINGS[freezeIdx].paramThresh && smoothFreeze < FREEZE_SETTINGS[freezeIdx+1].paramThresh)
+      if (smoothFreeze >= FREEZE_SETTINGS[freezeSettingsIdx].paramThresh && smoothFreeze < FREEZE_SETTINGS[freezeSettingsIdx+1].paramThresh)
+      {
         break;
+      }
     }
     
-    float newFreezeLength = freezeDuration(freezeIdx) * (RECORD_BUFFER_SIZE - 1);
-    float newReadSpeed = freezeSpeed(freezeIdx) / newFreezeLength;
+    float newFreezeLength = freezeDuration(freezeSettingsIdx) * (RECORD_BUFFER_SIZE - 1);
+    float newReadSpeed = freezeSpeed(freezeSettingsIdx);
 
     // smooth size and speed changes when not clocked
     const bool clocked = samplesSinceLastTap < RECORD_BUFFER_SIZE;
     if (!clocked)
     {
-      if (freezeIdx < FREEZE_SETTINGS_COUNT - 1)
+      if (freezeSettingsIdx < FREEZE_SETTINGS_COUNT - 1)
       {
-        const float p0 = FREEZE_SETTINGS[freezeIdx].paramThresh;
-        const float p1 = FREEZE_SETTINGS[freezeIdx+1].paramThresh;
+        const float p0 = FREEZE_SETTINGS[freezeSettingsIdx].paramThresh;
+        const float p1 = FREEZE_SETTINGS[freezeSettingsIdx+1].paramThresh;
         const float t = (smoothFreeze - p0) / (p1 - p0);
-        const float d1 = freezeDuration(freezeIdx + 1)*(RECORD_BUFFER_SIZE - 1);
+        const float d1 = freezeDuration(freezeSettingsIdx + 1)*(RECORD_BUFFER_SIZE - 1);
         newFreezeLength = newFreezeLength + (d1 - newFreezeLength)*t;
-        newReadSpeed = newReadSpeed + (freezeSpeed(freezeIdx + 1) / d1 - newReadSpeed)*t;
+        newReadSpeed = newReadSpeed + (freezeSpeed(freezeSettingsIdx + 1) - newReadSpeed)*t;
       }
     }
+
+    freezeLeft.size() << newFreezeLength;
+    freezeRight.size() << newFreezeLength;
+    freezeLeft.rate() << newReadSpeed;
+    freezeRight.rate() << newReadSpeed;
 
     const float sr = getSampleRate();
     const float crushParam = pinCrush.getValue(); // getParameterValue(IN_CRUSH);
@@ -310,53 +301,29 @@ public:
     dcFilter->process(audio, audio);
     envelopeFollower->process(audio, inputEnvelope);
 
-    FloatArray inputL = audio.getSamples(LEFT_CHANNEL);
-    FloatArray inputR = audio.getSamples(RIGHT_CHANNEL);
+    vessl::array<float> inputL(audio.getSamples(LEFT_CHANNEL), audio.getSize());
+    vessl::array<float> inputR(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
 
     // just for readability in the final processing loop
     FloatArray outputL = audio.getSamples(LEFT_CHANNEL);
     FloatArray outputR = audio.getSamples(RIGHT_CHANNEL);
 
-    FloatArray processedL(processBuffer[LEFT_CHANNEL]->getData(), processBuffer[LEFT_CHANNEL]->getSize());
-    FloatArray processedR(processBuffer[RIGHT_CHANNEL]->getData(), processBuffer[RIGHT_CHANNEL]->getSize());
+    vessl::array<float> processedL(processBuffer[LEFT_CHANNEL]->getData(), processBuffer[LEFT_CHANNEL]->getSize());
+    vessl::array<float> processedR(processBuffer[RIGHT_CHANNEL]->getData(), processBuffer[RIGHT_CHANNEL]->getSize());
 
-    inputL.copyTo(processedL);
-    inputR.copyTo(processedR);
-
-    RecordBuffer* freezeBufferL = freezeBuffer[LEFT_CHANNEL];
-    RecordBuffer* freezeBufferR = freezeBuffer[RIGHT_CHANNEL];
-    
-    const count_t writeSize = freezeEnabled ? freezeWriteCount : size;
-    for (count_t i = 0; i < writeSize; ++i)
+    if (clocked)
     {
-      freezeBufferL->write(inputL[i]);
-      freezeBufferR->write(inputR[i]);
+      freezeLeft.process<vessl::duration::mode::fade>(inputL, processedL);
+      freezeRight.process<vessl::duration::mode::fade>(inputR, processedR);
     }
-    freezeWriteCount = 0;
-
-    const float fSize = static_cast<float>(size);
-    const float fEnd = static_cast<float>(readEndIdx);
-    for (count_t i = 0; i < size; ++i)
+    else
     {
-      const float x1 = static_cast<float>(i) / fSize;
-      const float x0 = 1.0f - x1;
-      if (freezeEnabled)
-      {
-        const float read0 = fEnd - freezeLength + readLfo * freezeLength;
-        const float read1 = fEnd - newFreezeLength + readLfo * newFreezeLength;
-        processedL[i] = interpolatedReadAt(freezeBufferL, read0)*x0 + interpolatedReadAt(freezeBufferL, read1)*x1;
-        processedR[i] = interpolatedReadAt(freezeBufferR, read0)*x0 + interpolatedReadAt(freezeBufferR, read1)*x1;
-      }
-      stepReadLfo(readSpeed*x0 + newReadSpeed * x1);
+      freezeLeft.process<vessl::duration::mode::slew>(inputL, processedL);
+      freezeRight.process<vessl::duration::mode::slew>(inputR, processedR);
     }
     
-    freezeLength = newFreezeLength;
-    readSpeed = newReadSpeed;
-
-    vessl::array<float> procL(processedL.getData(), processedL.getSize());
-    vessl::array<float> procR(processedR.getData(), processedR.getSize());
-    crushLeft.process(procL, procL);
-    crushRight.process(procR, procR);
+    crushLeft.process(processedL, processedL);
+    crushRight.process(processedR, processedR);
 
     const float glitchParam = pinGlitch.getValue(); // getParameterValue(IN_GLITCH);
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
@@ -373,16 +340,15 @@ public:
       if (glitchEnabled)
       {
         const int d = static_cast<int>(i) + 1;
-        freezeBufferL->setDelay(d);
-        freezeBufferR->setDelay(d);
-        processedL[i] = glitch(processedL[i], freezeBufferL->read());
-        processedR[i] = glitch(processedR[i], freezeBufferR->read());
+        processedL[i] = glitch(processedL[i], freezeBufferLeft.read(d));
+        processedR[i] = glitch(processedR[i], freezeBufferRight.read(d));
       }
     }
 
     const float shapeParam = pinShape.getValue(); // getParameterValue(IN_SHAPE);
     const float shapeWet = shapeParam;
     const float shapeDry = 1.0f - shapeWet;
+    float fSize = static_cast<float>(size);
     for (count_t i = 0; i < size; ++i)
     {
       const float shapeScale = inputEnvelope[i]*fSize*(10.0f + 90.0f*shapeParam);
@@ -402,7 +368,7 @@ public:
 
     poutEnv.setValue(inputEnvelope[0]);
     poutRand.setValue(glitchRand);
-    setButton(PUSHBUTTON, readLfo < 0.5f);
+    setButton(PUSHBUTTON, freezeLeft.phase() < 0.5f);
   }
 
 
@@ -412,13 +378,13 @@ public:
     {
       if (value == ON)
       {
-        freezeEnabled = true;
-        freezeWriteCount = samples;
-        readEndIdx = freezeBuffer[LEFT_CHANNEL]->getWriteIndex() + samples;
+        freezeLeft.enabled().write(true, samples);
+        freezeRight.enabled().write(true, samples);
       }
       else
       {
-        freezeEnabled = false;
+        freezeLeft.enabled() << false;
+        freezeRight.enabled() << false;
       }
     }
 
@@ -433,9 +399,10 @@ public:
       }
       
       // reset readLfo based on the counter for our current setting
-      if (on && ++freezeCounter >= FREEZE_SETTINGS[freezeIdx].readResetCount)
+      if (on && ++freezeCounter >= FREEZE_SETTINGS[freezeSettingsIdx].readResetCount)
       {
-        readLfo = 0;
+        freezeLeft.reset();
+        freezeRight.reset();
         freezeCounter = 0;
       }
 

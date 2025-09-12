@@ -110,7 +110,7 @@ public:
     {
       // still want to run freeze even when we don't use it for cleaner transitions
       freeze.generate<vessl::duration::mode::snap>(audioRight);
-      delay.process<vessl::duration::mode::fade>(audioLeft, audioRight);
+      delay.process<vessl::duration::mode::slew>(audioLeft, audioRight);
       audioLeft.add(audioRight).scale(0.5f);
     }
     audioRight << audioLeft;
