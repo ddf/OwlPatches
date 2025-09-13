@@ -4,7 +4,6 @@
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
 #include "EnvelopeFollower.h"
-#include "TapTempo.hpp"
 #include "vessl/vessl.h"
 
 using count_t = uint32_t;
@@ -64,9 +63,7 @@ using GlitchSampleType = vessl::frame::stereo<float>;
 template<uint32_t RECORD_BUFFER_SIZE>
 class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::clockable
 {
-  using Clock = TapTempo<RECORD_BUFFER_SIZE>;
-  
-  init<5> init = {
+  init<5> init = { 
     "glitch",
     {
       parameter("repeats", parameter::type::analog),
@@ -98,7 +95,6 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
   array<float> processBufferRight;
 
   array<float> inputEnvelope;
-  Clock clockk;
   
   bool glitchEnabled;
   
@@ -115,7 +111,6 @@ public:
   , processBufferLeft(new float[blockSize], blockSize)
   , processBufferRight(new float[blockSize], blockSize)
   , inputEnvelope(new float[blockSize], blockSize)
-  , clockk(static_cast<int32_t>(sampleRate * 60.0f / 120.0f))
   , glitchEnabled(false)
   {
     dcFilter = StereoDcBlockingFilter::create(0.995f);
@@ -160,11 +155,9 @@ public:
     return false;
   }
 
-  float freezeDuration(const count_t idx) const
+  float freezeSize(const count_t idx) const
   {
-    float dur = clockk.getPeriod() * FREEZE_SETTINGS[idx].clockRatio;
-    dur = max(0.0001f, min(0.9999f, dur));
-    return dur;
+    return getPeriod() * FREEZE_SETTINGS[idx].clockRatio;
   }
 
   static float freezeSpeed(const count_t idx)
@@ -172,11 +165,9 @@ public:
     return FREEZE_SETTINGS[idx].playbackSpeed;
   }
 
-  float glitchDuration(const count_t idx) const
+  float glitchSize(const count_t idx) const
   {
-    float dur = clockk.getPeriod() * GLITCH_SETTINGS[idx].clockRatio;
-    dur = max(0.0001f, min(0.9999f, dur));
-    return dur;
+    return getPeriod() * GLITCH_SETTINGS[idx].clockRatio;
   }
 
   static float glitch(const float a, const float b)
@@ -199,8 +190,7 @@ public:
   void process(AudioBuffer& audio)
   {
     count_t size = audio.getSize();
-
-    clockk.clock(size);
+    clockable::tick(size);
 
     float smoothFreeze = *repeats();
     for (freezeSettingsIdx = 0; freezeSettingsIdx < FREEZE_SETTINGS_COUNT - 1; freezeSettingsIdx++)
@@ -212,7 +202,7 @@ public:
       }
     }
     
-    float newFreezeLength = freezeDuration(freezeSettingsIdx) * (RECORD_BUFFER_SIZE - 1);
+    float newFreezeLength = freezeSize(freezeSettingsIdx);
     float newReadSpeed = freezeSpeed(freezeSettingsIdx);
 
     // smooth size and speed changes when not clocked
@@ -224,7 +214,7 @@ public:
         float p0 = FREEZE_SETTINGS[freezeSettingsIdx].paramThresh;
         float p1 = FREEZE_SETTINGS[freezeSettingsIdx+1].paramThresh;
         float t = (smoothFreeze - p0) / (p1 - p0);
-        float d1 = freezeDuration(freezeSettingsIdx + 1)*(RECORD_BUFFER_SIZE - 1);
+        float d1 = freezeSize(freezeSettingsIdx + 1);
         newFreezeLength = newFreezeLength + (d1 - newFreezeLength)*t;
         newReadSpeed = newReadSpeed + (freezeSpeed(freezeSettingsIdx + 1) - newReadSpeed)*t;
       }
@@ -274,7 +264,7 @@ public:
 
     float glitchParam = *glitch();
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
-    float dropSpeed = 1.0f / (glitchDuration(glitchSettingsIdx) * (RECORD_BUFFER_SIZE - 1));
+    float dropSpeed = 1.0f / glitchSize(glitchSettingsIdx);
     float dropProb = glitchParam < 0.0001f ? 0 : 0.1f + 0.9f*glitchParam;
     for (count_t i = 0; i < size; ++i)
     {
@@ -317,17 +307,15 @@ public:
 protected:
   void tock(vessl::size_t sampleDelay) override
   {
-    clockk.trigger(true, sampleDelay);
-
     samplesSinceLastTap = 0;
       
     // reset readLfo based on the counter for our current setting
-    // if (++freezeCounter >= FREEZE_SETTINGS[freezeSettingsIdx].readResetCount)
-    // {
-    //   freezeLeft.reset();
-    //   freezeRight.reset();
-    //   freezeCounter = 0;
-    // }
+    if (++freezeCounter >= FREEZE_SETTINGS[freezeSettingsIdx].readResetCount)
+    {
+      freezeLeft.reset();
+      freezeRight.reset();
+      freezeCounter = 0;
+    }
 
     // we use one instead of zero because our logic in process
     // is checking for the flip from 1 to 0 to generate a new random value.
@@ -336,9 +324,6 @@ protected:
       glitchLfo = 1;
       glitchCounter = 0;
     }
-
-    // trigger clock off immediately so it will register the next clock from outside
-    clockk.trigger(false);
 
     // decided to remove this because it makes it impossible to get clean repeats, even with crush turned all the way down.
     // may revisit the idea later - might be interesting to do this as something that can blend in.
