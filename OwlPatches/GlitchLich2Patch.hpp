@@ -73,6 +73,7 @@ class GlitchLich2Patch final : public Patch  // NOLINT(cppcoreguidelines-special
   OutputParameter poutEnv;
   OutputParameter poutRand;
 
+  StereoDcBlockingFilter* dcFilter;
   Glitch<GlitchBufferSize>* glitch;
 
 public:
@@ -86,7 +87,14 @@ public:
     pinShape = IN_SHAPE.registerParameter(this);
     pinMix = IN_MIX.registerParameter(this);
 
+    dcFilter = StereoDcBlockingFilter::create(0.995f);
     glitch = new Glitch<GlitchBufferSize>(getSampleRate(), getBlockSize());
+  }
+
+  ~GlitchLich2Patch() override
+  {
+    StereoDcBlockingFilter::destroy(dcFilter);
+    delete glitch;
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -96,6 +104,7 @@ public:
     glitch->glitch() << pinGlitch.getValue();
     glitch->shape() << pinShape.getValue();
 
+    dcFilter->process(audio, audio);
     glitch->process(audio);
     
     poutEnv.setValue(glitch->envelope());

@@ -86,7 +86,6 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
   count_t glitchCounter;
   count_t samplesSinceLastTap;
   
-  StereoDcBlockingFilter* dcFilter;
   EnvelopeFollower* envelopeFollower;
   BitCrush crushLeft;
   BitCrush crushRight;
@@ -113,13 +112,11 @@ public:
   , inputEnvelope(new float[blockSize], blockSize)
   , glitchEnabled(false)
   {
-    dcFilter = StereoDcBlockingFilter::create(0.995f);
     envelopeFollower = EnvelopeFollower::create(0.001f, blockSize * 8, sampleRate);
   }
   
   ~Glitch() override
   {
-    StereoDcBlockingFilter::destroy(dcFilter);
     EnvelopeFollower::destroy(envelopeFollower);
     delete[] inputEnvelope.getData();
     FloatArray::destroy(FloatArray(freezeBufferLeft.getData(), freezeBufferRight.getSize()));
@@ -235,8 +232,6 @@ public:
     crushRight.depth() << bits;
     crushLeft.rate() << rate;
     crushRight.rate() << rate;
-
-    dcFilter->process(audio, audio);
 
     FloatArray envelopeOutput(inputEnvelope.getData(), inputEnvelope.getSize());
     envelopeFollower->process(audio, envelopeOutput);
