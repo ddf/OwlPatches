@@ -49,6 +49,7 @@ DESCRIPTION:
 
 #include <ios>
 
+#include "DcBlockingFilter.h"
 #include "Patch.h"
 #include "PatchParameterDescription.h"
 #include "Glitch.h"

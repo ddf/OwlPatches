@@ -40,8 +40,8 @@ public:
     
     gauss.gain() << getParameterValue(InputParameterId::G)*12.0f;
 
-    AudioBufferReader input(audio);
-    AudioBufferWriter output(audio);
+    AudioBufferReader<2> input(audio);
+    AudioBufferWriter<2> output(audio);
     gauss.process(input, output);
   }
 
