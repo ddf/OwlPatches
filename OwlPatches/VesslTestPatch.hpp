@@ -13,7 +13,7 @@ using Delay = vessl::delay<float>;
 using Array = vessl::array<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
-using FreezeBuffer = vessl::delayline<float>;
+using FreezeBuffer = vessl::array<float>;
 using Freeze = vessl::freeze<float>;
 
 class VesslTestPatch final : public MonochromeScreenPatch
@@ -37,7 +37,7 @@ public:
   VesslTestPatch() : wave(sine), osc(getSampleRate(), wave), voct(true), ramp(getSampleRate(), 0, 1, 0)
   , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
   , delay(Array(delayBuffer.getData(), delayBuffer.getSize()), getSampleRate(), 0.2f)
-  , freezeBuffer(delayBuffer.getData(), delayBuffer.getSize()), freeze(&freezeBuffer, getSampleRate())
+  , freezeBuffer(delayBuffer.getData(), delayBuffer.getSize()), freeze(freezeBuffer, getSampleRate())
   , freezeDelay(getBlockSize()*4), freezeSize(getBlockSize()*4)
   {
     registerParameter(PARAMETER_A, ramp.duration().getName());

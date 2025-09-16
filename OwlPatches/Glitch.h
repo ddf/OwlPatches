@@ -51,12 +51,12 @@ static constexpr GlitchSettings GLITCH_SETTINGS[] = {
 };
 static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeof(GlitchSettings);
 
+using GlitchSampleType = vessl::frame::stereo::analog_t;
+using BufferType = vessl::array<GlitchSampleType>;
 using vessl::parameter;
 using BitCrush = vessl::bitcrush<float, 24>;
-using Freeze = vessl::freeze<float>;
-using FreezeBuffer = vessl::delayline<float>;
+using Freeze = vessl::freeze<GlitchSampleType>;
 using EnvelopeFollower = vessl::follow<float>;
-using GlitchSampleType = vessl::frame::channels<float, 2>;
 using Array = vessl::array<float>;
 
 template<uint32_t FREEZE_BUFFER_SIZE>
@@ -73,8 +73,8 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
     }
   };
   
-  FreezeBuffer freezeBufferLeft, freezeBufferRight;
-  Freeze freezeLeft, freezeRight;
+  BufferType freezeBuffer;
+  Freeze freezeProc;
   
   count_t freezeSettingsIdx;
   count_t glitchSettingsIdx;
@@ -87,6 +87,8 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
   
   BitCrush crushLeft;
   BitCrush crushRight;
+
+  BufferType processBuffer;
   
   Array processBufferLeft;
   Array processBufferRight;
@@ -100,16 +102,16 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
 public:
   Glitch(float sampleRate, int blockSize) : vessl::unitProcessor<GlitchSampleType>(init, sampleRate)
   , clockable(sampleRate, blockSize, FREEZE_BUFFER_SIZE)
-  , freezeBufferLeft(FloatArray::create(FREEZE_BUFFER_SIZE), FREEZE_BUFFER_SIZE)
-  , freezeBufferRight(FloatArray::create(FREEZE_BUFFER_SIZE), FREEZE_BUFFER_SIZE)
-  , freezeLeft(&freezeBufferLeft, sampleRate), freezeRight(&freezeBufferRight, sampleRate)
+  , freezeBuffer(new GlitchSampleType[FREEZE_BUFFER_SIZE], FREEZE_BUFFER_SIZE)
+  , freezeProc(freezeBuffer, sampleRate)
   , freezeSettingsIdx(0), glitchSettingsIdx(0), glitchLfo(0), glitchRand(0)
   , freezeCounter(0), glitchCounter(0)
   , samplesSinceLastTap(FREEZE_BUFFER_SIZE)
   , crushLeft(sampleRate, sampleRate), crushRight(sampleRate, sampleRate)
+  , processBuffer(new GlitchSampleType[blockSize], blockSize)
   , processBufferLeft(new float[blockSize], blockSize)
   , processBufferRight(new float[blockSize], blockSize)
-  , followerWindow(new float[blockSize*8], blockSize*8)
+  , followerWindow(new float[blockSize*8], blockSize*8)  // NOLINT(bugprone-implicit-widening-of-multiplication-result)
   , envelopeFollower(followerWindow, sampleRate, 0.001f)
   , inputEnvelope(new float[blockSize], blockSize)
   , glitchEnabled(false)
@@ -120,8 +122,8 @@ public:
   {
     delete[] inputEnvelope.getData();
     delete[] followerWindow.getData();
-    FloatArray::destroy(FloatArray(freezeBufferLeft.getData(), freezeBufferRight.getSize()));
-    FloatArray::destroy(FloatArray(freezeBufferRight.getData(), freezeBufferRight.getSize()));
+    delete[] freezeBuffer.getData();
+    delete[] processBuffer.getData();
     delete[] processBufferLeft.getData();
     delete[] processBufferRight.getData();
   }
@@ -133,11 +135,11 @@ public:
   parameter& glitch() { return init.params[2]; }
   parameter& shape() { return init.params[3]; }
   parameter& freeze() { return init.params[4]; }
-  float freezePhase() const { return freezeLeft.phase(); }
+  float freezePhase() const { return freezeProc.phase(); }
   float envelope() const { return inputEnvelope[0]; }
   float rand() const { return glitchRand; }
 
-  void process(AudioBuffer& audio)
+  void process(AudioBuffer& audio)  // NOLINT(clang-diagnostic-overloaded-virtual)
   {
     count_t size = audio.getSize();
     clockable::tick(size);
@@ -170,12 +172,9 @@ public:
       }
     }
 
-    freezeLeft.size() << newFreezeLength;
-    freezeRight.size() << newFreezeLength;
-    freezeLeft.rate() << newReadSpeed;
-    freezeRight.rate() << newReadSpeed;
-    freezeLeft.enabled() << freeze().readBinary();
-    freezeRight.enabled() << freeze().readBinary();
+    freezeProc.size() << newFreezeLength;
+    freezeProc.rate() << newReadSpeed;
+    freezeProc.enabled() << freeze().readBinary();
 
     float sr = vessl::unit::getSampleRate();
     float crushParam = *crush();
@@ -196,16 +195,30 @@ public:
     // just for readability in the final processing loop
     FloatArray outputL = audio.getSamples(LEFT_CHANNEL);
     FloatArray outputR = audio.getSamples(RIGHT_CHANNEL);
+
+    AudioBufferReader<2> abr(audio);
+    array<vessl::frame::stereo::analog_t>::writer pbw(processBuffer);
+    while (abr)
+    {
+      pbw.write(abr.read());
+    }
     
     if (clocked)
     {
-      freezeLeft.process<vessl::duration::mode::fade>(inputL, processBufferLeft);
-      freezeRight.process<vessl::duration::mode::fade>(inputR, processBufferRight);
+      freezeProc.process<vessl::duration::mode::fade>(processBuffer, processBuffer);
     }
     else
     {
-      freezeLeft.process<vessl::duration::mode::slew>(inputL, processBufferLeft);
-      freezeRight.process<vessl::duration::mode::slew>(inputR, processBufferRight);
+      freezeProc.process<vessl::duration::mode::slew>(processBuffer, processBuffer);
+    }
+
+    // temp until we switch the rest of the units over to the stereo sample type
+    array<float>::writer pblw(processBufferLeft);
+    array<float>::writer pbrw(processBufferRight);
+    for (GlitchSampleType& sample : processBuffer)
+    {
+      pblw << sample.left();
+      pbrw << sample.right();
     }
     
     crushLeft.process(processBufferLeft, processBufferLeft);
@@ -225,9 +238,10 @@ public:
 
       if (glitchEnabled)
       {
-        const int d = static_cast<int>(i) + 1;
-        processBufferLeft[i] = glitch(processBufferLeft[i], freezeBufferLeft.read(d));
-        processBufferRight[i] = glitch(processBufferRight[i], freezeBufferRight.read(d));
+        vessl::size_t d = i+1;
+        GlitchSampleType f = freezeProc.getBuffer().read(d);
+        processBufferLeft[i] = glitch(processBufferLeft[i], f.left());
+        processBufferRight[i] = glitch(processBufferRight[i], f.right());
       }
     }
 
@@ -261,8 +275,7 @@ protected:
     // reset readLfo based on the counter for our current setting
     if (++freezeCounter >= FREEZE_SETTINGS[freezeSettingsIdx].readResetCount)
     {
-      freezeLeft.reset();
-      freezeRight.reset();
+      freezeProc.reset();
       freezeCounter = 0;
     }
 
@@ -323,7 +336,7 @@ private:
   {
     // index can be negative, we ensure it is positive.
     index += static_cast<float>(buffer.getSize());
-    count_t idx = index;
+    count_t idx = static_cast<count_t>(index);
     float low = buffer[idx%buffer.getSize()];
     float high = buffer[(idx + 1)%buffer.getSize()];
     float frac = index - static_cast<float>(idx);
