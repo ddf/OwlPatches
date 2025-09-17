@@ -1,7 +1,6 @@
 #pragma once
 
 #include "vessl/vessl.h"
-#include "AudioBufferSourceSink.h"
 
 using count_t = vessl::size_t;
 
@@ -131,9 +130,9 @@ public:
   float envelope() const { return inputEnvelope[0]; }
   float rand() const { return glitchRand; }
 
-  void process(AudioBuffer& audio)  // NOLINT(clang-diagnostic-overloaded-virtual)
+  void process(array<GlitchSampleType> input, array<GlitchSampleType> output) override
   {
-    count_t size = audio.getSize();
+    count_t size = input.getSize();
     clockable::tick(size);
 
     float smoothFreeze = *repeats();
@@ -175,28 +174,22 @@ public:
     crushProc.depth() << bits;
     crushProc.rate() << rate;
 
-    AudioBufferReader<2>::MonoReader source(audio);
-    Array::writer sink = inputEnvelope.getWriter();
-    envelopeFollower.process(source, sink);
-
-    // just for readability in the final processing loop
-    FloatArray outputL = audio.getSamples(LEFT_CHANNEL);
-    FloatArray outputR = audio.getSamples(RIGHT_CHANNEL);
-
-    AudioBufferReader<2> abr(audio);
-    array<vessl::frame::stereo::analog_t>::writer pbw(processBuffer);
-    while (abr)
+    auto inputReader = input.getReader();
+    auto iew = inputEnvelope.getWriter();
+    while(inputReader)
     {
-      pbw.write(abr.read());
+      iew << inputReader.read().toMono().value();
     }
-    
+    envelopeFollower.process(inputEnvelope, inputEnvelope);
+
+    // can't use output as a process buffer because we need the dry input again for the shape stage.
     if (clocked)
     {
-      freezeProc.process<vessl::duration::mode::fade>(processBuffer, processBuffer);
+      freezeProc.process<vessl::duration::mode::fade>(input, processBuffer);
     }
     else
     {
-      freezeProc.process<vessl::duration::mode::slew>(processBuffer, processBuffer);
+      freezeProc.process<vessl::duration::mode::slew>(input, processBuffer);
     }
     
     crushProc.process(processBuffer, processBuffer);
@@ -227,18 +220,17 @@ public:
     float shapeWet = shapeParam;
     float shapeDry = 1.0f - shapeWet;
     float fSize = static_cast<float>(size);
-    AudioBufferReader<2> input(audio);
+    inputReader.reset();
     for (count_t i = 0; i < size; ++i)
     {
       const float shapeScale = inputEnvelope[i]*fSize*(10.0f + 90.0f*shapeParam);
       const float dryIdx = static_cast<float>(i);
       // treat the process buffer like a wave table and use the dry input as phase, modulated by the envelope follower,
       // using shapeParam both for dry/wet mix and scaling of the envelope value.
-      GlitchSampleType in = input.read();
+      GlitchSampleType in = inputReader.read();
       const float readL = shapeDry*dryIdx + shapeWet*vessl::math::constrain(shapeScale*in.left(), -fSize, fSize);
       const float readR = shapeDry*dryIdx + shapeWet*vessl::math::constrain(shapeScale*in.right(), -fSize, fSize);
-      outputL[i] = interpolatedReadAt(processBuffer, readL).left();
-      outputR[i] = interpolatedReadAt(processBuffer, readR).right();
+      output[i] = GlitchSampleType(interpolatedReadAt(processBuffer, readL).left(), interpolatedReadAt(processBuffer, readR).right());
     }
 
     if (samplesSinceLastTap < FREEZE_BUFFER_SIZE)

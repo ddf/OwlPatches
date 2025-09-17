@@ -76,10 +76,12 @@ class GlitchLich2Patch final : public Patch  // NOLINT(cppcoreguidelines-special
 
   StereoDcBlockingFilter* dcFilter;
   Glitch<GlitchBufferSize>* glitch;
+  vessl::array<GlitchSampleType> processBuffer;
 
 public:
   GlitchLich2Patch()
     : Patch(), poutEnv(this, OUT_ENV), poutRand(this, OUT_RAND)
+    , processBuffer(new GlitchSampleType[getBlockSize()], getBlockSize())
   {
     // order of registration determines parameter assignment, starting from PARAMETER_A
     pinRepeats = IN_REPEATS.registerParameter(this);
@@ -95,6 +97,7 @@ public:
   ~GlitchLich2Patch() override
   {
     StereoDcBlockingFilter::destroy(dcFilter);
+    delete[] processBuffer.getData();
     delete glitch;
   }
 
@@ -106,7 +109,22 @@ public:
     glitch->shape() << pinShape.getValue();
 
     dcFilter->process(audio, audio);
-    glitch->process(audio);
+
+    AudioBufferReader<2> reader(audio);
+    auto pbw = processBuffer.getWriter();
+    while (reader)
+    {
+      pbw << reader.read();
+    }
+    
+    glitch->process(processBuffer, processBuffer);
+
+    AudioBufferWriter<2> writer(audio);
+    auto pbr = processBuffer.getReader();
+    while (pbr)
+    {
+      writer.write(pbr.read());
+    }
     
     poutEnv.setValue(glitch->envelope());
     poutRand.setValue(glitch->rand());
