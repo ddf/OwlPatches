@@ -54,7 +54,7 @@ static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeo
 using GlitchSampleType = vessl::frame::stereo::analog_t;
 using BufferType = vessl::array<GlitchSampleType>;
 using vessl::parameter;
-using BitCrush = vessl::bitcrush<float, 24>;
+using BitCrush = vessl::bitcrush<GlitchSampleType, 24>;
 using Freeze = vessl::freeze<GlitchSampleType>;
 using EnvelopeFollower = vessl::follow<float>;
 using Array = vessl::array<float>;
@@ -85,9 +85,8 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
   count_t glitchCounter;
   count_t samplesSinceLastTap;
   
-  BitCrush crushLeft;
-  BitCrush crushRight;
-
+  BitCrush crushProc;
+  
   BufferType processBuffer;
   
   Array processBufferLeft;
@@ -107,7 +106,7 @@ public:
   , freezeSettingsIdx(0), glitchSettingsIdx(0), glitchLfo(0), glitchRand(0)
   , freezeCounter(0), glitchCounter(0)
   , samplesSinceLastTap(FREEZE_BUFFER_SIZE)
-  , crushLeft(sampleRate, sampleRate), crushRight(sampleRate, sampleRate)
+  , crushProc(sampleRate, sampleRate)
   , processBuffer(new GlitchSampleType[blockSize], blockSize)
   , processBufferLeft(new float[blockSize], blockSize)
   , processBufferRight(new float[blockSize], blockSize)
@@ -180,10 +179,8 @@ public:
     float crushParam = *crush();
     float bits = crushParam > 0.001f ? (16.f - crushParam*12.0f) : 24;
     float rate = crushParam > 0.001f ? sr * 0.25f + crushParam*(100 - sr * 0.25f) : sr;
-    crushLeft.depth() << bits;
-    crushRight.depth() << bits;
-    crushLeft.rate() << rate;
-    crushRight.rate() << rate;
+    crushProc.depth() << bits;
+    crushProc.rate() << rate;
 
     AudioBufferReader<2>::MonoReader source(audio);
     Array::writer sink = inputEnvelope.getWriter();
@@ -211,6 +208,8 @@ public:
     {
       freezeProc.process<vessl::duration::mode::slew>(processBuffer, processBuffer);
     }
+    
+    crushProc.process(processBuffer, processBuffer);
 
     // temp until we switch the rest of the units over to the stereo sample type
     array<float>::writer pblw(processBufferLeft);
@@ -220,9 +219,6 @@ public:
       pblw << sample.left();
       pbrw << sample.right();
     }
-    
-    crushLeft.process(processBufferLeft, processBufferLeft);
-    crushRight.process(processBufferRight, processBufferRight);
 
     float glitchParam = *glitch();
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
