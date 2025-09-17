@@ -88,9 +88,6 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
   BitCrush crushProc;
   
   BufferType processBuffer;
-  
-  Array processBufferLeft;
-  Array processBufferRight;
 
   Array followerWindow;
   EnvelopeFollower envelopeFollower;
@@ -108,8 +105,6 @@ public:
   , samplesSinceLastTap(FREEZE_BUFFER_SIZE)
   , crushProc(sampleRate, sampleRate)
   , processBuffer(new GlitchSampleType[blockSize], blockSize)
-  , processBufferLeft(new float[blockSize], blockSize)
-  , processBufferRight(new float[blockSize], blockSize)
   , followerWindow(new float[blockSize*8], blockSize*8)  // NOLINT(bugprone-implicit-widening-of-multiplication-result)
   , envelopeFollower(followerWindow, sampleRate, 0.001f)
   , inputEnvelope(new float[blockSize], blockSize)
@@ -123,8 +118,6 @@ public:
     delete[] followerWindow.getData();
     delete[] freezeBuffer.getData();
     delete[] processBuffer.getData();
-    delete[] processBufferLeft.getData();
-    delete[] processBufferRight.getData();
   }
 
   using clockable::clock;
@@ -186,9 +179,6 @@ public:
     Array::writer sink = inputEnvelope.getWriter();
     envelopeFollower.process(source, sink);
 
-    Array inputL(audio.getSamples(LEFT_CHANNEL), audio.getSize());
-    Array inputR(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
-
     // just for readability in the final processing loop
     FloatArray outputL = audio.getSamples(LEFT_CHANNEL);
     FloatArray outputR = audio.getSamples(RIGHT_CHANNEL);
@@ -211,15 +201,6 @@ public:
     
     crushProc.process(processBuffer, processBuffer);
 
-    // temp until we switch the rest of the units over to the stereo sample type
-    array<float>::writer pblw(processBufferLeft);
-    array<float>::writer pbrw(processBufferRight);
-    for (GlitchSampleType& sample : processBuffer)
-    {
-      pblw << sample.left();
-      pbrw << sample.right();
-    }
-
     float glitchParam = *glitch();
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
     float glitchSpeed = 1.0f / glitchSize(glitchSettingsIdx);
@@ -236,8 +217,9 @@ public:
       {
         vessl::size_t d = i+1;
         GlitchSampleType f = freezeProc.getBuffer().read(d);
-        processBufferLeft[i] = glitch(processBufferLeft[i], f.left());
-        processBufferRight[i] = glitch(processBufferRight[i], f.right());
+        GlitchSampleType& p = processBuffer[i];
+        p.left() = glitch(p.left(), f.left());
+        p.right() = glitch(p.right(), f.right());
       }
     }
 
@@ -245,16 +227,18 @@ public:
     float shapeWet = shapeParam;
     float shapeDry = 1.0f - shapeWet;
     float fSize = static_cast<float>(size);
+    AudioBufferReader<2> input(audio);
     for (count_t i = 0; i < size; ++i)
     {
       const float shapeScale = inputEnvelope[i]*fSize*(10.0f + 90.0f*shapeParam);
       const float dryIdx = static_cast<float>(i);
       // treat the process buffer like a wave table and use the dry input as phase, modulated by the envelope follower,
       // using shapeParam both for dry/wet mix and scaling of the envelope value.
-      const float readL = shapeDry*dryIdx + shapeWet*vessl::math::constrain(shapeScale*inputL[i], -fSize, fSize);
-      const float readR = shapeDry*dryIdx + shapeWet*vessl::math::constrain(shapeScale*inputR[i], -fSize, fSize);
-      outputL[i] = interpolatedReadAt(processBufferLeft, readL);
-      outputR[i] = interpolatedReadAt(processBufferRight, readR);
+      GlitchSampleType in = input.read();
+      const float readL = shapeDry*dryIdx + shapeWet*vessl::math::constrain(shapeScale*in.left(), -fSize, fSize);
+      const float readR = shapeDry*dryIdx + shapeWet*vessl::math::constrain(shapeScale*in.right(), -fSize, fSize);
+      outputL[i] = interpolatedReadAt(processBuffer, readL).left();
+      outputR[i] = interpolatedReadAt(processBuffer, readR).right();
     }
 
     if (samplesSinceLastTap < FREEZE_BUFFER_SIZE)
@@ -328,13 +312,13 @@ private:
     return static_cast<float>(glitched) / 24;
   }
   
-  static float interpolatedReadAt(Array buffer, float index)
+  static GlitchSampleType interpolatedReadAt(array<GlitchSampleType> buffer, float index)
   {
     // index can be negative, we ensure it is positive.
     index += static_cast<float>(buffer.getSize());
     count_t idx = static_cast<count_t>(index);
-    float low = buffer[idx%buffer.getSize()];
-    float high = buffer[(idx + 1)%buffer.getSize()];
+    GlitchSampleType low = buffer[idx%buffer.getSize()];
+    GlitchSampleType high = buffer[(idx + 1)%buffer.getSize()];
     float frac = index - static_cast<float>(idx);
     return low + frac * (high - low);
   }
