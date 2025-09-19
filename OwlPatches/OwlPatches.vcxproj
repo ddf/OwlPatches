@@ -242,6 +242,7 @@
     <ClInclude Include="Delay.h" />
     <ClInclude Include="DelaytrixPatch.hpp" />
     <ClInclude Include="DelayMatrixPatch.hpp" />
+    <ClInclude Include="DelayWithFreeze.h" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="EnvelopeFollower.h" />
     <ClInclude Include="EnvTestPatch.hpp" />

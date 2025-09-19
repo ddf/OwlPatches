@@ -2,6 +2,7 @@
 
 #include "MonochromeScreenPatch.h"
 #include "VoltsPerOctave.h"
+#include "DelayWithFreeze.h"
 #include "vessl/vessl.h"
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
@@ -9,7 +10,7 @@ using Sine = vessl::waves::sine<float>;
 using Wavetable = vessl::wavetable<float, 1024>;
 using Oscil = vessl::oscil<float>;
 using Ramp = vessl::ramp<float>;
-using Delay = vessl::delay<float>;
+using Delay = DelayWithFreeze<float>;
 using Array = vessl::array<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
@@ -68,15 +69,17 @@ public:
     osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
     
     delayTime = getParameterValue(PARAMETER_A)*2.0f;
+    // need to use StiffFloat or some other way of snapping size when using duration::mode::fade
+    freezeDelay = getParameterValue(PARAMETER_B)*getSampleRate();
+    freezeSize = vessl::easing::lerp(getSampleRate()/256, getSampleRate(), getParameterValue(PARAMETER_C));
 
     //delay.time() << vessl::duration::fromSeconds(getParameterValue(PARAMETER_A)*2.0f, getSampleRate());
     // note: HAS to be analog_t, otherwise the set by pointer conversion won't work.
     delay.time() << static_cast<vessl::analog_t>(getParameterValue(PARAMETER_E)*getSampleRate());
     delay.feedback() << getParameterValue(PARAMETER_F);
-
-    // need to use StiffFloat or some other way of snapping size when using duration::mode::fade
-    freezeDelay = getParameterValue(PARAMETER_B)*getSampleRate();
-    freezeSize = vessl::easing::lerp(getSampleRate()/16, getSampleRate(), getParameterValue(PARAMETER_C));
+    delay.freezePosition() << freezeDelay.getValue();
+    delay.freezeSize() << freezeSize.getValue();
+    
     freeze.position() << freezeDelay.getValue();
     freeze.size() << freezeSize.getValue();
     freeze.rate() << -1.0f + 2.0f * getParameterValue(PARAMETER_D);
@@ -102,15 +105,13 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
-    if (freeze.enabled())
+    if (delay.freezeEnabled())
     {
-      freeze.generate<vessl::duration::mode::fade>(audioLeft);
+      delay.process<vessl::duration::mode::fade>(audioLeft, audioLeft);
     }
     else
     {
-      // still want to run freeze even when we don't use it for cleaner transitions
-      freeze.generate<vessl::duration::mode::snap>(audioRight);
-      delay.process<vessl::duration::mode::slew>(audioLeft, audioRight);
+      delay.process<vessl::duration::mode::fade>(audioLeft, audioRight);
       audioLeft.add(audioRight).scale(0.5f);
     }
     audioRight << audioLeft;
@@ -127,7 +128,9 @@ public:
 
     if (bid == BUTTON_2 && value == ON)
     {
-      freeze.enabled() << !freeze.enabled().readBinary();
+      vessl::binary_t freezeState = !freeze.enabled().readBinary(); 
+      freeze.enabled() << freezeState;
+      delay.freezeEnabled() << freezeState;
     }
   }
   
