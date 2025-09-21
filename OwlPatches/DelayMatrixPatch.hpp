@@ -21,9 +21,11 @@ LICENSE:
 DESCRIPTION:
 
 */
+#pragma once
 
 #include "MonochromeScreenPatch.h"
 #include "StereoDelayProcessor.h"
+#include "DelayWithFreeze.h"
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
 #include "TapTempo.h"
@@ -55,7 +57,8 @@ using daisysp::Limiter;
 using daisysp::SmoothRandomGenerator;
 
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
-using DelayLine = StereoDelayWithFreezeProcessor<FastCrossFadingCircularFloatBuffer>;
+//using DelayLine = StereoDelayWithFreezeProcessor<FastCrossFadingCircularFloatBuffer>;
+using DelayLine = StereoDelayWithFreeze<float>;
 
 struct DelayMatrixParamIds
 {
@@ -292,7 +295,7 @@ public:
 
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      delays[i] = DelayLine::create(delayData[i].delayLength, blockSize);
+      delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate());
     }
 
     inputFilter = StereoDcBlockingFilter::create();
@@ -300,7 +303,7 @@ public:
     rnd.Init(getBlockRate());
   }
 
-  ~DelayMatrixPatch()
+  ~DelayMatrixPatch() override
   {
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
@@ -417,7 +420,7 @@ public:
     // not clocked
     else
     {
-      timeRaw = clamp(Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam / 0.99f), MIN_TIME_SECONDS, MAX_TIME_SECONDS) * getSampleRate();
+      timeRaw = vessl::math::constrain(Interpolator::linear(MIN_TIME_SECONDS, MAX_TIME_SECONDS, timeParam / 0.99f), MIN_TIME_SECONDS, MAX_TIME_SECONDS) * getSampleRate();
 
       if (spreadParam <= 0.5f)
       {
@@ -425,7 +428,7 @@ public:
       }
       else
       {
-        spread = clamp(Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f), MID_SPREAD, MAX_SPREAD);
+        spread = vessl::math::constrain(Interpolator::linear(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f), MID_SPREAD, MAX_SPREAD);
       }
     }
 
@@ -450,11 +453,11 @@ public:
     float modParam = getParameterValue(patchParams.modIndex);
     if (modParam >= 0.53f)
     {
-      modAmount = lfoGen * clamp(Interpolator::linear(0, MAX_MOD_AMT, (modParam - 0.53f)*2.12f), 0.f, MAX_MOD_AMT);
+      modAmount = lfoGen * vessl::math::constrain(Interpolator::linear(0, MAX_MOD_AMT, (modParam - 0.53f)*2.12f), 0.f, MAX_MOD_AMT);
     }
     else if (modParam <= 0.47f)
     {
-      modAmount = rndGen * clamp(Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f), 0.f, MAX_MOD_AMT);
+      modAmount = rndGen * vessl::math::constrain(Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f), 0.f, MAX_MOD_AMT);
     }
 
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
@@ -468,7 +471,7 @@ public:
       data.timeUpdateInterval = 8 + int(timeDelta) / (64*32);
       if (data.timeUpdateCount++ >= data.timeUpdateInterval)
       {
-        data.time.lambda = 0.9f - clamp(timeDelta / 2048.0f, 0.0f, 0.9f);
+        data.time.lambda = 0.9f - vessl::math::constrain(timeDelta / 2048.0f, 0.0f, 0.9f);
         data.time = targetTime;
         data.timeUpdateCount = 0;
       }
@@ -591,7 +594,14 @@ public:
       {
         delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
       }
-      delay->process(input, input);
+      //if (clocked)
+      {
+        delay->process<vessl::duration::mode::fade>(input, input);
+      }
+      // else
+      // {
+      //   delay->process(input, input);
+      // }
 
       // filter output
       filter.setLowPass(data.cutoff, FilterStage::BUTTERWORTH_Q);
@@ -635,8 +645,8 @@ public:
     audio.multiply(dry);
     audio.add(*scratch);
 
-    setParameterValue(patchParams.lfoOut, clamp(lfoGen*0.5f + 0.5f, 0.f, 1.f));
-    setParameterValue(patchParams.rndOut, clamp(rndGen*0.5f + 0.5f, 0.f, 1.f));
+    setParameterValue(patchParams.lfoOut, vessl::math::constrain(lfoGen*0.5f + 0.5f, 0.f, 1.f));
+    setParameterValue(patchParams.rndOut, vessl::math::constrain(rndGen*0.5f + 0.5f, 0.f, 1.f));
     setButton(PUSHBUTTON, delayGate);
     setButton(BUTTON_2, freezeState == FreezeOn ? 1 : 0);
     // this is the second gate output on the Witch
