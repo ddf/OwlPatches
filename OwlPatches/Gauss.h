@@ -136,8 +136,8 @@ public:
     
     float tsz = vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, *textureSize());
     float tlt = textureTiltSmoother.process(vessl::math::constrain<float>(textureTilt().read<float>()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
-    float tszL = textureSizeLeft.process(vessl::math::constrain<float>(tsz * vessl::gain<float>::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
-    float tszR = textureSizeRight.process(vessl::math::constrain<float>(tsz * vessl::gain<float>::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
+    float tszL = textureSizeLeft.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
+    float tszR = textureSizeRight.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
 
     processorLeft->textureSize() << tszL;
     processorRight->textureSize() << tszR;
@@ -148,7 +148,7 @@ public:
     {
       // scale max blur down so we never blur more than a maximum number of samples away
       float bscl = MIN_TEXTURE_SIZE / tszL;
-      float bszL = vessl::math::constrain(blurSizeLeft.process(bsz * vessl::gain<float>::decibelsToScale(-blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
+      float bszL = vessl::math::constrain(blurSizeLeft.process(bsz * vessl::gain::decibelsToScale(-blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
       float blurIdx = bszL * (KERNEL_COUNT - 2);
       float blurLow;
       float blurFrac = vessl::math::mod(blurIdx, &blurLow);
@@ -158,7 +158,7 @@ public:
     // set right kernel
     {
       float bscl = MIN_TEXTURE_SIZE / tszR;
-      float bszR = vessl::math::constrain(blurSizeRight.process(bsz * vessl::gain<float>::decibelsToScale(blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
+      float bszR = vessl::math::constrain(blurSizeRight.process(bsz * vessl::gain::decibelsToScale(blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
       float blurIdx = bszR * (KERNEL_COUNT - 2);
       float blurLow;
       float blurFrac = vessl::math::mod(blurIdx, &blurLow);
@@ -173,7 +173,7 @@ public:
     feedbackFrame.left() = procOut.left()*feedSame + procOut.right()*feedCross;
     feedbackFrame.right() = procOut.right()*feedSame + procOut.left()*feedCross;
     
-    float scale  = vessl::gain<float>::decibelsToScale(*gain());
+    float scale  = vessl::gain::decibelsToScale(*gain());
     procOut.scale(scale);
     
     return procOut;

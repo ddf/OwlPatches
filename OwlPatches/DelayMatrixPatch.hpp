@@ -36,8 +36,6 @@ DESCRIPTION:
 #include "SmoothValue.h"
 
 // daisysp includes
-#include "Dynamics/limiter.h"
-
 // The OWL math lib defines RAND_MAX as UINT32_MAX,
 // which breaks the code in smooth_random.h that uses 
 // RAND_MAX and rand().
@@ -50,10 +48,12 @@ DESCRIPTION:
 #define RAND_MAX INT_MAX
 #include "Utility/smooth_random.h"
 
+#include "vessl/vessl.h"
+
 // for building param names
 #include <string.h>
 
-using daisysp::Limiter;
+using Limiter = vessl::limiter<float>;
 using daisysp::SmoothRandomGenerator;
 
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
@@ -258,8 +258,8 @@ public:
       data.gateResetCounter = 0;
       data.sigIn = AudioBuffer::create(2, blockSize);
       data.sigOut = AudioBuffer::create(2, blockSize);
-      data.limitLeft.Init();
-      data.limitRight.Init();
+      data.limitLeft.preGain() << vessl::gain::fromScale(1.125f);
+      data.limitRight.preGain() << vessl::gain::fromScale(1.125f);
 
       DelayLineParamIds& params = delayParamIds[i];
       params.input = (PatchParameterId)(PARAMETER_AA + i);
@@ -434,8 +434,8 @@ public:
 
     // increase smoothing duration when time parameter has not changed much since the last block
     // to help with the drift that tends to occur due to input noise or slightly jittered clock
-    time.lambda = fabsf(timeRaw - time) < 16 ? 0.999f : 0.9f;
-    time = (int)timeRaw;
+    time.lambda = vessl::math::abs(timeRaw - time) < 16 ? 0.999f : 0.9f;
+    time = static_cast<int>(timeRaw);
 
     feedback = getParameterValue(patchParams.feedback);
     dryWet = getParameterValue(patchParams.dryWet);
@@ -499,14 +499,13 @@ public:
       const float cross = skew < 0.5f ? 0.0f : (skew - 0.5f)*0.15f;
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
-        DelayLine* delay = delays[i];
         DelayLineData& data = delayData[i];
         AudioBuffer& input = *data.sigIn;
         StereoDcBlockingFilter& filter = *data.dcBlock;
 
         int inSize = input.getSize();
-        FloatArray inLeft = input.getSamples(LEFT_CHANNEL);
-        FloatArray inRight = input.getSamples(RIGHT_CHANNEL);
+        vessl::array<float> inLeft(input.getSamples(LEFT_CHANNEL), inSize);
+        vessl::array<float> inRight(input.getSamples(RIGHT_CHANNEL), inSize);
 
         // faster than using block operations
         for (int s = 0; s < inSize; ++s)
@@ -523,12 +522,12 @@ public:
           AudioBuffer& recv = *delayData[f].sigOut;
           FloatArray recvLeft = recv.getSamples(LEFT_CHANNEL);
           FloatArray recvRight = recv.getSamples(RIGHT_CHANNEL);
-          const float fbk = data.feedback[f] * (1.0f - cross);
-          const float xbk = data.feedback[f] * cross;
+          float fbk = data.feedback[f] * (1.0f - cross);
+          float xbk = data.feedback[f] * cross;
           for (int s = 0; s < inSize; ++s)
           {
-            const float rl = recvLeft[s];
-            const float rr = recvRight[s];
+            float rl = recvLeft[s];
+            float rr = recvRight[s];
             inLeft[s] += rl * fbk + rr * xbk;
             inRight[s] += rr * fbk + rl * xbk;
           }
@@ -538,18 +537,30 @@ public:
         filter.process(input, input);
 
         // limit the feedback signal
-        data.limitLeft.ProcessBlock(inLeft, inSize, 1.125f);
-        data.limitRight.ProcessBlock(inRight, inSize, 1.125f);
+        data.limitLeft.process(inLeft, inLeft);
+        data.limitRight.process(inRight, inRight);
 
         if (freezeState == FreezeEnter)
         {
-          inLeft.scale(1.0f, 0.0f);
-          inRight.scale(1.0f, 0.0f);
+          float scale = 1.0f;
+          float step = 1.0f / inSize;
+          for (int s = 0; s < inSize; ++s)
+          {
+            inLeft[s] *= scale;
+            inRight[s] *= scale;
+            scale -= step;
+          }
         }
         else if (freezeState == FreezeExit)
         {
-          inLeft.scale(0.0f, 1.0f);
-          inRight.scale(0.0f, 1.0f);
+          float scale = 0.0f;
+          float step = 1.0f / inSize;
+          for (int s = 0; s < inSize; ++s)
+          {
+            inLeft[s] *= scale;
+            inRight[s] *= scale;
+            scale += step;
+          }
         }
 
         // very slow and I think harsher than the limiters
