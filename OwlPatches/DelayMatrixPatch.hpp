@@ -30,7 +30,6 @@ DESCRIPTION:
 #include "BiquadFilter.h"
 #include "TapTempo.h"
 #include "SineOscillator.h"
-#include "SquareWaveOscillator.h"
 #include "Interpolator.h"
 #include "FastCrossFadingCircularBuffer.h"
 #include "SmoothValue.h"
@@ -54,6 +53,7 @@ DESCRIPTION:
 #include <string.h>
 
 using Limiter = vessl::limiter<float>;
+using GateOscil = vessl::oscil<vessl::waves::clock<>>;
 using daisysp::SmoothRandomGenerator;
 
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
@@ -131,7 +131,7 @@ protected:
     AudioBuffer* sigOut;
     StereoDcBlockingFilter* dcBlock;
     StereoBiquadFilter* filter;
-    SquareWaveOscillator* gate;
+    GateOscil gate;
     int gateResetCounter;
     int timeUpdateInterval;
     int timeUpdateCount;
@@ -253,8 +253,8 @@ public:
       data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD*i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
       data.dcBlock = StereoDcBlockingFilter::create();
       data.filter = StereoBiquadFilter::create(getSampleRate());
-      data.gate = SquareWaveOscillator::create(getSampleRate());
-      data.gate->setPulseWidth(0.1f);
+      data.gate.setSampleRate(getSampleRate());
+      data.gate.waveform.pulseWidth = 0.1f;
       data.gateResetCounter = 0;
       data.sigIn = AudioBuffer::create(2, blockSize);
       data.sigOut = AudioBuffer::create(2, blockSize);
@@ -312,7 +312,6 @@ public:
       AudioBuffer::destroy(delayData[i].sigOut);
       StereoDcBlockingFilter::destroy(delayData[i].dcBlock);
       StereoBiquadFilter::destroy(delayData[i].filter);
-      SquareWaveOscillator::destroy(delayData[i].gate);
     }
 
     FastCrossFadingCircularFloatBuffer::deinit();
@@ -356,7 +355,7 @@ public:
           DelayLineData& data = delayData[i];
           if (++data.gateResetCounter >= resetAt)
           {
-            data.gate->reset();
+            data.gate.reset();
             data.gateResetCounter = 0;
           }
         }
@@ -588,7 +587,7 @@ public:
       DelayLine* delay = delays[i];
       DelayLineData& data = delayData[i];
       StereoBiquadFilter& filter = *data.filter;
-      SquareWaveOscillator& gate = *data.gate;
+      GateOscil& gate = data.gate;
       AudioBuffer& input = *data.sigIn;
       AudioBuffer& output = *data.sigOut;
 
@@ -605,14 +604,8 @@ public:
       {
         delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
       }
-      //if (clocked)
-      {
-        delay->process<vessl::duration::mode::fade>(input, input);
-      }
-      // else
-      // {
-      //   delay->process(input, input);
-      // }
+
+      delay->process<vessl::duration::mode::fade>(input, input);
 
       // filter output
       filter.setLowPass(data.cutoff, FilterStage::BUTTERWORTH_Q);
@@ -629,7 +622,7 @@ public:
       // when clocked remove delay time modulation so that the gate output
       // stays in sync with the clock, keeping it true to the musical durations displayed on screen.
       const float gfreq = getSampleRate() / (clocked ? (delaySamples - modValue) : delaySamples);
-      gate.setFrequency(gfreq);
+      gate.fHz() << gfreq;
       for (int s = 0; s < outSize; ++s)
       {
         delayGate |= (gate.generate()*data.input > 0.1f) ? 1 : 0;
