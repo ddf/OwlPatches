@@ -112,7 +112,7 @@ public:
       delay.process<vessl::duration::mode::fade>(audioLeft, audioRight);
       audioLeft.add(audioRight).scale(0.5f);
     }
-    audioRight << audioLeft;
+    audioLeft.copyTo(audioRight);
     
     setButton(BUTTON_1, eorState, eorIndex);
   }

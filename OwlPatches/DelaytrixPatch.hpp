@@ -1,3 +1,6 @@
+// ReSharper disable CppClangTidyClangDiagnosticSwitch
+#pragma once
+
 #include "DelayMatrixPatch.hpp"
 #include "Noise.hpp"
 
@@ -10,17 +13,16 @@ public:
   {
     screen.clear();
 
-    const int matrixTop = 17;
-    const int rowSpacing = 12;
-    const int knobRadius = 4;
-    int x = 0;
+    constexpr uint16_t matrixTop = 17;
+    constexpr uint16_t knobRadius = 4;
+    uint16_t x = 0;
 
-    const int headingY = matrixTop - knobRadius * 2 - 1;
+    constexpr uint16_t headingY = matrixTop - knobRadius * 2 - 1;
     screen.setCursor(x, headingY);
     if (clocked)
     {
       screen.print("Q=");
-      screen.print((int)tapTempo.getBeatsPerMinute());
+      screen.print(static_cast<int>(tapTempo.getBeatsPerMinute()));
     }
     else
     {
@@ -35,8 +37,9 @@ public:
     x += 14;
 
     DelayLineData& lastData = delayData[DELAY_LINE_COUNT - 1];
-    const float lastMaxFreezePosition = min(lastData.time * 8 - lastData.time - lastData.skew, (float)lastData.delayLength - lastData.time - lastData.skew);
-    const float maxFreezeSize = lastMaxFreezePosition + lastData.time + lastData.skew;
+    float lastTime = lastData.time.value().readAnalog();
+    const float lastMaxFreezePosition = min(lastTime * 8 - lastTime - lastData.skew, static_cast<float>(lastData.delayLength) - lastTime - lastData.skew);
+    const float maxFreezeSize = lastMaxFreezePosition + lastTime + lastData.skew;
     if (freezeState == FreezeOn)
     {
       screen.setCursor(x, headingY);
@@ -45,11 +48,12 @@ public:
       screen.print("s\\");
     }
 
-    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+    for (uint16_t i = 0; i < DELAY_LINE_COUNT; ++i)
     {
+      constexpr uint16_t rowSpacing = 12;
       DelayLineData& data = delayData[i];
-      const int rowY = matrixTop + rowSpacing * i;
-      const int knobY = rowY - knobRadius - 1;
+      uint16_t rowY = matrixTop + rowSpacing * i;
+      uint16_t knobY = rowY - knobRadius - 1;
       x = 1;
       if (clocked)
       {
@@ -57,12 +61,12 @@ public:
         int spreadDivMult = SPREAD_DIVMULT[spreadDivMultIndex];
         int tapFirst = Quarter / clockMult;
         int spreadInc = spreadDivMult < 0 ? tapFirst / -spreadDivMult : tapFirst * spreadDivMult;
-        TapDelayLength tap = TapDelayLength(tapFirst + spreadInc*i);
+        TapDelayLength tap = static_cast<TapDelayLength>(tapFirst + spreadInc * i);
         screen.setCursor(x, rowY);
-        switch (tap)
+        switch (tap)  // NOLINT(clang-diagnostic-switch-enum)
         {
           // for easy debug
-          case 0: screen.print(ftoa(data.time / getSampleRate(), 10)); break;
+          case 0: screen.print(ftoa(data.time.value() / getSampleRate(), 10)); break;
 #define QUAV ""
 #define DOT2 "."
 #define DOT4 ","
@@ -209,14 +213,14 @@ public:
       }
       else
       {
-        screen.setCursor(x, rowY);
-        screen.print(ftoa(data.time / getSampleRate(), 10));
+        screen.setCursor(x, static_cast<uint16_t>(rowY));
+        screen.print(ftoa(data.time.value() / getSampleRate(), 10));
         screen.print("s");
       }
       x += 44;
-      drawKnob(data.input, screen, x, knobY, knobRadius);
+      drawKnob(data.input.value().readAnalog(), screen, x, knobY, knobRadius);
       x += knobRadius * 2 + 4;
-      drawKnob((data.cutoff - MIN_CUTOFF) / (MAX_CUTOFF - MIN_CUTOFF), screen, x, knobY, knobRadius);
+      drawKnob((data.cutoff.value().readAnalog() - MIN_CUTOFF) / (MAX_CUTOFF - MIN_CUTOFF), screen, x, knobY, knobRadius);
       x += knobRadius * 2 + 6;
 
       //screen.setCursor(x, rowY);
@@ -224,15 +228,15 @@ public:
 
       if (freezeState == FreezeOn)
       {
-        const float windowStart = 1.0f - ((delays[i]->getPosition() + data.time) / maxFreezeSize);
-        const float windowSize = min(data.time / maxFreezeSize, 1.0f);
+        const float windowStart = 1.0f - ((delays[i]->getPosition() + data.time.value()) / maxFreezeSize);
+        const float windowSize = min(data.time.value() / maxFreezeSize, 1.0f);
         const int freezeX = x - knobRadius;
         const int freezeY = knobY - knobRadius;
-        const float freezeW = (knobRadius * 2 + 4)*DELAY_LINE_COUNT - 1;
+        constexpr float freezeW = (knobRadius * 2 + 4)*DELAY_LINE_COUNT - 1;
         //screen.setCursor(freezeX, rowY);
         //screen.print(delays[i]->getPosition()/getSampleRate());
-        screen.drawRectangle(freezeX-1, freezeY, freezeW+1, 8, WHITE);
-        screen.fillRectangle(freezeX + (freezeW)*windowStart, freezeY, max(freezeW * windowSize, 1.f), 8, WHITE);
+        screen.drawRectangle(freezeX-1, freezeY, static_cast<int>(freezeW+1), 8, WHITE);
+        screen.fillRectangle(static_cast<int>(freezeW * windowStart + static_cast<float>(freezeX)), freezeY, static_cast<int>(vessl::math::max(freezeW * windowSize, 1.f)), 8, WHITE);
       }
       else
       {
@@ -246,20 +250,20 @@ public:
       }
     }
 
-    const int horizBarHeight = 8;
+    constexpr int horizBarHeight = 8;
     const int barY = screen.getHeight() - 1;
 
     x = 0;
     drawMod(screen, x, barY, 37, horizBarHeight, modAmount);
 
     x += 40;
-    drawSkew(screen, x, barY, 22, horizBarHeight, skew);
+    drawSkew(screen, x, barY, 22, horizBarHeight, skew.value().readAnalog());
 
     x += 26;
-    drawFeedback<true>(screen, x, barY, 48, horizBarHeight, feedback);
+    drawFeedback<true>(screen, x, barY, 48, horizBarHeight, feedback.value().readAnalog());
 
     x += 52;
-    drawDryWet(screen, x, barY, horizBarHeight, barY - matrixTop + 8, dryWet);
+    drawDryWet(screen, x, barY, horizBarHeight, barY - matrixTop + 8, dryWet.value().readAnalog());
 
     //x += 9;
     ////drawKnob(dryWet, screen, x, matrixTop + rowSpacing - knobRadius - 1, knobRadius);
@@ -270,8 +274,7 @@ public:
     //drawSkew(screen, x, barY, barW, skew);
   }
 private:
-
-  void drawFeedLabel(MonochromeScreenBuffer& screen, const int x, const int y, int num)
+  static void drawFeedLabel(MonochromeScreenBuffer& screen, uint16_t x, uint16_t y, int num)
   {
     const int ac = y - 5;
     screen.drawLine(x, ac, x + 3, ac, WHITE);
@@ -289,13 +292,16 @@ private:
     //}
   }
 
-  void drawKnob(float value, MonochromeScreenBuffer& screen, int x, int y, int radius)
+  static void drawKnob(float value, MonochromeScreenBuffer& screen, uint16_t x, uint16_t y, uint16_t radius)
   {
-    float angle = Interpolator::linear(-3.1*M_PI_4, 3.1*M_PI_4, value);
-    float dirX = sinf(angle);
-    float dirY = -cosf(angle);
+    static constexpr float PI_4 = vessl::math::pi<float>() / 4.f;
+    float angle = vessl::easing::lerp(-3.1f*PI_4, 3.1f*PI_4, value);
+    float dirX = vessl::math::sin(angle);
+    float dirY = -vessl::math::cos(angle);
+    float x1 = static_cast<float>(x) + dirX * static_cast<float>(radius);
+    float y1 = static_cast<float>(y) + dirY * static_cast<float>(radius);
     screen.drawCircle(x, y, radius+1, WHITE);
-    screen.drawLine(x, y, x + dirX * radius, y + dirY * radius, WHITE);
+    screen.drawLine(x, y, static_cast<int>(x1), static_cast<int>(y1), WHITE);
 
     // hack to fix "pointy" circle sides
     screen.setPixel(x - radius -1, y, BLACK);
@@ -309,10 +315,10 @@ private:
   }
 
 
-  void drawMod(MonochromeScreenBuffer& screen, int x, int y, int w, int h, float amt)
+  static void drawMod(MonochromeScreenBuffer& screen, int x, int y, int w, int h, float amt)
   {
     screen.drawRectangle(x, y - h, w, h, WHITE);
-    int fw = w * amt;
+    int fw = static_cast<int>(static_cast<float>(w) * amt);
     int c = w / 2;
     screen.drawLine(x + c + fw, y - h, x + c + fw, y -1, WHITE);
     screen.drawLine(x + c, y - h, x + c, y - h + 1, WHITE);
@@ -321,7 +327,7 @@ private:
 
 
   template<bool pointLeft>
-  void drawFeedback(MonochromeScreenBuffer& screen, const int x, const int y, const int w, const int h, const float amt)
+  void drawFeedback(MonochromeScreenBuffer& screen, const int x, const int y, const int w, const int h, const float amt) const
   {
     const int iconY = y-2;
     const int iconDim = h-2;
@@ -354,12 +360,12 @@ private:
       }
     }
 
-    const int barWidth = w - iconDim - 2;
+    uint16_t barWidth = w - iconDim - 2;
     screen.drawRectangle(x+iconDim+2, y - h, barWidth, h, WHITE);
     screen.fillRectangle(x+iconDim+2, y - h, barWidth*amt, h, WHITE);
   }
 
-  void drawSkew(MonochromeScreenBuffer& screen, const int x, const int y, const int w, const int h, const float amt)
+  static void drawSkew(MonochromeScreenBuffer& screen, const int x, const int y, const int w, const int h, const float amt)
   {
     int tx = x;
     int tw = h;
@@ -395,25 +401,28 @@ private:
   }
 
   // copied from message.cpp and modified to give 3 decimal points
-  static constexpr char hexnumerals[] = "0123456789abcdef";
-  char* ftoa(float val, int base)
+  static constexpr char HEXNUMERALS[] = "0123456789abcdef";
+
+  static char* ftoa(float val, int base)
   {
     static char buf[16] = { 0 };
     int i = 14;
     // print 3 decimal points
-    unsigned int part = abs((int)((val - int(val)) * 1000));
+    unsigned int part = vessl::math::abs(static_cast<int>((val - static_cast<int>(val)) * 1000));
     do {
-      buf[i--] = hexnumerals[part % base];
+      buf[i--] = HEXNUMERALS[part % base];
       part /= base;
     } while (i > 11);
     buf[i--] = '.';
-    part = abs(int(val));
+    part = vessl::math::abs(static_cast<int>(val));
     do {
-      buf[i--] = hexnumerals[part % base];
+      buf[i--] = HEXNUMERALS[part % base];
       part /= base;
     } while (part && i);
     if (val < 0.0f)
+    {
       buf[i--] = '-';
+    }
     return &buf[i + 1];
   }
 
