@@ -31,19 +31,6 @@ DESCRIPTION:
 #include "TapTempo.h"
 #include "SineOscillator.h"
 
-// daisysp includes
-// The OWL math lib defines RAND_MAX as UINT32_MAX,
-// which breaks the code in smooth_random.h that uses 
-// RAND_MAX and rand().
-// So we redefine RAND_MAX to INT_MAX because the version 
-// of rand() used in smooth_random returns an int.
-#ifdef RAND_MAX
-#undef RAND_MAX
-#endif
-#include <climits>
-#define RAND_MAX INT_MAX
-#include "Utility/smooth_random.h"
-
 #include "vessl/vessl.h"
 
 // for building param names
@@ -52,7 +39,7 @@ DESCRIPTION:
 using Smoother = vessl::smoother<float>;
 using Limiter = vessl::limiter<float>;
 using GateOscil = vessl::oscil<vessl::waves::clock<>>;
-using daisysp::SmoothRandomGenerator;
+using RandomGenerator = vessl::noiseGenerator<float, vessl::noise::white>;
 
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
 //using DelayLine = StereoDelayWithFreezeProcessor<FastCrossFadingCircularFloatBuffer>;
@@ -125,9 +112,12 @@ protected:
     Smoother feedback[DELAY_LINE_COUNT];
     Limiter limitLeft;
     Limiter limitRight;
+    // @todo replace with vessl arrays
     AudioBuffer* sigIn;
     AudioBuffer* sigOut;
+    // @todo replace with vessl filter
     StereoDcBlockingFilter* dcBlock;
+    // @todo replace with vessle filter
     StereoBiquadFilter* filter;
     GateOscil gate;
     int gateResetCounter;
@@ -180,13 +170,14 @@ protected:
 
   const DelayMatrixParamIds patchParams;
 
-  float       timeRaw;
+  float    timeRaw;
   Smoother time;
   Smoother spread;
   Smoother skew;
   Smoother feedback;
   Smoother dryWet;
 
+  // @todo replace with vessl filter?
   StereoDcBlockingFilter* inputFilter;
   DelayLine* delays[DELAY_LINE_COUNT];
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
@@ -195,11 +186,13 @@ protected:
   int clockTriggerMax;
   int clockMultIndex;
   int spreadDivMultIndex;
+  // @todo replace with vessl clock
   TapTempo tapTempo;
   int samplesSinceLastTap;
 
+  // @todo replace with vessl oscillator
   SineOscillator* lfo;
-  SmoothRandomGenerator rnd;
+  RandomGenerator rnd;
   float rndGen;
   float modAmount;
 
@@ -213,14 +206,19 @@ protected:
     FreezeExit,
   } freezeState;
 
+  // @todo replace with vessl array
   AudioBuffer* scratch;
 
 public:
   DelayMatrixPatch()
     : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
-    , timeRaw(MIN_TIME_SECONDS*getSampleRate()), time(0.9f, timeRaw), clockTriggerMax(MAX_TIME_SECONDS*getSampleRate()*CLOCK_MULT[CLOCK_MULT_COUNT-1]), clockMultIndex((CLOCK_MULT_COUNT-1)/2)
-    , spreadDivMultIndex((SPREAD_DIVMULT_COUNT-1)/2), tapTempo(getSampleRate(), clockTriggerMax)
-    , samplesSinceLastTap(clockTriggerMax), clocked(false), freezeState(FreezeOff)
+    , timeRaw(MIN_TIME_SECONDS * getSampleRate()), time(0.9f, timeRaw), clockTriggerMax(MAX_TIME_SECONDS * getSampleRate() * CLOCK_MULT[CLOCK_MULT_COUNT - 1])
+    , clockMultIndex((CLOCK_MULT_COUNT - 1) / 2)
+    , spreadDivMultIndex((SPREAD_DIVMULT_COUNT - 1) / 2), tapTempo(getSampleRate(), clockTriggerMax)
+    , samplesSinceLastTap(clockTriggerMax)
+    , rnd(getBlockRate())
+    , clocked(false)
+    , freezeState(FreezeOff)
   {
     registerParameter(patchParams.time, "Time");
     registerParameter(patchParams.feedback, "Feedback");
@@ -237,7 +235,8 @@ public:
     scratch = AudioBuffer::create(2, blockSize);
 
     const int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
-    char pname[16]; char* p;
+    char pname[16];
+    char* p;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
@@ -246,7 +245,7 @@ public:
       // want all lines to update immediately at startup
       data.timeUpdateCount = 9999;
       // calculate the longest this particular delay will ever need to get
-      data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD*i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
+      data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD * i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
       data.dcBlock = StereoDcBlockingFilter::create();
       data.filter = StereoBiquadFilter::create(getSampleRate());
       data.gate.setSampleRate(getSampleRate());
@@ -259,15 +258,17 @@ public:
 
       DelayLineParamIds& params = delayParamIds[i];
       params.input = static_cast<PatchParameterId>(PARAMETER_AA + i);
-      p = stpcpy(pname, "Gain "); p = stpcpy(p, msg_itoa(i + 1, 10));
+      p = stpcpy(pname, "Gain ");
+      p = stpcpy(p, msg_itoa(i + 1, 10));
       registerParameter(params.input, pname);
       setParameterValue(params.input, 0.99f);
-      
+
       params.cutoff = static_cast<PatchParameterId>(PARAMETER_AE + i);
-      p = stpcpy(pname, "Color "); p = stpcpy(p, msg_itoa(i + 1, 10));
+      p = stpcpy(pname, "Color ");
+      p = stpcpy(p, msg_itoa(i + 1, 10));
       registerParameter(params.cutoff, pname);
       setParameterValue(params.cutoff, 0.99f);
-      
+
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
       {
         params.feedback[f] = static_cast<PatchParameterId>(PARAMETER_BA + f * 4 + i);
@@ -278,25 +279,15 @@ public:
         registerParameter(params.feedback[f], pname);
         // initialize the matrix so it sounds like 3 delays in parallel
         // when the global feedback param is turned up
-        if (i == f)
-        {
-          setParameterValue(params.feedback[f], 0.99f);
-        }
-        else
-        {
-          setParameterValue(params.feedback[f], 0.5f);
-        }
+        if (i == f) { setParameterValue(params.feedback[f], 0.99f); }
+        else { setParameterValue(params.feedback[f], 0.5f); }
       }
     }
 
-    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
-    {
-      delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate());
-    }
+    for (int i = 0; i < DELAY_LINE_COUNT; ++i) { delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate()); }
 
     inputFilter = StereoDcBlockingFilter::create();
     lfo = SineOscillator::create(getBlockRate());
-    rnd.Init(getBlockRate());
   }
 
   ~DelayMatrixPatch() override
@@ -443,8 +434,8 @@ public:
     lfo->setFrequency(modFreq);
     float lfoGen = lfo->generate();
 
-    rnd.SetFreq(modFreq);
-    rndGen = rnd.Process();
+    rnd.rate() << modFreq;
+    rndGen = rnd.generate<vessl::easing::smoothstep>();
 
     modAmount = 0;
     float modParam = getParameterValue(patchParams.modIndex);
@@ -454,7 +445,8 @@ public:
     }
     else if (modParam <= 0.47f)
     {
-      modAmount = rndGen * vessl::math::constrain(Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f), 0.f, MAX_MOD_AMT);
+      float modMax = vessl::math::constrain(Interpolator::linear(0, MAX_MOD_AMT, (0.47f - modParam)*2.12f), 0.f, MAX_MOD_AMT);
+      modAmount = vessl::easing::lerp(-modMax, modMax, rndGen);
     }
 
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
@@ -463,8 +455,10 @@ public:
       DelayLineParamIds& params = delayParamIds[i];
 
       float invert = i % 2 ? 1.0f : -1.0f;
-      float targetTime = time.value() + spread.value() * i * time.value();
-      float timeDelta = fabsf(targetTime - *data.time.value());
+      float timeVal = time.value().readAnalog();
+      float spreadVal = spread.value().readAnalog();
+      float targetTime = timeVal + spreadVal * i * timeVal;
+      float timeDelta = fabsf(targetTime - data.time.value().readAnalog());
       data.timeUpdateInterval = 8 + static_cast<int>(timeDelta) / (64*32);
       if (data.timeUpdateCount++ >= data.timeUpdateInterval)
       {
@@ -473,7 +467,7 @@ public:
         data.timeUpdateCount = 0;
       }
       data.input << getParameterValue(params.input);
-      data.skew = skew.value() * MAX_SKEW_SAMPLES * invert;
+      data.skew = MAX_SKEW_SAMPLES * invert * skew.value();
       data.cutoff << vessl::easing::lerp(400, 18000, getParameterValue(params.cutoff));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
@@ -652,7 +646,7 @@ public:
     audio.add(*scratch);
 
     setParameterValue(patchParams.lfoOut, vessl::math::constrain(lfoGen*0.5f + 0.5f, 0.f, 1.f));
-    setParameterValue(patchParams.rndOut, vessl::math::constrain(rndGen*0.5f + 0.5f, 0.f, 1.f));
+    setParameterValue(patchParams.rndOut, vessl::math::constrain(rndGen, 0.f, 1.f));
     setButton(PUSHBUTTON, delayGate);
     setButton(BUTTON_2, freezeState == FreezeOn ? 1 : 0);
     // this is the second gate output on the Witch
