@@ -29,7 +29,6 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
 #include "TapTempo.h"
-#include "SineOscillator.h"
 
 #include "vessl/vessl.h"
 
@@ -39,6 +38,7 @@ DESCRIPTION:
 using Smoother = vessl::smoother<float>;
 using Limiter = vessl::limiter<float>;
 using GateOscil = vessl::oscil<vessl::waves::clock<>>;
+using SineOscil = vessl::oscil<vessl::waves::sine<>>;
 using RandomGenerator = vessl::noiseGenerator<float, vessl::noise::white>;
 
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
@@ -189,9 +189,8 @@ protected:
   // @todo replace with vessl clock
   TapTempo tapTempo;
   int samplesSinceLastTap;
-
-  // @todo replace with vessl oscillator
-  SineOscillator* lfo;
+  
+  SineOscil       lfo;
   RandomGenerator rnd;
   float rndGen;
   float modAmount;
@@ -216,6 +215,7 @@ public:
     , clockMultIndex((CLOCK_MULT_COUNT - 1) / 2)
     , spreadDivMultIndex((SPREAD_DIVMULT_COUNT - 1) / 2), tapTempo(getSampleRate(), clockTriggerMax)
     , samplesSinceLastTap(clockTriggerMax)
+    , lfo(getBlockRate(), 1.0f)
     , rnd(getBlockRate())
     , clocked(false)
     , freezeState(FreezeOff)
@@ -287,7 +287,6 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i) { delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate()); }
 
     inputFilter = StereoDcBlockingFilter::create();
-    lfo = SineOscillator::create(getBlockRate());
   }
 
   ~DelayMatrixPatch() override
@@ -304,7 +303,6 @@ public:
     AudioBuffer::destroy(scratch);
 
     StereoDcBlockingFilter::destroy(inputFilter);
-    SineOscillator::destroy(lfo);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -431,8 +429,8 @@ public:
     
     float modFreq = getSampleRate() / time.value() * (1.0f / 32.f);
     
-    lfo->setFrequency(modFreq);
-    float lfoGen = lfo->generate();
+    lfo.fHz() << modFreq;
+    float lfoGen = lfo.generate();
 
     rnd.rate() << modFreq;
     rndGen = rnd.generate<vessl::easing::smoothstep>();
@@ -678,7 +676,7 @@ public:
     screen.print(freezeState != FreezeOff ? " F:X" : " F:O");
     screen.setCursor(0, 48);
     screen.print("MODF: ");
-    screen.print(lfo->getFrequency());
+    screen.print(lfo.fHz().readAnalog());
     screen.print(" RND: ");
     screen.print(rndGen);
   }
