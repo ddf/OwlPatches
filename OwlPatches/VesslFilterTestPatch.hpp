@@ -9,10 +9,15 @@
 using namespace vessl::filtering;
 using FilterType = biquad::df2T<float, biquad::hp<4>>;
 using Filter = vessl::filter<float, FilterType>;
+// @todo don't like that I want to define filter type and filter separately because the required syntax
+// would like to be able to something like this:
+// using Filter = vessl::filter<float, biquad::lowpass<2>>;
+// which might mean making vessl::filter exclusively for use with biquad::df2T
+// there are worse things?
 
 static constexpr float BESSEL_Q = 0.57735026919f; // 1/sqrt(3)
 static constexpr float SALLEN_KEY_Q = 0.5f; // 1/2
-static constexpr float BUTTERWORTH_Q = 0.70710678118f; // 1/sqrt(2)
+static constexpr float BUTTERWORTH_Q = 0.70710678118f; 
 
 class VesslFilterTestPatch : public MonochromeScreenPatch
 {

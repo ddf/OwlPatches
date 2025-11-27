@@ -10,34 +10,33 @@ using PinkNoise = vessl::noiseGenerator<float, vessl::noise::pink>;
 using RedNoise = vessl::noiseGenerator<float, vessl::noise::red>;
 
 using namespace vessl::filtering;
-using SmoothingFilter = vessl::slew<float>;
-using SmoothNoise = vessl::unitProcGen<float, SmoothingFilter, WhiteNoise>;
+using SlewFilter = vessl::slew<float>;
+using FilterType = biquad::df2T<float, biquad::lp<1>>;
+using Filter = vessl::filter<float, FilterType>;
 
 class VesslNoiseTestPatch final : public MonochromeScreenPatch
 {
   WhiteNoise whiteNoise;
   PinkNoise pinkNoise;
   RedNoise redNoise;
-  SmoothNoise smoothNoise; // this can sound essentially the same as red noise!
-  WhiteNoise smoothStepNoise;
+  
+  SlewFilter blockNoiseFilter; // this can sound essentially the same as red noise!
+  Filter blockNoiseBiquad;
+  WhiteNoise blockNoise;
     
 public:
   VesslNoiseTestPatch() : whiteNoise(getSampleRate()), pinkNoise(getSampleRate()), redNoise(getSampleRate())
-  , smoothNoise(new SmoothingFilter(getBlockRate(), 2, 2), new WhiteNoise(getBlockRate()), getBlockRate())
-  , smoothStepNoise(getBlockRate())
+  , blockNoiseFilter(getBlockRate(), 3.f, 3.f)
+  , blockNoiseBiquad(getBlockRate(), 20.0f)
+  , blockNoise(getBlockRate())
   {
-    smoothNoise.gen()->rate() << 10;
-    smoothStepNoise.rate() << 10;
+    blockNoise.rate() << 10;
     registerParameter(PARAMETER_AA, "Smooth>");
     registerParameter(PARAMETER_AB, "Rando>");
   }
 
-  ~VesslNoiseTestPatch() override
-  {
-    delete smoothNoise.proc();
-    delete smoothNoise.gen();
-  }
-    
+  ~VesslNoiseTestPatch() override = default;
+
   void processAudio(AudioBuffer& audio) override
   {
     Array audioLeft(audio.getSamples(0), audio.getSize());
@@ -47,11 +46,17 @@ public:
     AudioWriter outR(audioRight);
     while (outL)
     {
-      outL << 2*redNoise.generate() - 1;
-      outR << 2*pinkNoise.generate() - 1;
+      //blockNoiseFilter << bnsz;
+      // hm, i like this for terseness,
+      // but it looks like we are evaluating the current value of each unit
+      // rather than generating a new value from the unit.
+      outL << 2.f*redNoise  - 1.f;
+      outR << 2.f*pinkNoise - 1.f;
     }
-    setParameterValue(PARAMETER_AA, smoothNoise.generate());
-    setParameterValue(PARAMETER_AB, smoothStepNoise.generate<vessl::easing::smoothstep>());
+
+    float bnsz = blockNoise.generate();
+    setParameterValue(PARAMETER_AA, blockNoiseFilter << bnsz);
+    setParameterValue(PARAMETER_AB, vessl::math::constrain(blockNoiseBiquad << bnsz,0.f, 0.999f));
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override

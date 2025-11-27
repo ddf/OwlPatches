@@ -37,6 +37,8 @@ DESCRIPTION:
 
 using Smoother = vessl::smoother<float>;
 using Limiter = vessl::limiter<float>;
+using FilterType = vessl::filtering::biquad::df2T<float, vessl::filtering::biquad::lp<>>;
+using Filter = vessl::filter<float, FilterType>;
 using GateOscil = vessl::oscil<vessl::waves::clock<>>;
 using SineOscil = vessl::oscil<vessl::waves::sine<>>;
 using RandomGenerator = vessl::noiseGenerator<float, vessl::noise::white>;

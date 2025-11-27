@@ -93,9 +93,8 @@ public:
       float fm = fmIn.read();
       osc.pm() << pm;
       osc.fmExp() << fm;
-
-      float s = (osc.generate() * ramp.generate());
-      out << s;
+      
+      out << osc * ramp;
       
       if (eorState == OFF)
       {
