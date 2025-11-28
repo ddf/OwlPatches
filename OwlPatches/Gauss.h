@@ -7,8 +7,7 @@ using GaussProcessor = BlurProcessor2D<TextureSizeType::Fractional>;
 using Smoother = vessl::smoother<float>;
 using vessl::parameter;
 using GaussSampleFrame = vessl::frame::channels<float, 2>;
-using FilterType = vessl::filtering::biquad::df2T<float, vessl::filtering::biquad::hp<1>>;
-using HighPass = vessl::filter<float, FilterType>;
+using HighPass = vessl::filter<float, vessl::filtering::biquad<1>::highPass>;
 
 class Gauss : public vessl::unitProcessor<GaussSampleFrame>
 {

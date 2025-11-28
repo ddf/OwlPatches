@@ -11,8 +11,7 @@ using RedNoise = vessl::noiseGenerator<float, vessl::noise::red>;
 
 using namespace vessl::filtering;
 using SlewFilter = vessl::slew<float>;
-using FilterType = biquad::df2T<float, biquad::lp<1>>;
-using Filter = vessl::filter<float, FilterType>;
+using Filter = vessl::filter<float, biquad<1>::lowPass>;
 
 class VesslNoiseTestPatch final : public MonochromeScreenPatch
 {
