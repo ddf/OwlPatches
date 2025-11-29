@@ -5,15 +5,17 @@
 #include "vessl/vessl.h"
 
 using namespace vessl::filtering;
+using DcBlock = vessl::filter<float, dcblock>;
 using Filter = vessl::filter<float, biquad<4>::lowPass>;
 
 class VesslFilterTestPatch : public MonochromeScreenPatch
 {
+  DcBlock dcBlock;
   Filter filter;
   Filter::function filterFunc;
 
 public:
-  VesslFilterTestPatch() : filter(getSampleRate(), 120, q::butterworth<float>())
+  VesslFilterTestPatch() : dcBlock(getSampleRate()), filter(getSampleRate(), 120, q::butterworth<float>())
   {
     registerParameter(PARAMETER_A, "Fc");
     registerParameter(PARAMETER_B, "Q");
@@ -30,7 +32,9 @@ public:
     filter.emphasis() = g;
     
     vessl::array<float> inout(audio.getSamples(LEFT_CHANNEL), audio.getSize());
-    inout >> filter >> inout;
+    // add a dc offset so we can see that it is removed by dc block
+    inout.offset(2.0f);
+    inout >> dcBlock >> filter >> inout;
 
     float dummy = 0;
     args fargs(getSampleRate(), cutoff, q, g);
