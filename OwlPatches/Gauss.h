@@ -121,8 +121,8 @@ public:
     float slcoL = feedbackAmtLeft * 1.4f;
     float slcoR = feedbackAmtRight * 1.4f;
 
-    feedbackFilterLeft.cutoff() = cutoffL;
-    feedbackFilterRight.cutoff() = cutoffR;
+    feedbackFilterLeft.fHz() = cutoffL;
+    feedbackFilterRight.fHz() = cutoffR;
     float feedLeft = feedbackFilterLeft.process(feedbackFrame.left());
     float feedRight = feedbackFilterRight.process(feedbackFrame.right());
 

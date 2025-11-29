@@ -27,7 +27,7 @@ public:
     float cutoff = 60 + VoltsPerOctave::voltsToHertz(getParameterValue(PARAMETER_A)*4);
     float q = vessl::easing::lerp(q::butterworth<float>(), 5.0f, getParameterValue(PARAMETER_B));
     vessl::gain g = vessl::gain::fromDecibels(vessl::easing::lerp(-6.f, 6.f, getParameterValue(PARAMETER_C)));
-    filter.cutoff() = cutoff;
+    filter.fHz() = cutoff;
     filter.q() = q;
     filter.emphasis() = g;
     
