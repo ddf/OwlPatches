@@ -27,7 +27,7 @@ public:
     if (clocked)
     {
       screen.print("Q=");
-      screen.print(static_cast<int>(tapTempo.getBeatsPerMinute()));
+      screen.print(static_cast<int>(getBpm()));
     }
     else
     {

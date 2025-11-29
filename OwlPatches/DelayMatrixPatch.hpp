@@ -28,12 +28,15 @@ DESCRIPTION:
 #include "DelayWithFreeze.h"
 #include "DcBlockingFilter.h"
 #include "BiquadFilter.h"
-#include "TapTempo.h"
 
 #include "vessl/vessl.h"
 
 // for building param names
-#include <string.h>
+#include <cstring>
+
+#ifndef ARM_CORTEX
+inline char * stpcpy(char *s1, const char *s2) { return strcat(s1, s2); }  // NOLINT(clang-diagnostic-deprecated-declarations)
+#endif
 
 using Smoother = vessl::smoother<float>;
 using Limiter = vessl::limiter<float>;
@@ -59,7 +62,7 @@ struct DelayMatrixParamIds
 };
 
 template<int DELAY_LINE_COUNT>
-class DelayMatrixPatch : public MonochromeScreenPatch
+class DelayMatrixPatch : public MonochromeScreenPatch, public vessl::clockable
 {
 protected:
   static constexpr float MIN_TIME_SECONDS = 0.002f;
@@ -153,8 +156,25 @@ protected:
   };
 
   DelayMatrixParamIds patchParams;
+    
+  int clockMultIndex;
+  int spreadDivMultIndex;
+  int samplesSinceLastTap;
 
-  float    timeRaw;
+  uint16_t clocked;
+
+  enum : uint16_t  // NOLINT(performance-enum-size)
+  {
+    FreezeOff,
+    FreezeEnter,
+    FreezeOn,
+    FreezeExit,
+  } freezeState;
+  
+  float timeRaw;
+  float rndGen;
+  float modAmount;
+  
   Smoother time;
   Smoother spread;
   Smoother skew;
@@ -163,46 +183,28 @@ protected:
 
   // @todo replace with vessl filter?
   StereoDcBlockingFilter* inputFilter;
+  
+  SineOscil       lfo;
+  RandomGenerator rnd;
+
+  // @todo replace with vessl array
+  AudioBuffer* scratch;
   DelayLine* delays[DELAY_LINE_COUNT];
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
   DelayLineData delayData[DELAY_LINE_COUNT];
 
-  int clockTriggerMax;
-  int clockMultIndex;
-  int spreadDivMultIndex;
-  // @todo replace with vessl clock
-  TapTempo tapTempo;
-  int samplesSinceLastTap;
-  
-  SineOscil       lfo;
-  RandomGenerator rnd;
-  float rndGen;
-  float modAmount;
-
-  bool clocked;
-
-  enum : uint8_t
-  {
-    FreezeOff,
-    FreezeEnter,
-    FreezeOn,
-    FreezeExit,
-  } freezeState;
-
-  // @todo replace with vessl array
-  AudioBuffer* scratch;
-
 public:
-  DelayMatrixPatch()
-    : patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
-    , timeRaw(MIN_TIME_SECONDS * getSampleRate()), time(0.9f, timeRaw), clockTriggerMax(MAX_TIME_SECONDS * getSampleRate() * CLOCK_MULT[CLOCK_MULT_COUNT - 1])
+  DelayMatrixPatch() : clockable(getSampleRate(), 1, MAX_TIME_SECONDS * getSampleRate() * CLOCK_MULT[CLOCK_MULT_COUNT - 1]) 
+    , patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
     , clockMultIndex((CLOCK_MULT_COUNT - 1) / 2)
-    , spreadDivMultIndex((SPREAD_DIVMULT_COUNT - 1) / 2), tapTempo(getSampleRate(), clockTriggerMax)
-    , samplesSinceLastTap(clockTriggerMax)
-    , lfo(getBlockRate(), 1.0f)
-    , rnd(getBlockRate())
+    , spreadDivMultIndex((SPREAD_DIVMULT_COUNT - 1) / 2)
+    , samplesSinceLastTap(clockable::periodMax)
     , clocked(false)
     , freezeState(FreezeOff)
+    , timeRaw(MIN_TIME_SECONDS * getSampleRate())
+    , time(0.9f, timeRaw)
+    , lfo(getBlockRate(), 1.0f)
+    , rnd(getBlockRate())
   {
     registerParameter(patchParams.time, "Time");
     registerParameter(patchParams.feedback, "Feedback");
@@ -220,7 +222,6 @@ public:
 
     const int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
     char pname[16];
-    char* p;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
@@ -242,14 +243,14 @@ public:
 
       DelayLineParamIds& params = delayParamIds[i];
       params.input = static_cast<PatchParameterId>(PARAMETER_AA + i);
-      p = stpcpy(pname, "Gain ");
-      p = stpcpy(p, msg_itoa(i + 1, 10));
+      char* p = stpcpy(pname, "Gain ");
+      stpcpy(p, msg_itoa(i + 1, 10));
       registerParameter(params.input, pname);
       setParameterValue(params.input, 0.99f);
 
       params.cutoff = static_cast<PatchParameterId>(PARAMETER_AE + i);
       p = stpcpy(pname, "Color ");
-      p = stpcpy(p, msg_itoa(i + 1, 10));
+      stpcpy(p, msg_itoa(i + 1, 10));
       registerParameter(params.cutoff, pname);
       setParameterValue(params.cutoff, 0.99f);
 
@@ -259,7 +260,7 @@ public:
         p = stpcpy(pname, "Fdbk ");
         p = stpcpy(p, msg_itoa(f + 1, 10));
         p = stpcpy(p, "->");
-        p = stpcpy(p, msg_itoa(i + 1, 10));
+        stpcpy(p, msg_itoa(i + 1, 10));
         registerParameter(params.feedback[f], pname);
         // initialize the matrix so it sounds like 3 delays in parallel
         // when the global feedback param is turned up
@@ -268,7 +269,10 @@ public:
       }
     }
 
-    for (int i = 0; i < DELAY_LINE_COUNT; ++i) { delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate()); }
+    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+    {
+      delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate());
+    }
 
     inputFilter = StereoDcBlockingFilter::create();
   }
@@ -293,11 +297,9 @@ public:
   {
     if (bid == BUTTON_1)
     {
-      bool on = value == Patch::ON;
-      tapTempo.trigger(on, samples);
-
-      if (on)
+      if (value == Patch::ON)
       {
+        clock(samples);
         samplesSinceLastTap = 0;
         const int clockMult = CLOCK_MULT[clockMultIndex];
         const int spreadDivMult = SPREAD_DIVMULT[spreadDivMultIndex];
@@ -352,8 +354,8 @@ public:
     const float processStart = getElapsedBlockTime();
 #endif
 
-    tapTempo.clock(audio.getSize());
-    clocked = samplesSinceLastTap < clockTriggerMax;
+    tick(audio.getSize());
+    clocked = samplesSinceLastTap < clockable::periodMax;
 
     float timeParam = getParameterValue(patchParams.time);
     float spreadParam = getParameterValue(patchParams.spread);
@@ -371,7 +373,7 @@ public:
         clockMultIndex = vessl::easing::lerp(clockMultIndex, 0, (0.47f - timeParam) * 2.12f);
       }
       // equivalent to multiplying the BPM
-      timeRaw = tapTempo.getPeriodInSamples() / CLOCK_MULT[clockMultIndex];
+      timeRaw = getPeriod() / CLOCK_MULT[clockMultIndex];
 
       spreadDivMultIndex = (SPREAD_DIVMULT_COUNT - 1) / 2;
       if (spreadParam >= 0.53f)
@@ -642,7 +644,7 @@ public:
 #endif
   }
 
-  void processScreen(MonochromeScreenBuffer& screen) override
+  void processScreen(MonochromeScreenBuffer& screen) override  // NOLINT(portability-template-virtual-member-function)
   {
     screen.setCursor(0, 10);
     screen.print("Clock Ratio: ");
@@ -652,8 +654,7 @@ public:
     screen.print(spreadDivMultIndex);
     screen.setCursor(0, 30);
     screen.print("Tap: ");
-    screen.print(static_cast<int>(tapTempo.getPeriodInSamples()));
-    screen.print(tapTempo.isOn() ? " X" : " O");
+    screen.print(static_cast<int>(getPeriod()));
     screen.setCursor(0, 40);
     screen.print("Dly: ");
     screen.print(static_cast<int>(time.value().readAnalog()));
