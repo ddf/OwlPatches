@@ -101,28 +101,28 @@ public:
 
   void setDelay(float left, float right)
   {
-    delayProcLeft.time() << left;
-    delayProcLeft.freezeSize() << left;
-    delayProcRight.time() << right;
-    delayProcRight.freezeSize() << right;
+    delayProcLeft.time() = left;
+    delayProcLeft.freezeSize() = left;
+    delayProcRight.time() = right;
+    delayProcRight.freezeSize() = right;
   }
 
   void setFreeze(bool enabled)
   {
-    delayProcLeft.freezeEnabled() << enabled;
-    delayProcRight.freezeEnabled() << enabled;
+    delayProcLeft.freezeEnabled() = enabled;
+    delayProcRight.freezeEnabled() = enabled;
   }
 
   void setPosition(float position)
   {
-    delayProcLeft.freezePosition() << position;
-    delayProcRight.freezePosition() << position;
+    delayProcLeft.freezePosition() = position;
+    delayProcRight.freezePosition() = position;
   }
 
   void setPosition(float leftPosition, float rightPosition)
   {
-    delayProcLeft.freezePosition() << leftPosition;
-    delayProcRight.freezePosition() << rightPosition;
+    delayProcLeft.freezePosition() = leftPosition;
+    delayProcRight.freezePosition() = rightPosition;
   }
 
   float getPosition()

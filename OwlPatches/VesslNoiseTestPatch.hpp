@@ -26,10 +26,10 @@ class VesslNoiseTestPatch final : public MonochromeScreenPatch
 public:
   VesslNoiseTestPatch() : whiteNoise(getSampleRate()), pinkNoise(getSampleRate()), redNoise(getSampleRate())
   , blockNoiseFilter(getBlockRate(), 3.f, 3.f)
-  , blockNoiseBiquad(getBlockRate(), 20.0f)
+  , blockNoiseBiquad(getBlockRate(), 20.f)
   , blockNoise(getBlockRate())
   {
-    blockNoise.rate() << 10;
+    blockNoise.rate() = 10.f;
     registerParameter(PARAMETER_AA, "Smooth>");
     registerParameter(PARAMETER_AB, "Rando>");
   }
@@ -45,17 +45,13 @@ public:
     AudioWriter outR(audioRight);
     while (outL)
     {
-      //blockNoiseFilter << bnsz;
-      // hm, i like this for terseness,
-      // but it looks like we are evaluating the current value of each unit
-      // rather than generating a new value from the unit.
-      outL << 2.f*redNoise  - 1.f;
-      outR << 2.f*pinkNoise - 1.f;
+      outL << 2.f*redNoise.generate()  - 1.f;
+      outR << 2.f*pinkNoise.generate() - 1.f;
     }
 
     float bnsz = blockNoise.generate();
-    setParameterValue(PARAMETER_AA, blockNoiseFilter << bnsz);
-    setParameterValue(PARAMETER_AB, vessl::math::constrain(blockNoiseBiquad << bnsz,0.f, 0.999f));
+    setParameterValue(PARAMETER_AA, blockNoiseFilter.process(bnsz));
+    setParameterValue(PARAMETER_AB, vessl::math::constrain(blockNoiseBiquad.process(bnsz),0.f, 0.999f));
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override

@@ -307,12 +307,12 @@ public:
                                 : 24;
     float rate = crush > 0.001f ? sr*0.25f + getParameterValue(inCrush)*(100 - sr*0.25f) 
                                 : sr;
-    crushL.depth() << bits;
-    crushL.rate() << rate;
-    crushL.mangle() << mangle;
-    crushR.depth() << bits;
-    crushR.rate() << rate;
-    crushR.mangle() << mangle;
+    crushL.depth() = bits;
+    crushL.rate() = rate;
+    crushL.mangle() = mangle;
+    crushR.depth() = bits;
+    crushR.rate() = rate;
+    crushR.mangle() = mangle;
 
     dcFilter->process(audio, audio);
 
@@ -322,13 +322,17 @@ public:
     for (int i = 0; i < size; ++i)
     {
       if (freeze && freezeWriteCount == TRIGGER_LIMIT)
+      {
         break;
+      }
 
       bufferL->write(left[i]);
       bufferR->write(right[i]);
 
       if (freeze)
+      {
         ++freezeWriteCount;
+      }
     }
 
     for (int i = 0; i < size; ++i)

@@ -33,17 +33,17 @@ DESCRIPTION:
     which is followed by reverb with controls for blend, time, and tone.
 */
 
+#pragma once
+
 #define USE_MIDI_CALLBACK
 
 #include "MonochromeScreenPatch.h"
 #include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
-#include "BitCrusher.hpp"
 #include "Diffuser.h"
 #include "Reverb.h"
 #include "Frequency.h"
 #include "Interpolator.h"
-#include "Easing.h"
 #include "SmoothValue.h"
 #include "Window.h"
 #include "vessl/vessl.h"
@@ -265,7 +265,7 @@ public:
     spectralGen->setDecay(decay);
     spectralGen->setBrightness(brightness);
     spectralGen->setVolume(volume);
-    bitCrusher.rate() << crush.getValue();
+    bitCrusher.rate() = crush.getValue();
 
     // TODO: this needs to dynamically adjust to band density somehow,
     // but using band density directly doesn't work. it's more to do with 

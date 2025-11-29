@@ -77,10 +77,10 @@ public:
     }
     
     processorLeft = GaussProcessor::create(getSampleRate(), MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
-    processorLeft->textureSize() << MIN_TEXTURE_SIZE;
+    processorLeft->textureSize() = MIN_TEXTURE_SIZE;
 
     processorRight = GaussProcessor::create(getSampleRate(), MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
-    processorRight->textureSize() << MIN_TEXTURE_SIZE;
+    processorRight->textureSize() = MIN_TEXTURE_SIZE;
   }
 
   ~Gauss() override
@@ -103,16 +103,16 @@ public:
   parameter& gain() { return init.params[3]; }
   
   BlurKernel kernel() const { return processorLeft->getKernel(); }
-  float getTextureSizeLeft() const { return *processorLeft->textureSize(); }
-  float getTextureSizeRight() const { return *processorRight->textureSize(); }
-  float getBlurSizeLeft() const { return *blurSizeLeft.value(); }
-  float getBlurSizeRight() const { return *blurSizeRight.value(); }
+  float getTextureSizeLeft() const { return static_cast<float>(processorLeft->textureSize()); }
+  float getTextureSizeRight() const { return static_cast<float>(processorRight->textureSize()); }
+  float getBlurSizeLeft() const { return static_cast<float>(blurSizeLeft.value()); }
+  float getBlurSizeRight() const { return static_cast<float>(blurSizeRight.value()); }
   
   GaussSampleFrame process(const GaussSampleFrame& in) override
   {
     // Note: the way feedback is applied is based on how Clouds does it
     // see: https://github.com/pichenettes/eurorack/tree/master/clouds
-    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out, float>(0.f, 0.99f, *feedback()));
+    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out, float>(0.f, 0.99f, static_cast<float>(feedback())));
     float feedbackAmtLeft = fdbk;
     float feedbackAmtRight = fdbk;
     
@@ -121,8 +121,8 @@ public:
     float slcoL = feedbackAmtLeft * 1.4f;
     float slcoR = feedbackAmtRight * 1.4f;
 
-    feedbackFilterLeft.cutoff() << cutoffL;
-    feedbackFilterRight.cutoff() << cutoffR;
+    feedbackFilterLeft.cutoff() = cutoffL;
+    feedbackFilterRight.cutoff() = cutoffR;
     float feedLeft = feedbackFilterLeft.process(feedbackFrame.left());
     float feedRight = feedbackFilterRight.process(feedbackFrame.right());
 
@@ -133,15 +133,15 @@ public:
 
     static constexpr float TILT_SCALE = 6.0f;
     
-    float tsz = vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, *textureSize());
+    float tsz = vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, static_cast<float>(textureSize()));
     float tlt = textureTiltSmoother.process(vessl::math::constrain<float>(textureTilt().read<float>()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
     float tszL = textureSizeLeft.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
     float tszR = textureSizeRight.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
 
-    processorLeft->textureSize() << tszL;
-    processorRight->textureSize() << tszR;
+    processorLeft->textureSize() = tszL;
+    processorRight->textureSize() = tszR;
 
-    float bsz = vessl::easing::lerp(MIN_BLUR_SIZE, MAX_BLUR_SIZE, *blurSize());
+    float bsz = vessl::easing::lerp(MIN_BLUR_SIZE, MAX_BLUR_SIZE, static_cast<float>(blurSize()));
     float blt = blurTiltSmoother.process(vessl::math::constrain(blurTilt().read<float>()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
     // set left kernel
     {
@@ -167,12 +167,12 @@ public:
     
     GaussSampleFrame procOut = { processorLeft->process(procLeft), processorRight->process(procRight) };
     
-    float feedSame = 1.0f - *feedbackAngle.value();
-    float feedCross = *feedbackAngle.value();
+    float feedSame = 1.0f - feedbackAngle.value();
+    float feedCross(feedbackAngle.value());
     feedbackFrame.left() = procOut.left()*feedSame + procOut.right()*feedCross;
     feedbackFrame.right() = procOut.right()*feedSame + procOut.left()*feedCross;
     
-    float scale  = vessl::gain::decibelsToScale(*gain());
+    float scale  = vessl::gain::decibelsToScale(static_cast<vessl::analog_t>(gain()));
     procOut.scale(scale);
     
     return procOut;

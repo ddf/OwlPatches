@@ -173,13 +173,13 @@ public:
     float dcy = getParameterValue(IN_DECAY);
 
     // set the parameters
-    markovLeft->wordSize() << wsz;
-    markovLeft->variation() << wszv;
-    markovLeft->decay() << dcy;
+    markovLeft->wordSize() = wsz;
+    markovLeft->variation() = wszv;
+    markovLeft->decay() = dcy;
 
-    markovRight->wordSize() << wsz;
-    markovRight->variation() << wszv;
-    markovRight->decay() << dcy;
+    markovRight->wordSize() = wsz;
+    markovRight->variation() = wszv;
+    markovRight->decay() = dcy;
 
     // // copy our input into a processing array
     // for (int i = 0; i < inSize; ++i)
@@ -195,10 +195,10 @@ public:
     float wetMix = vessl::math::constrain(getParameterValue(IN_DRY_WET)*1.02f, 0.0f, 1.0f);
     float dryMix = 1.0f - wetMix;
     
-    markovLeft->process(inLeft, markovBuffer);
+    inLeft >> *markovLeft >> markovBuffer;
     inLeft.scale(dryMix).add(markovBuffer.scale(wetMix));
     
-    markovRight->process(inRight, markovBuffer);
+    inRight >> *markovRight >> markovBuffer;
     inRight.scale(dryMix).add(markovBuffer.scale(wetMix));
     
     uint32_t wordStartDelay;

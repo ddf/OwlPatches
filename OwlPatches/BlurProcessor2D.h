@@ -9,6 +9,8 @@ using vessl::parameter;
 template<TextureSizeType TextureSizeType = TextureSizeType::Integral>
 class BlurProcessor2D : vessl::unitProcessor<float>
 {
+  using size_t = vessl::size_t;
+  
   static constexpr parameter::type TEXTURE_SIZE_TYPE = TextureSizeType == TextureSizeType::Integral ? parameter::type::digital : parameter::type::analog;
   
   init<1> init = {
@@ -26,7 +28,7 @@ public:
   BlurProcessor2D(float sampleRate, BlurProcessor1D<BlurAxis::X, TextureSizeType>* blurX, BlurProcessor1D<BlurAxis::Y, TextureSizeType>* blurY, BlurKernel blurKernel)
     : unitProcessor(init, sampleRate), blurX(blurX), blurY(blurY), kernel(blurKernel)
   {
-    textureSize() << blurX->textureSize();
+    textureSize() = blurX->textureSize();
   }
 
   parameter& textureSize() { return init.params[0]; }
@@ -43,14 +45,14 @@ public:
     if (TextureSizeType == TextureSizeType::Integral)
     {
       size_t tsz = textureSize().template read<size_t>();
-      blurX->textureSize() << tsz;
-      blurY->textureSize() << tsz;
+      blurX->textureSize() = tsz;
+      blurY->textureSize() = tsz;
     }
     else
     {
-      vessl::analog_t tsz = *textureSize();
-      blurX->textureSize() << tsz;
-      blurY->textureSize() << tsz;
+      vessl::analog_t tsz = textureSize();
+      blurX->textureSize() = tsz;
+      blurY->textureSize() = tsz;
     }
     return blurY->process(blurX->process(in));
   }
@@ -60,14 +62,14 @@ public:
     if (TextureSizeType == TextureSizeType::Integral)
     {
       size_t tsz = textureSize().template read<size_t>();
-      blurX->textureSize() << tsz;
-      blurY->textureSize() << tsz;
+      blurX->textureSize() = tsz;
+      blurY->textureSize() = tsz;
     }
     else
     {
-      vessl::analog_t tsz = *textureSize();
-      blurX->textureSize() << tsz;
-      blurY->textureSize() << tsz;
+      vessl::analog_t tsz = textureSize();
+      blurX->textureSize() = tsz;
+      blurY->textureSize() = tsz;
     }
     blurX->process(input, output);
     blurY->process(output, output);

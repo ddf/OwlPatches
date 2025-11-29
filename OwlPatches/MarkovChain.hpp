@@ -1,7 +1,6 @@
 #pragma once
 
 #include "vessl/vessl.h"
-#include <cstdlib>
 #include "HashMap.h"
 
 template<typename S, typename K>

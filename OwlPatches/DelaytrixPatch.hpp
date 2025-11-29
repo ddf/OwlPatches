@@ -4,7 +4,12 @@
 #include "DelayMatrixPatch.hpp"
 #include "Noise.hpp"
 
-class DelaytrixPatch : public DelayMatrixPatch<4>
+enum : uint8_t
+{
+  DELAY_LINE_COUNT = 4
+};
+
+class DelaytrixPatch : public DelayMatrixPatch<DELAY_LINE_COUNT>
 {
   float dryWetAnim = 0;
 

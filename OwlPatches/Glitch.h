@@ -135,7 +135,7 @@ public:
     count_t size = input.getSize();
     clockable::tick(size);
 
-    float smoothFreeze = *repeats();
+    float smoothFreeze = repeats();
     for (freezeSettingsIdx = 0; freezeSettingsIdx < FREEZE_SETTINGS_COUNT - 1; freezeSettingsIdx++)
     {
       if (smoothFreeze >= FREEZE_SETTINGS[freezeSettingsIdx].paramThresh
@@ -163,16 +163,16 @@ public:
       }
     }
 
-    freezeProc.size() << newFreezeLength;
-    freezeProc.rate() << newReadSpeed;
-    freezeProc.enabled() << freeze().readBinary();
+    freezeProc.size() = newFreezeLength;
+    freezeProc.rate() = newReadSpeed;
+    freezeProc.enabled() = freeze().readBinary();
 
-    float sr = vessl::unit::getSampleRate();
-    float crushParam = *crush();
+    float sr = getSampleRate();
+    float crushParam = crush();
     float bits = crushParam > 0.001f ? (16.f - crushParam*12.0f) : 24;
     float rate = crushParam > 0.001f ? sr * 0.25f + crushParam*(100 - sr * 0.25f) : sr;
-    crushProc.depth() << bits;
-    crushProc.rate() << rate;
+    crushProc.depth() = bits;
+    crushProc.rate() = rate;
 
     auto inputReader = input.getReader();
     auto iew = inputEnvelope.getWriter();
@@ -194,7 +194,7 @@ public:
     
     crushProc.process(processBuffer, processBuffer);
 
-    float glitchParam = *glitch();
+    float glitchParam = glitch();
     glitchSettingsIdx = static_cast<int>(glitchParam * GLITCH_SETTINGS_COUNT);
     float glitchSpeed = 1.0f / glitchSize(glitchSettingsIdx);
     float glitchProb = glitchParam < 0.0001f ? 0 : 0.1f + 0.9f*glitchParam;
@@ -216,7 +216,7 @@ public:
       }
     }
 
-    float shapeParam = *shape();
+    float shapeParam = shape();
     float shapeWet = shapeParam;
     float shapeDry = 1.0f - shapeWet;
     float fSize = static_cast<float>(size);

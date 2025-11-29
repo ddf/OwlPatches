@@ -104,10 +104,10 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    glitch->repeats() << pinRepeats.getValue();
-    glitch->crush() << pinCrush.getValue();
-    glitch->glitch() << pinGlitch.getValue();
-    glitch->shape() << pinShape.getValue();
+    glitch->repeats() = pinRepeats.getValue();
+    glitch->crush() = pinCrush.getValue();
+    glitch->glitch() = pinGlitch.getValue();
+    glitch->shape() = pinShape.getValue();
 
     dcFilter->process(audio, audio);
 
@@ -139,11 +139,11 @@ public:
     {
       if (value == ON)
       {
-        glitch->freeze() << true;
+        glitch->freeze() = true;
       }
       else
       {
-        glitch->freeze() << false;
+        glitch->freeze() = false;
       }
     }
 

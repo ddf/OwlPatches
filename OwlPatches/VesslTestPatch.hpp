@@ -48,7 +48,7 @@ public:
       registerParameter(static_cast<PatchParameterId>(pid++), param.getName());
     }
 
-    ramp.duration() << 0.1;
+    ramp.duration() = 0.1f;
     ramp.trigger();
   }
 
@@ -63,8 +63,8 @@ public:
     Array audioLeft(audio.getSamples(LEFT_CHANNEL), bufferSize);
     Array audioRight(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
-    ramp.duration() << getParameterValue(PARAMETER_A);
-    osc.fHz() << 60 + getParameterValue(PARAMETER_B)*4000;
+    ramp.duration() = getParameterValue(PARAMETER_A);
+    osc.fHz() = 60 + getParameterValue(PARAMETER_B)*4000;
     
     delayTime = getParameterValue(PARAMETER_A)*2.0f;
     // need to use StiffFloat or some other way of snapping size when using duration::mode::fade
@@ -73,14 +73,14 @@ public:
 
     //delay.time() << vessl::duration::fromSeconds(getParameterValue(PARAMETER_A)*2.0f, getSampleRate());
     // note: HAS to be analog_t, otherwise the set by pointer conversion won't work.
-    delay.time() << static_cast<vessl::analog_t>(getParameterValue(PARAMETER_E)*getSampleRate());
-    delay.feedback() << getParameterValue(PARAMETER_F);
-    delay.freezePosition() << freezeDelay.getValue();
-    delay.freezeSize() << freezeSize.getValue();
+    delay.time() = getParameterValue(PARAMETER_E)*getSampleRate();
+    delay.feedback() = getParameterValue(PARAMETER_F);
+    delay.freezePosition() = freezeDelay.getValue();
+    delay.freezeSize() = freezeSize.getValue();
     
-    freeze.position() << freezeDelay.getValue();
-    freeze.size() << freezeSize.getValue();
-    freeze.rate() << -1.0f + 2.0f * getParameterValue(PARAMETER_D);
+    freeze.position() = freezeDelay.getValue();
+    freeze.size() = freezeSize.getValue();
+    freeze.rate() = -1.0f + 2.0f * getParameterValue(PARAMETER_D);
     
     uint16_t eorState = OFF;
     uint16_t eorIndex = 0;
@@ -91,10 +91,10 @@ public:
     {
       float pm = pmIn.read();
       float fm = fmIn.read();
-      osc.pm() << pm;
-      osc.fmExp() << fm;
+      osc.pm() = pm;
+      osc.fmExp() = fm;
       
-      out << osc * ramp;
+      out << osc.generate() * ramp.generate();
       
       if (eorState == OFF)
       {
@@ -125,9 +125,9 @@ public:
 
     if (bid == BUTTON_2 && value == ON)
     {
-      vessl::binary_t freezeState = !freeze.enabled().readBinary(); 
-      freeze.enabled() << freezeState;
-      delay.freezeEnabled() << freezeState;
+      vessl::binary_t freezeState = !freeze.enabled(); 
+      freeze.enabled() = freezeState;
+      delay.freezeEnabled() = freezeState;
     }
   }
   

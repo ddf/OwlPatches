@@ -18,14 +18,12 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    slew.rise() << getParameterValue(PARAMETER_A)*10;
-    slew.fall() << getParameterValue(PARAMETER_B)*10;
+    slew.rise() = getParameterValue(PARAMETER_A)*10;
+    slew.fall() = getParameterValue(PARAMETER_B)*10;
 
     vessl::array<float> in(audio.getSamples(LEFT_CHANNEL), audio.getSize());
     vessl::array<float> out(audio.getSamples(LEFT_CHANNEL), audio.getSize());
-    in.scale(-1);
-    slew.process(in, out);
-    out.scale(-1);
+    (in.scale(-1.f) >> slew >> out).scale(-1.f);
 
     setButton(BUTTON_1, slew.rising().read<uint16_t>());
     setButton(BUTTON_2, slew.falling().read<uint16_t>());

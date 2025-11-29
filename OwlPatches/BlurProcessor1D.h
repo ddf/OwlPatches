@@ -25,6 +25,7 @@ using vessl::parameter;
 template<BlurAxis Axis, TextureSizeType TextureSizeType = TextureSizeType::Integral>
 class BlurProcessor1D : public vessl::unitProcessor<float>
 {
+  using size_t = vessl::size_t;
   using TextureType = CircularTexture<float>;
   static constexpr parameter::type TEXTURE_SIZE_TYPE = TextureSizeType == TextureSizeType::Integral ? parameter::type::digital : parameter::type::analog;
   
@@ -40,9 +41,9 @@ class BlurProcessor1D : public vessl::unitProcessor<float>
 
 public:
   BlurProcessor1D() : unitProcessor(init), kernel() {}
-  BlurProcessor1D(float sampleRate, float* textureData, size_t textureSizeX, size_t textureSizeY, BlurKernel kernel)
+  BlurProcessor1D(float sampleRate, float* textureData, size_t textureSizeX, size_t textureSizeY, const BlurKernel& kernel)
     : unitProcessor(init, sampleRate), texture(textureData, textureSizeX * textureSizeY, textureSizeX, textureSizeY)
-    , kernel(kernel) { textureSize() << textureSizeX; }
+    , kernel(kernel) { textureSize() = textureSizeX; }
 
   parameter& textureSize() { return init.params[0]; }
   
@@ -109,7 +110,7 @@ private:
   {
     float v = 0;
     float c = kernel.getBlurSize() * 0.5f;
-    float texSize = *textureSize();
+    float texSize = textureSize();
     if (Axis == BlurAxis::X)
     {
       for (const BlurKernelSample& samp : kernel)

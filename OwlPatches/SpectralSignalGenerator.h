@@ -1,12 +1,13 @@
+#pragma once 
+
 #include "SignalGenerator.h"
 #include "Window.h"
 #include "SimpleArray.h"
 #include "FloatArray.h"
 #include "ComplexFloatArray.h"
 #include "ExponentialDecayEnvelope.h"
-#include "Interpolator.h"
-#include "Easing.h"
 #include "EqualLoudnessCurves.h"
+#include "vessl/vessl.h"
 
 #include "FastFourierTransform.h"
 typedef FastFourierTransform FFT;
@@ -136,7 +137,7 @@ public:
     {
       float blockRate = sampleRate / overlapSize;
       float lengthInBlocks = decaySeconds * blockRate;
-      decayDec = 1.0 + logf(0.0001f) / (lengthInBlocks + 20);
+      decayDec = 1.0 + vessl::math::log(0.0001f) / (lengthInBlocks + 20);
     }
   }
 

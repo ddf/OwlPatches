@@ -36,17 +36,17 @@ DESCRIPTION:
     blend, time, and tone.
 */
 
+#pragma once
+
 #define USE_MIDI_CALLBACK
 
 #include "Patch.h"
 #include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
-#include "BitCrusher.hpp"
 #include "Diffuser.h"
 #include "Reverb.h"
 #include "Frequency.h"
 #include "Interpolator.h"
-#include "Easing.h"
 #include "SmoothValue.h"
 #include "vessl/vessl.h"
 
@@ -77,21 +77,21 @@ class SpectralHarpPatch : public PatchClass
   using BitCrush = vessl::bitcrush<float, 24>;
 
 protected:
-  const SpectralHarpParameterIds params;
+  SpectralHarpParameterIds params;
 
-  const float spreadMax = 1.0f;
-  const float decayMin;
-  const float decayMax;
-  const float decayDefault = 0.5f;
-  const int   densityMin = 6;
-  const int   densityMax = 129;
-  const float octavesMin = 2;
-  const float octavesMax = 8;
-  const int   fundamentalNoteMin = 36;
-  const int   fundaMentalNoteMax = 128 - octavesMin * 12;
-  const float bandMin = Frequency::ofMidiNote(fundamentalNoteMin).asHz();
-  const float bandMax = Frequency::ofMidiNote(128).asHz();
-  const float crushRateMin = 1000.0f;
+  float spreadMax = 1.0f;
+  float decayMin;
+  float decayMax;
+  float decayDefault = 0.5f;
+  int   densityMin = 6;
+  int   densityMax = 129;
+  float octavesMin = 2;
+  float octavesMax = 8;
+  int   fundamentalNoteMin = 36;
+  int   fundaMentalNoteMax = 128 - octavesMin * 12;
+  float bandMin = Frequency::ofMidiNote(fundamentalNoteMin).asHz();
+  float bandMax = Frequency::ofMidiNote(128).asHz();
+  float crushRateMin = 1000.0f;
 
   SpectralGen* spectralGen;
   Diffuser* diffuser;
@@ -127,9 +127,9 @@ public:
   using PatchClass::getSampleRate;
   using PatchClass::isButtonPressed;
 
-  SpectralHarpPatch(SpectralHarpParameterIds paramIds) : PatchClass()
-    , params(paramIds), bitCrusher(getSampleRate(), getSampleRate()), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
-    , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
+  SpectralHarpPatch(const SpectralHarpParameterIds& paramIds) : PatchClass()
+    , params(paramIds), decayMin(static_cast<float>(spectrumSize)*0.5f / getSampleRate()), decayMax(10.0f), bitCrusher(getSampleRate(), getSampleRate()), pluckAtSample(-1), gateOnAtSample(-1)
+    , gateOffAtSample(-1), gateState(false)
     , bandFirst(1.f), bandLast(1.f)
   {
     spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
@@ -254,7 +254,7 @@ public:
     spectralGen->setDecay(decay);
     spectralGen->setBrightness(brightness);
     spectralGen->setVolume(volume);
-    bitCrusher.rate() << crush.getValue();
+    bitCrusher.rate() = crush.getValue();
 
     float strumX = 0;
     float strumY = 0;
@@ -271,8 +271,15 @@ public:
 
     for (int i = 0; i < blockSize; ++i)
     {
-      if (i == gateOnAtSample) gateState = true;
-      if (i == gateOffAtSample) gateState = false;
+      if (i == gateOnAtSample)
+      {
+        gateState = true;
+      }
+      
+      if (i == gateOffAtSample)
+      {
+        gateState = false;
+      }
 
       if (gateState)
       {
@@ -331,14 +338,14 @@ protected:
   // get the current string count based on the density setting
   int getStringCount()
   {
-    return (int)(bandDensity+0.5f);
+    return static_cast<int>(bandDensity + 0.5f);
   }
 
   float frequencyOfString(int stringNum)
   {
     using namespace vessl::easing;
     
-    const float t = (float)stringNum / getStringCount();
+    const float t = static_cast<float>(stringNum) / getStringCount();
     // convert first and last bands to midi notes and then do a linear interp, converting back to Hz at the end.
     Frequency lowFreq = Frequency::ofHertz(bandFirst);
     Frequency hiFreq = Frequency::ofHertz(bandLast);
@@ -347,7 +354,7 @@ protected:
     const float logFreq = Frequency::ofMidiNote(midiNote).asHz();
     // we lerp from logFreq up to linFreq because log spacing clusters frequencies
     // towards the bottom of the range, which means that when holding down the mouse on a string
-    // and lowering this param, you'll hear the pitch drop, which makes more sense than vice-versa.
+    // and lowering this param, you'll hear the pitch drop, which makes more sense than vice versa.
     return lerp(logFreq, linFreq, linLogLerp);
   }
 
@@ -355,7 +362,7 @@ private:
   void pluck(SpectralGen* spectrum, float location, float amp)
   {
     const int   numBands = getStringCount();
-    const int   band = roundf(Interpolator::linear(0, numBands, location));
+    const int   band = vessl::math::round(Interpolator::linear(0, numBands, location));
     const float freq = frequencyOfString(band);
     spectrum->pluck(freq, amp);
   }

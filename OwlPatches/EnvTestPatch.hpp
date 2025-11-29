@@ -18,8 +18,8 @@ public:
   , asr(0.1f, 0.1f, getSampleRate())
   , adsr(0.1f, 0.1f, 0.5f, 1.0f, getSampleRate())
   {
-    envStage.target() << 1.0f;
-    envStage.duration() << 4.0f;
+    envStage.target() = 1.0f;
+    envStage.duration() = 4.0f;
     envStage.setSampleRate(getSampleRate());
     
     registerParameter(PARAMETER_A, "att dur");
@@ -47,14 +47,14 @@ public:
   
   void processAudio(AudioBuffer& audio) override
   {
-    ad.attack().duration() << getParameterValue(PARAMETER_A)*4;
-    ad.decay().duration() << getParameterValue(PARAMETER_B)*4;
+    ad.attack().duration() = getParameterValue(PARAMETER_A)*4;
+    ad.decay().duration() = getParameterValue(PARAMETER_B)*4;
 
-    asr.attack().duration() << *ad.attack().duration();
-    asr.release().duration() << *ad.decay().duration();
+    asr.attack().duration() = ad.attack().duration();
+    asr.release().duration() = ad.decay().duration();
 
-    adsr.attack().duration() << *ad.attack().duration();
-    adsr.decay().duration() << *ad.decay().duration();
+    adsr.attack().duration() = ad.attack().duration();
+    adsr.decay().duration() = ad.decay().duration();
 
     float sustain = getParameterValue(PARAMETER_C); 
     asr.gate(sustain);

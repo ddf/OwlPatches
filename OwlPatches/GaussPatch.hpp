@@ -29,20 +29,20 @@ public:
   
   void processAudio(AudioBuffer& audio) override
   {
-    gauss.textureSize() << getParameterValue(InputParameterId::A);
-    gauss.textureTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::E));
+    gauss.textureSize() = getParameterValue(InputParameterId::A);
+    gauss.textureTilt() = vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::E));
 
-    gauss.blurSize() << getParameterValue(InputParameterId::B);
-    gauss.blurTilt() << vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::F));
+    gauss.blurSize() = getParameterValue(InputParameterId::B);
+    gauss.blurTilt() = vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::F));
     
-    gauss.feedback() << getParameterValue(InputParameterId::C);
-    gauss.crossFeedback() << getParameterValue(InputParameterId::D);
+    gauss.feedback() = getParameterValue(InputParameterId::C);
+    gauss.crossFeedback() = getParameterValue(InputParameterId::D);
     
-    gauss.gain() << getParameterValue(InputParameterId::G)*12.0f;
+    gauss.gain() = getParameterValue(InputParameterId::G)*12.0f;
 
     AudioBufferReader<2> input(audio);
     AudioBufferWriter<2> output(audio);
-    gauss.process(input, output);
+    input >> gauss >> output;
   }
 
 #ifdef DEBUG
@@ -75,8 +75,8 @@ public:
         (gauss.getTextureSizeRight() - Gauss::MIN_TEXTURE_SIZE) / (Gauss::MAX_TEXTURE_SIZE - Gauss::MIN_TEXTURE_SIZE))
         );
     int feedWidth = 6;
-    float feedbackMagnitude = *gauss.feedback();
-    float feedbackAngle = *gauss.crossFeedback();
+    float feedbackMagnitude(gauss.feedback());
+    float feedbackAngle(gauss.crossFeedback());
     float feedCross = feedbackAngle * feedbackMagnitude;
 
     //screen.setCursor(cxL - 8, cy); screen.print(txLeft); screen.setCursor(cxL - 16, cy+8); screen.print(gauss.getBlurSizeLeft()*100);
