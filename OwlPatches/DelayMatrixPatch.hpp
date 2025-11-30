@@ -40,7 +40,8 @@ inline char * stpcpy(char *s1, const char *s2) { return strcat(s1, s2); }  // NO
 
 using Smoother = vessl::smoother<float>;
 using Limiter = vessl::limiter<float>;
-using Filter = vessl::filter<float, vessl::filtering::biquad<1>::lowPass>;
+using DcBlockFilter = vessl::filter<float, vessl::filtering::dcblock>;
+using LowPassFilter = vessl::filter<float, vessl::filtering::biquad<1>::lowPass>;
 using GateOscil = vessl::oscil<vessl::waves::clock<>>;
 using SineOscil = vessl::oscil<vessl::waves::sine<>>;
 using RandomGenerator = vessl::noiseGenerator<float, vessl::noise::white>;
@@ -181,8 +182,8 @@ protected:
   Smoother feedback;
   Smoother dryWet;
 
-  // @todo replace with vessl filter?
-  StereoDcBlockingFilter* inputFilter;
+  DcBlockFilter inputFilterLeft;
+  DcBlockFilter inputFilterRight;
   
   SineOscil       lfo;
   RandomGenerator rnd;
@@ -194,7 +195,7 @@ protected:
   DelayLineData delayData[DELAY_LINE_COUNT];
 
 public:
-  DelayMatrixPatch() : clockable(getSampleRate(), 1, MAX_TIME_SECONDS * getSampleRate() * CLOCK_MULT[CLOCK_MULT_COUNT - 1]) 
+  DelayMatrixPatch() : clockable(getSampleRate(), 1, MAX_TIME_SECONDS * getSampleRate() * CLOCK_MULT[CLOCK_MULT_COUNT - 1])
     , patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
     , clockMultIndex((CLOCK_MULT_COUNT - 1) / 2)
     , spreadDivMultIndex((SPREAD_DIVMULT_COUNT - 1) / 2)
@@ -203,6 +204,8 @@ public:
     , freezeState(FreezeOff)
     , timeRaw(MIN_TIME_SECONDS * getSampleRate())
     , time(0.9f, timeRaw)
+    , inputFilterLeft(getSampleRate())
+    , inputFilterRight(getSampleRate())
     , lfo(getBlockRate(), 1.0f)
     , rnd(getBlockRate())
   {
@@ -269,12 +272,7 @@ public:
       }
     }
 
-    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
-    {
-      delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate());
-    }
-
-    inputFilter = StereoDcBlockingFilter::create();
+    for (int i = 0; i < DELAY_LINE_COUNT; ++i) { delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate()); }
   }
 
   ~DelayMatrixPatch() override  // NOLINT(portability-template-virtual-member-function)
@@ -289,8 +287,6 @@ public:
     }
     
     AudioBuffer::destroy(scratch);
-
-    StereoDcBlockingFilter::destroy(inputFilter);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override  // NOLINT(portability-template-virtual-member-function)
@@ -459,16 +455,19 @@ public:
         data.feedback[f] << feedback.value() * (getParameterValue(params.feedback[f])*2.0f - 0.99f);
       }
     }
-
-    inputFilter->process(audio, audio);
+    
+    vessl::array<float> audioLeft(audio.getSamples(LEFT_CHANNEL), audio.getSize());
+    vessl::array<float> audioRight(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
+    
+    audioLeft >> inputFilterLeft >> audioLeft;
+    audioRight >> inputFilterRight >> audioRight;
 
 #ifdef PROFILE
     const float inputStart = getElapsedBlockTime();
 #endif
     if (freezeState != FreezeOn)
     {
-      vessl::array<float> audioLeft(audio.getSamples(LEFT_CHANNEL), audio.getSize());
-      vessl::array<float> audioRight(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
+
 
       // setup delay inputs with last blocks results
       float skewValue(skew.value());
