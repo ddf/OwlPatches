@@ -105,12 +105,18 @@ protected:
     // @todo replace with vessl arrays
     AudioBuffer* sigIn;
     AudioBuffer* sigOut;
-    // @todo replace with vessl filter
-    StereoDcBlockingFilter* dcBlock;
+    DcBlockFilter dcBlockLeft;
+    DcBlockFilter dcBlockRight;
     // @todo replace with vessl filter
     StereoBiquadFilter* filter;
     GateOscil gate;
     Smoother feedback[DELAY_LINE_COUNT];
+    
+    DelayLineData() 
+    : skew(0), delayLength(0), gateResetCounter(0), timeUpdateInterval(0), timeUpdateCount(0)
+    , sigIn(nullptr), sigOut(nullptr)
+    , dcBlockLeft(1), dcBlockRight(1)
+    , filter(nullptr) {}
   };
 
   enum TapDelayLength : uint16_t  // NOLINT(performance-enum-size)
@@ -234,7 +240,8 @@ public:
       data.timeUpdateCount = 9999;
       // calculate the longest this particular delay will ever need to get
       data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD * i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
-      data.dcBlock = StereoDcBlockingFilter::create();
+      data.dcBlockLeft.setSampleRate(getSampleRate());
+      data.dcBlockRight.setSampleRate(getSampleRate());
       data.filter = StereoBiquadFilter::create(getSampleRate());
       data.gate.setSampleRate(getSampleRate());
       data.gate.waveform.pulseWidth = 0.1f;
@@ -282,7 +289,6 @@ public:
       DelayLine::destroy(delays[i]);
       AudioBuffer::destroy(delayData[i].sigIn);
       AudioBuffer::destroy(delayData[i].sigOut);
-      StereoDcBlockingFilter::destroy(delayData[i].dcBlock);
       StereoBiquadFilter::destroy(delayData[i].filter);
     }
     
@@ -476,7 +482,6 @@ public:
       {
         DelayLineData& data = delayData[i];
         AudioBuffer& input = *data.sigIn;
-        StereoDcBlockingFilter& filter = *data.dcBlock;
 
         int inSize = input.getSize();
         vessl::array<float> inLeft(input.getSamples(LEFT_CHANNEL), inSize);
@@ -510,11 +515,8 @@ public:
         }
 
         // remove dc offset
-        filter.process(input, input);
-
-        // limit the feedback signal
-        inLeft >> data.limitLeft >> inLeft;
-        inRight >> data.limitRight >> inRight;
+        inLeft >> data.dcBlockLeft >> data.limitLeft >> inLeft;
+        inRight >> data.dcBlockRight >> data.limitRight >> inRight;
 
         if (freezeState == FreezeEnter)
         {
