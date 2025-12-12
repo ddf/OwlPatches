@@ -6,7 +6,7 @@
 
 using namespace vessl::filtering;
 using DcBlock = vessl::filter<float, dcblock>;
-using Filter = vessl::filter<float, biquad<4>::lowPass>;
+using Filter = vessl::filter<float, biquad<2>::lowPass>;
 
 class VesslFilterTestPatch : public MonochromeScreenPatch
 {
@@ -17,9 +17,11 @@ class VesslFilterTestPatch : public MonochromeScreenPatch
 public:
   VesslFilterTestPatch() : dcBlock(getSampleRate()), filter(getSampleRate(), 120, q::butterworth<float>())
   {
-    registerParameter(PARAMETER_A, "Fc");
-    registerParameter(PARAMETER_B, "Q");
-    registerParameter(PARAMETER_C, "Gain");
+    int pid = PARAMETER_A;
+    for (auto& param : filter.getDescription())
+    {
+      registerParameter(static_cast<PatchParameterId>(pid++), param.name);
+    }
   }
 
   void processAudio(AudioBuffer& audio) override

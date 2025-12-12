@@ -10,28 +10,40 @@ template<TextureSizeType TextureSizeType = TextureSizeType::Integral>
 class BlurProcessor2D : vessl::unitProcessor<float>
 {
   using size_t = vessl::size_t;
+  using pdl = parameter::desclist<1>;
   
-  static constexpr parameter::type TEXTURE_SIZE_TYPE = TextureSizeType == TextureSizeType::Integral ? parameter::type::digital : parameter::type::analog;
-  
-  init<1> init = {
-    "Blur Processor 2D",
-    {
-      parameter("Texture Size", TEXTURE_SIZE_TYPE)
-    }
+  struct P : vessl::parameterList<pdl::size>
+  {
+    vessl::analog_p textureSize;
+    
+    parameter::reflist<1> operator*() const override { return { textureSize }; }
   };
-
+  
+  P params;
   BlurProcessor1D<BlurAxis::X, TextureSizeType>* blurX;
   BlurProcessor1D<BlurAxis::Y, TextureSizeType>* blurY;
   BlurKernel kernel;
 
 public:
   BlurProcessor2D(float sampleRate, BlurProcessor1D<BlurAxis::X, TextureSizeType>* blurX, BlurProcessor1D<BlurAxis::Y, TextureSizeType>* blurY, BlurKernel blurKernel)
-    : unitProcessor(init, sampleRate), blurX(blurX), blurY(blurY), kernel(blurKernel)
+    : unitProcessor(sampleRate), blurX(blurX), blurY(blurY), kernel(std::move(blurKernel))
   {
-    textureSize() = blurX->textureSize();
+    params.textureSize.value = blurX->textureSize().readAnalog();
   }
 
-  parameter& textureSize() { return init.params[0]; }
+  unit::description getDescription() const override
+  {
+    static constexpr pdl p = {
+      {
+        { "Texture Size", 't', parameter::valuetype::analog }
+      }
+    };
+    return { "blur processor 2d", p.descs, pdl::size };
+  }
+  
+  const vessl::list<parameter>& getParameters() const override { return params; }
+
+  parameter& textureSize() { return params.textureSize; }
 
   void setGauss(float size, float standardDeviation, float brightness = 1.0f)
   {
@@ -44,30 +56,30 @@ public:
   {
     if (TextureSizeType == TextureSizeType::Integral)
     {
-      size_t tsz = textureSize().template read<size_t>();
+      size_t tsz = static_cast<size_t>(params.textureSize.value);
       blurX->textureSize() = tsz;
       blurY->textureSize() = tsz;
     }
     else
     {
-      vessl::analog_t tsz = textureSize();
+      vessl::analog_t tsz = params.textureSize.value;
       blurX->textureSize() = tsz;
       blurY->textureSize() = tsz;
     }
     return blurY->process(blurX->process(in));
   }
 
-  void process(array<float> input, array<float> output) override
+  void process(vessl::array<float> input, vessl::array<float> output) override
   {
     if (TextureSizeType == TextureSizeType::Integral)
     {
-      size_t tsz = textureSize().template read<size_t>();
+      size_t tsz = static_cast<size_t>(params.textureSize.value);
       blurX->textureSize() = tsz;
       blurY->textureSize() = tsz;
     }
     else
     {
-      vessl::analog_t tsz = textureSize();
+      vessl::analog_t tsz = params.textureSize.value;
       blurX->textureSize() = tsz;
       blurY->textureSize() = tsz;
     }

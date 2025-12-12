@@ -15,17 +15,22 @@ public:
   typedef MarkovChain<T, uint32_t, H> Chain;
 
 private:
-  unit::init<0> init = {
-    "markov",
-    {}
-  };
   Chain markovChain;
+  
+  struct P : vessl::parameterList<0>
+  {
+    vessl::parameter::reflist<0> operator*() const override { return {}; }
+  };
+  
+  P params;
 
 public:
-  explicit MarkovGenerator(float sampleRate, size_t memorySize) : unitGenerator<T>(init, sampleRate), markovChain(memorySize) {}
+  explicit MarkovGenerator(float sampleRate, vessl::size_t memorySize) : unitGenerator<T>(sampleRate), markovChain(memorySize) {}
   
   Chain& chain() { return markovChain; }
   const Chain& chain() const { return markovChain;}
   void learn(const T& value) { markovChain.learn(value); }
   T generate() override { return markovChain.generate(); }
+  
+  const vessl::list<vessl::parameter>& getParameters() const override { return params; }
 };

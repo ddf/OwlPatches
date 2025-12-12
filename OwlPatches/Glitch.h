@@ -61,17 +61,40 @@ using Array = vessl::array<float>;
 template<uint32_t FREEZE_BUFFER_SIZE>
 class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::clockable
 {
-  vessl::unit::init<5> init = { 
-    "glitch",
+public:
+  using pdl = parameter::desclist<5>;
+  unit::description getDescription() const override
+  {
+    static constexpr pdl p = { 
+      {
+        {"repeats", 'r', parameter::valuetype::analog },
+        {"crush", 'c', parameter::valuetype::analog },
+        { "glitch", 'g', parameter::valuetype::analog },
+        { "shape", 's', parameter::valuetype::analog },
+        { "freeze", 'f', parameter::valuetype::binary },
+      }
+    };
+    return { "glitch", p.descs, pdl::size };
+  }
+  
+  const vessl::list<parameter>& getParameters() const override { return params; }
+ 
+private:
+  struct P : vessl::parameterList<pdl::size>
+  {
+    vessl::analog_p repeats;
+    vessl::analog_p crush;
+    vessl::analog_p glitch;
+    vessl::analog_p shape;
+    vessl::binary_p freeze;
+    
+    parameter::reflist<5> operator*() const override
     {
-      parameter("repeats", parameter::type::analog),
-      parameter("crush", parameter::type::analog),
-      parameter("glitch", parameter::type::analog),
-      parameter("shape", parameter::type::analog),
-      parameter("freeze", parameter::type::binary)
+      return { repeats, crush, glitch, shape, freeze };
     }
   };
   
+  P params;
   BufferType freezeBuffer;
   Freeze freezeProc;
   
@@ -95,7 +118,7 @@ class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::cloc
   bool glitchEnabled;
   
 public:
-  Glitch(float sampleRate, int blockSize) : vessl::unitProcessor<GlitchSampleType>(init, sampleRate)
+  Glitch(float sampleRate, int blockSize) : vessl::unitProcessor<GlitchSampleType>(sampleRate)
   , clockable(sampleRate, blockSize, FREEZE_BUFFER_SIZE)
   , freezeBuffer(new GlitchSampleType[FREEZE_BUFFER_SIZE], FREEZE_BUFFER_SIZE)
   , freezeProc(freezeBuffer, sampleRate)
@@ -121,16 +144,16 @@ public:
 
   using clockable::clock;
 
-  parameter& repeats() { return init.params[0]; }
-  parameter& crush() { return init.params[1]; }
-  parameter& glitch() { return init.params[2]; }
-  parameter& shape() { return init.params[3]; }
-  parameter& freeze() { return init.params[4]; }
+  parameter& repeats() { return params.repeats;  }
+  parameter& crush() { return params.crush; }
+  parameter& glitch() { return params.glitch; }
+  parameter& shape() { return params.shape; }
+  parameter& freeze() { return params.freeze; }
   float freezePhase() const { return freezeProc.phase(); }
   float envelope() const { return inputEnvelope[0]; }
   float rand() const { return glitchRand; }
 
-  void process(array<GlitchSampleType> input, array<GlitchSampleType> output) override
+  void process(vessl::array<GlitchSampleType> input, vessl::array<GlitchSampleType> output) override
   {
     count_t size = input.getSize();
     clockable::tick(size);
@@ -304,13 +327,13 @@ private:
     return static_cast<float>(glitched) / 24;
   }
   
-  static GlitchSampleType interpolatedReadAt(array<GlitchSampleType> buffer, float index)
+  static GlitchSampleType interpolatedReadAt(vessl::array<GlitchSampleType> buffer, float index)
   {
     // index can be negative, we ensure it is positive.
     index += static_cast<float>(buffer.getSize());
     count_t idx = static_cast<count_t>(index);
-    GlitchSampleType low = buffer[idx%buffer.getSize()];
-    GlitchSampleType high = buffer[(idx + 1)%buffer.getSize()];
+    const GlitchSampleType& low = buffer[idx%buffer.getSize()];
+    const GlitchSampleType& high = buffer[(idx + 1)%buffer.getSize()];
     float frac = index - static_cast<float>(idx);
     return low + frac * (high - low);
   }

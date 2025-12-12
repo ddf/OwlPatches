@@ -7,8 +7,7 @@
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
 using Sine = vessl::waves::sine<>;
-using Wavetable = vessl::wavetable<float, 1024>;
-using Oscil = vessl::oscil<Wavetable>;
+using Oscil = vessl::oscil<vessl::wavetable<float, 1024>>;
 using Ramp = vessl::ramp<float>;
 using Delay = DelayWithFreeze<float>;
 using Array = vessl::array<float>;
@@ -22,6 +21,7 @@ class VesslTestPatch final : public MonochromeScreenPatch
   Oscil osc;
   VoltsPerOctave voct;
   Ramp ramp;
+  vessl::ad<float> ad;
 
   FloatArray delayBuffer;
   Delay delay;
@@ -33,19 +33,21 @@ class VesslTestPatch final : public MonochromeScreenPatch
   StiffFloat freezeSize;
   
 public:
-  VesslTestPatch() : osc(getSampleRate(), 440, Sine()), voct(true), ramp(getSampleRate(), 0, 1, 0)
+  VesslTestPatch() : osc(getSampleRate(), 440, Sine()), voct(true)
+  , ramp(getSampleRate(), 0, 1, 0)
+  , ad(0.01f, 1, getSampleRate())
   , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
   , delay(Array(delayBuffer.getData(), delayBuffer.getSize()), getSampleRate(), 0.2f)
   , freezeBuffer(delayBuffer.getData(), delayBuffer.getSize()), freeze(freezeBuffer, getSampleRate())
-  , freezeDelay(getBlockSize()*4), freezeSize(getBlockSize()*4)
+  , freezeDelay(static_cast<float>(getBlockSize())*4), freezeSize(static_cast<float>(getBlockSize())*4)
   {
-    registerParameter(PARAMETER_A, ramp.duration().getName());
+    registerParameter(PARAMETER_A, "duration");
     setParameterValue(PARAMETER_A, 0.1f);
 
     int pid = PARAMETER_B;
-    for (auto& param : osc)
+    for (auto& param : osc.getDescription())
     {
-      registerParameter(static_cast<PatchParameterId>(pid++), param.getName());
+      registerParameter(static_cast<PatchParameterId>(pid++), param.name);
     }
 
     ramp.duration() = 0.1f;
@@ -63,7 +65,7 @@ public:
     Array audioLeft(audio.getSamples(LEFT_CHANNEL), bufferSize);
     Array audioRight(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
-    ramp.duration() = getParameterValue(PARAMETER_A);
+    ad.decay().duration() = ramp.duration() = getParameterValue(PARAMETER_A);
     osc.fHz() = 60 + getParameterValue(PARAMETER_B)*4000;
     
     delayTime = getParameterValue(PARAMETER_A)*2.0f;
@@ -94,7 +96,7 @@ public:
       osc.pm() = pm;
       osc.fmExp() = fm;
       
-      out << osc.generate() * ramp.generate();
+      out << osc.generate() * ad.generate(); // ramp.generate();
       
       if (eorState == OFF)
       {
@@ -120,6 +122,7 @@ public:
   {
     if (bid == BUTTON_1 && value == ON)
     {
+      ad.trigger();
       ramp.trigger();
     }
 

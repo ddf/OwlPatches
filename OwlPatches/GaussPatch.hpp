@@ -6,6 +6,7 @@
 #include "Gauss.h"
 #include "Noise.hpp"
 
+// @todo feedback needs tuning. gets squealy too quickly, crossfeed seems to have no effect?
 class GaussPatch : public MonochromeScreenPatch
 {
   Gauss gauss;
@@ -14,14 +15,14 @@ public:
   GaussPatch() : gauss(getSampleRate(), getBlockSize())
   {
     // registered first so they are the default CV IN assignments on Genius
-    registerParameter(InputParameterId::E, gauss.textureTilt().getName());
-    registerParameter(InputParameterId::F, gauss.blurTilt().getName());
-    registerParameter(InputParameterId::G, gauss.gain().getName());
+    registerParameter(InputParameterId::E, "Tex Tilt");
+    registerParameter(InputParameterId::F, "Blur Tilt");
+    registerParameter(InputParameterId::G, "Gain");
     
-    registerParameter(InputParameterId::A, gauss.textureSize().getName());
-    registerParameter(InputParameterId::B, gauss.blurSize().getName());
-    registerParameter(InputParameterId::C, gauss.feedback().getName());
-    registerParameter(InputParameterId::D, gauss.crossFeedback().getName());
+    registerParameter(InputParameterId::A, "Tex Size");
+    registerParameter(InputParameterId::B, "Blur Size");
+    registerParameter(InputParameterId::C, "Fdbk");
+    registerParameter(InputParameterId::D, "Xfdbk");
 
     setParameterValue(InputParameterId::E, 0.5f);
     setParameterValue(InputParameterId::F, 0.5f);

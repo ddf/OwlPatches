@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ratio>
+
 #include "vessl/vessl.h"
 #include "MarkovGenerator.h"
 
@@ -21,19 +23,43 @@ class Markov final : public unitProcessor<T>, public clockable
   static constexpr float  ATTACK_SECONDS    = 0.005f;
   static constexpr float  MIN_DECAY_SECONDS = 0.010f;
   
-  unit::init<7> init = {
-    "markov",
+public:
+  using pdl = parameter::desclist<7>;
+  unit::description getDescription() const override
+  {
+    static constexpr pdl p = {
+      {
+        { "listen", 'l', parameter::valuetype::binary },
+        { "word size", 'w', parameter::valuetype::analog },
+        { "variation", 'v', parameter::valuetype::analog },
+        { "decay", 'd', parameter::valuetype::analog },
+        { "progress", 'p', parameter::valuetype::analog },
+        { "envelope", 'e', parameter::valuetype::analog },
+        { "word started", 's', parameter::valuetype::binary },
+      }
+    };
+    return { "Markov", p.descs, pdl::size }; 
+  }
+  
+  const vessl::list<parameter>& getParameters() const override { return params; }
+  
+  struct P : vessl::parameterList<pdl::size>
+  {
+    vessl::binary_p listen;
+    vessl::analog_p wordSize;
+    vessl::analog_p variation;
+    vessl::analog_p decay;
+    vessl::analog_p progress;
+    vessl::analog_p envelope;
+    vessl::binary_p wordStarted;
+    
+    parameter::reflist<7> operator*() const override
     {
-      parameter("listen", parameter::type::binary),
-      parameter("word size", parameter::type::analog),
-      parameter("variation", parameter::type::analog),
-      parameter("decay", parameter::type::analog),
-      parameter("progress", parameter::type::analog),
-      parameter("envelope", parameter::type::analog),
-      parameter("word started", parameter::type::binary),
+      return { listen, wordSize, variation, decay, progress, envelope, wordStarted };
     }
   };
-
+  
+  P params;
   Slew listenEnvelope;
   Smoother decaySmoother;
   Asr expoGenerateEnvelope;
@@ -51,12 +77,8 @@ class Markov final : public unitProcessor<T>, public clockable
   int minWordGateLength;
   int minWordSizeSamples;
   
-  parameter& progressOut() { return init.params[4]; }
-  parameter& envelopeOut() { return init.params[5]; }
-  parameter& wordStartedOut() { return init.params[6]; }
-  
 public:
-  Markov(float sampleRate, size_t bufferSize) : unitProcessor<T>(init, sampleRate)
+  Markov(float sampleRate, size_t bufferSize) : unitProcessor<T>(sampleRate)
   , clockable(sampleRate, 16, CLOCK_PERIOD_MAX, 120)
   , listenEnvelope(sampleRate, 5, 5), decaySmoother(0.9f, MIN_DECAY_SECONDS)
   , expoGenerateEnvelope(ATTACK_SECONDS, MIN_DECAY_SECONDS, sampleRate), linearGenerateEnvelope(ATTACK_SECONDS, MIN_DECAY_SECONDS, sampleRate)
@@ -69,15 +91,15 @@ public:
   }
 
   // when processing, if listen is greater than 1, this is interpreted as a time-delayed gate
-  parameter& listen() { return init.params[0]; }
-  parameter& wordSize() { return init.params[1]; }
-  parameter& variation() { return init.params[2]; }
-  parameter& decay() { return init.params[3]; }
+  parameter& listen() { return params.listen; }
+  parameter& wordSize() { return params.wordSize; }
+  parameter& variation() { return params.variation; }
+  parameter& decay() { return params.decay; }
 
   // outputs
-  const parameter& progress() const { return init.params[4]; }
-  const parameter& envelope() const { return init.params[5]; }
-  const parameter& wordStarted() const { return init.params[6]; }
+  const parameter& progress() const { return params.progress; }
+  const parameter& envelope() const { return params.envelope; }
+  const parameter& wordStarted() const { return params.wordStarted; }
 
   typename MarkovGenerator<T,H>::Chain::Stats getChainStats() const { return generator.chain().getStats(); }
   int wordSizeMs() const { return static_cast<int>(static_cast<float>(generator.chain().getCurrentWordSize()) / unit::getSampleRate() * 1000);}
@@ -100,7 +122,7 @@ public:
     
     for (T s : in)
     {
-      float listenState = listen();
+      float listenState = params.listen.value;
       // need to generate even if we don't use the value otherwise internal state won't update
       float env = listenEnvelope.process(listenState);
       if (env > vessl::math::epsilon<float>())
@@ -157,9 +179,10 @@ public:
       w << generator.generate() * getEnvelopeLevel();
     }
 
-    progressOut() = generator.chain().getWordProgress();
-    envelopeOut() = getEnvelopeLevel();
-    wordStartedOut().write(wordStartedGate > 0, static_cast<uint32_t>(wordStartedGateDelay));
+    params.progress.value = generator.chain().getWordProgress();
+    params.envelope.value = getEnvelopeLevel();
+    // @todo handle wordStartedGateDelay
+    params.wordStarted.value = wordStartedGate > 0;
   }
 
 protected:
@@ -168,7 +191,7 @@ protected:
     samplesSinceLastTock = -static_cast<int>(sampleDelay);
 
     // don't reset when doing full random variation
-    if (variation() < 0.53f && clocksToReset == 0)
+    if (params.variation.value < 0.53f && clocksToReset == 0)
     {
       samplesToReset = static_cast<int>(sampleDelay);
     }
@@ -230,14 +253,14 @@ private:
     static constexpr float INTERVALS[INTERVALS_LEN] = { 1.0f / 3, 1.0f / 4, 1.0f / 2, 1, 2, 4, 3 };
     static const int COUNTERS[DIV_MULT_LEN][INTERVALS_LEN] = {
       // intervals:    1/3  1/4  1/2  1  2  4   3   |    divMult
-                   { 1,   1,   1,  1, 1, 1,  3   }, // 1/4
-                   { 1,   1,   1,  1, 1, 4,  1   }, // 1/3
-                   { 1,   1,   1,  1, 1, 2,  3   }, // 1/2
-                   { 1,   1,   1,  1, 2, 4,  3   }, // 1
-                   { 2,   1,   1,  2, 4, 8,  6   }, // 2
-                   { 1,   3,   3,  3, 6, 12, 9   }, // 3
-                   { 4,   1,   2,  4, 8, 16, 12  }, // 4
-    };
+      { 1,   1,   1,  1, 1, 1,  3   }, // 1/4
+      { 1,   1,   1,  1, 1, 4,  1   }, // 1/3
+      { 1,   1,   1,  1, 1, 2,  3   }, // 1/2
+      { 1,   1,   1,  1, 2, 4,  3   }, // 1
+      { 2,   1,   1,  2, 4, 8,  6   }, // 2
+      { 1,   3,   3,  3, 6, 12, 9   }, // 3
+      { 4,   1,   2,  4, 8, 16, 12  }, // 4
+};
 
     float divMultT = vessl::easing::lerp(0.f, static_cast<float>(DIV_MULT_LEN - 1), static_cast<float>(wordSize()));
     bool smoothDivMult = samplesSinceLastTock >= CLOCK_PERIOD_MAX;

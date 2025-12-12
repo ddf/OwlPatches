@@ -134,23 +134,23 @@ public:
   {
     if (bid == IN_TOGGLE_LISTEN && value == ON)
     {
-      uint32_t _;
-      if (markovLeft->listen().read(&_))
+      // @todo use sample delay again when possible
+      if (markovLeft->listen())
       {
-        markovLeft->listen().write(false, 0); 
+        markovLeft->listen() = false; 
       }
       else
       {
-        markovLeft->listen().write(true, samples);
+        markovLeft->listen() = true;
       }
 
-      if (markovRight->listen().read(&_))
+      if (markovRight->listen())
       {
-        markovRight->listen().write(false, 0); 
+        markovRight->listen() = false;
       }
       else
       {
-        markovRight->listen().write(true, samples);
+        markovRight->listen() = true;
       }
     }
     else if (bid == IN_CLOCK && value == ON)
@@ -201,11 +201,12 @@ public:
     inRight >> *markovRight >> markovBuffer;
     inRight.scale(dryMix).add(markovBuffer.scale(wetMix));
     
-    uint32_t wordStartDelay;
-    bool wordState = markovLeft->wordStarted().read(&wordStartDelay);
+    // @todo use this again when we can
+    uint32_t wordStartDelay = 0;
+    bool wordState = markovLeft->wordStarted().readBinary();
     setButton(OUT_WORD_STARTED_LEFT, wordState, static_cast<uint16_t>(wordStartDelay));
     
-    wordState = markovRight->wordStarted().read(&wordStartDelay);
+    wordState = markovRight->wordStarted().readBinary();
     setButton(OUT_WORD_STARTED_RIGHT, wordState, static_cast<uint16_t>(wordStartDelay));
     
     setParameterValue(OUT_WORD_PROGRESS_LEFT, markovLeft->progress().read<float>());

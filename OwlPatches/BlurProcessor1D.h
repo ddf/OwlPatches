@@ -5,6 +5,7 @@
 #include "vessl/vessl.h"
 #include "CircularTexture.h"
 #include "BlurKernel.h"
+#include "vessl/vessl.h"
 
 enum class BlurAxis : uint8_t
 {
@@ -27,25 +28,28 @@ class BlurProcessor1D : public vessl::unitProcessor<float>
 {
   using size_t = vessl::size_t;
   using TextureType = CircularTexture<float>;
-  static constexpr parameter::type TEXTURE_SIZE_TYPE = TextureSizeType == TextureSizeType::Integral ? parameter::type::digital : parameter::type::analog;
-  
-  init<1> init = {
-    "BlurProcessor1D",
-    {
-      parameter("Texture Size", TEXTURE_SIZE_TYPE)
-    }
-  };
-  
-  TextureType texture;
-  BlurKernel kernel;
 
 public:
-  BlurProcessor1D() : unitProcessor(init), kernel() {}
-  BlurProcessor1D(float sampleRate, float* textureData, size_t textureSizeX, size_t textureSizeY, const BlurKernel& kernel)
-    : unitProcessor(init, sampleRate), texture(textureData, textureSizeX * textureSizeY, textureSizeX, textureSizeY)
-    , kernel(kernel) { textureSize() = textureSizeX; }
+  BlurProcessor1D() : kernel() {}
+  BlurProcessor1D(float sampleRate, float* textureData, size_t textureSizeX, size_t textureSizeY, BlurKernel kernel)
+    : unitProcessor(sampleRate), texture(textureData, textureSizeX * textureSizeY, textureSizeX, textureSizeY)
+    , kernel(std::move(kernel)) 
+  { params.textureSize.value = static_cast<float>(textureSizeX); }
+  
+  using pdl = parameter::desclist<1>;
+  unit::description getDescription() const override
+  {
+    static constexpr pdl p = {
+      {
+        { "Texture Size", 't', parameter::valuetype::analog }
+      }
+    }; 
+    return { "blur processor 1d", p.descs, pdl::size };
+  }
+  
+  const vessl::list<parameter>& getParameters() const override { return params; }
 
-  parameter& textureSize() { return init.params[0]; }
+  parameter& textureSize() { return params.textureSize; }
   
   float process(const float& input) override
   {
@@ -61,7 +65,7 @@ public:
 
   using unitProcessor::process;
   
-  static BlurProcessor1D* create(float sampleRate, size_t maxTextureSize, BlurKernel blurKernel)
+  static BlurProcessor1D* create(float sampleRate, size_t maxTextureSize, const BlurKernel& blurKernel)
   {
     // HACK: extra memory to ensure we don't read outside the bounds
     maxTextureSize += 2;
@@ -80,12 +84,24 @@ public:
   }
 
 private:
+    
+  struct P : vessl::parameterList<pdl::size>
+  {
+    vessl::analog_p textureSize;
+    
+    parameter::reflist<pdl::size> operator*() const override { return { textureSize }; }
+  }; 
+  
+  P params;
+  TextureType texture;
+  BlurKernel kernel;
+  
   float processIntegral()
   {
     float v = 0;
     float c = kernel.getBlurSize() * 0.5f;
     size_t samples = kernel.getSize();
-    size_t texSize = textureSize().template read<size_t>();
+    size_t texSize = textureSize().readDigital();
     if (Axis == BlurAxis::X)
     {
       TextureType tex = texture.subtexture(texSize, 1);
@@ -110,7 +126,7 @@ private:
   {
     float v = 0;
     float c = kernel.getBlurSize() * 0.5f;
-    float texSize = textureSize();
+    float texSize = textureSize().readAnalog();
     if (Axis == BlurAxis::X)
     {
       for (const BlurKernelSample& samp : kernel)
@@ -171,4 +187,10 @@ private:
 
     return v;
   }
+
+public:
+
+
+protected:
+
 };

@@ -11,20 +11,45 @@ using HighPass = vessl::filter<float, vessl::filtering::biquad<1>::highPass>;
 
 class Gauss : public vessl::unitProcessor<GaussSampleFrame>
 {
-  init<7> init = {
-    "Gauss",
+public:
+  using pdl = parameter::desclist<7>;
+  unit::description getDescription() const override
+  {
+    static constexpr pdl p = {
+      {
+        { "Tex Size", 'T', parameter::valuetype::analog }, // [0,1)
+        { "Blur Size", 'B', parameter::valuetype::analog }, // [0, 1)
+        { "Fdbk Amt", 'F', parameter::valuetype::analog }, // [0, 1)
+        { "Gain (dB)", 'g', parameter::valuetype::analog }, // dB, any value
+        { "Tex Tilt", 't', parameter::valuetype::analog }, // (-1, 1)
+        { "Blur Tilt", 'b', parameter::valuetype::analog }, // (-1, 1)
+        { "Crossfdbk", 'f', parameter::valuetype::analog } // [0,1]
+      }
+    };
+    return { "Gauss", p.descs, pdl::size };
+  }
+  
+  const vessl::list<parameter>& getParameters() const override { return params; }
+  
+private:
+  struct P : vessl::parameterList<pdl::size>
+  {
+    vessl::analog_p textureSize;
+    vessl::analog_p blurSize;
+    vessl::analog_p feedback;
+    vessl::analog_p gain;
+    vessl::analog_p textureTilt;
+    vessl::analog_p blurTilt;
+    vessl::analog_p crossFeedback;
+    
+    parameter::reflist<7> operator*() const override
     {
-      parameter("Tex Size", parameter::type::analog), // [0,1)
-      parameter("Blur Size", parameter::type::analog), // [0, 1)
-      parameter("Fdbk Amt", parameter::type::analog), // [0, 1)
-      parameter("Gain (dB)", parameter::type::analog), // dB, any value
-      parameter("Tex Tilt", parameter::type::analog), // (-1, 1)
-      parameter("Blur Tilt", parameter::type::analog), // (-1, 1)
-      parameter("Crossfdbk", parameter::type::analog) // [0,1]
+      return { textureSize, blurSize, feedback, gain, textureTilt, blurTilt, crossFeedback };
     }
   };
   
-  array<BlurKernel> blurKernels;
+  P params;
+  vessl::array<BlurKernel> blurKernels;
   GaussProcessor* processorLeft;
   GaussProcessor* processorRight;
   HighPass feedbackFilterLeft;
@@ -55,7 +80,7 @@ public:
   // where standard deviation should equal (sampleCount - 1)/4.
   static constexpr float STANDARD_DEVIATION = (KERNEL_SIZE - 1) / 4.0f;
 
-  explicit Gauss(float sampleRate, int blockSize) : unitProcessor(init, sampleRate)
+  explicit Gauss(float sampleRate, int blockSize) : unitProcessor(sampleRate)
     , blurKernels(new BlurKernel[KERNEL_COUNT], KERNEL_COUNT)
     , feedbackFilterLeft(getSampleRate(), 20.f, 1.0f)
     , feedbackFilterRight(getSampleRate(), 20.0f, 1.0f)
@@ -94,13 +119,13 @@ public:
     GaussProcessor::destroy(processorRight);
   }
 
-  parameter& textureSize() { return init.params[0]; }
-  parameter& textureTilt() { return init.params[4]; }
-  parameter& blurSize() { return init.params[1]; }
-  parameter& blurTilt() { return init.params[5]; }
-  parameter& feedback() { return init.params[2]; }
-  parameter& crossFeedback() { return init.params[6]; }
-  parameter& gain() { return init.params[3]; }
+  parameter& textureSize() { return params.textureSize; }
+  parameter& textureTilt() { return params.textureTilt; }
+  parameter& blurSize() { return params.blurSize; }
+  parameter& blurTilt() { return params.blurTilt; }
+  parameter& feedback() { return params.feedback; }
+  parameter& crossFeedback() { return params.crossFeedback; }
+  parameter& gain() { return params.gain; }
   
   BlurKernel kernel() const { return processorLeft->getKernel(); }
   float getTextureSizeLeft() const { return static_cast<float>(processorLeft->textureSize()); }
@@ -112,7 +137,7 @@ public:
   {
     // Note: the way feedback is applied is based on how Clouds does it
     // see: https://github.com/pichenettes/eurorack/tree/master/clouds
-    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out, float>(0.f, 0.99f, static_cast<float>(feedback())));
+    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out, float>(0.f, 0.99f, params.feedback.value));
     float feedbackAmtLeft = fdbk;
     float feedbackAmtRight = fdbk;
     
@@ -133,16 +158,16 @@ public:
 
     static constexpr float TILT_SCALE = 6.0f;
     
-    float tsz = vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, static_cast<float>(textureSize()));
-    float tlt = textureTiltSmoother.process(vessl::math::constrain<float>(textureTilt().read<float>()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
+    float tsz = vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, params.textureSize.value);
+    float tlt = textureTiltSmoother.process(vessl::math::constrain<float>(params.textureTilt.value*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
     float tszL = textureSizeLeft.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
     float tszR = textureSizeRight.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
 
     processorLeft->textureSize() = tszL;
     processorRight->textureSize() = tszR;
 
-    float bsz = vessl::easing::lerp(MIN_BLUR_SIZE, MAX_BLUR_SIZE, static_cast<float>(blurSize()));
-    float blt = blurTiltSmoother.process(vessl::math::constrain(blurTilt().read<float>()*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
+    float bsz = vessl::easing::lerp(MIN_BLUR_SIZE, MAX_BLUR_SIZE, params.blurSize.value);
+    float blt = blurTiltSmoother.process(vessl::math::constrain(params.blurTilt.value*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
     // set left kernel
     {
       // scale max blur down so we never blur more than a maximum number of samples away
@@ -172,11 +197,11 @@ public:
     feedbackFrame.left() = procOut.left()*feedSame + procOut.right()*feedCross;
     feedbackFrame.right() = procOut.right()*feedSame + procOut.left()*feedCross;
     
-    float scale  = vessl::gain::decibelsToScale(static_cast<vessl::analog_t>(gain()));
+    float scale  = vessl::gain::decibelsToScale(params.gain.value);
     procOut.scale(scale);
     
     return procOut;
   }
-
+  
   using unitProcessor::process;
 };

@@ -18,8 +18,8 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    slew.rise() = getParameterValue(PARAMETER_A)*10;
-    slew.fall() = getParameterValue(PARAMETER_B)*10;
+    slew.rise() = 10 - getParameterValue(PARAMETER_A)*10;
+    slew.fall() = 10 - getParameterValue(PARAMETER_B)*10;
 
     vessl::array<float> in(audio.getSamples(LEFT_CHANNEL), audio.getSize());
     vessl::array<float> out(audio.getSamples(LEFT_CHANNEL), audio.getSize());
