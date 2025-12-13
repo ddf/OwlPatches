@@ -48,6 +48,7 @@ using RandomGenerator = vessl::noiseGenerator<float, vessl::noise::white>;
 
 //using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
 //using DelayLine = StereoDelayWithFreezeProcessor<FastCrossFadingCircularFloatBuffer>;
+// @todo replace with using DelayWithFreeze directly.
 using DelayLine = StereoDelayWithFreeze<float>;
 
 struct DelayMatrixParamIds
@@ -68,8 +69,8 @@ class DelayMatrixPatch : public MonochromeScreenPatch, public vessl::clockable
 protected:
   static constexpr float MIN_TIME_SECONDS = 0.002f;
   static constexpr float MAX_TIME_SECONDS = 0.25f;
-  static constexpr float MIN_CUTOFF = 400.0f;
-  static constexpr float MAX_CUTOFF = 18000.0f;
+  static constexpr float MIN_CUTOFF = 120.0f;
+  static constexpr float MAX_CUTOFF = 22000.0f;
   // Spread calculator: https://www.desmos.com/calculator/xnzudjo949
   static constexpr float MIN_SPREAD = 0.25f;
   static constexpr float MID_SPREAD = 1.0f;
@@ -107,16 +108,18 @@ protected:
     AudioBuffer* sigOut;
     DcBlockFilter dcBlockLeft;
     DcBlockFilter dcBlockRight;
-    // @todo replace with vessl filter
-    StereoBiquadFilter* filter;
+    LowPassFilter lowPassLeft;
+    LowPassFilter lowPassRight;
     GateOscil gate;
     Smoother feedback[DELAY_LINE_COUNT];
     
-    DelayLineData() 
+    DelayLineData()
     : skew(0), delayLength(0), gateResetCounter(0), timeUpdateInterval(0), timeUpdateCount(0)
     , sigIn(nullptr), sigOut(nullptr)
     , dcBlockLeft(1), dcBlockRight(1)
-    , filter(nullptr) {}
+    , lowPassLeft(1, 1, vessl::filtering::q::butterworth<float>())
+    , lowPassRight(1, 1, vessl::filtering::q::butterworth<float>())
+    {}
   };
 
   enum TapDelayLength : uint16_t  // NOLINT(performance-enum-size)
@@ -242,7 +245,8 @@ public:
       data.delayLength = maxTimeSamples + maxTimeSamples * MAX_SPREAD * i + maxTimeSamples * MAX_MOD_AMT + MAX_SKEW_SAMPLES;
       data.dcBlockLeft.setSampleRate(getSampleRate());
       data.dcBlockRight.setSampleRate(getSampleRate());
-      data.filter = StereoBiquadFilter::create(getSampleRate());
+      data.lowPassLeft.setSampleRate(getSampleRate());
+      data.lowPassRight.setSampleRate(getSampleRate());
       data.gate.setSampleRate(getSampleRate());
       data.gate.waveform.pulseWidth = 0.1f;
       data.gateResetCounter = 0;
@@ -289,7 +293,6 @@ public:
       DelayLine::destroy(delays[i]);
       AudioBuffer::destroy(delayData[i].sigIn);
       AudioBuffer::destroy(delayData[i].sigOut);
-      StereoBiquadFilter::destroy(delayData[i].filter);
     }
     
     AudioBuffer::destroy(scratch);
@@ -454,7 +457,7 @@ public:
       }
       data.skew = MAX_SKEW_SAMPLES * invert * skew.value();
       data.input << getParameterValue(params.input);
-      data.cutoff << vessl::easing::lerp(400, 18000, getParameterValue(params.cutoff));
+      data.cutoff << vessl::easing::interp<vessl::easing::expo::in>(MIN_CUTOFF, MAX_CUTOFF, getParameterValue(params.cutoff));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
       {
@@ -565,10 +568,14 @@ public:
     {
       DelayLine* delay = delays[i];
       DelayLineData& data = delayData[i];
-      StereoBiquadFilter& filter = *data.filter;
       GateOscil& gate = data.gate;
       AudioBuffer& input = *data.sigIn;
       AudioBuffer& output = *data.sigOut;
+      
+      vessl::array<float> inL(input.getSamples(LEFT_CHANNEL), input.getSize());
+      vessl::array<float> inR(input.getSamples(RIGHT_CHANNEL), input.getSize());
+      vessl::array<float> outL(output.getSamples(LEFT_CHANNEL), output.getSize());
+      vessl::array<float> outR(output.getSamples(RIGHT_CHANNEL), output.getSize());
 
       const float delaySamples = data.time.value() + modValue;
       if (freezeState == FreezeOn)
@@ -587,8 +594,12 @@ public:
       delay->process<vessl::duration::mode::fade>(input, input);
 
       // filter output
-      filter.setLowPass(static_cast<float>(data.cutoff.value()), FilterStage::BUTTERWORTH_Q);
-      filter.process(input, output);
+      float fltCut = static_cast<float>(data.cutoff.value());
+      data.lowPassLeft.fHz() = fltCut;
+      data.lowPassRight.fHz() = fltCut;
+
+      inL >> data.lowPassLeft >> outL;
+      inR >> data.lowPassRight >> outR;
 
       float inputScale = data.input.value();
       
