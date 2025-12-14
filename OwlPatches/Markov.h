@@ -59,6 +59,7 @@ public:
     }
   };
   
+private:
   P params;
   Slew listenEnvelope;
   Smoother decaySmoother;
@@ -78,11 +79,11 @@ public:
   int minWordSizeSamples;
   
 public:
-  Markov(float sampleRate, size_t bufferSize) : unitProcessor<T>(sampleRate)
+  Markov(float sampleRate, size_t bufferSize) : unitProcessor<T>()
   , clockable(sampleRate, 16, CLOCK_PERIOD_MAX, 120)
   , listenEnvelope(sampleRate, 5, 5), decaySmoother(0.9f, MIN_DECAY_SECONDS)
   , expoGenerateEnvelope(ATTACK_SECONDS, MIN_DECAY_SECONDS, sampleRate), linearGenerateEnvelope(ATTACK_SECONDS, MIN_DECAY_SECONDS, sampleRate)
-  , generator(sampleRate, bufferSize)
+  , generator(bufferSize)
   , samplesSinceLastTock(CLOCK_PERIOD_MAX), clocksToReset(0), samplesToReset(-1), wordsToNewInterval(0)
   , wordGateLength(1), wordStartedGate(0), wordStartedGateLength(static_cast<int>(sampleRate*ATTACK_SECONDS))
   , minWordGateLength(static_cast<int>(sampleRate*ATTACK_SECONDS)), minWordSizeSamples(static_cast<int>(sampleRate*ATTACK_SECONDS*2))
@@ -102,7 +103,7 @@ public:
   const parameter& wordStarted() const { return params.wordStarted; }
 
   typename MarkovGenerator<T,H>::Chain::Stats getChainStats() const { return generator.chain().getStats(); }
-  int wordSizeMs() const { return static_cast<int>(static_cast<float>(generator.chain().getCurrentWordSize()) / unit::getSampleRate() * 1000);}
+  int wordSizeMs() const { return static_cast<int>(static_cast<float>(generator.chain().getCurrentWordSize()) / clockable::sr * 1000);}
   int clocksUntilReset() const { return clocksToReset; }
   
   T process(const T& input) override
@@ -218,7 +219,7 @@ private:
     {
       wordGateLength = minWordSizeSamples;
     }
-    const float wordReleaseSeconds = static_cast<float>(wordSize - wordGateLength) / unit::getSampleRate();
+    const float wordReleaseSeconds = static_cast<float>(wordSize - wordGateLength) / clockable::sr;
     expoGenerateEnvelope.release().duration() = wordReleaseSeconds;
     linearGenerateEnvelope.release().duration() = wordReleaseSeconds;
   }

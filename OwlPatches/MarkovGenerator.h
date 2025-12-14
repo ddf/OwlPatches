@@ -25,7 +25,7 @@ private:
   P params;
 
 public:
-  explicit MarkovGenerator(float sampleRate, vessl::size_t memorySize) : unitGenerator<T>(sampleRate), markovChain(memorySize) {}
+  explicit MarkovGenerator(vessl::size_t memorySize) : unitGenerator<T>(), markovChain(memorySize) {}
   
   Chain& chain() { return markovChain; }
   const Chain& chain() const { return markovChain;}
