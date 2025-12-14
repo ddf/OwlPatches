@@ -96,24 +96,26 @@ protected:
     int gateResetCounter;
     int timeUpdateInterval;
     int timeUpdateCount;
+    
     Smoother time;
     Smoother input;
     Smoother cutoff;
-    Limiter limitLeft;
-    Limiter limitRight;
-    // @todo replace with vessl arrays
-    AudioBuffer* sigIn;
-    AudioBuffer* sigOut;
+    
+    array<float>  inputLeft;
+    array<float>  inputRight;
+    array<float>  outputLeft;
+    array<float>  outputRight;
+    Limiter       limitLeft;
+    Limiter       limitRight;
     DcBlockFilter dcBlockLeft;
     DcBlockFilter dcBlockRight;
     LowPassFilter lowPassLeft;
     LowPassFilter lowPassRight;
-    GateOscil gate;
-    Smoother feedback[DELAY_LINE_COUNT];
+    GateOscil     gate;
+    Smoother      feedback[DELAY_LINE_COUNT];
     
     DelayLineData()
     : skew(0), delayLength(0), gateResetCounter(0), timeUpdateInterval(0), timeUpdateCount(0)
-    , sigIn(nullptr), sigOut(nullptr)
     , dcBlockLeft(1), dcBlockRight(1)
     , lowPassLeft(1, 1, vessl::filtering::q::butterworth<float>())
     , lowPassRight(1, 1, vessl::filtering::q::butterworth<float>())
@@ -198,7 +200,9 @@ protected:
   // @todo replace with vessl array
   AudioBuffer* scratch;
   
-  // buffer allocated for delay lines
+  // buffer allocated to provide input and output buffers for each delay.
+  array<float> processBuffer;
+  // buffer allocated for delay line internal use.
   array<float> delayBuffer;
   
   struct StereoDelay
@@ -241,12 +245,16 @@ public:
     // 0.5f is "off" because turning left sends smooth noise to delay time, and turning right sends sine lfo
     setParameterValue(patchParams.modIndex, 0.5f);
 
-    const int blockSize = getBlockSize();
+    int blockSize = getBlockSize();
     scratch = AudioBuffer::create(2, blockSize);
+    
+    vessl::size_t processSize = blockSize*4*DELAY_LINE_COUNT;
+    processBuffer = array<float>(new float[processSize], processSize);
 
-    const int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
+    int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
     char pname[16];
     vessl::size_t delayBufferSize = 0;
+    float* pbuff = processBuffer.getData();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
@@ -263,11 +271,15 @@ public:
       data.gate.setSampleRate(getSampleRate());
       data.gate.waveform.pulseWidth = 0.1f;
       data.gateResetCounter = 0;
-      data.sigIn = AudioBuffer::create(2, blockSize);
-      data.sigOut = AudioBuffer::create(2, blockSize);
       data.limitLeft.preGain() = vessl::gain::fromScale(1.125f);
       data.limitRight.preGain() = vessl::gain::fromScale(1.125f);
       
+      data.inputLeft   = array<float>(pbuff+blockSize*0, blockSize);
+      data.inputRight  = array<float>(pbuff+blockSize*1, blockSize);
+      data.outputLeft  = array<float>(pbuff+blockSize*2, blockSize);
+      data.outputRight = array<float>(pbuff+blockSize*3, blockSize);
+      
+      pbuff += blockSize*4;
       delayBufferSize += data.delayLength*2;
 
       DelayLineParamIds& params = delayParamIds[i];
@@ -315,11 +327,10 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       delete delays[i];
-      AudioBuffer::destroy(delayData[i].sigIn);
-      AudioBuffer::destroy(delayData[i].sigOut);
     }
     
     delete[] delayBuffer.getData();
+    delete[] processBuffer.getData();
     
     AudioBuffer::destroy(scratch);
   }
@@ -504,50 +515,41 @@ public:
 #endif
     if (freezeState != FreezeOn)
     {
-
-
       // setup delay inputs with last blocks results
       float skewValue(skew.value());
-      const float cross = skewValue < 0.5f ? 0.0f : (skewValue - 0.5f)*0.15f;
+      float cross = skewValue < 0.5f ? 0.0f : (skewValue - 0.5f)*0.15f;
+      vessl::size_t inSize = audio.getSize();
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
         DelayLineData& data = delayData[i];
-        AudioBuffer& input = *data.sigIn;
-
-        int inSize = input.getSize();
-        array<float> inLeft(input.getSamples(LEFT_CHANNEL), inSize);
-        array<float> inRight(input.getSamples(RIGHT_CHANNEL), inSize);
-
-        // faster than using block operations
+        
         float inputScale = data.input.value().readAnalog();
-        for (int s = 0; s < inSize; ++s)
-        {
-          inLeft[s] = audioLeft[s] * inputScale;
-          inRight[s] = audioRight[s] * inputScale;
-        }
+        // ReSharper disable once CppExpressionWithoutSideEffects
+        audioLeft.scale(inputScale, data.inputLeft);
+        // ReSharper disable once CppExpressionWithoutSideEffects
+        audioRight.scale(inputScale, data.inputRight);
 
         // add feedback from the matrix
         for (int f = 0; f < DELAY_LINE_COUNT; ++f)
         {
           // much faster to copy in a loop like this applying feedback
           // than to copy through scratch with block operations
-          AudioBuffer& recv = *delayData[f].sigOut;
-          array<float> recvLeft(recv.getSamples(LEFT_CHANNEL), recv.getSize());
-          array<float> recvRight(recv.getSamples(RIGHT_CHANNEL), recv.getSize());
+          array<float> recvLeft  = delayData[f].outputLeft;
+          array<float> recvRight = delayData[f].outputRight;
           float fbk = data.feedback[f].value() * (1.0f - cross);
           float xbk = data.feedback[f].value() * cross;
           for (int s = 0; s < inSize; ++s)
           {
             float rl = recvLeft[s];
             float rr = recvRight[s];
-            inLeft[s] += rl * fbk + rr * xbk;
-            inRight[s] += rr * fbk + rl * xbk;
+            data.inputLeft[s]  += rl * fbk + rr * xbk;
+            data.inputRight[s] += rr * fbk + rl * xbk;
           }
         }
 
-        // remove dc offset
-        inLeft >> data.dcBlockLeft >> data.limitLeft >> inLeft;
-        inRight >> data.dcBlockRight >> data.limitRight >> inRight;
+        // remove dc offset and limit
+        data.inputLeft >> data.dcBlockLeft >> data.limitLeft >> data.inputLeft;
+        data.inputRight >> data.dcBlockRight >> data.limitRight >> data.inputRight;
 
         if (freezeState == FreezeEnter)
         {
@@ -555,8 +557,8 @@ public:
           float step = 1.0f / inSize;
           for (int s = 0; s < inSize; ++s)
           {
-            inLeft[s] *= scale;
-            inRight[s] *= scale;
+            data.inputLeft[s] *= scale;
+            data.inputRight[s] *= scale;
             scale -= step;
           }
         }
@@ -566,8 +568,8 @@ public:
           float step = 1.0f / inSize;
           for (int s = 0; s < inSize; ++s)
           {
-            inLeft[s] *= scale;
-            inRight[s] *= scale;
+            data.inputLeft[s] *= scale;
+            data.inputRight[s] *= scale;
             scale += step;
           }
         }
@@ -597,13 +599,6 @@ public:
       StereoDelay* delay = delays[i];
       DelayLineData& data = delayData[i];
       GateOscil& gate = data.gate;
-      AudioBuffer& input = *data.sigIn;
-      AudioBuffer& output = *data.sigOut;
-      
-      array<float> inL(input.getSamples(LEFT_CHANNEL), input.getSize());
-      array<float> inR(input.getSamples(RIGHT_CHANNEL), input.getSize());
-      array<float> outL(output.getSamples(LEFT_CHANNEL), output.getSize());
-      array<float> outR(output.getSamples(RIGHT_CHANNEL), output.getSize());
 
       const float delaySamples = data.time.value() + modValue;
       if (freezeState == FreezeOn)
@@ -625,26 +620,31 @@ public:
         delay->right.freezeSize() = delay->right.time() = delaySamples - data.skew;
       }
 
-      delay->left.template process<vessl::duration::mode::fade>(inL, inL);
-      delay->right.template process<vessl::duration::mode::fade>(inR, inR);
+      delay->left.template process<vessl::duration::mode::fade>(data.inputLeft, data.inputLeft);
+      delay->right.template process<vessl::duration::mode::fade>(data.inputRight, data.inputRight);
 
       // filter output
       float fltCut = static_cast<float>(data.cutoff.value());
-      data.lowPassLeft.fHz() = fltCut;
+      data.lowPassLeft.fHz()  = fltCut;
       data.lowPassRight.fHz() = fltCut;
 
-      inL >> data.lowPassLeft >> outL;
-      inR >> data.lowPassRight >> outR;
+      data.inputLeft  >> data.lowPassLeft  >> data.outputLeft;
+      data.inputRight >> data.lowPassRight >> data.outputRight;
 
       float inputScale = data.input.value();
       
       if (freezeState == FreezeOn)
       {
-        output.multiply(inputScale);
+        data.outputLeft.scale(inputScale);
+        data.outputRight.scale(inputScale);
       }
 
       // accumulate wet delay signals
-      scratch->add(output);
+      array<float> scrchL(scratch->getSamples(LEFT_CHANNEL), scratch->getSize());
+      array<float> scrchR(scratch->getSamples(RIGHT_CHANNEL), scratch->getSize());
+      
+      scrchL.add(data.outputLeft);
+      scrchR.add(data.outputRight);
 
       // when clocked remove delay time modulation so that the gate output
       // stays in sync with the clock, keeping it true to the musical durations displayed on screen.
