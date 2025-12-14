@@ -114,6 +114,8 @@ protected:
     GateOscil     gate;
     Smoother      feedback[DELAY_LINE_COUNT];
     
+    array<float> output() { return array<float>(outputLeft.getData(), outputLeft.getSize()*2); }
+    
     DelayLineData()
     : skew(0), delayLength(0), gateResetCounter(0), timeUpdateInterval(0), timeUpdateCount(0)
     , dcBlockLeft(1), dcBlockRight(1)
@@ -196,10 +198,9 @@ protected:
   
   SineOscil       lfo;
   RandomGenerator rnd;
-
-  // @todo replace with vessl array
-  AudioBuffer* scratch;
   
+  // used in processAudio to accumulate the wet signal
+  array<float> outputWet;
   // buffer allocated to provide input and output buffers for each delay.
   array<float> processBuffer;
   // buffer allocated for delay line internal use.
@@ -246,7 +247,7 @@ public:
     setParameterValue(patchParams.modIndex, 0.5f);
 
     int blockSize = getBlockSize();
-    scratch = AudioBuffer::create(2, blockSize);
+    outputWet = array<float>(new float[blockSize*2], blockSize*2);
     
     vessl::size_t processSize = blockSize*4*DELAY_LINE_COUNT;
     processBuffer = array<float>(new float[processSize], processSize);
@@ -331,8 +332,7 @@ public:
     
     delete[] delayBuffer.getData();
     delete[] processBuffer.getData();
-    
-    AudioBuffer::destroy(scratch);
+    delete[] outputWet.getData();
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override  // NOLINT(portability-template-virtual-member-function)
@@ -591,9 +591,9 @@ public:
     const float genStart = getElapsedBlockTime();
 #endif
     // process all delays
-    scratch->clear();
-    const int outSize = scratch->getSize();
-    const float modValue = modAmount * time.value();
+    outputWet.fill(0);
+    int outSize = audio.getSize();
+    float modValue = modAmount * time.value();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       StereoDelay* delay = delays[i];
@@ -635,16 +635,11 @@ public:
       
       if (freezeState == FreezeOn)
       {
-        data.outputLeft.scale(inputScale);
-        data.outputRight.scale(inputScale);
+        data.output().scale(inputScale);
       }
 
       // accumulate wet delay signals
-      array<float> scrchL(scratch->getSamples(LEFT_CHANNEL), scratch->getSize());
-      array<float> scrchR(scratch->getSamples(RIGHT_CHANNEL), scratch->getSize());
-      
-      scrchL.add(data.outputLeft);
-      scrchR.add(data.outputRight);
+      outputWet.add(data.output());
 
       // when clocked remove delay time modulation so that the gate output
       // stays in sync with the clock, keeping it true to the musical durations displayed on screen.
@@ -672,9 +667,13 @@ public:
 
     float wet(dryWet.value());
     float dry = 1.0f - wet;
-    scratch->multiply(wet);
-    audio.multiply(dry);
-    audio.add(*scratch);
+    outputWet.scale(wet);
+    
+    audioLeft.scale(dry);
+    audioRight.scale(dry);
+    
+    audioLeft.add(array<float>(outputWet.getData(), outSize));
+    audioRight.add(array<float>(outputWet.getData()+outSize, outSize));
 
     setParameterValue(patchParams.lfoOut, vessl::math::constrain(lfoGen*0.5f + 0.5f, 0.f, 1.f));
     setParameterValue(patchParams.rndOut, vessl::math::constrain(rndGen, 0.f, 1.f));
