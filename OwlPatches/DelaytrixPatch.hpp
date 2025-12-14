@@ -233,7 +233,7 @@ public:
 
       if (freezeState == FreezeOn)
       {
-        const float windowStart = 1.0f - ((delays[i]->getPosition() + data.time.value()) / maxFreezeSize);
+        const float windowStart = 1.0f - ((delays[i]->left.freezePosition() + data.time.value().readAnalog()) / maxFreezeSize);
         const float windowSize = min(data.time.value() / maxFreezeSize, 1.0f);
         const int freezeX = x - knobRadius;
         const int freezeY = knobY - knobRadius;

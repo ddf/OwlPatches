@@ -34,6 +34,8 @@ DESCRIPTION:
 // for building param names
 #include <cstring>
 
+#include "Markov.h"
+
 #ifndef ARM_CORTEX
 inline char * stpcpy(char *s1, const char *s2) { return strcat(s1, s2); }  // NOLINT(clang-diagnostic-deprecated-declarations)
 #endif
@@ -45,11 +47,7 @@ using LowPassFilter = vessl::filter<float, vessl::filtering::biquad<1>::lowPass>
 using GateOscil = vessl::oscil<vessl::waves::clock<>>;
 using SineOscil = vessl::oscil<vessl::waves::sine<>>;
 using RandomGenerator = vessl::noiseGenerator<float, vessl::noise::white>;
-
-//using DelayLine = StereoDelayProcessor<InterpolatingCircularFloatBuffer<LINEAR_INTERPOLATION>>;
-//using DelayLine = StereoDelayWithFreezeProcessor<FastCrossFadingCircularFloatBuffer>;
-// @todo replace with using DelayWithFreeze directly.
-using DelayLine = StereoDelayWithFreeze<float>;
+using DelayLine = DelayWithFreeze<float>;
 
 struct DelayMatrixParamIds
 {
@@ -199,7 +197,21 @@ protected:
 
   // @todo replace with vessl array
   AudioBuffer* scratch;
-  DelayLine* delays[DELAY_LINE_COUNT];
+  
+  // buffer allocated for delay lines
+  array<float> delayBuffer;
+  
+  struct StereoDelay
+  {
+    DelayLine left, right;
+    
+    StereoDelay(array<float> buffLeft, array<float> buffRight, float sampleRate)
+      : left(buffLeft, sampleRate), right(buffRight, sampleRate)
+    {
+    }
+  };
+  
+  StereoDelay* delays[DELAY_LINE_COUNT];
   DelayLineParamIds delayParamIds[DELAY_LINE_COUNT];
   DelayLineData delayData[DELAY_LINE_COUNT];
 
@@ -234,6 +246,7 @@ public:
 
     const int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
     char pname[16];
+    vessl::size_t delayBufferSize = 0;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
@@ -254,6 +267,8 @@ public:
       data.sigOut = AudioBuffer::create(2, blockSize);
       data.limitLeft.preGain() = vessl::gain::fromScale(1.125f);
       data.limitRight.preGain() = vessl::gain::fromScale(1.125f);
+      
+      delayBufferSize += data.delayLength*2;
 
       DelayLineParamIds& params = delayParamIds[i];
       params.input = static_cast<PatchParameterId>(PARAMETER_AA + i);
@@ -283,17 +298,28 @@ public:
       }
     }
 
-    for (int i = 0; i < DELAY_LINE_COUNT; ++i) { delays[i] = DelayLine::create(delayData[i].delayLength, blockSize, getSampleRate()); }
+    delayBuffer = array<float>(new float[delayBufferSize], delayBufferSize);
+    float* dbuff = delayBuffer.getData();
+    for (int i = 0; i < DELAY_LINE_COUNT; ++i)
+    {
+      vessl::size_t buffSize = delayData[i].delayLength;
+      array<float> dbl(dbuff, buffSize);
+      array<float> dbr(dbuff+buffSize, buffSize);
+      delays[i] = new StereoDelay(dbl, dbr, getSampleRate());
+      dbuff += buffSize*2;
+    }
   }
 
   ~DelayMatrixPatch() override  // NOLINT(portability-template-virtual-member-function)
   {
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      DelayLine::destroy(delays[i]);
+      delete delays[i];
       AudioBuffer::destroy(delayData[i].sigIn);
       AudioBuffer::destroy(delayData[i].sigOut);
     }
+    
+    delete[] delayBuffer.getData();
     
     AudioBuffer::destroy(scratch);
   }
@@ -343,9 +369,11 @@ public:
     if (bid == BUTTON_2 && value == Patch::ON)
     {
       freezeState = freezeState == FreezeOff ? FreezeEnter : FreezeExit;
+      bool freezeEnabled = freezeState == FreezeEnter;
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
-        delays[i]->setFreeze(freezeState == FreezeEnter);
+        delays[i]->left.freezeEnabled() = freezeEnabled;
+        delays[i]->right.freezeEnabled() = freezeEnabled;
       }
     }
   }
@@ -465,8 +493,8 @@ public:
       }
     }
     
-    vessl::array<float> audioLeft(audio.getSamples(LEFT_CHANNEL), audio.getSize());
-    vessl::array<float> audioRight(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
+    array<float> audioLeft(audio.getSamples(LEFT_CHANNEL), audio.getSize());
+    array<float> audioRight(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
     
     audioLeft >> inputFilterLeft >> audioLeft;
     audioRight >> inputFilterRight >> audioRight;
@@ -487,8 +515,8 @@ public:
         AudioBuffer& input = *data.sigIn;
 
         int inSize = input.getSize();
-        vessl::array<float> inLeft(input.getSamples(LEFT_CHANNEL), inSize);
-        vessl::array<float> inRight(input.getSamples(RIGHT_CHANNEL), inSize);
+        array<float> inLeft(input.getSamples(LEFT_CHANNEL), inSize);
+        array<float> inRight(input.getSamples(RIGHT_CHANNEL), inSize);
 
         // faster than using block operations
         float inputScale = data.input.value().readAnalog();
@@ -504,8 +532,8 @@ public:
           // much faster to copy in a loop like this applying feedback
           // than to copy through scratch with block operations
           AudioBuffer& recv = *delayData[f].sigOut;
-          vessl::array<float> recvLeft(recv.getSamples(LEFT_CHANNEL), recv.getSize());
-          vessl::array<float> recvRight(recv.getSamples(RIGHT_CHANNEL), recv.getSize());
+          array<float> recvLeft(recv.getSamples(LEFT_CHANNEL), recv.getSize());
+          array<float> recvRight(recv.getSamples(RIGHT_CHANNEL), recv.getSize());
           float fbk = data.feedback[f].value() * (1.0f - cross);
           float xbk = data.feedback[f].value() * cross;
           for (int s = 0; s < inSize; ++s)
@@ -566,32 +594,39 @@ public:
     const float modValue = modAmount * time.value();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
-      DelayLine* delay = delays[i];
+      StereoDelay* delay = delays[i];
       DelayLineData& data = delayData[i];
       GateOscil& gate = data.gate;
       AudioBuffer& input = *data.sigIn;
       AudioBuffer& output = *data.sigOut;
       
-      vessl::array<float> inL(input.getSamples(LEFT_CHANNEL), input.getSize());
-      vessl::array<float> inR(input.getSamples(RIGHT_CHANNEL), input.getSize());
-      vessl::array<float> outL(output.getSamples(LEFT_CHANNEL), output.getSize());
-      vessl::array<float> outR(output.getSamples(RIGHT_CHANNEL), output.getSize());
+      array<float> inL(input.getSamples(LEFT_CHANNEL), input.getSize());
+      array<float> inR(input.getSamples(RIGHT_CHANNEL), input.getSize());
+      array<float> outL(output.getSamples(LEFT_CHANNEL), output.getSize());
+      array<float> outR(output.getSamples(RIGHT_CHANNEL), output.getSize());
 
       const float delaySamples = data.time.value() + modValue;
       if (freezeState == FreezeOn)
       {
         // how far back we can go depends on how big the frozen section is, we don't want to push past the size of the buffer
-        const float maxPosition = vessl::math::min(delaySamples * 8, static_cast<float>(data.delayLength));
-        const float normPosition = (1.0f - feedback.value());
-        delay->setDelay(delaySamples, delaySamples);
-        delay->setPosition((maxPosition - delaySamples + data.skew)*normPosition, (maxPosition - delaySamples - data.skew)*normPosition);
+        float maxPosition = vessl::math::min(delaySamples * 8, static_cast<float>(data.delayLength));
+        float normPosition = (1.0f - feedback.value());
+        delay->left.freezeSize()  = delay->left.time()  = delaySamples;
+        delay->right.freezeSize() = delay->right.time() = delaySamples;
+        
+        float posL = (maxPosition - delaySamples + data.skew)*normPosition;
+        float posR = (maxPosition - delaySamples - data.skew)*normPosition;
+        delay->left.freezePosition()  = posL;
+        delay->right.freezePosition() = posR;
       }
       else
       {
-        delay->setDelay(delaySamples + data.skew, delaySamples - data.skew);
+        delay->left.freezeSize()  = delay->left.time()  = delaySamples + data.skew;
+        delay->right.freezeSize() = delay->right.time() = delaySamples - data.skew;
       }
 
-      delay->process<vessl::duration::mode::fade>(input, input);
+      delay->left.template process<vessl::duration::mode::fade>(inL, inL);
+      delay->right.template process<vessl::duration::mode::fade>(inR, inR);
 
       // filter output
       float fltCut = static_cast<float>(data.cutoff.value());
