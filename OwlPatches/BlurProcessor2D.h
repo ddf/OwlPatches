@@ -3,21 +3,23 @@
 #include "BlurProcessor1D.h"
 #include "vessl/vessl.h"
 
-using vessl::parameter;
-
 // performs a 2D blur on the input signal
 template<TextureSizeType TextureSizeType = TextureSizeType::Integral>
 class BlurProcessor2D : vessl::unitProcessor<float>
 {
-  using size_t = vessl::size_t;
-  using pdl = parameter::desclist<1>;
-  
-  struct P : vessl::parameterList<pdl::size>
+  using param = vessl::parameter;
+  static constexpr param::desc d_t = { "Texture Size", 't', vessl::analog_p::type };
+  using pdl = param::desclist<1>;
+  static constexpr pdl p = {{ d_t }};
+    
+  struct P : vessl::plist<pdl::size>
   {
     vessl::analog_p textureSize;
     
-    parameter::reflist<1> operator*() const override { return { textureSize }; }
+    param::list<pdl::size> get() const override { return { textureSize(d_t) }; }
   };
+  
+  using size_t = vessl::size_t;
   
   P params;
   BlurProcessor1D<BlurAxis::X, TextureSizeType>* blurX;
@@ -25,25 +27,21 @@ class BlurProcessor2D : vessl::unitProcessor<float>
   BlurKernel kernel;
 
 public:
-  BlurProcessor2D(float sampleRate, BlurProcessor1D<BlurAxis::X, TextureSizeType>* blurX, BlurProcessor1D<BlurAxis::Y, TextureSizeType>* blurY, BlurKernel blurKernel)
-    : unitProcessor(sampleRate), blurX(blurX), blurY(blurY), kernel(std::move(blurKernel))
+  BlurProcessor2D(float sampleRate, BlurProcessor1D<BlurAxis::X, TextureSizeType>* blurX, BlurProcessor1D<BlurAxis::Y, TextureSizeType>* blurY, const BlurKernel& blurKernel)
+    : blurX(blurX), blurY(blurY), kernel(blurKernel)
   {
     params.textureSize.value = blurX->textureSize().readAnalog();
   }
 
   unit::description getDescription() const override
   {
-    static constexpr pdl p = {
-      {
-        { "Texture Size", 't', parameter::valuetype::analog }
-      }
-    };
+
     return { "blur processor 2d", p.descs, pdl::size };
   }
   
-  const vessl::list<parameter>& getParameters() const override { return params; }
+  const vessl::list<param>& getParameters() const override { return params; }
 
-  parameter& textureSize() { return params.textureSize; }
+  param textureSize() { return params.textureSize(d_t); }
 
   void setGauss(float size, float standardDeviation, float brightness = 1.0f)
   {

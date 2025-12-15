@@ -17,12 +17,12 @@ public:
 private:
   Chain markovChain;
   
-  struct P : vessl::parameterList<0>
+  struct P : vessl::plist<0>
   {
-    vessl::parameter::reflist<0> operator*() const override { return {}; }
+    vessl::parameter::list<0> get() const override { return {}; }
   };
   
-  P params;
+  static P params;
 
 public:
   explicit MarkovGenerator(vessl::size_t memorySize) : unitGenerator<T>(), markovChain(memorySize) {}

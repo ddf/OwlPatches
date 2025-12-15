@@ -2,7 +2,7 @@
 
 #include "vessl/vessl.h"
 
-using count_t = vessl::size_t;
+using count_t = uint32_t;
 
 struct FreezeSettings
 {
@@ -52,7 +52,6 @@ static constexpr count_t GLITCH_SETTINGS_COUNT = sizeof(GLITCH_SETTINGS) / sizeo
 
 using GlitchSampleType = vessl::frame::stereo::analog_t;
 using BufferType = vessl::array<GlitchSampleType>;
-using vessl::parameter;
 using BitCrush = vessl::bitcrush<GlitchSampleType, 24>;
 using Freeze = vessl::freeze<GlitchSampleType>;
 using EnvelopeFollower = vessl::follow<float>;
@@ -62,47 +61,48 @@ template<uint32_t FREEZE_BUFFER_SIZE>
 class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::clockable
 {
 public:
-  using pdl = parameter::desclist<5>;
-  unit::description getDescription() const override
+  using param = vessl::parameter;
+  static constexpr param::desc d_r = {"repeats", 'r', vessl::analog_p::type };
+  static constexpr param::desc d_c = {"crush", 'c', vessl::analog_p::type };
+  static constexpr param::desc d_g = { "glitch", 'g', vessl::analog_p::type };
+  static constexpr param::desc d_s = { "shape", 's', vessl::analog_p::type };
+  static constexpr param::desc d_f = { "freeze", 'f', vessl::binary_p::type };
+  static constexpr param::desc d_e = { "glich enabled", 'e', vessl::binary_p::type };
+  using pdl = param::desclist<5>;
+  static constexpr pdl p = { d_r, d_c, d_g, d_s, d_f };
+  
+  description getDescription() const override
   {
-    static constexpr pdl p = { 
-      {
-        {"repeats", 'r', parameter::valuetype::analog },
-        {"crush", 'c', parameter::valuetype::analog },
-        { "glitch", 'g', parameter::valuetype::analog },
-        { "shape", 's', parameter::valuetype::analog },
-        { "freeze", 'f', parameter::valuetype::binary },
-      }
-    };
     return { "glitch", p.descs, pdl::size };
   }
   
-  const vessl::list<parameter>& getParameters() const override { return params; }
+  const vessl::list<param>& getParameters() const override { return params; }
  
 private:
-  struct P : vessl::parameterList<pdl::size>
+  struct P : vessl::plist<pdl::size>
   {
     vessl::analog_p repeats;
     vessl::analog_p crush;
     vessl::analog_p glitch;
     vessl::analog_p shape;
     vessl::binary_p freeze;
+    vessl::binary_p glitchEnabled;
     
-    parameter::reflist<5> operator*() const override
+    param::list<pdl::size> get() const override
     {
-      return { repeats, crush, glitch, shape, freeze };
+      return { repeats(d_r), crush(d_c), glitch(d_g), shape(d_s), freeze(d_f) };
     }
   };
   
   P params;
   BufferType freezeBuffer;
   Freeze freezeProc;
-  
-  count_t freezeSettingsIdx;
-  count_t glitchSettingsIdx;
+    
+  float sampleRate;
   float glitchLfo;
   float glitchRand;
-
+  count_t freezeSettingsIdx;
+  count_t glitchSettingsIdx;
   count_t freezeCounter;
   count_t glitchCounter;
   count_t samplesSinceLastTap;
@@ -115,14 +115,13 @@ private:
   EnvelopeFollower envelopeFollower;
   Array inputEnvelope;
   
-  bool glitchEnabled;
-  
 public:
-  Glitch(float sampleRate, int blockSize) : vessl::unitProcessor<GlitchSampleType>(sampleRate)
-  , clockable(sampleRate, blockSize, FREEZE_BUFFER_SIZE)
+  Glitch(float sampleRate, vessl::size_t blockSize) 
+  : clockable(sampleRate, static_cast<uint32_t>(blockSize), FREEZE_BUFFER_SIZE)
   , freezeBuffer(new GlitchSampleType[FREEZE_BUFFER_SIZE], FREEZE_BUFFER_SIZE)
   , freezeProc(freezeBuffer, sampleRate)
-  , freezeSettingsIdx(0), glitchSettingsIdx(0), glitchLfo(0), glitchRand(0)
+  , sampleRate(sampleRate)
+  , glitchLfo(0), glitchRand(0), freezeSettingsIdx(0), glitchSettingsIdx(0)
   , freezeCounter(0), glitchCounter(0)
   , samplesSinceLastTap(FREEZE_BUFFER_SIZE)
   , crushProc(sampleRate, sampleRate)
@@ -130,7 +129,6 @@ public:
   , followerWindow(new float[blockSize*8], blockSize*8)  // NOLINT(bugprone-implicit-widening-of-multiplication-result)
   , envelopeFollower(followerWindow, sampleRate, 0.001f)
   , inputEnvelope(new float[blockSize], blockSize)
-  , glitchEnabled(false)
   {
   }
   
@@ -144,18 +142,19 @@ public:
 
   using clockable::clock;
 
-  parameter& repeats() { return params.repeats;  }
-  parameter& crush() { return params.crush; }
-  parameter& glitch() { return params.glitch; }
-  parameter& shape() { return params.shape; }
-  parameter& freeze() { return params.freeze; }
+  param repeats() { return params.repeats(d_r);  }
+  param crush() { return params.crush(d_c); }
+  param glitch() { return params.glitch(d_g); }
+  param glitching() { return params.glitchEnabled(d_e); }
+  param shape() { return params.shape(d_s); }
+  param freeze() { return params.freeze(d_f); }
   float freezePhase() const { return freezeProc.phase(); }
   float envelope() const { return inputEnvelope[0]; }
   float rand() const { return glitchRand; }
 
   void process(vessl::array<GlitchSampleType> input, vessl::array<GlitchSampleType> output) override
   {
-    count_t size = input.getSize();
+    vessl::size_t size = input.getSize();
     clockable::tick(size);
 
     float smoothFreeze = repeats();
@@ -190,7 +189,7 @@ public:
     freezeProc.rate() = newReadSpeed;
     freezeProc.enabled() = freeze().readBinary();
 
-    float sr = getSampleRate();
+    float sr = sampleRate;
     float crushParam = crush();
     float bits = crushParam > 0.001f ? (16.f - crushParam*12.0f) : 24;
     float rate = crushParam > 0.001f ? sr * 0.25f + crushParam*(100 - sr * 0.25f) : sr;
@@ -226,16 +225,16 @@ public:
       if (stepGlitchLfo(glitchSpeed))
       {
         glitchRand = vessl::random::range<float>(0.f, 1.f);
-        glitchEnabled = glitchRand < glitchProb;
+        params.glitchEnabled.value = glitchRand < glitchProb;
       }
 
-      if (glitchEnabled)
+      if (params.glitchEnabled.value)
       {
         vessl::size_t d = i+1;
         GlitchSampleType f = freezeProc.getBuffer().read(d);
-        GlitchSampleType& p = processBuffer[i];
-        p.left() = glitch(p.left(), f.left());
-        p.right() = glitch(p.right(), f.right());
+        GlitchSampleType& pf = processBuffer[i];
+        pf.left() = glitch(pf.left(), f.left());
+        pf.right() = glitch(pf.right(), f.right());
       }
     }
 

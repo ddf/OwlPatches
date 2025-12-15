@@ -1,12 +1,26 @@
 #pragma once
 
-#include "SignalProcessor.h"
-#include "vessl/vessl.h"
 #include "vessl/vessl.h"
 
 template<typename T>
 class DelayWithFreeze : public vessl::unitProcessor<T>
 {
+  using param = vessl::parameter;
+  static constexpr param::desc d_e = { "freeze enabled", 'e', vessl::binary_p::type };
+  using pdl = param::desclist<5>;
+  static constexpr pdl p = {{ vessl::delay<T>::d_t, vessl::delay<T>::d_f, d_e, vessl::freeze<T>::d_p, vessl::freeze<T>::d_s }};
+    
+  struct P : vessl::plist<pdl::size>
+  {
+    DelayWithFreeze* outer;
+    vessl::binary_p  freezeEnabled;
+    
+    param::list<pdl::size> get() const override
+    {
+      return { outer->time(), outer->feedback(), outer->freezeEnabled(), outer->freezePosition(), outer->freezeSize() };
+    }
+  };
+  
 public:
   DelayWithFreeze(vessl::array<T> buffer, float sampleRate, float delayInSeconds = 0, float feedback = 0)
     : vessl::unitProcessor<T>()
@@ -14,30 +28,21 @@ public:
     , freezeProc(buffer, sampleRate)
     , fader(0.95f, 0)
   {
+    params.outer = this;
   }
   
-  using pdl = vessl::parameter::desclist<5>;
   vessl::unit::description getDescription() const override  // NOLINT(portability-template-virtual-member-function)
   {
-    static constexpr pdl p = {
-      {
-        { "time", 't', vessl::parameter::valuetype::analog },
-        { "feedback", 'f', vessl::parameter::valuetype::analog },
-        { "freeze enabled", 'e', vessl::parameter::valuetype::binary },
-        { "freeze position", 'p', vessl::parameter::valuetype::analog },
-        { "freeze size", 's', vessl::parameter::valuetype::analog }
-      }
-    };
     return { "delay with freeze", p.descs, pdl::size };
   }
   
   const vessl::list<vessl::parameter>& getParameters() const override { return params; }  // NOLINT(portability-template-virtual-member-function)
 
-  vessl::parameter& time() { return delayProc.time(); }
-  vessl::parameter& feedback() { return delayProc.feedback(); }
-  vessl::parameter& freezeEnabled() { return params.freezeEnabled; }
-  vessl::parameter& freezePosition() { return freezeProc.position(); }
-  vessl::parameter& freezeSize() { return freezeProc.size(); }
+  param time() { return delayProc.time(); }
+  param feedback() { return delayProc.feedback(); }
+  param freezeEnabled() { return params.freezeEnabled(d_e); }
+  param freezePosition() { return freezeProc.position(); }
+  param freezeSize() { return freezeProc.size(); }
 
   T process(const T& in) override  // NOLINT(portability-template-virtual-member-function)
   {
@@ -91,21 +96,10 @@ public:
   }
 
 private:
+  P params;
   vessl::delay<T> delayProc;
   vessl::freeze<T> freezeProc;
   vessl::smoother<> fader;
-  
-  struct P : vessl::parameterList<pdl::size>
-  {
-    vessl::binary_p freezeEnabled;
-    DelayWithFreeze* outer;
-    vessl::parameter::reflist<5> operator*() const override
-    {
-      return { outer->time(), outer->feedback(), outer->freezeEnabled(), outer->freezePosition(), outer->freezeSize() };
-    }
-  };
-  
-  P params;
 };
 
 // template<typename T>

@@ -56,7 +56,7 @@ DESCRIPTION:
 #include "AudioBufferSourceSink.h"
 
 constexpr FloatPatchParameterDescription IN_REPEATS = { "Repeats", 0, 1, 0.5f, 0.0f, 0.01f };
-constexpr FloatPatchParameterDescription IN_SHAPE = { "Shape", 0, 1, 0.75f };
+constexpr FloatPatchParameterDescription IN_SHAPE = { "Shape", 0, 1, 0.0f };
 constexpr FloatPatchParameterDescription IN_CRUSH = { "Crush", 0, 1, 0.0f };
 constexpr FloatPatchParameterDescription IN_GLITCH = { "Glitch", 0, 1, 0 };
 constexpr FloatPatchParameterDescription IN_MIX = {"Mix", 0, 1, 0 };

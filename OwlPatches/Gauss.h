@@ -5,34 +5,23 @@
 
 using GaussProcessor = BlurProcessor2D<TextureSizeType::Fractional>;
 using Smoother = vessl::smoother<float>;
-using vessl::parameter;
 using GaussSampleFrame = vessl::frame::channels<float, 2>;
 using HighPass = vessl::filter<float, vessl::filtering::biquad<1>::highPass>;
 
 class Gauss : public vessl::unitProcessor<GaussSampleFrame>
 {
-public:
-  using pdl = parameter::desclist<7>;
-  unit::description getDescription() const override
-  {
-    static constexpr pdl p = {
-      {
-        { "Tex Size", 'T', parameter::valuetype::analog }, // [0,1)
-        { "Blur Size", 'B', parameter::valuetype::analog }, // [0, 1)
-        { "Fdbk Amt", 'F', parameter::valuetype::analog }, // [0, 1)
-        { "Gain (dB)", 'g', parameter::valuetype::analog }, // dB, any value
-        { "Tex Tilt", 't', parameter::valuetype::analog }, // (-1, 1)
-        { "Blur Tilt", 'b', parameter::valuetype::analog }, // (-1, 1)
-        { "Crossfdbk", 'f', parameter::valuetype::analog } // [0,1]
-      }
-    };
-    return { "Gauss", p.descs, pdl::size };
-  }
+  using param = vessl::parameter;
+  static constexpr param::desc d_T = { "Tex Size", 'T', vessl::analog_p::type }; // [0,1)
+  static constexpr param::desc d_B = { "Blur Size", 'B', vessl::analog_p::type }; // [0, 1)
+  static constexpr param::desc d_F = { "Fdbk Amt", 'F', vessl::analog_p::type }; // [0, 1)
+  static constexpr param::desc d_g = { "Gain (dB)", 'g', vessl::analog_p::type }; // dB, any value
+  static constexpr param::desc d_t = { "Tex Tilt", 't', vessl::analog_p::type }; // (-1, 1)
+  static constexpr param::desc d_b = { "Blur Tilt", 'b', vessl::analog_p::type }; // (-1, 1)
+  static constexpr param::desc d_f = { "Crossfdbk", 'f', vessl::analog_p::type }; // [0,1]
+  using pdl = param::desclist<7>;
+  static constexpr pdl p = {{ d_T, d_B, d_F, d_g, d_t, d_b, d_f }};
   
-  const vessl::list<parameter>& getParameters() const override { return params; }
-  
-private:
-  struct P : vessl::parameterList<pdl::size>
+  struct P : vessl::plist<pdl::size>
   {
     vessl::analog_p textureSize;
     vessl::analog_p blurSize;
@@ -42,12 +31,22 @@ private:
     vessl::analog_p blurTilt;
     vessl::analog_p crossFeedback;
     
-    parameter::reflist<7> operator*() const override
+    param::list<pdl::size> get() const override
     {
-      return { textureSize, blurSize, feedback, gain, textureTilt, blurTilt, crossFeedback };
+      return { textureSize(d_T), blurSize(d_B), feedback(d_F), gain(d_g), textureTilt(d_t), blurTilt(d_b), crossFeedback(d_f) };
     }
   };
   
+public:
+
+  description getDescription() const override
+  {
+    return { "Gauss", p.descs, pdl::size };
+  }
+  
+  const vessl::list<param>& getParameters() const override { return params; }
+  
+private:
   P params;
   vessl::array<BlurKernel> blurKernels;
   GaussProcessor* processorLeft;
@@ -80,10 +79,10 @@ public:
   // where standard deviation should equal (sampleCount - 1)/4.
   static constexpr float STANDARD_DEVIATION = (KERNEL_SIZE - 1) / 4.0f;
 
-  explicit Gauss(float sampleRate, int blockSize) : unitProcessor(sampleRate)
-    , blurKernels(new BlurKernel[KERNEL_COUNT], KERNEL_COUNT)
-    , feedbackFilterLeft(getSampleRate(), 20.f, 1.0f)
-    , feedbackFilterRight(getSampleRate(), 20.0f, 1.0f)
+  explicit Gauss(float sampleRate, int blockSize) 
+    : params(), blurKernels(new BlurKernel[KERNEL_COUNT], KERNEL_COUNT)
+    , feedbackFilterLeft(sampleRate, 20.f, 1.0f)
+    , feedbackFilterRight(sampleRate, 20.0f, 1.0f)
     , textureSizeLeft(0.9f, MIN_TEXTURE_SIZE), textureSizeRight(0.9f, MIN_TEXTURE_SIZE), textureTiltSmoother(0.9f)
     , blurSizeLeft(0.9f, MIN_BLUR_SIZE), blurSizeRight(0.9f, MIN_BLUR_SIZE), blurTiltSmoother(0.9f)
     , feedbackAmount(0.9f), feedbackAngle(0.9f)
@@ -100,11 +99,11 @@ public:
       blurKernels[i].setGauss(blur, STANDARD_DEVIATION, 1.0f);
       blur += blurStep;
     }
-    
-    processorLeft = GaussProcessor::create(getSampleRate(), MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
+
+    processorLeft = GaussProcessor::create(sampleRate, MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
     processorLeft->textureSize() = MIN_TEXTURE_SIZE;
 
-    processorRight = GaussProcessor::create(getSampleRate(), MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
+    processorRight = GaussProcessor::create(sampleRate, MAX_TEXTURE_SIZE, STANDARD_DEVIATION, KERNEL_SIZE);
     processorRight->textureSize() = MIN_TEXTURE_SIZE;
   }
 
@@ -119,13 +118,13 @@ public:
     GaussProcessor::destroy(processorRight);
   }
 
-  parameter& textureSize() { return params.textureSize; }
-  parameter& textureTilt() { return params.textureTilt; }
-  parameter& blurSize() { return params.blurSize; }
-  parameter& blurTilt() { return params.blurTilt; }
-  parameter& feedback() { return params.feedback; }
-  parameter& crossFeedback() { return params.crossFeedback; }
-  parameter& gain() { return params.gain; }
+  param textureSize() { return params.textureSize(d_T); }
+  param textureTilt() { return params.textureTilt(d_t); }
+  param blurSize() { return params.blurSize(d_B); }
+  param blurTilt() { return params.blurTilt(d_b); }
+  param feedback() { return params.feedback(d_F); }
+  param crossFeedback() { return params.crossFeedback(d_f); }
+  param gain() { return params.gain(d_g); }
   
   BlurKernel kernel() const { return processorLeft->getKernel(); }
   float getTextureSizeLeft() const { return static_cast<float>(processorLeft->textureSize()); }

@@ -7,7 +7,6 @@
 
 using vessl::unit;
 using vessl::unitProcessor;
-using vessl::parameter;
 using vessl::array;
 using vessl::clockable;
 using Slew = vessl::slew<float>;
@@ -17,33 +16,18 @@ using Asr = vessl::asr<float>;
 template<typename T, typename H>
 class Markov final : public unitProcessor<T>, public clockable
 {
-  using size_t = vessl::size_t;
-  
-  static constexpr int    CLOCK_PERIOD_MAX  = (1 << 17);
-  static constexpr float  ATTACK_SECONDS    = 0.005f;
-  static constexpr float  MIN_DECAY_SECONDS = 0.010f;
-  
-public:
-  using pdl = parameter::desclist<7>;
-  unit::description getDescription() const override
-  {
-    static constexpr pdl p = {
-      {
-        { "listen", 'l', parameter::valuetype::binary },
-        { "word size", 'w', parameter::valuetype::analog },
-        { "variation", 'v', parameter::valuetype::analog },
-        { "decay", 'd', parameter::valuetype::analog },
-        { "progress", 'p', parameter::valuetype::analog },
-        { "envelope", 'e', parameter::valuetype::analog },
-        { "word started", 's', parameter::valuetype::binary },
-      }
-    };
-    return { "Markov", p.descs, pdl::size }; 
-  }
-  
-  const vessl::list<parameter>& getParameters() const override { return params; }
-  
-  struct P : vessl::parameterList<pdl::size>
+  using param = vessl::parameter;
+  static constexpr param::desc d_l = { "listen", 'l', vessl::binary_p::type };
+  static constexpr param::desc d_w = { "word size", 'w', vessl::analog_p::type };
+  static constexpr param::desc d_v = { "variation", 'v', vessl::analog_p::type };
+  static constexpr param::desc d_d = { "decay", 'd', vessl::analog_p::type };
+  static constexpr param::desc d_p = { "progress", 'p', vessl::analog_p::type };
+  static constexpr param::desc d_e = { "envelope", 'e', vessl::analog_p::type };
+  static constexpr param::desc d_s = { "word started", 's', vessl::binary_p::type };
+  using pdl = param::desclist<7>;
+  static constexpr pdl p = {{ d_l, d_w, d_v, d_d, d_p, d_e, d_s }};
+    
+  struct P : vessl::plist<pdl::size>
   {
     vessl::binary_p listen;
     vessl::analog_p wordSize;
@@ -53,11 +37,26 @@ public:
     vessl::analog_p envelope;
     vessl::binary_p wordStarted;
     
-    parameter::reflist<7> operator*() const override
+    param::list<pdl::size> get() const override
     {
-      return { listen, wordSize, variation, decay, progress, envelope, wordStarted };
+      return { listen(d_l), wordSize(d_w), variation(d_v), decay(d_d), progress(d_p), envelope(d_e), wordStarted(d_s) };
     }
   };
+  
+  using size_t = vessl::size_t;
+  
+  static constexpr int    CLOCK_PERIOD_MAX  = (1 << 17);
+  static constexpr float  ATTACK_SECONDS    = 0.005f;
+  static constexpr float  MIN_DECAY_SECONDS = 0.010f;
+  
+public:
+
+  unit::description getDescription() const override
+  {
+    return { "Markov", p.descs, pdl::size }; 
+  }
+  
+  const vessl::list<param>& getParameters() const override { return params; }
   
 private:
   P params;
@@ -92,15 +91,15 @@ public:
   }
 
   // when processing, if listen is greater than 1, this is interpreted as a time-delayed gate
-  parameter& listen() { return params.listen; }
-  parameter& wordSize() { return params.wordSize; }
-  parameter& variation() { return params.variation; }
-  parameter& decay() { return params.decay; }
+  param listen() { return params.listen(d_l); }
+  param wordSize() { return params.wordSize(d_w); }
+  param variation() { return params.variation(d_v); }
+  param decay() { return params.decay(d_d); }
 
   // outputs
-  const parameter& progress() const { return params.progress; }
-  const parameter& envelope() const { return params.envelope; }
-  const parameter& wordStarted() const { return params.wordStarted; }
+  param progress() const { return params.progress(d_p); }
+  param envelope() const { return params.envelope(d_e); }
+  param wordStarted() const { return params.wordStarted(d_s); }
 
   typename MarkovGenerator<T,H>::Chain::Stats getChainStats() const { return generator.chain().getStats(); }
   int wordSizeMs() const { return static_cast<int>(static_cast<float>(generator.chain().getCurrentWordSize()) / clockable::sr * 1000);}
