@@ -1,7 +1,5 @@
 #pragma once
 
-#include <ratio>
-
 #include "vessl/vessl.h"
 #include "MarkovGenerator.h"
 
@@ -29,13 +27,13 @@ class Markov final : public unitProcessor<T>, public clockable
     
   struct P : vessl::plist<pdl::size>
   {
-    vessl::binary_p listen;
     vessl::analog_p wordSize;
     vessl::analog_p variation;
     vessl::analog_p decay;
     vessl::analog_p progress;
     vessl::analog_p envelope;
     vessl::binary_p wordStarted;
+    vessl::binary_p listen;
     
     param::list<pdl::size> get() const override
     {
@@ -142,7 +140,7 @@ public:
       wordStartedGate -= blockSize;
     }
 
-    decay() >> decaySmoother >> envelopeShape;
+    envelopeShape = decaySmoother = decay();
 
     typename array<T>::writer w(out);
     while (w)

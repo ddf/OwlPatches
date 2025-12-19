@@ -24,22 +24,17 @@ DESCRIPTION:
 #pragma once
 
 #include "MonochromeScreenPatch.h"
-#include "StereoDelayProcessor.h"
 #include "DelayWithFreeze.h"
-#include "DcBlockingFilter.h"
-#include "BiquadFilter.h"
-
 #include "vessl/vessl.h"
 
 // for building param names
 #include <cstring>
 
-#include "Markov.h"
-
 #ifndef ARM_CORTEX
 inline char * stpcpy(char *s1, const char *s2) { return strcat(s1, s2); }  // NOLINT(clang-diagnostic-deprecated-declarations)
 #endif
 
+using Array = vessl::array<float>;
 using Smoother = vessl::smoother<float>;
 using Limiter = vessl::limiter<float>;
 using DcBlockFilter = vessl::filter<float, vessl::filtering::dcblock>;
@@ -77,10 +72,10 @@ protected:
   static constexpr int   MAX_SKEW_SAMPLES = 48;
 
   static constexpr int CLOCK_MULT[] = { 32, 24, 16, 12, 8, 6, 4 };
-  static constexpr int CLOCK_MULT_COUNT = sizeof(CLOCK_MULT) / sizeof(int);
+  static constexpr uint8_t CLOCK_MULT_COUNT = sizeof(CLOCK_MULT) / sizeof(int);
 
   static constexpr int SPREAD_DIVMULT[] = { -4, -3, -2, 1, 2, 3, 4 };
-  static constexpr int SPREAD_DIVMULT_COUNT = sizeof(SPREAD_DIVMULT) / sizeof(float);
+  static constexpr uint8_t SPREAD_DIVMULT_COUNT = sizeof(SPREAD_DIVMULT) / sizeof(float);
 
   struct DelayLineParamIds
   {
@@ -92,19 +87,18 @@ protected:
   struct DelayLineData
   {
     float skew; // in samples
-    int delayLength;
-    int gateResetCounter;
-    int timeUpdateInterval;
-    int timeUpdateCount;
+    int   delayLength;
+    int   gateResetCounter;
+    int   timeUpdateCount;
     
     Smoother time;
     Smoother input;
     Smoother cutoff;
     
-    array<float>  inputLeft;
-    array<float>  inputRight;
-    array<float>  outputLeft;
-    array<float>  outputRight;
+    Array inputLeft;
+    Array inputRight;
+    Array outputLeft;
+    Array outputRight;
     Limiter       limitLeft;
     Limiter       limitRight;
     DcBlockFilter dcBlockLeft;
@@ -114,10 +108,10 @@ protected:
     GateOscil     gate;
     Smoother      feedback[DELAY_LINE_COUNT];
     
-    array<float> output() { return array<float>(outputLeft.getData(), outputLeft.getSize()*2); }
+    Array output() { return Array(outputLeft.getData(), outputLeft.getSize()*2); }
     
     DelayLineData()
-    : skew(0), delayLength(0), gateResetCounter(0), timeUpdateInterval(0), timeUpdateCount(0)
+    : skew(0), delayLength(0), gateResetCounter(0), timeUpdateCount(0)
     , dcBlockLeft(1), dcBlockRight(1)
     , lowPassLeft(1, 1, vessl::filtering::q::butterworth<float>())
     , lowPassRight(1, 1, vessl::filtering::q::butterworth<float>())
@@ -166,23 +160,22 @@ protected:
     One512TT = One256T / 3,
     One1028TT = One512T / 3,
   };
-
+  
   DelayMatrixParamIds patchParams;
-    
-  int clockMultIndex;
-  int spreadDivMultIndex;
-  int samplesSinceLastTap;
-
-  uint16_t clocked;
-
-  enum : uint16_t  // NOLINT(performance-enum-size)
+  
+  enum : uint8_t  // NOLINT(performance-enum-size)
   {
     FreezeOff,
     FreezeEnter,
     FreezeOn,
     FreezeExit,
   } freezeState;
+    
+  uint8_t clocked;
+  uint8_t clockMultIndex;
+  uint8_t spreadDivMultIndex;
   
+  uint32_t samplesSinceLastTap;
   float timeRaw;
   float rndGen;
   float modAmount;
@@ -200,17 +193,17 @@ protected:
   RandomGenerator rnd;
   
   // used in processAudio to accumulate the wet signal
-  array<float> outputWet;
+  Array outputWet;
   // buffer allocated to provide input and output buffers for each delay.
-  array<float> processBuffer;
+  Array processBuffer;
   // buffer allocated for delay line internal use.
-  array<float> delayBuffer;
+  Array delayBuffer;
   
   struct StereoDelay
   {
     DelayLine left, right;
     
-    StereoDelay(array<float> buffLeft, array<float> buffRight, float sampleRate)
+    StereoDelay(Array buffLeft, Array buffRight, float sampleRate)
       : left(buffLeft, sampleRate), right(buffRight, sampleRate)
     {
     }
@@ -223,11 +216,11 @@ protected:
 public:
   DelayMatrixPatch() : clockable(getSampleRate(), 1, MAX_TIME_SECONDS * getSampleRate() * CLOCK_MULT[CLOCK_MULT_COUNT - 1])
     , patchParams({ PARAMETER_A, PARAMETER_C, PARAMETER_B, PARAMETER_D, PARAMETER_E, PARAMETER_F, PARAMETER_G, PARAMETER_H })
+    , freezeState(FreezeOff)
+    , clocked(false)
     , clockMultIndex((CLOCK_MULT_COUNT - 1) / 2)
     , spreadDivMultIndex((SPREAD_DIVMULT_COUNT - 1) / 2)
     , samplesSinceLastTap(clockable::periodMax)
-    , clocked(false)
-    , freezeState(FreezeOff)
     , timeRaw(MIN_TIME_SECONDS * getSampleRate())
     , time(0.9f, timeRaw)
     , inputFilterLeft(getSampleRate())
@@ -247,10 +240,10 @@ public:
     setParameterValue(patchParams.modIndex, 0.5f);
 
     int blockSize = getBlockSize();
-    outputWet = array<float>(new float[blockSize*2], blockSize*2);
+    outputWet = Array(new float[blockSize*2], blockSize*2);
     
     vessl::size_t processSize = blockSize*4*DELAY_LINE_COUNT;
-    processBuffer = array<float>(new float[processSize], processSize);
+    processBuffer = Array(new float[processSize], processSize);
 
     int maxTimeSamples = MAX_TIME_SECONDS * getSampleRate();
     char pname[16];
@@ -259,8 +252,8 @@ public:
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       DelayLineData& data = delayData[i];
-      data.time.degree() = 0.f;
-      data.time << MIN_TIME_SECONDS * getSampleRate();
+      data.time.degree = 0.f;
+      data.time = MIN_TIME_SECONDS * getSampleRate();
       // want all lines to update immediately at startup
       data.timeUpdateCount = 9999;
       // calculate the longest this particular delay will ever need to get
@@ -275,10 +268,10 @@ public:
       data.limitLeft.preGain() = vessl::gain::fromScale(1.125f);
       data.limitRight.preGain() = vessl::gain::fromScale(1.125f);
       
-      data.inputLeft   = array<float>(pbuff+blockSize*0, blockSize);
-      data.inputRight  = array<float>(pbuff+blockSize*1, blockSize);
-      data.outputLeft  = array<float>(pbuff+blockSize*2, blockSize);
-      data.outputRight = array<float>(pbuff+blockSize*3, blockSize);
+      data.inputLeft   = Array(pbuff+blockSize*0, blockSize);
+      data.inputRight  = Array(pbuff+blockSize*1, blockSize);
+      data.outputLeft  = Array(pbuff+blockSize*2, blockSize);
+      data.outputRight = Array(pbuff+blockSize*3, blockSize);
       
       pbuff += blockSize*4;
       delayBufferSize += data.delayLength*2;
@@ -311,13 +304,13 @@ public:
       }
     }
 
-    delayBuffer = array<float>(new float[delayBufferSize], delayBufferSize);
+    delayBuffer = Array(new float[delayBufferSize], delayBufferSize);
     float* dbuff = delayBuffer.getData();
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       vessl::size_t buffSize = delayData[i].delayLength;
-      array<float> dbl(dbuff, buffSize);
-      array<float> dbr(dbuff+buffSize, buffSize);
+      Array dbl(dbuff, buffSize);
+      Array dbr(dbuff+buffSize, buffSize);
       delays[i] = new StereoDelay(dbl, dbr, getSampleRate());
       dbuff += buffSize*2;
     }
@@ -410,11 +403,11 @@ public:
       clockMultIndex = (CLOCK_MULT_COUNT - 1) / 2;
       if (timeParam >= 0.53f)
       {
-        clockMultIndex = vessl::easing::lerp(clockMultIndex, CLOCK_MULT_COUNT, (timeParam - 0.53f) * 2.12f);
+        clockMultIndex = vessl::easing::lerp(static_cast<float>(clockMultIndex), static_cast<float>(CLOCK_MULT_COUNT), (timeParam - 0.53f) * 2.12f);
       }
       else if (timeParam <= 0.47f)
       {
-        clockMultIndex = vessl::easing::lerp(clockMultIndex, 0, (0.47f - timeParam) * 2.12f);
+        clockMultIndex = vessl::easing::lerp(static_cast<float>(clockMultIndex), 0.f, (0.47f - timeParam) * 2.12f);
       }
       // equivalent to multiplying the BPM
       timeRaw = getPeriod() / CLOCK_MULT[clockMultIndex];
@@ -422,14 +415,14 @@ public:
       spreadDivMultIndex = (SPREAD_DIVMULT_COUNT - 1) / 2;
       if (spreadParam >= 0.53f)
       {
-        spreadDivMultIndex = vessl::easing::lerp(spreadDivMultIndex, SPREAD_DIVMULT_COUNT, (spreadParam - 0.53f) * 2.12f);
+        spreadDivMultIndex = vessl::easing::lerp(static_cast<float>(spreadDivMultIndex), static_cast<float>(SPREAD_DIVMULT_COUNT), (spreadParam - 0.53f) * 2.12f);
       }
       else if (spreadParam <= 0.47f)
       {
-        spreadDivMultIndex = vessl::easing::lerp(spreadDivMultIndex, 0, (0.47f - spreadParam) * 2.12f);
+        spreadDivMultIndex = vessl::easing::lerp(static_cast<float>(spreadDivMultIndex), 0.f, (0.47f - spreadParam) * 2.12f);
       }
       int sdm = SPREAD_DIVMULT[spreadDivMultIndex];
-      spread << (sdm < 0 ? -1.0f / sdm : sdm);
+      spread = (sdm < 0 ? -1.0f / sdm : sdm);
 
       samplesSinceLastTap += audio.getSize();
     }
@@ -440,24 +433,24 @@ public:
 
       if (spreadParam <= 0.5f)
       {
-        spread << (vessl::easing::lerp(MIN_SPREAD, MID_SPREAD, spreadParam*2));
+        spread = (vessl::easing::lerp(MIN_SPREAD, MID_SPREAD, spreadParam*2));
       }
       else
       {
-        spread << (vessl::math::constrain(vessl::easing::lerp(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f), MID_SPREAD, MAX_SPREAD));
+        spread = (vessl::math::constrain(vessl::easing::lerp(MID_SPREAD, MAX_SPREAD, (spreadParam - 0.5f)*2.03f), MID_SPREAD, MAX_SPREAD));
       }
     }
 
     // increase smoothing duration when time parameter has not changed much since the last block
     // to help with the drift that tends to occur due to input noise or slightly jittered clock
-    time.degree() = (vessl::math::abs(timeRaw - time.value().readAnalog()) < 16 ? 0.999f : 0.9f);
-    time << static_cast<int>(timeRaw);
+    time.degree = (vessl::math::abs(timeRaw - time.value) < 16 ? 0.999f : 0.9f);
+    time = static_cast<int>(timeRaw);
 
-    feedback << getParameterValue(patchParams.feedback);
-    dryWet << getParameterValue(patchParams.dryWet);
-    skew << getParameterValue(patchParams.skew);
+    feedback = getParameterValue(patchParams.feedback);
+    dryWet = getParameterValue(patchParams.dryWet);
+    skew = getParameterValue(patchParams.skew);
     
-    float modFreq = getSampleRate() / time.value() * (1.0f / 32.f);
+    float modFreq = getSampleRate() / time.value * (1.0f / 32.f);
     
     lfo.fHz() = modFreq;
     float lfoGen = lfo.generate();
@@ -483,29 +476,29 @@ public:
       DelayLineParamIds& params = delayParamIds[i];
 
       float invert = i % 2 ? 1.0f : -1.0f;
-      float timeVal = time.value().readAnalog();
-      float spreadVal = spread.value().readAnalog();
+      float timeVal = time.value;
+      float spreadVal = spread.value;
       float targetTime = timeVal + spreadVal * i * timeVal;
-      float timeDelta = vessl::math::abs(targetTime - data.time.value().readAnalog());
-      data.timeUpdateInterval = 8 + static_cast<int>(timeDelta) / (64*32);
-      if (data.timeUpdateCount++ >= data.timeUpdateInterval)
+      float timeDelta = vessl::math::abs(targetTime - data.time.value);
+      int timeUpdateInterval = 8 + static_cast<int>(timeDelta) / (64*32);
+      if (data.timeUpdateCount++ >= timeUpdateInterval)
       {
-        data.time.degree() = 0.9f - vessl::math::constrain(timeDelta / 2048.0f, 0.0f, 0.9f);
-        data.time << targetTime;
+        data.time.degree = 0.9f - vessl::math::constrain(timeDelta / 2048.0f, 0.0f, 0.9f);
+        data.time = targetTime;
         data.timeUpdateCount = 0;
       }
-      data.skew = MAX_SKEW_SAMPLES * invert * skew.value();
-      data.input << getParameterValue(params.input);
-      data.cutoff << vessl::easing::interp<vessl::easing::expo::in>(MIN_CUTOFF, MAX_CUTOFF, getParameterValue(params.cutoff));
+      data.skew = MAX_SKEW_SAMPLES * invert * skew.value;
+      data.input = getParameterValue(params.input);
+      data.cutoff = vessl::easing::interp<vessl::easing::expo::in>(MIN_CUTOFF, MAX_CUTOFF, getParameterValue(params.cutoff));
 
       for (int f = 0; f < DELAY_LINE_COUNT; ++f)
       {
-        data.feedback[f] << feedback.value() * (getParameterValue(params.feedback[f])*2.0f - 0.99f);
+        data.feedback[f] = feedback.value * (getParameterValue(params.feedback[f])*2.0f - 0.99f);
       }
     }
     
-    array<float> audioLeft(audio.getSamples(LEFT_CHANNEL), audio.getSize());
-    array<float> audioRight(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
+    Array audioLeft(audio.getSamples(LEFT_CHANNEL), audio.getSize());
+    Array audioRight(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
     
     audioLeft >> inputFilterLeft >> audioLeft;
     audioRight >> inputFilterRight >> audioRight;
@@ -516,14 +509,14 @@ public:
     if (freezeState != FreezeOn)
     {
       // setup delay inputs with last blocks results
-      float skewValue(skew.value());
+      float skewValue = skew.value;
       float cross = skewValue < 0.5f ? 0.0f : (skewValue - 0.5f)*0.15f;
       vessl::size_t inSize = audio.getSize();
       for (int i = 0; i < DELAY_LINE_COUNT; ++i)
       {
         DelayLineData& data = delayData[i];
         
-        float inputScale = data.input.value().readAnalog();
+        float inputScale = data.input.value;
         // ReSharper disable once CppExpressionWithoutSideEffects
         audioLeft.scale(inputScale, data.inputLeft);
         // ReSharper disable once CppExpressionWithoutSideEffects
@@ -534,10 +527,10 @@ public:
         {
           // much faster to copy in a loop like this applying feedback
           // than to copy through scratch with block operations
-          array<float> recvLeft  = delayData[f].outputLeft;
-          array<float> recvRight = delayData[f].outputRight;
-          float fbk = data.feedback[f].value() * (1.0f - cross);
-          float xbk = data.feedback[f].value() * cross;
+          Array recvLeft  = delayData[f].outputLeft;
+          Array recvRight = delayData[f].outputRight;
+          float fbk = data.feedback[f].value * (1.0f - cross);
+          float xbk = data.feedback[f].value * cross;
           for (int s = 0; s < inSize; ++s)
           {
             float rl = recvLeft[s];
@@ -593,19 +586,19 @@ public:
     // process all delays
     outputWet.fill(0);
     int outSize = audio.getSize();
-    float modValue = modAmount * time.value();
+    float modValue = modAmount * time.value;
     for (int i = 0; i < DELAY_LINE_COUNT; ++i)
     {
       StereoDelay* delay = delays[i];
       DelayLineData& data = delayData[i];
       GateOscil& gate = data.gate;
 
-      const float delaySamples = data.time.value() + modValue;
+      const float delaySamples = data.time.value + modValue;
       if (freezeState == FreezeOn)
       {
         // how far back we can go depends on how big the frozen section is, we don't want to push past the size of the buffer
         float maxPosition = vessl::math::min(delaySamples * 8, static_cast<float>(data.delayLength));
-        float normPosition = (1.0f - feedback.value());
+        float normPosition = (1.0f - feedback.value);
         delay->left.freezeSize()  = delay->left.time()  = delaySamples;
         delay->right.freezeSize() = delay->right.time() = delaySamples;
         
@@ -624,14 +617,14 @@ public:
       delay->right.template process<vessl::duration::mode::fade>(data.inputRight, data.inputRight);
 
       // filter output
-      float fltCut = static_cast<float>(data.cutoff.value());
+      float fltCut = static_cast<float>(data.cutoff.value);
       data.lowPassLeft.fHz()  = fltCut;
       data.lowPassRight.fHz() = fltCut;
 
       data.inputLeft  >> data.lowPassLeft  >> data.outputLeft;
       data.inputRight >> data.lowPassRight >> data.outputRight;
 
-      float inputScale = data.input.value();
+      float inputScale = data.input.value;
       
       if (freezeState == FreezeOn)
       {
@@ -665,15 +658,15 @@ public:
       freezeState = FreezeOff;
     }
 
-    float wet(dryWet.value());
+    float wet = dryWet.value;
     float dry = 1.0f - wet;
     outputWet.scale(wet);
     
     audioLeft.scale(dry);
     audioRight.scale(dry);
     
-    audioLeft.add(array<float>(outputWet.getData(), outSize));
-    audioRight.add(array<float>(outputWet.getData()+outSize, outSize));
+    audioLeft.add(Array(outputWet.getData(), outSize));
+    audioRight.add(Array(outputWet.getData()+outSize, outSize));
 
     setParameterValue(patchParams.lfoOut, vessl::math::constrain(lfoGen*0.5f + 0.5f, 0.f, 1.f));
     setParameterValue(patchParams.rndOut, vessl::math::constrain(rndGen, 0.f, 1.f));
@@ -703,7 +696,7 @@ public:
     screen.print(static_cast<int>(getPeriod()));
     screen.setCursor(0, 40);
     screen.print("Dly: ");
-    screen.print(static_cast<int>(time.value().readAnalog()));
+    screen.print(static_cast<int>(time.value));
     screen.print(freezeState != FreezeOff ? " F:X" : " F:O");
     screen.setCursor(0, 48);
     screen.print("MODF: ");

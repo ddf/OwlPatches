@@ -22,7 +22,7 @@ private:
     vessl::parameter::list<0> get() const override { return {}; }
   };
   
-  static P params;
+  P params;
 
 public:
   explicit MarkovGenerator(vessl::size_t memorySize) : unitGenerator<T>(), markovChain(memorySize) {}

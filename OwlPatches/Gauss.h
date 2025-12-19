@@ -129,14 +129,14 @@ public:
   BlurKernel kernel() const { return processorLeft->getKernel(); }
   float getTextureSizeLeft() const { return static_cast<float>(processorLeft->textureSize()); }
   float getTextureSizeRight() const { return static_cast<float>(processorRight->textureSize()); }
-  float getBlurSizeLeft() const { return static_cast<float>(blurSizeLeft.value()); }
-  float getBlurSizeRight() const { return static_cast<float>(blurSizeRight.value()); }
+  float getBlurSizeLeft() const { return blurSizeLeft.value; }
+  float getBlurSizeRight() const { return blurSizeRight.value; }
   
   GaussSampleFrame process(const GaussSampleFrame& in) override
   {
     // Note: the way feedback is applied is based on how Clouds does it
     // see: https://github.com/pichenettes/eurorack/tree/master/clouds
-    float fdbk = feedbackAmount.process(vessl::easing::interp<vessl::easing::quad::out, float>(0.f, 0.99f, params.feedback.value));
+    float fdbk = feedbackAmount = (vessl::easing::interp<vessl::easing::quad::out, float>(0.f, 0.99f, params.feedback.value));
     float feedbackAmtLeft = fdbk;
     float feedbackAmtRight = fdbk;
     
@@ -158,20 +158,20 @@ public:
     static constexpr float TILT_SCALE = 6.0f;
     
     float tsz = vessl::easing::lerp<float>(MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE, params.textureSize.value);
-    float tlt = textureTiltSmoother.process(vessl::math::constrain<float>(params.textureTilt.value*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
-    float tszL = textureSizeLeft.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
-    float tszR = textureSizeRight.process(vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
+    float tlt = textureTiltSmoother = (vessl::math::constrain<float>(params.textureTilt.value*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
+    float tszL = textureSizeLeft = (vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(-tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
+    float tszR = textureSizeRight = (vessl::math::constrain<float>(tsz * vessl::gain::decibelsToScale(tlt), MIN_TEXTURE_SIZE, MAX_TEXTURE_SIZE));
 
     processorLeft->textureSize() = tszL;
     processorRight->textureSize() = tszR;
 
     float bsz = vessl::easing::lerp(MIN_BLUR_SIZE, MAX_BLUR_SIZE, params.blurSize.value);
-    float blt = blurTiltSmoother.process(vessl::math::constrain(params.blurTilt.value*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
+    float blt = blurTiltSmoother = (vessl::math::constrain(params.blurTilt.value*TILT_SCALE, -TILT_SCALE, TILT_SCALE));
     // set left kernel
     {
       // scale max blur down so we never blur more than a maximum number of samples away
       float bscl = MIN_TEXTURE_SIZE / tszL;
-      float bszL = vessl::math::constrain(blurSizeLeft.process(bsz * vessl::gain::decibelsToScale(-blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
+      float bszL = vessl::math::constrain(blurSizeLeft = (bsz * vessl::gain::decibelsToScale(-blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
       float blurIdx = bszL * (KERNEL_COUNT - 2);
       float blurLow;
       float blurFrac = vessl::math::mod(blurIdx, &blurLow);
@@ -181,7 +181,7 @@ public:
     // set right kernel
     {
       float bscl = MIN_TEXTURE_SIZE / tszR;
-      float bszR = vessl::math::constrain(blurSizeRight.process(bsz * vessl::gain::decibelsToScale(blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
+      float bszR = vessl::math::constrain(blurSizeRight = (bsz * vessl::gain::decibelsToScale(blt) * bscl), MIN_BLUR_SIZE, MAX_BLUR_SIZE);
       float blurIdx = bszR * (KERNEL_COUNT - 2);
       float blurLow;
       float blurFrac = vessl::math::mod(blurIdx, &blurLow);
@@ -191,8 +191,8 @@ public:
     
     GaussSampleFrame procOut = { processorLeft->process(procLeft), processorRight->process(procRight) };
     
-    float feedSame = 1.0f - feedbackAngle.value();
-    float feedCross(feedbackAngle.value());
+    float feedSame = 1.0f - feedbackAngle.value;
+    float feedCross(feedbackAngle.value);
     feedbackFrame.left() = procOut.left()*feedSame + procOut.right()*feedCross;
     feedbackFrame.right() = procOut.right()*feedSame + procOut.left()*feedCross;
     

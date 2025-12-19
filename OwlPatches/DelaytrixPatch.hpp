@@ -42,7 +42,7 @@ public:
     x += 14;
 
     DelayLineData& lastData = delayData[DELAY_LINE_COUNT - 1];
-    float lastTime = lastData.time.value().readAnalog();
+    float lastTime = lastData.time.value;
     const float lastMaxFreezePosition = min(lastTime * 8 - lastTime - lastData.skew, static_cast<float>(lastData.delayLength) - lastTime - lastData.skew);
     const float maxFreezeSize = lastMaxFreezePosition + lastTime + lastData.skew;
     if (freezeState == FreezeOn)
@@ -71,7 +71,7 @@ public:
         switch (tap)  // NOLINT(clang-diagnostic-switch-enum)
         {
           // for easy debug
-          case 0: screen.print(ftoa(data.time.value() / getSampleRate(), 10)); break;
+          case 0: screen.print(ftoa(data.time.value / getSampleRate(), 10)); break;
 #define QUAV ""
 #define DOT2 "."
 #define DOT4 ","
@@ -219,13 +219,13 @@ public:
       else
       {
         screen.setCursor(x, static_cast<uint16_t>(rowY));
-        screen.print(ftoa(data.time.value() / getSampleRate(), 10));
+        screen.print(ftoa(data.time.value / getSampleRate(), 10));
         screen.print("s");
       }
       x += 44;
-      drawKnob(data.input.value().readAnalog(), screen, x, knobY, knobRadius);
+      drawKnob(data.input.value, screen, x, knobY, knobRadius);
       x += knobRadius * 2 + 4;
-      drawKnob((data.cutoff.value().readAnalog() - MIN_CUTOFF) / (MAX_CUTOFF - MIN_CUTOFF), screen, x, knobY, knobRadius);
+      drawKnob((data.cutoff.value - MIN_CUTOFF) / (MAX_CUTOFF - MIN_CUTOFF), screen, x, knobY, knobRadius);
       x += knobRadius * 2 + 6;
 
       //screen.setCursor(x, rowY);
@@ -233,8 +233,8 @@ public:
 
       if (freezeState == FreezeOn)
       {
-        const float windowStart = 1.0f - ((delays[i]->left.freezePosition() + data.time.value().readAnalog()) / maxFreezeSize);
-        const float windowSize = min(data.time.value() / maxFreezeSize, 1.0f);
+        const float windowStart = 1.0f - ((delays[i]->left.freezePosition() + data.time.value) / maxFreezeSize);
+        const float windowSize = min(data.time.value / maxFreezeSize, 1.0f);
         const int freezeX = x - knobRadius;
         const int freezeY = knobY - knobRadius;
         constexpr float freezeW = (knobRadius * 2 + 4)*DELAY_LINE_COUNT - 1;
@@ -262,13 +262,13 @@ public:
     drawMod(screen, x, barY, 37, horizBarHeight, modAmount);
 
     x += 40;
-    drawSkew(screen, x, barY, 22, horizBarHeight, skew.value().readAnalog());
+    drawSkew(screen, x, barY, 22, horizBarHeight, skew.value);
 
     x += 26;
-    drawFeedback<true>(screen, x, barY, 48, horizBarHeight, feedback.value().readAnalog());
+    drawFeedback<true>(screen, x, barY, 48, horizBarHeight, feedback.value);
 
     x += 52;
-    drawDryWet(screen, x, barY, horizBarHeight, barY - matrixTop + 8, dryWet.value().readAnalog());
+    drawDryWet(screen, x, barY, horizBarHeight, barY - matrixTop + 8, dryWet.value);
 
     //x += 9;
     ////drawKnob(dryWet, screen, x, matrixTop + rowSpacing - knobRadius - 1, knobRadius);
