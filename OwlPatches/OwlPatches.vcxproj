@@ -313,7 +313,7 @@
     <ClInclude Include="CircularTexture.h" />
     <ClInclude Include="Delay.h" />
     <ClInclude Include="DelaytrixPatch.hpp" />
-    <ClInclude Include="DelayMatrixPatch.hpp" />
+    <ClInclude Include="DelayMatrix.h" />
     <ClInclude Include="DelayWithFreeze.h" />
     <ClInclude Include="Diffuser.h" />
     <ClInclude Include="EnvelopeFollower.h" />
