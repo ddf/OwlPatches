@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/.." vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../OwlProgram" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../OwlProgram/Libraries/DaisySP" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../OwlProgram/Libraries/vessl" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../OwlProgram/Tools/hvcc" vcs="Git" />
+  </component>
+</project>
