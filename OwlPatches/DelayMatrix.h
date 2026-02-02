@@ -36,8 +36,6 @@ using SineOscil = vessl::oscil<vessl::waves::sine<>>;
 using RandomGenerator = vessl::noiseGenerator<float, vessl::noise::white>;
 using DelayLine = DelayWithFreeze<float>;
 
-// @todo rename to DelayMatrix, subclass unitProcessor.
-// move OWL code up into DelaytrixPatch.
 
 // not a public unit processor because we only process stereo input in-place.
 template<int DELAY_LINE_COUNT>
