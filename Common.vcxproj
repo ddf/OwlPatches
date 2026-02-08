@@ -7,34 +7,48 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Source\DelaytrixPatch.hpp" />
-    <ClInclude Include="Source\EnvTestPatch.hpp" />
-    <ClInclude Include="Source\FFTTestPatch.hpp" />
-    <ClInclude Include="Source\GaussPatch.hpp" />
-    <ClInclude Include="Source\GlitchLich2Patch.hpp" />
-    <ClInclude Include="Source\GlitchLichPatch.hpp" />
-    <ClInclude Include="Source\GrainzPatch.hpp" />
-    <ClInclude Include="Source\KnoscillatorGeniusPatch.hpp" />
-    <ClInclude Include="Source\KnoscillatorLichPatch.hpp" />
-    <ClInclude Include="Source\KnoscillatorPatch.hpp" />
-    <ClInclude Include="Source\MarkovPatch.hpp" />
-    <ClInclude Include="Source\PerlinNoiseFieldLichPatch.hpp" />
-    <ClInclude Include="Source\PnogPatch.hpp" />
-    <ClInclude Include="Source\SlewPatch.hpp" />
-    <ClInclude Include="Source\SpectralHarpGeniusPatch.hpp" />
-    <ClInclude Include="Source\SpectralHarpLichPatch.hpp" />
-    <ClInclude Include="Source\SpectralHarpPatch.hpp" />
-    <ClInclude Include="Source\SpectralSympathiesGeniusPatch.hpp" />
-    <ClInclude Include="Source\SpectralSympathiesPatch.hpp" />
-    <ClInclude Include="Source\VesslFilterTestPatch.hpp" />
-    <ClInclude Include="Source\VesslNoiseTestPatch.hpp" />
-    <ClInclude Include="Source\VesslTestPatch.hpp" />
+    <ClInclude Include="Source\AllpassNetwork.h" />
+    <ClInclude Include="Source\AudioBufferSourceSink.h" />
+    <ClInclude Include="Source\BlurKernel.h" />
+    <ClInclude Include="Source\BlurProcessor1D.h" />
+    <ClInclude Include="Source\BlurProcessor2D.h" />
+    <ClInclude Include="Source\CartesianFloat.h" />
+    <ClInclude Include="Source\CartesianFloatArray.h" />
+    <ClInclude Include="Source\CartesianTransform.h" />
+    <ClInclude Include="Source\CircularTexture.h" />
+    <ClInclude Include="Source\Delay.h" />
+    <ClInclude Include="Source\DelayMatrix.h" />
+    <ClInclude Include="Source\DelayWithFreeze.h" />
+    <ClInclude Include="Source\Diffuser.h" />
+    <ClInclude Include="Source\EnvelopeFollower.h" />
+    <ClInclude Include="Source\EqualLoudnessCurves.h" />
+    <ClInclude Include="Source\FastCrossFadingCircularBuffer.h" />
+    <ClInclude Include="Source\Frequency.h" />
+    <ClInclude Include="Source\Gauss.h" />
+    <ClInclude Include="Source\Glitch.h" />
+    <ClInclude Include="Source\Grain.hpp" />
+    <ClInclude Include="Source\HashMap.h" />
+    <ClInclude Include="Source\KissFFT.h" />
+    <ClInclude Include="Source\KnotOscillator.h" />
+    <ClInclude Include="Source\Markov.h" />
+    <ClInclude Include="Source\MarkovChain.hpp" />
+    <ClInclude Include="Source\MarkovGenerator.h" />
+    <ClInclude Include="Source\Noise.hpp" />
+    <ClInclude Include="Source\PatchParameterDescription.h" />
+    <ClInclude Include="Source\PatchParameterIds.h" />
+    <ClInclude Include="Source\PerlinNoiseField.hpp" />
+    <ClInclude Include="Source\Reverb.h" />
+    <ClInclude Include="Source\SkewedValue.h" />
+    <ClInclude Include="Source\TapTempo.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Source\KissFFT.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{08837541-02AA-4E93-802F-AF0B78306529}</ProjectGuid>
+    <ProjectGuid>{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Patches</RootNamespace>
+    <RootNamespace>Common</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -42,7 +56,7 @@
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Makefile</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -59,10 +73,10 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir />
-    <IntDir />
-    <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;</IncludePath>
-    <ExternalIncludePath>$(ARM_NONE_EABI_IncludePath)</ExternalIncludePath>
+      <OutDir />
+      <IntDir />
+      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;</IncludePath>
+      <ExternalIncludePath>$(ARM_NONE_EABI_IncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -75,8 +89,8 @@
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>stdc17</LanguageStandard_C>
+        <LanguageStandard>stdcpp20</LanguageStandard>
+        <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -84,9 +98,6 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <BuildLog>
-      <Path></Path>
-    </BuildLog>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

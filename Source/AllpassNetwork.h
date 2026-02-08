@@ -3,7 +3,6 @@
 
 // Configurable network of Allpass filters
 #include "SignalProcessor.h"
-#include "Filters/allpass.h"
 #include "FloatArray.h"
 #include "SimpleArray.h"
 
