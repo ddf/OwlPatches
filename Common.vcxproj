@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Source\AllpassNetwork.h" />
+    <ClInclude Include="Source\AudioBufferSourceSink.h" />
+    <ClInclude Include="Source\BlurKernel.h" />
+    <ClInclude Include="Source\BlurProcessor1D.h" />
+    <ClInclude Include="Source\BlurProcessor2D.h" />
+    <ClInclude Include="Source\CartesianFloat.h" />
+    <ClInclude Include="Source\CartesianFloatArray.h" />
+    <ClInclude Include="Source\CartesianTransform.h" />
+    <ClInclude Include="Source\CircularTexture.h" />
+    <ClInclude Include="Source\Delay.h" />
+    <ClInclude Include="Source\DelayMatrix.h" />
+    <ClInclude Include="Source\DelayWithFreeze.h" />
+    <ClInclude Include="Source\Diffuser.h" />
+    <ClInclude Include="Source\EnvelopeFollower.h" />
+    <ClInclude Include="Source\EqualLoudnessCurves.h" />
+    <ClInclude Include="Source\FastCrossFadingCircularBuffer.h" />
+    <ClInclude Include="Source\Frequency.h" />
+    <ClInclude Include="Source\Gauss.h" />
+    <ClInclude Include="Source\Glitch.h" />
+    <ClInclude Include="Source\Grain.hpp" />
+    <ClInclude Include="Source\HashMap.h" />
+    <ClInclude Include="Source\KissFFT.h" />
+    <ClInclude Include="Source\KnotOscillator.h" />
+    <ClInclude Include="Source\Markov.h" />
+    <ClInclude Include="Source\MarkovChain.hpp" />
+    <ClInclude Include="Source\MarkovGenerator.h" />
+    <ClInclude Include="Source\Noise.hpp" />
+    <ClInclude Include="Source\PatchParameterDescription.h" />
+    <ClInclude Include="Source\PatchParameterIds.h" />
+    <ClInclude Include="Source\PerlinNoiseField.hpp" />
+    <ClInclude Include="Source\Reverb.h" />
+    <ClInclude Include="Source\SkewedValue.h" />
+    <ClInclude Include="Source\TapTempo.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Source\KissFFT.cpp" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>Common</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+      <OutDir />
+      <IntDir />
+      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;</IncludePath>
+      <ExternalIncludePath>$(ARM_NONE_EABI_IncludePath)</ExternalIncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+        <LanguageStandard>stdcpp20</LanguageStandard>
+        <LanguageStandard_C>stdc17</LanguageStandard_C>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
