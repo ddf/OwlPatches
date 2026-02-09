@@ -7,6 +7,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\OwlProgram\Libraries\vessl\vessl.h" />
     <ClInclude Include="Source\AllpassNetwork.h" />
     <ClInclude Include="Source\AudioBufferSourceSink.h" />
     <ClInclude Include="Source\BlurKernel.h" />
@@ -44,6 +45,12 @@
   <ItemGroup>
     <ClCompile Include="Source\KissFFT.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\OwlProgram\Libraries\vessl\.git" />
+    <Content Include="..\OwlProgram\Libraries\vessl\.gitignore" />
+    <Content Include="..\OwlProgram\Libraries\vessl\LICENSE" />
+    <Content Include="..\OwlProgram\Libraries\vessl\README.md" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}</ProjectGuid>
@@ -56,9 +63,9 @@
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>/std:c++latest</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -75,8 +82,8 @@
     <LinkIncremental>false</LinkIncremental>
       <OutDir />
       <IntDir />
-      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;</IncludePath>
-      <ExternalIncludePath>$(ARM_NONE_EABI_IncludePath)</ExternalIncludePath>
+      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1</IncludePath>
+      <ExternalIncludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -89,8 +96,8 @@
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-        <LanguageStandard>stdcpp20</LanguageStandard>
-        <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

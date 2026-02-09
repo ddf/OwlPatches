@@ -1,49 +1,46 @@
-#ifndef __CartesianFloat_h__
-#define __CartesianFloat_h__
+#pragma once
 
-#include "basicmaths.h"
 #include "FloatMatrix.h"
+#include "vessl/vessl.h"
 
 /**
 * A structure defining a floating point Cartesian coordinate.
 */
-
-struct CartesianFloat {
-  constexpr CartesianFloat() : x(0), y(0), z(0) {}
-  constexpr CartesianFloat(const CartesianFloat& in) : x(in.x), y(in.y), z(in.z) {}
-  constexpr CartesianFloat(float x, float y, float z) : x(x), y(y), z(z) {}
-
+struct CartesianFloat 
+{
   float x, y, z;
+  
+  constexpr CartesianFloat() : x(0), y(0), z(0) {}
+  constexpr CartesianFloat(const CartesianFloat&) = default;
+  constexpr CartesianFloat(float x, float y, float z) : x(x), y(y), z(z) {}
+  constexpr CartesianFloat(CartesianFloat&&) = default;
+  ~CartesianFloat() = default;
 
+  // ReSharper disable once CppNonExplicitConversionOperator
   operator FloatMatrix()
   {
-    return FloatMatrix(&x, 3, 1);
+    return { &x, 3, 1 };
   }
 
-  float getMagnitude() const
+  [[nodiscard]] float getMagnitude() const
   {
-    return sqrtf(x*x + y*y + z*z);
+    return vessl::math::sqrt(x*x + y*y + z*z);
   }
 
-  float getMagnitudeSquared() const
+  [[nodiscard]] float getMagnitudeSquared() const
   {
     return x*x + y*y + z*z;
   }
 
   void setSpherical(float radius, float inclination, float azimuth)
   {
-    x = radius * cosf(azimuth) * sinf(inclination);
-    y = radius * sinf(azimuth) * sinf(inclination);
-    z = radius * cosf(inclination);
+    x = radius * vessl::math::cos(azimuth) * vessl::math::sin(inclination);
+    y = radius * vessl::math::sin(azimuth) * vessl::math::sin(inclination);
+    z = radius * vessl::math::cos(inclination);
   }
 
-  CartesianFloat& operator=(const CartesianFloat& other) 
-  {
-    x = other.x;
-    y = other.y;
-    z = other.z;
-    return *this;
-  }
+  CartesianFloat& operator=(const CartesianFloat& other)  = default;
+  CartesianFloat& operator=(CartesianFloat&& other) = default;
 
   CartesianFloat& operator+=(const CartesianFloat& other) 
   {
@@ -95,5 +92,3 @@ struct CartesianFloat {
     return *this;
   }
 };
-
-#endif // __CartesianFloat_h__
