@@ -3,8 +3,9 @@
 #include "CartesianFloat.h"
 #include "vessl/vessl.h"
 
-class KnotOscillator
+class KnotOscillator : public vessl::unitGenerator<CartesianFloat>
 {
+public:
   enum class KnotType : uint8_t
   {
     TFOIL = 0,
@@ -15,70 +16,133 @@ class KnotOscillator
   };
   
   static constexpr int KNOT_TYPE_COUNT = static_cast<int>(KnotType::COUNT);
+  
+  using param     = vessl::parameter;
+  using desc      = param::desc;
+  using digital_p = vessl::digital_p;
+  using analog_p  = vessl::analog_p;
+  using knot_p    = vessl::param<KnotType>;
+  
+  static constexpr desc d_knotTypeA  = { "knot type a", 'k', knot_p::type };
+  static constexpr desc d_knotTypeB  = { "knot type b", 'l', knot_p::type };
+  // [0,1] sets morph amount from knot type a to knot type b
+  static constexpr desc d_knotMorph = { "knot morph", 'm', analog_p::type };
+  static constexpr desc d_knotP     = { "knot P", 'p', analog_p::type };
+  static constexpr desc d_knotQ     = { "knot Q", 'q', analog_p::type };
+  static constexpr desc d_frequency = { "frequency", 'f', analog_p::type };
+  static constexpr desc d_phaseMod  = { "phase mod", 'z', analog_p::type };
+  // frequency modulation of just the P part of the knot
+  static constexpr desc d_knotModP  = { "mod P amount", 'x', analog_p::type };
+  // frequency modulation of just the Q part of the knot
+  static constexpr desc d_knotModQ  = { "mod Q amount", 'y', analog_p::type };
+  
+  using pdl = param::desclist<9>;
+  static constexpr pdl pds = {{ d_knotTypeA, d_knotTypeB, d_knotMorph, d_knotP, d_knotQ, d_frequency, d_phaseMod, d_knotModP, d_knotModQ }};
+  
+private:
+  static constexpr float TWO_PI = vessl::math::twoPi<float>();
+  
+  struct P : vessl::plist<pdl::size>
+  {
+    knot_p knotTypeA;
+    knot_p knotTypeB;
+    analog_p knotMorph;
+    analog_p knotP;
+    analog_p knotQ;
+    analog_p frequency;
+    analog_p phaseMod;
+    analog_p knotModP;
+    analog_p knotModQ;
+
+    [[nodiscard]] param::list<pdl::size> get() const override
+    {
+      return {
+        knotTypeA(d_knotTypeA), knotTypeB(d_knotTypeB), knotMorph(d_knotMorph),
+        knotP(d_knotP), knotQ(d_knotQ), knotModP(d_knotModP), knotModQ(d_knotModQ),
+        frequency(d_frequency), phaseMod(d_phaseMod)
+      };
+    }
+  };
+  
+  P params;
 
   float x1[KNOT_TYPE_COUNT], x2[KNOT_TYPE_COUNT], x3[KNOT_TYPE_COUNT];
   float y1[KNOT_TYPE_COUNT], y2[KNOT_TYPE_COUNT], y3[KNOT_TYPE_COUNT];
   float z1[KNOT_TYPE_COUNT], z2[KNOT_TYPE_COUNT];
-
-  float knotP;
-  float knotQ;
+  
   float phaseP;
   float phaseQ;
   float phaseZ;
-  float phaseInc;
-  float morph;
-
-  static constexpr float TWO_PI = vessl::math::twoPi<float>();
   float stepRate;
 
 public:
-  explicit KnotOscillator(float sampleRate) 
-    : knotP(1), knotQ(1)
-    , phaseP(0), phaseQ(0), phaseZ(0), phaseInc(1)
-    , morph(0)
+  explicit KnotOscillator(float sampleRate)
+    : params()
+    , phaseP(0), phaseQ(0), phaseZ(0)
     , stepRate(TWO_PI / sampleRate)
   {
+    params.knotP.value = 1;
+    params.knotQ.value = 1;
+    params.knotTypeA.value = KnotType::TFOIL;
+    params.knotTypeB.value = KnotType::LISSA;
+    params.frequency.value = 1;
+    
     static constexpr int TFOIL = static_cast<int>(KnotType::TFOIL);
-    x1[TFOIL] = 1; x2[TFOIL] = 2; x3[TFOIL] = 3 * M_PI / 2;
-    y1[TFOIL] = 1; y2[TFOIL] = 0; y3[TFOIL] = -2;
-    z1[TFOIL] = 1; z2[TFOIL] = 0;
+    x1[TFOIL] = 1;
+    x2[TFOIL] = 2;
+    x3[TFOIL] = 3 * M_PI / 2;
+    y1[TFOIL] = 1;
+    y2[TFOIL] = 0;
+    y3[TFOIL] = -2;
+    z1[TFOIL] = 1;
+    z2[TFOIL] = 0;
 
     static constexpr int TORUS = static_cast<int>(KnotType::TORUS);
-    x1[TORUS] = 2; x2[TORUS] = 0; /*sin(qt)*/ x3[TORUS] = 0;
-    y1[TORUS] = 1; y2[TORUS] = 0; y3[TORUS] = 0; /*cos(qt)*/
-    z1[TORUS] = 0; z2[TORUS] = 1;
+    x1[TORUS] = 2;
+    x2[TORUS] = 0; /*sin(qt)*/
+    x3[TORUS] = 0;
+    y1[TORUS] = 1;
+    y2[TORUS] = 0;
+    y3[TORUS] = 0; /*cos(qt)*/
+    z1[TORUS] = 0;
+    z2[TORUS] = 1;
 
     static constexpr int LISSA = static_cast<int>(KnotType::LISSA);
-    x1[LISSA] = 0; x2[LISSA] = 2; x3[LISSA] = TWO_PI;
-    y1[LISSA] = 2; y2[LISSA] = M_PI * 3; y3[LISSA] = 0;
-    z1[LISSA] = 0; z2[LISSA] = 1;
+    x1[LISSA] = 0;
+    x2[LISSA] = 2;
+    x3[LISSA] = TWO_PI;
+    y1[LISSA] = 2;
+    y2[LISSA] = M_PI * 3;
+    y3[LISSA] = 0;
+    z1[LISSA] = 0;
+    z2[LISSA] = 1;
   }
+  
+  param knotTypeA() { return params.knotTypeA(d_knotTypeA); }
+  param knotTypeB() { return params.knotTypeB(d_knotTypeB); }
+  param knotMorph() { return params.knotMorph(d_knotMorph); }
+  param knotP()    { return params.knotP(d_knotP); }
+  param knotQ()    { return params.knotQ(d_knotQ); }
+  param knotModP() { return params.knotModP(d_knotModP); }
+  param knotModQ() { return params.knotModQ(d_knotModQ); }
+  
+  param frequency() { return params.frequency(d_frequency); }
+  param phaseMod() { return params.phaseMod(d_phaseMod); }
 
-  void setFrequency(float freq)
+  [[nodiscard]] const vessl::list<vessl::parameter>& getParameters() const override { return params; }
+  
+  CartesianFloat generate() override
   {
-    phaseInc = freq * stepRate;
-  }
-
-  void setPQ(float p, float q)
-  {
-    knotP = p;
-    knotQ = q;
-  }
-
-  void setMorph(float amt)
-  {
-    morph = -0.5f*vessl::math::cos(amt*vessl::math::pi<float>()) + 0.5f;
+    return generate<true>();
   }
 
   template<bool smooth_pq = true>
-  CartesianFloat generate(float fm, float pm, float qm)
+  CartesianFloat generate()
   {
-    // calculate coefficients based on the morph setting
-    int knotCount = static_cast<int>(KnotType::COUNT);
-    float fracIdx = static_cast<float>(knotCount - 1) * morph;
-    int i = static_cast<int>(fracIdx);
-    int j = (i + 1) % knotCount;
-    float lerp = fracIdx - static_cast<float>(i);
+    // calculate coefficients based on knot type and morph settings
+    int i = static_cast<int>(params.knotTypeA.value);
+    int j = static_cast<int>(params.knotTypeB.value);
+    float lerp = vessl::math::constrain(params.knotMorph.value, 0.f, 1.f);
 
     float cx1 = interp(x1, i, j, lerp);
     float cx3 = interp(x3, i, j, lerp);
@@ -87,8 +151,9 @@ public:
     float cz1 = interp(z1, i, j, lerp);
     float cz2 = interp(z2, i, j, lerp);
 
-    float kp = vessl::math::floor(knotP);
-    float kq = vessl::math::floor(knotQ);
+    float fm = params.phaseMod.value;
+    float kp = vessl::math::floor(params.knotP.value);
+    float kq = vessl::math::floor(params.knotQ.value);
 
     // the four phases we need for sampling the curves
     // are calculated as multiples of phases running
@@ -110,8 +175,8 @@ public:
     // for F(P,Q), F(P+1,Q), F(P,Q+1), F(P+1,Q+1).
     if (smooth_pq)
     {
-      const float pd = knotP - kp;
-      const float qd = knotQ - kq;
+      const float pd = params.knotP.value - kp;
+      const float qd = params.knotQ.value - kq;
       const float phaseP2 = phaseP * (kp + 1) + fm;
       const float phaseQ2 = phaseQ * (kq + 1) + fm;
 
@@ -131,8 +196,9 @@ public:
       a = a + (b - a) * qd;
     }
 
-    stepPhase(phaseP, phaseInc*(1 + pm));
-    stepPhase(phaseQ, phaseInc*(1 + qm));
+    float phaseInc = params.frequency.value*stepRate;
+    stepPhase(phaseP, phaseInc*(1+params.knotModP.value));
+    stepPhase(phaseQ, phaseInc*(1+params.knotModQ.value));
     stepPhase(phaseZ, phaseInc);
 
     return a;

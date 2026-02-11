@@ -28,6 +28,7 @@ DESCRIPTION:
     which generates an ever-changing stereo field.
 
 */
+#pragma once
 
 #include "Patch.h"
 #include "MidiMessage.h"
@@ -37,6 +38,7 @@ DESCRIPTION:
 #include "CartesianTransform.h"
 #include "SmoothValue.h"
 #include "Noise.hpp"
+#include "vessl/vessl.h"
 
 struct KnoscillatorParameterIds
 {
@@ -103,15 +105,15 @@ private:
 
   int gateHigh;
 
-  const int noiseDim = 128;
-  const float noiseStep = 4.0f / noiseDim;
+  static constexpr int noiseDim = 128;
+  static constexpr float noiseStep = 4.0f / noiseDim;
+  static constexpr float TWO_PI = vessl::math::twoPi<float>();
+  static constexpr float rotateBaseFreq = 1.0f / 16.0f;
+  
   FloatArray noiseTable;
-
-  const float TWO_PI;
-  const float stepRate;
-  const float rotateBaseFreq = 1.0f / 16.0f;
-  const float rotateOffSmooth;
-  const int   gateHighSampleLength;
+  float stepRate;
+  float rotateOffSmooth;
+  int   gateHighSampleLength;
 
 public:
   using PatchClass::registerParameter;
@@ -125,11 +127,11 @@ public:
   KnoscillatorPatch(KnoscillatorParameterIds paramIds)
     : PatchClass()
     , params(paramIds), hz(true), midinote(0), tune(0.9f, -6.0f), knotP(0.9f, 2), knotQ(0.9f, 1)
-    , gateHigh(0), phaseS(0), morph(0.9f, 0), zoom(0.9f, zoomNear), fmRatio(0.9f, 2.0f)
-    , rotateX(0), rotateY(0), rotateZ(0)
-    , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
-    , TWO_PI(M_PI * 2), stepRate(TWO_PI / getSampleRate()), gateHighSampleLength(10 * getSampleRate() / 1000)
-    , rotateOffSmooth(4.0f * M_PI * 2 / getSampleRate())
+    , morph(0.9f, 0), fmRatio(0.9f, 2.0f), zoom(0.9f, zoomNear), phaseS(0), rotateX(0)
+    , rotateY(0), rotateZ(0), rotateOffX(0)
+    , rotateOffY(0), rotateOffZ(0), gateHigh(0)
+    , stepRate(TWO_PI / getSampleRate()), rotateOffSmooth(4.0f * M_PI * 2 / getSampleRate())
+    , gateHighSampleLength(10 * getSampleRate() / 1000)
   {
     knoscil = KnotOscillator::create(getSampleRate());
     rotator = Rotation3D::create();
@@ -218,8 +220,8 @@ public:
 
   float noise(float x, float y)
   {
-    int nx = (int)(fabs(x) / noiseStep) % noiseDim;
-    int ny = (int)(fabs(y) / noiseStep) % noiseDim;
+    int nx = static_cast<int>(vessl::math::abs(x) / noiseStep) % noiseDim;
+    int ny = static_cast<int>(vessl::math::abs(y) / noiseStep) % noiseDim;
     int ni = nx * noiseDim + ny;
     return noiseTable[ni];
   }
@@ -290,27 +292,38 @@ public:
     float rzf = rzt == 0 ? getParameterValue(params.inRotateZRate)*16 : 0;
 
     float nVol = getParameterValue(params.inNoiseAmp)*0.5f;
-
-    knoscil->setPQ(knotP, knotQ);
-    knoscil->setMorph(morph);
+    
+    float knotTypeSmooth = -0.5f*vessl::math::cos(morph*vessl::math::pi<float>()) + 0.5f;
+    // calculate coefficients based on the morph setting
+    float fracIdx = static_cast<float>(KnotOscillator::KNOT_TYPE_COUNT - 1) * knotTypeSmooth;
+    int typeA = static_cast<int>(fracIdx);
+    knoscil->knotTypeA() = typeA;
+    knoscil->knotTypeB() = (typeA + 1) % KnotOscillator::KNOT_TYPE_COUNT;
+    knoscil->knotMorph() = fracIdx - static_cast<float>(typeA);
+    
+    knoscil->knotP() = knotP.getValue();
+    knoscil->knotQ() = knotQ.getValue();
+    knoscil->knotModP() = dtp;
+    knoscil->knotModQ() = dtq;
 
     for (int s = 0; s < getBlockSize(); ++s)
     {
       const float freq = hz.getFrequency(left[s]);
       // phase modulate in sync with the current frequency
       kpm->setFrequency(freq * fmRatio);
-      const float fm = kpm->generate()*TWO_PI*right[s];
+      const float fm = kpm->generate()*vessl::math::twoPi<float>()*right[s];
 
-      knoscil->setFrequency(freq);
+      knoscil->frequency() = freq;
+      knoscil->phaseMod()  = fm;
 
-      CartesianFloat coord = knoscil->generate(fm, dtp, dtq);
+      CartesianFloat coord = knoscil->generate();
       rotator->setEuler(rotateX + rotateOffX, rotateY + rotateOffY, rotateZ + rotateOffZ);
       coord = rotator->process(coord);
 
       float st = phaseS + fm;
       float nz = nVol * noise(coord.x, coord.y);
-      coord.x += cosf(st)*sVol + coord.x * nz;
-      coord.y += sinf(st)*sVol + coord.y * nz;
+      coord.x += vessl::math::cos(st)*sVol + coord.x * nz;
+      coord.y += vessl::math::sin(st)*sVol + coord.y * nz;
       coord.z += coord.z * nz;
 
       float projection = 1.0f / (coord.z + zoom);
@@ -345,14 +358,14 @@ public:
       rotateOffZ += (rzt - rotateOffZ) * rotateOffSmooth;
     }
 
-    setParameterValue(params.outRotateX, sinf(rotateX + rotateOffX)*0.5f + 0.5f);
-    setParameterValue(params.outRotateY, cosf(rotateY + rotateOffY)*0.5f + 0.5f);
+    setParameterValue(params.outRotateX, vessl::math::sin(rotateX + rotateOffX)*0.5f + 0.5f);
+    setParameterValue(params.outRotateY, vessl::math::cos(rotateY + rotateOffY)*0.5f + 0.5f);
     if (params.outRotateZ != -1)
     {
-      setParameterValue(params.outRotateZ, sinf(rotateZ + rotateOffZ)*0.5f + 0.5f);
+      setParameterValue(params.outRotateZ, vessl::math::sin(rotateZ + rotateOffZ)*0.5f + 0.5f);
     }
 
-    if (params.outRotateXGate == params.outRotateYGate == params.outRotateZGate)
+    if (params.outRotateXGate == params.outRotateYGate && params.outRotateXGate == params.outRotateZGate)
     {
       setButton(params.outRotateXGate, gateHigh != 0);
     }
