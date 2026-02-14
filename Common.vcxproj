@@ -7,7 +7,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\OwlProgram\Libraries\vessl\vessl.h" />
     <ClInclude Include="Source\AllpassNetwork.h" />
     <ClInclude Include="Source\AudioBufferSourceSink.h" />
     <ClInclude Include="Source\BlurKernel.h" />
@@ -44,12 +43,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\KissFFT.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="..\OwlProgram\Libraries\vessl\.git" />
-    <Content Include="..\OwlProgram\Libraries\vessl\.gitignore" />
-    <Content Include="..\OwlProgram\Libraries\vessl\LICENSE" />
-    <Content Include="..\OwlProgram\Libraries\vessl\README.md" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

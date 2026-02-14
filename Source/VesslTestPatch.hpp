@@ -89,7 +89,7 @@ public:
     AudioReader pmIn(audioLeft);
     AudioReader fmIn(audioRight);
     AudioWriter out(audioLeft);
-    while (out)
+    while (out.available())
     {
       float pm = pmIn.read();
       float fm = fmIn.read();

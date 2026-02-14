@@ -61,7 +61,7 @@
     <LinkIncremental>false</LinkIncremental>
     <OutDir />
     <IntDir />
-    <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\Libraries\CMSIS\DSP\Include;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1</IncludePath>
+    <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\Libraries\CMSIS\DSP\Include;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1;$(ARM_NONE_EABI_IncludePath)\c++\6.3.1</IncludePath>
     <ExternalIncludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
