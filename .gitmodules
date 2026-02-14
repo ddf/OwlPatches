@@ -1,0 +1,3 @@
+[submodule "Source/vessl"]
+	path = Source/vessl
+	url = https://github.com/ddf/vessl.git
