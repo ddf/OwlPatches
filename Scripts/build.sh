@@ -1,4 +1,4 @@
-#!/bin/bash -i
+#!/bin/bash -li
 patch_path="$(realpath -s "../Source")"
 echo "Building with SDK=$OWL_SDK_PATH and PATCHSOURCE=$patch_path"
 cd "$OWL_SDK_PATH" || exit

@@ -1,8 +1,6 @@
 #pragma once
 
 #include "MonochromeScreenPatch.h"
-#include "basicmaths.h"
-#include "MonochromeScreenPatch.h"
 #include "vessl/vessl.h"
 
 class SlewPatch : public MonochromeScreenPatch

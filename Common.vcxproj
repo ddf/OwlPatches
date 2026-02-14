@@ -40,9 +40,16 @@
     <ClInclude Include="Source\Reverb.h" />
     <ClInclude Include="Source\SkewedValue.h" />
     <ClInclude Include="Source\TapTempo.hpp" />
+    <ClInclude Include="Source\vessl\vessl.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\KissFFT.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Source\vessl\.git" />
+    <Content Include="Source\vessl\.gitignore" />
+    <Content Include="Source\vessl\LICENSE" />
+    <Content Include="Source\vessl\README.md" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
