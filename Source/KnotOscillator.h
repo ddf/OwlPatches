@@ -3,7 +3,8 @@
 #include "CartesianFloat.h"
 #include "vessl/vessl.h"
 
-class KnotOscillator : public vessl::unitGenerator<CartesianFloat>, protected vessl::plist<9>
+class KnotOscillator : public vessl::unitGenerator<CartesianFloat>
+                     , protected vessl::plist<9>
 {
 public:
   enum class KnotType : uint8_t

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "FloatMatrix.h"
 #include "vessl/vessl.h"
 
 /**
@@ -15,12 +14,6 @@ struct CartesianFloat
   constexpr CartesianFloat(float x, float y, float z) : x(x), y(y), z(z) {}
   constexpr CartesianFloat(CartesianFloat&&) = default;
   ~CartesianFloat() = default;
-
-  // ReSharper disable once CppNonExplicitConversionOperator
-  operator FloatMatrix()
-  {
-    return { &x, 3, 1 };
-  }
 
   [[nodiscard]] float getMagnitude() const
   {

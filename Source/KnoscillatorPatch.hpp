@@ -216,8 +216,6 @@ public:
     FloatArray::destroy(noiseTable);
   }
 
-
-
   float noise(float x, float y)
   {
     int nx = static_cast<int>(vessl::math::abs(x) / noiseStep) % noiseDim;

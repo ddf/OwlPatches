@@ -1,7 +1,8 @@
-#ifndef __CartesianTransform_h__
-#define __CartesianTransform_h__
+#pragma once
 
 #include "CartesianFloat.h"
+// @todo add matrix class to vessl, switch to using that
+#include "FloatMatrix.h"
 
 template<typename Operation>
 class CartesianTransform
@@ -35,7 +36,7 @@ public:
     //output.z = matrix[2][0] * input.x + matrix[2][1] * input.y + matrix[2][2] * input.z;
 
     // this might be faster?
-    matrix.multiply(input, output);
+    matrix.multiply({&input.x, 3, 1}, {&output.x, 3, 1});
 
     return output;
   }
@@ -77,5 +78,3 @@ public:
     matrix[2][2] = cosb * cosc;
   }
 };
-
-#endif // __CartesianTransform_h__
