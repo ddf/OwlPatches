@@ -5,23 +5,14 @@
 
 // performs a 2D blur on the input signal
 template<TextureSizeType TextureSizeType = TextureSizeType::Integral>
-class BlurProcessor2D : vessl::unitProcessor<float>
+class BlurProcessor2D : vessl::unitProcessor<float>, protected vessl::plist<1>
 {
   using param = vessl::parameter;
-  static constexpr param::desc d_t = { "Texture Size", 't', vessl::analog_p::type };
-  using pdl = param::desclist<1>;
-  static constexpr pdl p = {{ d_t }};
-    
-  struct P : vessl::plist<pdl::size>
+  
+  struct
   {
     vessl::analog_p textureSize;
-    
-    param::list<pdl::size> get() const override { return { textureSize(d_t) }; }
-  };
-  
-  using size_t = vessl::size_t;
-  
-  P params;
+  } params;
   BlurProcessor1D<BlurAxis::X, TextureSizeType>* blurX;
   BlurProcessor1D<BlurAxis::Y, TextureSizeType>* blurY;
   BlurKernel kernel;
@@ -33,15 +24,9 @@ public:
     params.textureSize.value = blurX->textureSize().readAnalog();
   }
 
-  unit::description getDescription() const override
-  {
+  const parameters& getParameters() const override { return *this; }
 
-    return { "blur processor 2d", p.descs, pdl::size };
-  }
-  
-  const vessl::list<param>& getParameters() const override { return params; }
-
-  param textureSize() { return params.textureSize(d_t); }
+  param textureSize() const { return params.textureSize({ "Texture Size", 't', vessl::analog_p::type }); }
 
   void setGauss(float size, float standardDeviation, float brightness = 1.0f)
   {
@@ -100,5 +85,12 @@ public:
     BlurProcessor1D<BlurAxis::X, TextureSizeType>::destroy(processor->blurX);
     BlurProcessor1D<BlurAxis::Y, TextureSizeType>::destroy(processor->blurY);
     delete processor;
+  }
+  
+protected:
+  param elementAt(vessl::size_t index) const override
+  {
+    param p[plsz] = { textureSize() };
+    return p[index];
   }
 };

@@ -18,9 +18,9 @@ public:
   VesslFilterTestPatch() : dcBlock(getSampleRate()), filter(getSampleRate(), 120, q::butterworth<float>())
   {
     int pid = PARAMETER_A;
-    for (auto& param : filter.getDescription())
+    for (vessl::parameter param : filter.getParameters())
     {
-      registerParameter(static_cast<PatchParameterId>(pid++), param.name);
+      registerParameter(static_cast<PatchParameterId>(pid++), param.getDescription().name);
     }
   }
 

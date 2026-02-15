@@ -12,20 +12,20 @@ using Smoother = vessl::smoother<float>;
 using Asr = vessl::asr<float>;
 
 template<typename T, typename H>
-class Markov final : public unitProcessor<T>, public clockable
+class Markov final : public unitProcessor<T>, public clockable, protected vessl::plist<7>
 {
   using param = vessl::parameter;
-  static constexpr param::desc d_l = { "listen", 'l', vessl::binary_p::type };
-  static constexpr param::desc d_w = { "word size", 'w', vessl::analog_p::type };
-  static constexpr param::desc d_v = { "variation", 'v', vessl::analog_p::type };
-  static constexpr param::desc d_d = { "decay", 'd', vessl::analog_p::type };
-  static constexpr param::desc d_p = { "progress", 'p', vessl::analog_p::type };
-  static constexpr param::desc d_e = { "envelope", 'e', vessl::analog_p::type };
-  static constexpr param::desc d_s = { "word started", 's', vessl::binary_p::type };
-  using pdl = param::desclist<7>;
-  static constexpr pdl p = {{ d_l, d_w, d_v, d_d, d_p, d_e, d_s }};
-    
-  struct P : vessl::plist<pdl::size>
+  using size_t = vessl::size_t;
+  
+  static constexpr int    CLOCK_PERIOD_MAX  = (1 << 17);
+  static constexpr float  ATTACK_SECONDS    = 0.005f;
+  static constexpr float  MIN_DECAY_SECONDS = 0.010f;
+  
+public:
+  const parameters& getParameters() const override { return *this; }
+  
+private:
+  struct
   {
     vessl::analog_p wordSize;
     vessl::analog_p variation;
@@ -34,30 +34,7 @@ class Markov final : public unitProcessor<T>, public clockable
     vessl::analog_p envelope;
     vessl::binary_p wordStarted;
     vessl::binary_p listen;
-    
-    param::list<pdl::size> get() const override
-    {
-      return { listen(d_l), wordSize(d_w), variation(d_v), decay(d_d), progress(d_p), envelope(d_e), wordStarted(d_s) };
-    }
-  };
-  
-  using size_t = vessl::size_t;
-  
-  static constexpr int    CLOCK_PERIOD_MAX  = (1 << 17);
-  static constexpr float  ATTACK_SECONDS    = 0.005f;
-  static constexpr float  MIN_DECAY_SECONDS = 0.010f;
-  
-public:
-
-  unit::description getDescription() const override
-  {
-    return { "Markov", p.descs, pdl::size }; 
-  }
-  
-  const vessl::list<param>& getParameters() const override { return params; }
-  
-private:
-  P params;
+  } params;
   Slew listenEnvelope;
   Smoother decaySmoother;
   Asr expoGenerateEnvelope;
@@ -87,17 +64,17 @@ public:
   {
     decay() = MIN_DECAY_SECONDS;
   }
-
+  
   // when processing, if listen is greater than 1, this is interpreted as a time-delayed gate
-  param listen() { return params.listen(d_l); }
-  param wordSize() { return params.wordSize(d_w); }
-  param variation() { return params.variation(d_v); }
-  param decay() { return params.decay(d_d); }
+  param listen() const { return params.listen({ "listen", 'l', vessl::binary_p::type }); }
+  param wordSize() const { return params.wordSize({ "word size", 'w', vessl::analog_p::type }); }
+  param variation() const { return params.variation({ "variation", 'v', vessl::analog_p::type }); }
+  param decay() const { return params.decay({ "decay", 'd', vessl::analog_p::type }); }
 
   // outputs
-  param progress() const { return params.progress(d_p); }
-  param envelope() const { return params.envelope(d_e); }
-  param wordStarted() const { return params.wordStarted(d_s); }
+  param progress() const { return params.progress({ "progress", 'p', vessl::analog_p::type }); }
+  param envelope() const { return params.envelope({ "envelope", 'e', vessl::analog_p::type }); }
+  param wordStarted() const { return params.wordStarted({ "word started", 's', vessl::binary_p::type }); }
 
   typename MarkovGenerator<T,H>::Chain::Stats getChainStats() const { return generator.chain().getStats(); }
   int wordSizeMs() const { return static_cast<int>(static_cast<float>(generator.chain().getCurrentWordSize()) / clockable::sr * 1000);}
@@ -184,6 +161,12 @@ public:
   }
 
 protected:
+  param elementAt(vessl::size_t index) const override
+  {
+    param p[plsz] = { listen(), wordSize(), variation(), decay(), progress(), envelope(), wordStarted() };
+    return p[index];
+  }
+  
   void tock(size_t sampleDelay) override
   {
     samplesSinceLastTock = -static_cast<int>(sampleDelay);

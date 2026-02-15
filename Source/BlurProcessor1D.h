@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <tgmath.h>
+
 #include "vessl/vessl.h"
 #include "CircularTexture.h"
 #include "BlurKernel.h"
@@ -21,37 +23,24 @@ enum class TextureSizeType : uint8_t
 // note: TextureSizeType is used to specialize on float to support textures with non-integral dimensions
 // probably there is a less confusing way to do this.
 template<BlurAxis Axis, TextureSizeType TextureSizeType = TextureSizeType::Integral>
-class BlurProcessor1D : public vessl::unitProcessor<float>
+class BlurProcessor1D : public vessl::unitProcessor<float>, protected vessl::plist<1>
 {  
   using param = vessl::parameter;
   static constexpr param::desc d_t = { "Texture Size", 't', vessl::analog_p::type };
-  using pdl = param::desclist<1>;
-  static constexpr pdl p = {{ d_t }}; 
-      
-  struct P : vessl::plist<pdl::size>
-  {
-    vessl::analog_p textureSize;
-    
-    param::list<pdl::size> get() const override { return { textureSize(d_t) }; }
-  }; 
   
   using size_t = vessl::size_t;
   using TextureType = CircularTexture<float>;
 public:
-  BlurProcessor1D() : kernel() {}
+  explicit BlurProcessor1D() = default;
+
   BlurProcessor1D(float sampleRate, float* textureData, size_t textureSizeX, size_t textureSizeY, const BlurKernel& kernel)
     : unitProcessor(), texture(textureData, textureSizeX * textureSizeY, textureSizeX, textureSizeY)
     , kernel(kernel) 
   { params.textureSize.value = static_cast<float>(textureSizeX); }
   
-  description getDescription() const override
-  {
-    return { "blur processor 1d", p.descs, pdl::size };
-  }
-  
-  const vessl::list<param>& getParameters() const override { return params; }
+  const parameters& getParameters() const override { return *this; }
 
-  param textureSize() { return params.textureSize(d_t); }
+  param textureSize() const { return params.textureSize(d_t); }
   
   float process(const float& input) override
   {
@@ -84,9 +73,18 @@ public:
     delete[] blur->texture.getData();
     delete blur;
   }
+  
+protected:
+  param elementAt(vessl::size_t index) const override
+  {
+    param p[plsz] = { textureSize() }; return p[index];
+  }
 
 private:
-  P params;
+  struct
+  {
+    vessl::analog_p textureSize;
+  } params;
   TextureType texture;
   BlurKernel kernel;
   

@@ -6,7 +6,6 @@
 
 class Diffuser : public MultiSignalProcessor
 {
-  using Allpass = daisysp::Allpass;
   static const int kBufferSize = 2048;
 
   AllpassNetwork* apl;

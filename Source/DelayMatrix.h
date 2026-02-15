@@ -39,7 +39,7 @@ using DelayLine = DelayWithFreeze<float>;
 
 // not a public unit processor because we only process stereo input in-place.
 template<int DELAY_LINE_COUNT>
-class DelayMatrix : vessl::unitProcessor<float>, vessl::clockable
+class DelayMatrix : vessl::unitProcessor<float>, vessl::clockable, protected vessl::plist<10>
 {
 public:
   enum FreezeState : uint8_t  // NOLINT(performance-enum-size)
@@ -54,20 +54,6 @@ public:
   using analog_p = vessl::analog_p;
   using binary_p = vessl::binary_p;
   using freeze_p = vessl::param<FreezeState>;
-  
-  static constexpr desc d_time = { "time", 't', analog_p::type };
-  static constexpr desc d_spread = { "spread", 's', analog_p::type };
-  static constexpr desc d_feedback = { "feedback", 'f', analog_p::type };
-  static constexpr desc d_dryWet = { "dry/wet", 'w', analog_p::type };
-  static constexpr desc d_skew = { "skew", 'k', analog_p::type };
-  static constexpr desc d_lfoOut = { "lfo>", 'l', analog_p::type };
-  static constexpr desc d_rndOut = { "rand>", 'r', analog_p::type };
-  static constexpr desc d_modIndex = { "mod", 'm', analog_p::type };
-  static constexpr desc d_gateOut = { "gate", 'g', binary_p::type };
-  static constexpr desc d_freezeOut = { "freeze state", 'z', freeze_p::type };
-  
-  using pdl = param::desclist<10>;
-  static constexpr pdl pds = {{ d_time, d_spread, d_feedback, d_dryWet, d_skew, d_lfoOut, d_rndOut, d_modIndex, d_gateOut, d_freezeOut }};
   
   static constexpr float MIN_TIME_SECONDS = 0.002f;
   static constexpr float MAX_TIME_SECONDS = 0.25f;
@@ -172,7 +158,7 @@ private:
     analog_p feedback[DELAY_LINE_COUNT];
   };
   
-  struct P : vessl::plist<pdl::size>
+  struct
   {
     analog_p time;
     analog_p spread;
@@ -184,18 +170,7 @@ private:
     analog_p modIndex;
     binary_p gateOut;
     freeze_p freezeState;
-    
-    vessl::parameter::list<pdl::size> get() const override
-    {
-      return { 
-        time(d_time), spread(d_spread), feedback(d_feedback), dryWet(d_dryWet), 
-        skew(d_skew), lfoOut(d_lfoOut), rndOut(d_rndOut), modIndex(d_modIndex),
-        gateOut(d_gateOut), freezeState(d_freezeOut)
-      };
-    }
-  };
-  
-  P params;
+  } params;
     
   uint8_t clocked;
   uint8_t clockMultIndex;
@@ -320,19 +295,19 @@ public:
     delete[] outputWet.getData();
   }
   
-  param time() { return params.time(d_time); }
-  param spread() { return params.spread(d_spread); }
-  param feedback() { return params.feedback(d_feedback); }
-  param dryWet() { return params.dryWet(d_dryWet); }
-  param skew() { return params.skew(d_skew); }
-  param mod() { return params.modIndex(d_modIndex); }
+  param time() const { return params.time({ "time", 't', analog_p::type }); }
+  param spread() const { return params.spread({ "spread", 's', analog_p::type }); }
+  param feedback() const { return params.feedback({ "feedback", 'f', analog_p::type }); }
+  param dryWet() const { return params.dryWet({ "dry/wet", 'w', analog_p::type }); }
+  param skew() const { return params.skew({ "skew", 'k', analog_p::type }); }
+  param mod() const { return params.modIndex({ "mod", 'm', analog_p::type }); }
   
   DLP& delay(vessl::size_t index) { return delayParams[index]; }
   
-  param lfo() const { return params.lfoOut(d_lfoOut); }
-  param rnd() const { return params.rndOut(d_rndOut); }
-  param gate() const { return params.gateOut(d_gateOut); }
-  param freeze() const { return params.freezeState(d_freezeOut); }
+  param lfo() const { return params.lfoOut({ "lfo>", 'l', analog_p::type }); }
+  param rnd() const { return params.rndOut({ "rand>", 'r', analog_p::type }); }
+  param gate() const { return params.gateOut({ "gate", 'g', binary_p::type }); }
+  param freeze() const { return params.freezeState({ "freeze state", 'z', freeze_p::type }); }
   
 
   // set the tempo via tapping
@@ -689,7 +664,14 @@ public:
   int spreadMult() const { return SPREAD_DIVMULT[spreadDivMultIndex]; }
   float modValue() const { return modAmount; }
   
-  const vessl::list<vessl::parameter>& getParameters() const override { return params; }
+  const parameters& getParameters() const override { return *this; }
+  
+protected:
+  param elementAt(vessl::size_t index) const override
+  {
+    param p[plsz] = { time(), spread(), feedback(), dryWet(), skew(), mod(), lfo(), rnd(), gate(), freeze() };
+    return p[index];
+  }
   
 private:
   float process(const float& in) override { return in; }

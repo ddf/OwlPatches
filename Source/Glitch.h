@@ -58,28 +58,14 @@ using EnvelopeFollower = vessl::follow<float>;
 using Array = vessl::array<float>;
 
 template<uint32_t FREEZE_BUFFER_SIZE>
-class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::clockable
+class Glitch : public vessl::unitProcessor<GlitchSampleType>, public vessl::clockable, protected vessl::plist<6>
 {
 public:
   using param = vessl::parameter;
-  static constexpr param::desc d_r = {"repeats", 'r', vessl::analog_p::type };
-  static constexpr param::desc d_c = {"crush", 'c', vessl::analog_p::type };
-  static constexpr param::desc d_g = { "glitch", 'g', vessl::analog_p::type };
-  static constexpr param::desc d_s = { "shape", 's', vessl::analog_p::type };
-  static constexpr param::desc d_f = { "freeze", 'f', vessl::binary_p::type };
-  static constexpr param::desc d_e = { "glich enabled", 'e', vessl::binary_p::type };
-  using pdl = param::desclist<5>;
-  static constexpr pdl p = { d_r, d_c, d_g, d_s, d_f };
-  
-  description getDescription() const override
-  {
-    return { "glitch", p.descs, pdl::size };
-  }
-  
-  const vessl::list<param>& getParameters() const override { return params; }
+  const parameters& getParameters() const override { return *this; }
  
 private:
-  struct P : vessl::plist<pdl::size>
+  struct
   {
     vessl::analog_p repeats;
     vessl::analog_p crush;
@@ -87,14 +73,7 @@ private:
     vessl::analog_p shape;
     vessl::binary_p freeze;
     vessl::binary_p glitchEnabled;
-    
-    param::list<pdl::size> get() const override
-    {
-      return { repeats(d_r), crush(d_c), glitch(d_g), shape(d_s), freeze(d_f) };
-    }
-  };
-  
-  P params;
+  } params;
   BufferType freezeBuffer;
   Freeze freezeProc;
     
@@ -142,12 +121,12 @@ public:
 
   using clockable::clock;
 
-  param repeats() { return params.repeats(d_r);  }
-  param crush() { return params.crush(d_c); }
-  param glitch() { return params.glitch(d_g); }
-  param glitching() { return params.glitchEnabled(d_e); }
-  param shape() { return params.shape(d_s); }
-  param freeze() { return params.freeze(d_f); }
+  param repeats() const { return params.repeats({"repeats", 'r', vessl::analog_p::type });  }
+  param crush() const { return params.crush({"crush", 'c', vessl::analog_p::type }); }
+  param glitch() const { return params.glitch({ "glitch", 'g', vessl::analog_p::type }); }
+  param glitching() const { return params.glitchEnabled({ "glich enabled", 'e', vessl::binary_p::type }); }
+  param shape() const { return params.shape({ "shape", 's', vessl::analog_p::type }); }
+  param freeze() const { return params.freeze({ "freeze", 'f', vessl::binary_p::type }); }
   float freezePhase() const { return freezeProc.phase(); }
   float envelope() const { return inputEnvelope[0]; }
   float rand() const { return glitchRand; }
@@ -262,6 +241,11 @@ public:
   }
 
 protected:
+  param elementAt(vessl::size_t index) const override
+  {
+    param p[plsz] = { repeats(), crush(), glitch(), glitching(), shape(), freeze() };
+    return p[index];
+  }
   void tock(vessl::size_t sampleDelay) override
   {
     samplesSinceLastTap = 0;

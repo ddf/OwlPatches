@@ -3,7 +3,7 @@
 #include "CartesianFloat.h"
 #include "vessl/vessl.h"
 
-class KnotOscillator : public vessl::unitGenerator<CartesianFloat>
+class KnotOscillator : public vessl::unitGenerator<CartesianFloat>, protected vessl::plist<9>
 {
 public:
   enum class KnotType : uint8_t
@@ -23,26 +23,10 @@ public:
   using analog_p  = vessl::analog_p;
   using knot_p    = vessl::param<KnotType>;
   
-  static constexpr desc d_knotTypeA  = { "knot type a", 'k', knot_p::type };
-  static constexpr desc d_knotTypeB  = { "knot type b", 'l', knot_p::type };
-  // [0,1] sets morph amount from knot type a to knot type b
-  static constexpr desc d_knotMorph = { "knot morph", 'm', analog_p::type };
-  static constexpr desc d_knotP     = { "knot P", 'p', analog_p::type };
-  static constexpr desc d_knotQ     = { "knot Q", 'q', analog_p::type };
-  static constexpr desc d_frequency = { "frequency", 'f', analog_p::type };
-  static constexpr desc d_phaseMod  = { "phase mod", 'z', analog_p::type };
-  // frequency modulation of just the P part of the knot
-  static constexpr desc d_knotModP  = { "mod P amount", 'x', analog_p::type };
-  // frequency modulation of just the Q part of the knot
-  static constexpr desc d_knotModQ  = { "mod Q amount", 'y', analog_p::type };
-  
-  using pdl = param::desclist<9>;
-  static constexpr pdl pds = {{ d_knotTypeA, d_knotTypeB, d_knotMorph, d_knotP, d_knotQ, d_frequency, d_phaseMod, d_knotModP, d_knotModQ }};
-  
 private:
   static constexpr float TWO_PI = vessl::math::twoPi<float>();
   
-  struct P : vessl::plist<pdl::size>
+  struct
   {
     knot_p knotTypeA;
     knot_p knotTypeB;
@@ -53,18 +37,7 @@ private:
     analog_p phaseMod;
     analog_p knotModP;
     analog_p knotModQ;
-
-    [[nodiscard]] param::list<pdl::size> get() const override
-    {
-      return {
-        knotTypeA(d_knotTypeA), knotTypeB(d_knotTypeB), knotMorph(d_knotMorph),
-        knotP(d_knotP), knotQ(d_knotQ), knotModP(d_knotModP), knotModQ(d_knotModQ),
-        frequency(d_frequency), phaseMod(d_phaseMod)
-      };
-    }
-  };
-  
-  P params;
+  } params;
 
   float x1[KNOT_TYPE_COUNT], x2[KNOT_TYPE_COUNT], x3[KNOT_TYPE_COUNT];
   float y1[KNOT_TYPE_COUNT], y2[KNOT_TYPE_COUNT], y3[KNOT_TYPE_COUNT];
@@ -117,19 +90,22 @@ public:
     z1[LISSA] = 0;
     z2[LISSA] = 1;
   }
-  
-  param knotTypeA() { return params.knotTypeA(d_knotTypeA); }
-  param knotTypeB() { return params.knotTypeB(d_knotTypeB); }
-  param knotMorph() { return params.knotMorph(d_knotMorph); }
-  param knotP()    { return params.knotP(d_knotP); }
-  param knotQ()    { return params.knotQ(d_knotQ); }
-  param knotModP() { return params.knotModP(d_knotModP); }
-  param knotModQ() { return params.knotModQ(d_knotModQ); }
-  
-  param frequency() { return params.frequency(d_frequency); }
-  param phaseMod() { return params.phaseMod(d_phaseMod); }
 
-  [[nodiscard]] const vessl::list<vessl::parameter>& getParameters() const override { return params; }
+  param knotTypeA() const { return params.knotTypeA({ "knot type a", 'k', knot_p::type }); }
+  param knotTypeB() const { return params.knotTypeB({ "knot type b", 'l', knot_p::type }); }
+  // [0,1] sets morph amount from knot type a to knot type b
+  param knotMorph() const { return params.knotMorph({ "knot morph", 'm', analog_p::type }); }
+  param knotP() const { return params.knotP({ "knot P", 'p', analog_p::type }); }
+  param knotQ() const { return params.knotQ({ "knot Q", 'q', analog_p::type }); }
+  // frequency modulation of just the P part of the knot
+  param knotModP() const { return params.knotModP({ "frequency", 'f', analog_p::type }); }
+  // frequency modulation of just the Q part of the knot
+  param knotModQ() const { return params.knotModQ({ "phase mod", 'z', analog_p::type }); }
+  
+  param frequency() const { return params.frequency({ "mod P amount", 'x', analog_p::type }); }
+  param phaseMod() const { return params.phaseMod({ "mod Q amount", 'y', analog_p::type }); }
+
+  [[nodiscard]] const parameters& getParameters() const override { return *this; }
   
   CartesianFloat generate() override
   {
@@ -202,6 +178,13 @@ public:
     stepPhase(phaseZ, phaseInc);
 
     return a;
+  }
+  
+protected:
+  [[nodiscard]] param elementAt(vessl::size_t index) const override
+  {
+    param p[plsz] = { knotTypeA(), knotTypeB(), knotMorph(), knotP(), knotQ(), knotModP(), knotModQ(), frequency(), phaseMod() };
+    return p[index];
   }
 
 private:

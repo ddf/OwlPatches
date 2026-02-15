@@ -45,9 +45,9 @@ public:
     setParameterValue(PARAMETER_A, 0.1f);
 
     int pid = PARAMETER_B;
-    for (auto& param : osc.getDescription())
+    for (vessl::parameter param : osc.getParameters())
     {
-      registerParameter(static_cast<PatchParameterId>(pid++), param.name);
+      registerParameter(static_cast<PatchParameterId>(pid++), param.getDescription().name);
     }
 
     ramp.duration() = 0.1f;

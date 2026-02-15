@@ -8,20 +8,15 @@ using Smoother = vessl::smoother<float>;
 using GaussSampleFrame = vessl::frame::channels<float, 2>;
 using HighPass = vessl::filter<float, vessl::filtering::biquad<1>::highPass>;
 
-class Gauss : public vessl::unitProcessor<GaussSampleFrame>
+class Gauss : public vessl::unitProcessor<GaussSampleFrame>, protected vessl::plist<7>
 {
   using param = vessl::parameter;
-  static constexpr param::desc d_T = { "Tex Size", 'T', vessl::analog_p::type }; // [0,1)
-  static constexpr param::desc d_B = { "Blur Size", 'B', vessl::analog_p::type }; // [0, 1)
-  static constexpr param::desc d_F = { "Fdbk Amt", 'F', vessl::analog_p::type }; // [0, 1)
-  static constexpr param::desc d_g = { "Gain (dB)", 'g', vessl::analog_p::type }; // dB, any value
-  static constexpr param::desc d_t = { "Tex Tilt", 't', vessl::analog_p::type }; // (-1, 1)
-  static constexpr param::desc d_b = { "Blur Tilt", 'b', vessl::analog_p::type }; // (-1, 1)
-  static constexpr param::desc d_f = { "Crossfdbk", 'f', vessl::analog_p::type }; // [0,1]
-  using pdl = param::desclist<7>;
-  static constexpr pdl p = {{ d_T, d_B, d_F, d_g, d_t, d_b, d_f }};
   
-  struct P : vessl::plist<pdl::size>
+public:
+  const parameters& getParameters() const override { return *this; }
+  
+private:
+  struct
   {
     vessl::analog_p textureSize;
     vessl::analog_p blurSize;
@@ -30,24 +25,7 @@ class Gauss : public vessl::unitProcessor<GaussSampleFrame>
     vessl::analog_p textureTilt;
     vessl::analog_p blurTilt;
     vessl::analog_p crossFeedback;
-    
-    param::list<pdl::size> get() const override
-    {
-      return { textureSize(d_T), blurSize(d_B), feedback(d_F), gain(d_g), textureTilt(d_t), blurTilt(d_b), crossFeedback(d_f) };
-    }
-  };
-  
-public:
-
-  description getDescription() const override
-  {
-    return { "Gauss", p.descs, pdl::size };
-  }
-  
-  const vessl::list<param>& getParameters() const override { return params; }
-  
-private:
-  P params;
+  } params;
   vessl::array<BlurKernel> blurKernels;
   GaussProcessor* processorLeft;
   GaussProcessor* processorRight;
@@ -117,14 +95,21 @@ public:
     GaussProcessor::destroy(processorLeft);
     GaussProcessor::destroy(processorRight);
   }
-
-  param textureSize() { return params.textureSize(d_T); }
-  param textureTilt() { return params.textureTilt(d_t); }
-  param blurSize() { return params.blurSize(d_B); }
-  param blurTilt() { return params.blurTilt(d_b); }
-  param feedback() { return params.feedback(d_F); }
-  param crossFeedback() { return params.crossFeedback(d_f); }
-  param gain() { return params.gain(d_g); }
+  
+  // [0,1)
+  param textureSize() const { return params.textureSize({ "Tex Size", 'T', vessl::analog_p::type }); }
+  // (-1, 1)
+  param textureTilt() const { return params.textureTilt({ "Tex Tilt", 't', vessl::analog_p::type }); }
+  // [0, 1)
+  param blurSize() const { return params.blurSize({ "Blur Size", 'B', vessl::analog_p::type }); }
+  // (-1, 1)
+  param blurTilt() const { return params.blurTilt({ "Blur Tilt", 'b', vessl::analog_p::type }); }
+  // [0, 1)
+  param feedback() const { return params.feedback({ "Fdbk Amt", 'F', vessl::analog_p::type }); }
+  // [0,1]
+  param crossFeedback() const { return params.crossFeedback({ "Crossfdbk", 'f', vessl::analog_p::type }); }
+  // dB, any value
+  param gain() const { return params.gain({ "Gain (dB)", 'g', vessl::analog_p::type }); }
   
   BlurKernel kernel() const { return processorLeft->getKernel(); }
   float getTextureSizeLeft() const { return static_cast<float>(processorLeft->textureSize()); }
@@ -203,4 +188,11 @@ public:
   }
   
   using unitProcessor::process;
+  
+protected:
+  param elementAt(vessl::size_t index) const override
+  {
+    param p[plsz] = { textureSize(), textureTilt(), blurSize(), blurTilt(), feedback(), crossFeedback(), gain() };
+    return p[index];
+  }
 };
