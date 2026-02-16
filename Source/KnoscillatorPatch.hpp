@@ -34,7 +34,6 @@ DESCRIPTION:
 #include "MidiMessage.h"
 #include "VoltsPerOctave.h"
 #include "KnotOscillator.h"
-#include "SineOscillator.h"
 #include "CartesianTransform.h"
 #include "SmoothValue.h"
 #include "Noise.hpp"
@@ -71,6 +70,8 @@ struct KnoscillatorParameterIds
   PatchButtonId outRotateZGate;
 };
 
+using SineOscillator = vessl::oscil<vessl::waves::sine<>>;
+
 template<typename PatchClass = Patch>
 class KnoscillatorPatch : public PatchClass
 {
@@ -79,7 +80,7 @@ protected:
   VoltsPerOctave hz;
 
 private:
-  SineOscillator* kpm;
+  SineOscillator kpm;
 
   KnotOscillator* knoscil;
   Rotation3D* rotator;
@@ -124,7 +125,7 @@ public:
   using PatchClass::setButton;
   using PatchClass::getBlockSize;
 
-  KnoscillatorPatch(KnoscillatorParameterIds paramIds)
+  KnoscillatorPatch(const KnoscillatorParameterIds& paramIds)
     : PatchClass()
     , params(paramIds), hz(true), midinote(0), tune(0.9f, -6.0f), knotP(0.9f, 2), knotQ(0.9f, 1)
     , morph(0.9f, 0), fmRatio(0.9f, 2.0f), zoom(0.9f, zoomNear), phaseS(0), rotateX(0)
@@ -136,8 +137,8 @@ public:
     knoscil = KnotOscillator::create(getSampleRate());
     rotator = Rotation3D::create();
 
-    kpm = SineOscillator::create(getSampleRate());
-    kpm->setFrequency(1.02f);
+    kpm.setSampleRate(getSampleRate());
+    kpm.fHz() = 1.02f;
 
     noiseTable = FloatArray::create(noiseDim*noiseDim);
     for (int x = 0; x < noiseDim; ++x)
@@ -208,10 +209,9 @@ public:
     setParameterValue(params.inZoom, 1);
   }
 
-  ~KnoscillatorPatch()
+  virtual ~KnoscillatorPatch()
   {
     KnotOscillator::destroy(knoscil);
-    SineOscillator::destroy(kpm);
     Rotation3D::destroy(rotator);
     FloatArray::destroy(noiseTable);
   }
@@ -308,8 +308,8 @@ public:
     {
       const float freq = hz.getFrequency(left[s]);
       // phase modulate in sync with the current frequency
-      kpm->setFrequency(freq * fmRatio);
-      const float fm = kpm->generate()*vessl::math::twoPi<float>()*right[s];
+      kpm.fHz() = freq * fmRatio;
+      const float fm = kpm.generate()*right[s];
 
       knoscil->frequency() = freq;
       knoscil->phaseMod()  = fm;
@@ -318,7 +318,7 @@ public:
       rotator->setEuler(rotateX + rotateOffX, rotateY + rotateOffY, rotateZ + rotateOffZ);
       coord = rotator->process(coord);
 
-      float st = phaseS + fm;
+      float st = phaseS + fm*vessl::math::twoPi<float>();
       float nz = nVol * noise(coord.x, coord.y);
       coord.x += vessl::math::cos(st)*sVol + coord.x * nz;
       coord.y += vessl::math::sin(st)*sVol + coord.y * nz;

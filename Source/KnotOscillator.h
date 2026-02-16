@@ -99,12 +99,12 @@ public:
   param knotP() const { return params.knotP({ "knot P", 'p', analog_p::type }); }
   param knotQ() const { return params.knotQ({ "knot Q", 'q', analog_p::type }); }
   // frequency modulation of just the P part of the knot
-  param knotModP() const { return params.knotModP({ "frequency", 'f', analog_p::type }); }
+  param knotModP() const { return params.knotModP({ "mod P amount", 'x', analog_p::type }); }
   // frequency modulation of just the Q part of the knot
-  param knotModQ() const { return params.knotModQ({ "phase mod", 'z', analog_p::type }); }
+  param knotModQ() const { return params.knotModQ({ "mod Q amount", 'y', analog_p::type }); }
   
-  param frequency() const { return params.frequency({ "mod P amount", 'x', analog_p::type }); }
-  param phaseMod() const { return params.phaseMod({ "mod Q amount", 'y', analog_p::type }); }
+  param frequency() const { return params.frequency({ "frequency", 'f', analog_p::type }); }
+  param phaseMod() const { return params.phaseMod({ "phase mod", 'z', analog_p::type }); }
 
   [[nodiscard]] const parameters& getParameters() const override { return *this; }
   
@@ -128,7 +128,7 @@ public:
     float cz1 = interp(z1, i, j, lerp);
     float cz2 = interp(z2, i, j, lerp);
 
-    float fm = params.phaseMod.value;
+    float fm = params.phaseMod.value*TWO_PI;
     float kp = vessl::math::floor(params.knotP.value);
     float kq = vessl::math::floor(params.knotQ.value);
 

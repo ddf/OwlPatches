@@ -28,6 +28,7 @@ DESCRIPTION:
     The Knot can be directly rotated or set to rotate at unique rates around 
     the X, Y, and Z axes, creating an ever-changing stereo field.
 */
+#pragma once
 
 #include "KnoscillatorPatch.hpp"
 #include "MonochromeScreenPatch.h"
