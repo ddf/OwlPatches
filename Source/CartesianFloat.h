@@ -5,7 +5,7 @@
 /**
 * A structure defining a floating point Cartesian coordinate.
 */
-struct CartesianFloat 
+struct CartesianFloat
 {
   float x, y, z;
   
@@ -14,6 +14,8 @@ struct CartesianFloat
   constexpr CartesianFloat(float x, float y, float z) : x(x), y(y), z(z) {}
   constexpr CartesianFloat(CartesianFloat&&) = default;
   ~CartesianFloat() = default;
+  
+  vessl::matrix<float> toMatrix() { return vessl::matrix<float>(&x, 3, 1); }
 
   [[nodiscard]] float getMagnitude() const
   {

@@ -1,33 +1,35 @@
 #pragma once
 
 #include "CartesianFloat.h"
-// @todo add matrix class to vessl, switch to using that
-#include "FloatMatrix.h"
+#include "vessl/vessl.h"
 
 template<typename Operation>
 class CartesianTransform
 {
 public:
+  using matrix_t = vessl::matrix<vessl::analog_t>;
+  
   CartesianTransform() : matrix(matrixData, 3, 3)
   {
-    resetMatrix();
+    setIdentity();
   }
-  FloatMatrix getMatrix() {
-    return matrix;
-  }
-  void resetMatrix() {
+
+  [[nodiscard]] matrix_t getMatrix() const { return matrix; }
+  
+  void setIdentity() 
+  {
     matrix.clear();
     for (size_t i = 0; i < 3; i++) {
-      matrix[i][i] = 1;
+      matrix.set(i,i, 1);
     }
   }
 
 protected:
-  float matrixData[3 * 3];
-  FloatMatrix matrix;
+  vessl::analog_t matrixData[3 * 3];
+  matrix_t matrix;
 
 public:
-  CartesianFloat process(CartesianFloat input)
+  [[nodiscard]] CartesianFloat process(CartesianFloat input) const
   {
     CartesianFloat output;
 
@@ -36,15 +38,18 @@ public:
     //output.z = matrix[2][0] * input.x + matrix[2][1] * input.y + matrix[2][2] * input.z;
 
     // this might be faster?
-    matrix.multiply({&input.x, 3, 1}, {&output.x, 3, 1});
+    matrix.multiply(input.toMatrix(), output.toMatrix());
 
     return output;
   }
 
-  static Operation* create() {
+  static Operation* create() 
+  {
     return new Operation();
   }
-  static void destroy(Operation* transform) {
+  
+  static void destroy(const Operation* transform) 
+  {
     delete transform;
   }
 };
@@ -56,14 +61,14 @@ public:
 
   void setEuler(float pitch, float yaw, float roll)
   {
-    float cosa = cosf(roll);
-    float sina = sinf(roll);
+    float cosa = vessl::math::cos(roll);
+    float sina = vessl::math::sin(roll);
 
-    float cosb = cosf(yaw);
-    float sinb = sinf(yaw);
+    float cosb = vessl::math::cos(yaw);
+    float sinb = vessl::math::sin(yaw);
 
-    float cosc = cosf(pitch);
-    float sinc = sinf(pitch);
+    float cosc = vessl::math::cos(pitch);
+    float sinc = vessl::math::sin(pitch);
 
     matrix[0][0] = cosa * cosb;
     matrix[0][1] = cosa * sinb*sinc - sina * cosc;
