@@ -29,6 +29,7 @@
     <ClInclude Include="Source\Grain.hpp" />
     <ClInclude Include="Source\HashMap.h" />
     <ClInclude Include="Source\KissFFT.h" />
+    <ClInclude Include="Source\Knoscillator.h" />
     <ClInclude Include="Source\KnotOscillator.h" />
     <ClInclude Include="Source\Markov.h" />
     <ClInclude Include="Source\MarkovChain.hpp" />

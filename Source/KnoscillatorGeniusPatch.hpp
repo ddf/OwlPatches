@@ -36,7 +36,7 @@ DESCRIPTION:
 
 typedef KnoscillatorPatch<MonochromeScreenPatch> BasePatch;
 
-static const KnoscillatorParameterIds knoscillatorGeniusParams =
+static constexpr KnoscillatorParameterIds knoscillatorGeniusParams =
 {
   .inPitch = PARAMETER_H,
   .inMorph = PARAMETER_D,
@@ -90,7 +90,7 @@ public:
     backBuffer.setBuffer(new uint8_t[backBuffer.getWidth()*backBuffer.getHeight()/8]);
   }
   
-  ~KnoscillatorGeniusPatch()
+  ~KnoscillatorGeniusPatch() override
   {
     CircularFloatBuffer::destroy(left);
     CircularFloatBuffer::destroy(right);
@@ -136,7 +136,7 @@ public:
     {
       backBuffer.clear();
       float t1 = getElapsedTime();
-      size_t count = min(drawCount, left->getSize() / 2);
+      size_t count = vessl::math::min(drawCount, left->getSize() / 2);
       drawCount -= count;
       while (count--)
       {

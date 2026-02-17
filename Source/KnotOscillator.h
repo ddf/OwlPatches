@@ -92,19 +92,19 @@ public:
     z2[LISSA] = 1;
   }
 
-  param knotTypeA() const { return params.knotTypeA({ "knot type a", 'k', knot_p::type }); }
-  param knotTypeB() const { return params.knotTypeB({ "knot type b", 'l', knot_p::type }); }
+  param knotTypeA() const { return params.knotTypeA({ "knot type a", 'A', knot_p::type }); }
+  param knotTypeB() const { return params.knotTypeB({ "knot type b", 'B', knot_p::type }); }
   // [0,1] sets morph amount from knot type a to knot type b
   param knotMorph() const { return params.knotMorph({ "knot morph", 'm', analog_p::type }); }
-  param knotP() const { return params.knotP({ "knot P", 'p', analog_p::type }); }
-  param knotQ() const { return params.knotQ({ "knot Q", 'q', analog_p::type }); }
+  param knotP() const { return params.knotP({ "knot P", 'P', analog_p::type }); }
+  param knotQ() const { return params.knotQ({ "knot Q", 'Q', analog_p::type }); }
   // frequency modulation of just the P part of the knot
-  param knotModP() const { return params.knotModP({ "mod P amount", 'x', analog_p::type }); }
+  param knotModP() const { return params.knotModP({ "mod P amount", 'p', analog_p::type }); }
   // frequency modulation of just the Q part of the knot
-  param knotModQ() const { return params.knotModQ({ "mod Q amount", 'y', analog_p::type }); }
+  param knotModQ() const { return params.knotModQ({ "mod Q amount", 'q', analog_p::type }); }
   
-  param frequency() const { return params.frequency({ "frequency", 'f', analog_p::type }); }
-  param phaseMod() const { return params.phaseMod({ "phase mod", 'z', analog_p::type }); }
+  param frequency() const { return params.frequency({ "frequency", 'F', analog_p::type }); }
+  param phaseMod() const { return params.phaseMod({ "phase mod", 'f', analog_p::type }); }
 
   [[nodiscard]] const parameters& getParameters() const override { return *this; }
   
