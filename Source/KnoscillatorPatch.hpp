@@ -102,7 +102,7 @@ public:
 
   explicit KnoscillatorPatch(const KnoscillatorParameterIds& paramIds)
     : PatchClass()
-    , params(paramIds), hz(true), midinote(0), tune(0.9f, -6.0f), knotP(0.9f, 2), knotQ(0.9f, 1)
+    , params(paramIds), hz(true), midinote(0), tune(0.5f, -6.0f), knotP(0.9f, 2), knotQ(0.9f, 1)
     , morph(0.9f, 0), fmRatio(0.9f, 2.0f)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
     , rotateOffSmooth(4.0f * vessl::math::pi<float>() * 2 / getSampleRate())
@@ -211,7 +211,7 @@ public:
     knotP = 1.0f + getParameterValue(params.inKnotP) * 16;
     knotQ = 1.0f + getParameterValue(params.inKnotQ) * 16;
 
-    float sVol = getParameterValue(params.inKnotS) * 0.25f;
+    float sVol = getParameterValue(params.inKnotS);
 
     bool freezeP = isButtonPressed(params.inFreezeP);
     bool freezeQ = isButtonPressed(params.inFreezeQ);
@@ -220,14 +220,14 @@ public:
     float dtq = freezeQ ? -1 : getParameterValue(params.inDetuneQ);
     float dts = getParameterValue(params.inDetuneS);
 
-    float rxt = getParameterValue(params.inRotateX)*vessl::math::twoPi<float>();
+    float rxt = getParameterValue(params.inRotateX);
     float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)*16 : 0;
-    float ryt = getParameterValue(params.inRotateY)*vessl::math::twoPi<float>();
+    float ryt = getParameterValue(params.inRotateY);
     float ryf = ryt == 0 ? getParameterValue(params.inRotateYRate)*16 : 0;
-    float rzt = getParameterValue(params.inRotateZ)*vessl::math::twoPi<float>();
+    float rzt = getParameterValue(params.inRotateZ);
     float rzf = rzt == 0 ? getParameterValue(params.inRotateZRate)*16 : 0;
 
-    float nVol = getParameterValue(params.inNoiseAmp)*0.5f;
+    float nVol = getParameterValue(params.inNoiseAmp);
     
     float knotTypeSmooth = -0.5f*vessl::math::cos(morph*vessl::math::pi<float>()) + 0.5f;
     // calculate coefficients based on the morph setting
