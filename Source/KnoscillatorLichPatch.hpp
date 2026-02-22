@@ -29,6 +29,7 @@ DESCRIPTION:
     which generates an ever-changing stereo field.
 
 */
+#pragma once
 
 #include "KnoscillatorPatch.hpp"
 

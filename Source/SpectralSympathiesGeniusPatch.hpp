@@ -1,3 +1,5 @@
+#pragma once
+
 #include "SpectralSympathiesPatch.hpp"
 
 typedef SpectralSympathiesPatch<4096, true> BasePatch;

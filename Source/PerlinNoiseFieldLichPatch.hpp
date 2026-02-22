@@ -24,6 +24,7 @@ DESCRIPTION:
     Parameter C is a fixed offset for X and Parameter D is a fixed offset for Y.
     Gate 1 and 2 can be used as triggers to sample and hold the noise at CV Outs 1 and 2.
 */
+#pragma once
 
 #include "Patch.h"
 #include "PerlinNoiseField.hpp"

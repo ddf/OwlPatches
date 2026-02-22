@@ -1,6 +1,3 @@
-[submodule "Source/vessl"]
-	path = Source/vessl
-	url = https://github.com/ddf/vessl.git
 [submodule "Source/vessicle"]
 	path = Source/vessicle
 	url = https://github.com/ddf/vessicle.git

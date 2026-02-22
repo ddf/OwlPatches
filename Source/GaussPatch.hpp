@@ -3,8 +3,8 @@
 #include "MonochromeScreenPatch.h"
 #include "PatchParameterIds.h"
 #include "AudioBufferSourceSink.h"
-#include "Gauss.h"
-#include "Noise.hpp"
+#include "vessicle/Gauss.h"
+#include "vessicle/Noise.hpp"
 
 // @todo feedback needs tuning. gets squealy too quickly, crossfeed seems to have no effect?
 class GaussPatch : public MonochromeScreenPatch

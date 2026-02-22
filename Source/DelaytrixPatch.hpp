@@ -2,8 +2,8 @@
 #pragma once
 
 #include "MonochromeScreenPatch.h"
-#include "DelayMatrix.h"
-#include "Noise.hpp"
+#include "vessicle/DelayMatrix.h"
+#include "vessicle/Noise.hpp"
 
 // for building param names
 #include <cstring>

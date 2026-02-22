@@ -1,4 +1,5 @@
 // Based on the Diffuser from Clouds: https://github.com/pichenettes/eurorack/blob/master/clouds/dsp/fx/diffuser.h
+#pragma once
 
 #include "SignalProcessor.h"
 #include "AudioBuffer.h"

@@ -33,9 +33,8 @@ DESCRIPTION:
 #include "Patch.h"
 #include "MidiMessage.h"
 #include "VoltsPerOctave.h"
-#include "Knoscillator.h"
 #include "SmoothValue.h"
-#include "vessl/vessl.h"
+#include "vessicle/Knoscillator.h"
 
 struct KnoscillatorParameterIds
 {

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "MonochromeScreenPatch.h"
-#include "VesslTestPatch.hpp"
-#include "vessl/vessl.h"
+#include "VesslTestPatch.hpp" // for AudioWriter
+#include "vessicle/vessl/vessl.h"
 
 using Array = vessl::array<float>;
 using WhiteNoise = vessl::noiseGenerator<float, vessl::noise::white>;

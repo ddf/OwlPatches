@@ -50,7 +50,7 @@ DESCRIPTION:
 #include "MonochromeScreenPatch.h"
 #include "PatchParameter.h"
 #include "PatchParameterDescription.h"
-#include "vessl/vessl.h"
+#include "vessicle/vessl/vessl.h"
 
 typedef uint32_t count_t;
 typedef uint16_t coord_t;

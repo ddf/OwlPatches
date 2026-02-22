@@ -2,7 +2,7 @@
 
 #include "MonochromeScreenPatch.h"
 #include "VoltsPerOctave.h"
-#include "vessl/vessl.h"
+#include "vessicle/vessl/vessl.h"
 
 using namespace vessl::filtering;
 using DcBlock = vessl::filter<float, dcblock>;

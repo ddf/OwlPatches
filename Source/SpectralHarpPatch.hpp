@@ -48,7 +48,7 @@ DESCRIPTION:
 #include "Frequency.h"
 #include "Interpolator.h"
 #include "SmoothValue.h"
-#include "vessl/vessl.h"
+#include "vessicle/vessl/vessl.h"
 
 struct SpectralHarpParameterIds
 {

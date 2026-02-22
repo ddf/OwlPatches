@@ -1,5 +1,6 @@
 // Based on the reverb from Clouds https://github.com/pichenettes/eurorack/blob/master/clouds/dsp/fx/reverb.h
 // Which is itself based on a paper by Dattoro.
+#pragma once
 
 #include "SignalProcessor.h"
 #include "SineOscillator.h"

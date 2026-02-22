@@ -46,7 +46,7 @@ DESCRIPTION:
 #include "Interpolator.h"
 #include "SmoothValue.h"
 #include "Window.h"
-#include "vessl/vessl.h"
+#include "vessicle/vessl/vessl.h"
 
 struct SpectralSympathiesParameterIds
 {

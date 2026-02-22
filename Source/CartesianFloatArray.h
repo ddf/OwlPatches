@@ -1,7 +1,8 @@
 #ifndef __CartesianFloatArray_h__
 #define __CartesianFloatArray_h__
 
-#include "CartesianFloat.h"
+#include "SimpleArray.h"
+#include "vessicle/CartesianFloat.h"
 
 class CartesianFloatArray : public SimpleArray<CartesianFloat> {
 public:

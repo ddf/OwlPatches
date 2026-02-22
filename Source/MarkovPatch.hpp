@@ -57,7 +57,7 @@ DESCRIPTION:
 #include "MonochromeScreenPatch.h"
 #include "PatchParameterDescription.h"
 #include "DcBlockingFilter.h"
-#include "Markov.h"
+#include "vessicle/Markov.h"
 
 static constexpr PatchButtonId IN_TOGGLE_LISTEN = BUTTON_1;
 static constexpr PatchButtonId IN_CLOCK = BUTTON_2;

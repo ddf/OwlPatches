@@ -2,7 +2,7 @@
 
 #include "SignalProcessor.h"
 #include "Patch.h"
-#include "Noise.hpp"
+#include "vessicle/Noise.hpp"
 
 class PerlinNoiseField : public MultiSignalProcessor
 {

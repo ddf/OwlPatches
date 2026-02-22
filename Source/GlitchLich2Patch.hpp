@@ -52,8 +52,8 @@ DESCRIPTION:
 #include "DcBlockingFilter.h"
 #include "Patch.h"
 #include "PatchParameterDescription.h"
-#include "Glitch.h"
 #include "AudioBufferSourceSink.h"
+#include "vessicle/Glitch.h"
 
 constexpr FloatPatchParameterDescription IN_REPEATS = { "Repeats", 0, 1, 0.5f, 0.0f, 0.01f };
 constexpr FloatPatchParameterDescription IN_SHAPE = { "Shape", 0, 1, 0.0f };

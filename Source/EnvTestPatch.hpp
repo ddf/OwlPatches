@@ -2,7 +2,7 @@
 
 #include "MonochromeScreenPatch.h"
 #include "FloatArray.h"
-#include "vessl/vessl.h"
+#include "vessicle/vessl/vessl.h"
 
 class EnvTestPatch : public MonochromeScreenPatch
 {

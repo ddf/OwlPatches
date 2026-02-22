@@ -2,8 +2,8 @@
 
 #include "MonochromeScreenPatch.h"
 #include "VoltsPerOctave.h"
-#include "DelayWithFreeze.h"
-#include "vessl/vessl.h"
+#include "vessicle/DelayWithFreeze.h"
+#include "vessicle/vessl/vessl.h"
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
 using Sine = vessl::waves::sine<>;

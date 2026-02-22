@@ -1,6 +1,4 @@
 #pragma once
-#ifndef __DELAY_H__
-#define __DELAY_H__
 
 #include "SignalProcessor.h"
 #include "CircularBuffer.h"
@@ -186,5 +184,3 @@ CrossFadingDelayWithFreezeProcessor* CrossFadingDelayWithFreezeProcessor::create
 {
   return new CrossFadingDelayWithFreezeProcessor(CrossFadingCircularFloatBuffer::create(maxDelayLength, blockSize));
 }
-
-#endif // __DELAY_H__

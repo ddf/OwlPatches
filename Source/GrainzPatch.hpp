@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"

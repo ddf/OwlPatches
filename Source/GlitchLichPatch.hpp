@@ -51,13 +51,14 @@ DESCRIPTION:
     which rises with forward playback and descends when reversed.
 
 */
+#pragma once
 
 #include "Patch.h"
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
 
 #include "TapTempo.hpp"
-#include "vessl/vessl.h"
+#include "vessicle/vessl/vessl.h"
 
 using BitCrush = vessl::bitcrush<float, 24>;
 

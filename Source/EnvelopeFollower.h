@@ -1,4 +1,5 @@
 #pragma once
+
 #include "AudioBuffer.h"
 #include "CircularBuffer.h"
 #include "SignalProcessor.h"

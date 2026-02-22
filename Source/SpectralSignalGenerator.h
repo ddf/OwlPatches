@@ -7,7 +7,7 @@
 #include "ComplexFloatArray.h"
 #include "ExponentialDecayEnvelope.h"
 #include "EqualLoudnessCurves.h"
-#include "vessl/vessl.h"
+#include "vessicle/vessl/vessl.h"
 
 #include "FastFourierTransform.h"
 typedef FastFourierTransform FFT;
