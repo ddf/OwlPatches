@@ -218,7 +218,7 @@ public:
 
     float dtp = freezeP ? -1 : getParameterValue(params.inDetuneP);
     float dtq = freezeQ ? -1 : getParameterValue(params.inDetuneQ);
-    float dts = getParameterValue(params.inDetuneS);
+    // float dts = getParameterValue(params.inDetuneS);
 
     float rxt = getParameterValue(params.inRotateX);
     float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)*16 : 0;

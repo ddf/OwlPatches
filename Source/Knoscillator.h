@@ -110,8 +110,8 @@ public:
   param rotationX() const { return params.rotationX({"rotation X", 'i', analog_p::type}); }
   param rotationY() const { return params.rotationY({"rotation Y", 'j', analog_p::type}); }
   param rotationZ() const { return params.rotationZ({"rotation Z", 'k', analog_p::type}); }
-  
-  const parameters& getParameters() const { return *this; }
+
+  [[nodiscard]] const parameters& getParameters() const override { return *this; }
 
   SampleType generate() override
   {
@@ -191,7 +191,7 @@ protected:
   }
   
 private:
-  float noise(float x, float y) const
+  [[nodiscard]] float noise(float x, float y) const
   {
     size_t nx = static_cast<size_t>(vessl::math::abs(x) / noiseStep) % noiseDim;
     size_t ny = static_cast<size_t>(vessl::math::abs(y) / noiseStep) % noiseDim;
