@@ -7,7 +7,7 @@
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
 using Sine = vessl::waves::sine<>;
-using Oscil = vessl::oscil<vessl::wavetable<float, 1024>>;
+using Oscil = vessl::oscil<Sine>;
 using Ramp = vessl::ramp<float>;
 using Delay = DelayWithFreeze<float>;
 using Array = vessl::array<float>;
@@ -33,7 +33,7 @@ class VesslTestPatch final : public MonochromeScreenPatch
   StiffFloat freezeSize;
   
 public:
-  VesslTestPatch() : osc(getSampleRate(), 440, Sine()), voct(true)
+  VesslTestPatch() : osc(getSampleRate(), 440), voct(true)
   , ramp(getSampleRate(), 0, 1, 0)
   , ad(0.01f, 1, getSampleRate())
   , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
@@ -141,5 +141,9 @@ public:
     // @todo this doesn't work for some reason, something is getting lost with the use of unitInit
     //screen.print(osc.name());
     screen.print("freeze: "); screen.print(freeze.enabled() ? "ON" : "OFF");
+    screen.setCursor(0, 20);
+    screen.print(static_cast<int>(osc.getPhase()));
+    screen.setCursor(0, 30);
+    screen.print(vessl::cast<vessl::analog_t>(osc.getPhase()));
   }
 };
