@@ -228,7 +228,7 @@ public:
 
     float nVol = getParameterValue(params.inNoiseAmp);
     
-    float knotTypeSmooth = -0.5f*vessl::math::cos(morph*vessl::math::pi<float>()) + 0.5f;
+    float knotTypeSmooth = -0.5f*vessl::math::cosr(morph*vessl::math::pi<float>()) + 0.5f;
     // calculate coefficients based on the morph setting
     float fracIdx = static_cast<float>(KnotOscillator::KNOT_TYPE_COUNT - 1) * knotTypeSmooth;
     int typeA = static_cast<int>(fracIdx);

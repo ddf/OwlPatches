@@ -62,7 +62,6 @@
     <RootNamespace>Common</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
@@ -73,7 +72,6 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
@@ -86,7 +84,7 @@
     <LinkIncremental>false</LinkIncremental>
       <OutDir />
       <IntDir />
-      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1</IncludePath>
+      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1;$(ARM_NONE_EABI_IncludePath)\c++\9.2.1</IncludePath>
       <ExternalIncludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -110,7 +108,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
