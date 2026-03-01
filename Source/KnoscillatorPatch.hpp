@@ -232,9 +232,9 @@ public:
     // calculate coefficients based on the morph setting
     float fracIdx = static_cast<float>(KnotOscillator<>::KNOT_TYPE_COUNT - 1) * knotTypeSmooth;
     int typeA = static_cast<int>(fracIdx);
-    knoscil->knotTypeA() = typeA;
-    knoscil->knotTypeB() = (typeA + 1) % KnotOscillator<>::KNOT_TYPE_COUNT;
-    knoscil->knotMorph() = fracIdx - static_cast<float>(typeA);
+    knoscil->knotTypeA() = KnotOscillator<>::KnotType::LISSA; // typeA;
+    knoscil->knotTypeB() = KnotOscillator<>::KnotType::TORUS; // (typeA + 1) % KnotOscillator<>::KNOT_TYPE_COUNT;
+    knoscil->knotMorph() = morph; //fracIdx - static_cast<float>(typeA);
     
     knoscil->knotP() = knotP.getValue();
     knoscil->knotQ() = knotQ.getValue();
