@@ -230,10 +230,10 @@ public:
     
     float knotTypeSmooth = -0.5f*vessl::math::cosr(morph*vessl::math::pi<float>()) + 0.5f;
     // calculate coefficients based on the morph setting
-    float fracIdx = static_cast<float>(KnotOscillator::KNOT_TYPE_COUNT - 1) * knotTypeSmooth;
+    float fracIdx = static_cast<float>(KnotOscillator<>::KNOT_TYPE_COUNT - 1) * knotTypeSmooth;
     int typeA = static_cast<int>(fracIdx);
     knoscil->knotTypeA() = typeA;
-    knoscil->knotTypeB() = (typeA + 1) % KnotOscillator::KNOT_TYPE_COUNT;
+    knoscil->knotTypeB() = (typeA + 1) % KnotOscillator<>::KNOT_TYPE_COUNT;
     knoscil->knotMorph() = fracIdx - static_cast<float>(typeA);
     
     knoscil->knotP() = knotP.getValue();

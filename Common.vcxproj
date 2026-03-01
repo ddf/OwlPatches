@@ -9,7 +9,6 @@
   <ItemGroup>
     <ClInclude Include="Source\AllpassNetwork.h" />
     <ClInclude Include="Source\AudioBufferSourceSink.h" />
-    <ClInclude Include="Source\CartesianFloatArray.h" />
     <ClInclude Include="Source\Delay.h" />
     <ClInclude Include="Source\Diffuser.h" />
     <ClInclude Include="Source\EnvelopeFollower.h" />
@@ -28,8 +27,6 @@
     <ClInclude Include="Source\vessicle\BlurKernel.h" />
     <ClInclude Include="Source\vessicle\BlurProcessor1D.h" />
     <ClInclude Include="Source\vessicle\BlurProcessor2D.h" />
-    <ClInclude Include="Source\vessicle\CartesianFloat.h" />
-    <ClInclude Include="Source\vessicle\CartesianTransform.h" />
     <ClInclude Include="Source\vessicle\CircularTexture.h" />
     <ClInclude Include="Source\vessicle\DelayMatrix.h" />
     <ClInclude Include="Source\vessicle\DelayWithFreeze.h" />
