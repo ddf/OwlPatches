@@ -11,7 +11,7 @@ Global
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{08837541-02AA-4E93-802F-AF0B78306529}.Release|Any CPU.ActiveCfg = Release|x64
 		{08837541-02AA-4E93-802F-AF0B78306529}.Release|Any CPU.Build.0 = Release|x64
-		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|Any CPU.ActiveCfg = Release|Win32
-		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|Any CPU.Build.0 = Release|Win32
+		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|Any CPU.ActiveCfg = Release|x64
+		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|Any CPU.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal

@@ -189,8 +189,6 @@ public:
     tune = (midinote - 69 + getParameterValue(params.inPitch) * 73) / 12.0f;
     hz.setTune(tune);
 
-    morph = getParameterValue(params.inMorph);
-
     float fmParam = getParameterValue(params.inFMRatio);
     if (fmParam < 0.34f)
     {
@@ -228,13 +226,15 @@ public:
 
     float nVol = getParameterValue(params.inNoiseAmp);
     
-    float knotTypeSmooth = -0.5f*vessl::math::cosr(morph*vessl::math::pi<float>()) + 0.5f;
-    // calculate coefficients based on the morph setting
-    float fracIdx = static_cast<float>(KnotOscillator<>::KNOT_TYPE_COUNT - 1) * knotTypeSmooth;
-    int typeA = static_cast<int>(fracIdx);
-    knoscil->knotTypeA() = KnotOscillator<>::KnotType::LISSA; // typeA;
-    knoscil->knotTypeB() = KnotOscillator<>::KnotType::TORUS; // (typeA + 1) % KnotOscillator<>::KNOT_TYPE_COUNT;
-    knoscil->knotMorph() = morph; //fracIdx - static_cast<float>(typeA);
+    // trefoil -> lissa -> torus
+    morph = vessl::math::constrain(getParameterValue(params.inMorph) * 2.1f, 0.f, 2.f);
+    float kt;
+    float blend = vessl::math::mod(morph.getValue(), &kt);
+    int typeA = static_cast<int>(kt) % KnotOscillator<>::KNOT_TYPE_COUNT;
+    int typeB = (typeA + 1) % KnotOscillator<>::KNOT_TYPE_COUNT;
+    knoscil->knotTypeA() = typeA;
+    knoscil->knotTypeB() = typeB;
+    knoscil->knotMorph() = blend*1.1f; // make sure we get all the way to 1
     
     knoscil->knotP() = knotP.getValue();
     knoscil->knotQ() = knotQ.getValue();
