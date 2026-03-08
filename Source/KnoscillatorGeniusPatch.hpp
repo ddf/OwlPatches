@@ -159,5 +159,13 @@ public:
         screen.setPixel(x, y, c);
       }
     }
+    
+    // screen.setCursor(0, 10);
+    // screen.print("dt "); screen.print((int)knoscil->knot().pi()); 
+    // screen.print(" sr " ); screen.print(knoscil->knot().sr()); screen.print("\n");
+    // screen.print("pp "); screen.print((int)knoscil->knot().pp()); screen.print("\n");
+    // screen.print("pq "); screen.print((int)knoscil->knot().pq()); screen.print("\n");
+    // screen.print("pz "); screen.print((int)knoscil->knot().pz()); screen.print("\n");
+    // screen.print(knoscil->knot().frequency().readAnalog());
   }
 };

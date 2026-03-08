@@ -74,9 +74,9 @@ class KnoscillatorPatch : public PatchClass
 protected:
   KnoscillatorParameterIds params;
   VoltsPerOctave hz;
+  KnoscilGen* knoscil;
 
 private:
-  KnoscilGen* knoscil;
 
   int midinote;
   SmoothFloat tune;
