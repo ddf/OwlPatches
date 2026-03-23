@@ -33,7 +33,7 @@ DESCRIPTION:
 
 #include "KnoscillatorPatch.hpp"
 
-typedef KnoscillatorPatch<Patch> BasePatch;
+typedef KnoscillatorPatch<vessl::q31, Patch> BasePatch;
 
 static const KnoscillatorParameterIds knoscillatorLichParams = 
 {

@@ -34,7 +34,7 @@ DESCRIPTION:
 #include "MonochromeScreenPatch.h"
 #include "CircularBuffer.h"
 
-typedef KnoscillatorPatch<MonochromeScreenPatch> BasePatch;
+typedef KnoscillatorPatch<vessl::analog_t, MonochromeScreenPatch> BasePatch;
 
 static constexpr KnoscillatorParameterIds knoscillatorGeniusParams =
 {

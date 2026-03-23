@@ -67,10 +67,10 @@ struct KnoscillatorParameterIds
   PatchButtonId outRotateZGate;
 };
 
-template<typename PatchClass = Patch>
+template<typename T, typename PatchClass = Patch>
 class KnoscillatorPatch : public PatchClass
 {
-  using KnoscilGen = Knoscillator<>;
+  using KnoscilGen = Knoscillator<T>;
 protected:
   KnoscillatorParameterIds params;
   VoltsPerOctave hz;
@@ -106,7 +106,7 @@ public:
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
     , rotateOffSmooth(4.0f * vessl::math::pi<float>() * 2 / getSampleRate())
   {
-    knoscil = Knoscillator<>::create(getSampleRate());
+    knoscil = KnoscilGen::create(getSampleRate());
 
     registerParameter(params.inPitch, "Pitch");
     registerParameter(params.inMorph, "Morph");
@@ -230,7 +230,7 @@ public:
     morph = vessl::math::constrain(getParameterValue(params.inMorph) * 2.1f, 0.f, 2.f);
     float kt;
     float blend = vessl::math::mod(morph.getValue(), &kt);
-    int typeA = static_cast<int>(kt) % KnotOscillator<>::KNOT_TYPE_COUNT;
+    int typeA = static_cast<int>(kt) % KnotOscillator<T>::KNOT_TYPE_COUNT;
     int typeB = (typeA + 1) % KnotOscillator<>::KNOT_TYPE_COUNT;
     knoscil->knotTypeA() = typeA;
     knoscil->knotTypeB() = typeB;
@@ -256,10 +256,10 @@ public:
       knoscil->rotModX() = rotateOffX;
       knoscil->rotModY() = rotateOffY;
       knoscil->rotModZ() = rotateOffZ;
-      
-      KnoscilGen::SampleType frame = knoscil->generate();
-      left[s] = frame.left();
-      right[s] = frame.right();
+
+      typename KnoscilGen::SampleType frame = knoscil->generate();
+      left[s] = vessl::cast<vessl::analog_t>(frame.left());
+      right[s] = vessl::cast<vessl::analog_t>(frame.right());
 
       rotateOffX += (rxt - rotateOffX) * rotateOffSmooth;
       rotateOffY += (ryt - rotateOffY) * rotateOffSmooth;
