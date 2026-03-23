@@ -40,6 +40,10 @@
     <ClInclude Include="Source\vessicle\MarkovGenerator.h" />
     <ClInclude Include="Source\vessicle\Noise.hpp" />
     <ClInclude Include="Source\vessicle\vessl\vessl.h" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_arm_math.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_qmath.h" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_qmath.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_qmath_lut.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\KissFFT.cpp" />
