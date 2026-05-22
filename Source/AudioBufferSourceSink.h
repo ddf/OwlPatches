@@ -13,8 +13,8 @@ public:
   explicit AudioBufferReader(AudioBuffer& sourceBuffer) : source(&sourceBuffer), readIdx(0)
   {
   }
-  
-  bool isEmpty() const override { return readIdx == static_cast<vessl::size_t>(source->getSize()); }
+
+  [[nodiscard]] bool is_empty() const override { return readIdx == static_cast<vessl::size_t>(source->getSize()); }
 
   vessl::frame::channels<float, N> read() override
   {
@@ -33,7 +33,7 @@ public:
   public:
     explicit MonoReader(AudioBuffer& sourceBuffer) : reader(&sourceBuffer) {}
 
-    bool isEmpty() const override { return reader.isEmpty(); }
+    [[nodiscard]] bool is_empty() const override { return reader.is_empty(); }
     float read() override
     {
       return reader.read().toMono().value();
@@ -54,13 +54,13 @@ public:
   {
     
   }
-  
-  bool isEmpty() const override { return !left.available(); }
+
+  [[nodiscard]] bool is_empty() const override { return !left.available(); }
   
   vessl::frame::stereo::analog_t read() override
   {
     vessl::frame::stereo::analog_t frame;
-    if (!isEmpty())
+    if (!is_empty())
     {
       frame.left()  = left.read();
       frame.right() = right.read();
@@ -80,7 +80,7 @@ public:
     
     }
 
-    bool isEmpty() const override { return !left.available(); }
+    [[nodiscard]] bool is_empty() const override { return !left.available(); }
     float read() override
     {
       return (left.read() + right.read())*0.5f;
@@ -108,7 +108,7 @@ public:
     ++writeIdx;
   }
 
-  bool isFull() const override { return writeIdx == static_cast<vessl::size_t>(sink->getSize()); }
+  [[nodiscard]] bool is_full() const override { return writeIdx == static_cast<vessl::size_t>(sink->getSize()); }
 };
 
 template<>
@@ -123,12 +123,12 @@ public:
   , right(targetBuffer.getSamples(1), targetBuffer.getSize())
   {
   }
-  
-  bool isFull() const override { return !left.available(); }
+
+  [[nodiscard]] bool is_full() const override { return !left.available(); }
   
   void write(const vessl::frame::stereo::analog_t& value) override
   {
-    if (!isFull())
+    if (!is_full())
     {
       left << static_cast<vessl::analog_t>(value.left());
       right << static_cast<vessl::analog_t>(value.right());

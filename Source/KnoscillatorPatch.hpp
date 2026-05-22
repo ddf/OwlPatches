@@ -244,7 +244,8 @@ public:
     knoscil->rotRatioX() = rxf;
     knoscil->rotRatioY() = ryf;
     knoscil->rotRatioZ() = rzf;
-    knoscil->cameraZoom() = zoom;
+    // @todo add Projector
+    //knoscil->cameraZoom() = zoom;
     knoscil->squiggle() = sVol;
     knoscil->noise() = nVol;
 
@@ -258,6 +259,7 @@ public:
       knoscil->rotModZ() = rotateOffZ;
 
       typename KnoscilGen::SampleType frame = knoscil->generate();
+      // @todo use Projector to do 2D projection!
       left[s] = vessl::cast<vessl::analog_t>(frame.left());
       right[s] = vessl::cast<vessl::analog_t>(frame.right());
 
@@ -266,9 +268,9 @@ public:
       rotateOffZ += (rzt - rotateOffZ) * rotateOffSmooth;
     }
     
-    float rx = knoscil->rotationX().readAnalog()*0.5f + 0.5f;
-    float ry = knoscil->rotationY().readAnalog()*0.5f + 0.5f;
-    float rz = knoscil->rotationZ().readAnalog()*0.5f + 0.5f;
+    float rx = knoscil->rotationX().read_analog()*0.5f + 0.5f;
+    float ry = knoscil->rotationY().read_analog()*0.5f + 0.5f;
+    float rz = knoscil->rotationZ().read_analog()*0.5f + 0.5f;
 
     setParameterValue(params.outRotateX, vessl::math::constrain(rx, 0.f, 1.f));
     setParameterValue(params.outRotateY, vessl::math::constrain(ry, 0.f, 1.f));

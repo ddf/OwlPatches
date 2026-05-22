@@ -103,7 +103,7 @@ public:
     {
       for (int y = 2; y < texDim - 2; ++y)
       {
-        if (perlin2d(x, y, texDim / 4, 1) + 0.001f < withBlurSize*2)
+        if (vessicle::perlin2d(x, y, texDim / 4, 1) + 0.001f < withBlurSize*2)
         {
           screen.invertPixel(tx + x - 1, ty + y - 1);
           screen.invertPixel(tx + x - 1, ty + y);

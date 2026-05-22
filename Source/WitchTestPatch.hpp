@@ -6,10 +6,10 @@
 // @todo full workout of all cv inputs/outputs and all buttons.
 class WitchTestPatch : public Patch
 {
-  vessl::oscil<vessl::waves::sine<>> oscillator;
-  
 public:
-  WitchTestPatch() : oscillator(getSampleRate(), 220.f)
+  vessl::oscil<vessl::waves::sine<vessl::analog_t>> oscillator;
+  
+  WitchTestPatch() : oscillator(getSampleRate(), 220.f)  // NOLINT(modernize-use-equals-default)
   {
   }
 
@@ -18,11 +18,11 @@ public:
     vessl::array<float> left(audio.getSamples(LEFT_CHANNEL), audio.getSize());
     vessl::array<float> right(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
     
-    auto out = left.getWriter();
+    auto out = left.make_writer();
     while (out.available())
     {
       out << oscillator.generate();
     }
-    left.copyTo(right);
+    left.copy_to(right);
   }
 };

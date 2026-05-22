@@ -20,7 +20,7 @@ public:
   {
     envStage.target() = 1.0f;
     envStage.duration() = 4.0f;
-    envStage.setSampleRate(getSampleRate());
+    envStage.set_sample_rate(getSampleRate());
     
     registerParameter(PARAMETER_A, "att dur");
     registerParameter(PARAMETER_B, "dec dur");

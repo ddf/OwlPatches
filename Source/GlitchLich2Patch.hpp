@@ -98,7 +98,7 @@ public:
   ~GlitchLich2Patch() override
   {
     StereoDcBlockingFilter::destroy(dcFilter);
-    delete[] processBuffer.getData();
+    delete[] processBuffer.data();
     delete glitch;
   }
 
@@ -112,7 +112,7 @@ public:
     dcFilter->process(audio, audio);
 
     AudioBufferReader<2> reader(audio);
-    auto pbw = processBuffer.getWriter();
+    auto pbw = processBuffer.make_writer();
     while (reader)
     {
       pbw << reader.read();
@@ -121,7 +121,7 @@ public:
     glitch->process(processBuffer, processBuffer);
 
     AudioBufferWriter<2> writer(audio);
-    auto pbr = processBuffer.getReader();
+    auto pbr = processBuffer.make_reader();
     while (pbr)
     {
       writer.write(pbr.read());

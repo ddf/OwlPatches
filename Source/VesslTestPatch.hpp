@@ -6,7 +6,7 @@
 #include "vessicle/vessl/vessl.h"
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
-using Sine = vessl::waves::sine<>;
+using Sine = vessl::waves::sine<vessl::analog_t>;
 using Oscil = vessl::oscil<Sine>;
 using Ramp = vessl::ramp<float>;
 using Delay = DelayWithFreeze<float>;
@@ -18,20 +18,6 @@ using Freeze = vessl::freeze<float>;
 
 class VesslTestPatch final : public MonochromeScreenPatch
 {
-  Oscil osc;
-  VoltsPerOctave voct;
-  Ramp ramp;
-  vessl::ad<float> ad;
-
-  FloatArray delayBuffer;
-  Delay delay;
-  SmoothFloat delayTime;
-
-  FreezeBuffer freezeBuffer;
-  Freeze freeze;
-  StiffFloat freezeDelay;
-  StiffFloat freezeSize;
-  
 public:
   VesslTestPatch() : osc(getSampleRate(), 440), voct(true)
   , ramp(getSampleRate(), 0, 1, 0)
@@ -45,9 +31,9 @@ public:
     setParameterValue(PARAMETER_A, 0.1f);
 
     int pid = PARAMETER_B;
-    for (vessl::parameter param : osc.getParameters())
+    for (vessl::parameter param : osc.parameters())
     {
-      registerParameter(static_cast<PatchParameterId>(pid++), param.getDescription().name);
+      registerParameter(static_cast<PatchParameterId>(pid++), param.description().name);
     }
 
     ramp.duration() = 0.1f;
@@ -66,7 +52,7 @@ public:
     Array audioRight(audio.getSamples(RIGHT_CHANNEL), bufferSize);
     
     ad.decay().duration() = ramp.duration() = getParameterValue(PARAMETER_A);
-    osc.fHz() = 60 + getParameterValue(PARAMETER_B)*4000;
+    osc.fhz() = 60 + getParameterValue(PARAMETER_B)*4000;
     
     delayTime = getParameterValue(PARAMETER_A)*2.0f;
     // need to use StiffFloat or some other way of snapping size when using duration::mode::fade
@@ -77,11 +63,11 @@ public:
     // note: HAS to be analog_t, otherwise the set by pointer conversion won't work.
     delay.time() = getParameterValue(PARAMETER_E)*getSampleRate();
     delay.feedback() = getParameterValue(PARAMETER_F);
-    delay.freezePosition() = freezeDelay.getValue();
-    delay.freezeSize() = freezeSize.getValue();
+    delay.freeze_position() = freezeDelay.getValue();
+    delay.freeze_duration() = freezeSize.getValue();
     
     freeze.position() = freezeDelay.getValue();
-    freeze.size() = freezeSize.getValue();
+    freeze.duration() = freezeSize.getValue();
     freeze.rate() = -1.0f + 2.0f * getParameterValue(PARAMETER_D);
     
     uint16_t eorState = OFF;
@@ -94,7 +80,7 @@ public:
       float pm = pmIn.read();
       float fm = fmIn.read();
       osc.pm() = pm;
-      osc.fmExp() = fm;
+      osc.fm_exp() = fm;
       
       out << osc.generate() * ad.generate(); // ramp.generate();
       
@@ -104,16 +90,16 @@ public:
         eorIndex = eorState == OFF ? eorIndex + 1 : eorIndex;
       }
     }
-    if (delay.freezeEnabled())
+    if (delay.freeze_enabled())
     {
-      delay.process<vessl::duration::mode::fade>(audioLeft, audioLeft);
+      delay.process<vessl::time::mode::fade>(audioLeft, audioLeft);
     }
     else
     {
-      delay.process<vessl::duration::mode::fade>(audioLeft, audioRight);
+      delay.process<vessl::time::mode::fade>(audioLeft, audioRight);
       audioLeft.add(audioRight).scale(0.5f);
     }
-    audioLeft.copyTo(audioRight);
+    audioLeft.copy_to(audioRight);
     
     setButton(BUTTON_1, eorState, eorIndex);
   }
@@ -130,7 +116,7 @@ public:
     {
       vessl::binary_t freezeState = !freeze.enabled(); 
       freeze.enabled() = freezeState;
-      delay.freezeEnabled() = freezeState;
+      delay.freeze_enabled() = freezeState;
     }
   }
   
@@ -142,8 +128,23 @@ public:
     //screen.print(osc.name());
     screen.print("freeze: "); screen.print(freeze.enabled() ? "ON" : "OFF");
     screen.setCursor(0, 20);
-    screen.print(static_cast<int>(osc.getPhase()));
+    screen.print(static_cast<int>(osc.phase()));
     screen.setCursor(0, 30);
-    screen.print(vessl::cast<vessl::analog_t>(osc.getPhase()));
+    screen.print(vessl::cast<vessl::analog_t>(osc.phase()));
   }
+
+private:
+  Oscil osc;
+  VoltsPerOctave voct;
+  Ramp ramp;
+  vessl::ad<float> ad;
+
+  FloatArray delayBuffer;
+  Delay delay;
+  SmoothFloat delayTime;
+
+  FreezeBuffer freezeBuffer;
+  Freeze freeze;
+  StiffFloat freezeDelay;
+  StiffFloat freezeSize;
 };
