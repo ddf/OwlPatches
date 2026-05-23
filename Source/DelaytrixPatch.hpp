@@ -371,7 +371,7 @@ public:
       if (freezeState == FreezeState::On)
       {
         const float windowStart = 1.0f - ((delayMatrix.freezePosition(i) + data.time.value) / maxFreezeSize);
-        const float windowSize = min(data.time.value / maxFreezeSize, 1.0f);
+        const float windowSize = vessl::math::min(data.time.value / maxFreezeSize, 1.0f);
         const int freezeX = x - knobRadius;
         const int freezeY = knobY - knobRadius;
         constexpr float freezeW = (knobRadius * 2 + 4)*DELAY_COUNT - 1;
@@ -437,7 +437,7 @@ private:
   static void drawKnob(float value, MonochromeScreenBuffer& screen, uint16_t x, uint16_t y, uint16_t radius)
   {
     static constexpr float PI_4 = vessl::math::pi<float>() / 4.f;
-    float angle = vessl::easing::lerp(-3.1f*PI_4, 3.1f*PI_4, value);
+    float angle = vessl::math::lerp(-3.1f*PI_4, 3.1f*PI_4, value);
     float dirX = vessl::math::sin<float>(angle);
     float dirY = -vessl::math::cos<float>(angle);
     float x1 = static_cast<float>(x) + dirX * static_cast<float>(radius);

@@ -155,14 +155,14 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    using namespace vessl::easing;
-    
     const count_t size = audio.getSize();
     const float dt = 1.0f / getSampleRate();
     const float padLeftSpeed  = PAD_SPEED_MIN + PAD_SPEED_MAX*pinPadLeftSpeed.getValue();
-    const float padLeftEnvTime = interp<expo::in>(PAD_ENV_MAX, PAD_ENV_MIN, pinPadLeftSpeed.getValue());
+    const float padLeftEnvTime = 
+      vessl::math::easing::interp<vessl::math::easing::expo::in>(PAD_ENV_MAX, PAD_ENV_MIN, pinPadLeftSpeed.getValue());
     const float padRightSpeed = PAD_SPEED_MIN + PAD_SPEED_MAX*pinPadRightSpeed.getValue();
-    const float padRightEnvTime = interp<expo::in>(PAD_ENV_MAX, PAD_ENV_MIN, pinPadRightSpeed.getValue());
+    const float padRightEnvTime = 
+      vessl::math::easing::interp<vessl::math::easing::expo::in>(PAD_ENV_MAX, PAD_ENV_MIN, pinPadRightSpeed.getValue());
 
     padLeft.setSpeed(padLeftSpeed);
     //padLeft.setXOff(pinPadLeftXOffset.getValue());
@@ -192,19 +192,19 @@ public:
       const float padRightEnv = padRightEnvelope.generate();
       
       padLeft.setXOff(padLeftEnv*PAD_MAX_X_OFFSET);
-      padLeft.setHalfHeight(static_cast<coord_t>(lerp(PAD_HH_DEF, PAD_HH_MAX, padLeftEnv)));
+      padLeft.setHalfHeight(static_cast<coord_t>(vessl::math::lerp(PAD_HH_DEF, PAD_HH_MAX, padLeftEnv)));
       padLeft.tick(dt);
 
       padRight.setXOff(-padRightEnv*PAD_MAX_X_OFFSET);
-      padRight.setHalfHeight(static_cast<coord_t>(lerp(PAD_HH_DEF, PAD_HH_MAX, padRightEnv)));
+      padRight.setHalfHeight(static_cast<coord_t>(vessl::math::lerp(PAD_HH_DEF, PAD_HH_MAX, padRightEnv)));
       padRight.tick(dt);
       
       // pad move may have caused overlap with the ball
       bool padCollide = ball.collideWith(padLeft, dt);
       padCollide |= ball.collideWith(padRight, dt);
       
-      const float sl = 1.0f - interp<expo::out>(0.f, 1.f, inputLeft[i]*0.5f + 0.5f);
-      const float sr = 1.0f - interp<expo::out>(0.f, 1.f, inputRight[i]*0.5f + 0.5f);
+      const float sl = 1.0f - vessl::math::easing::interp<vessl::math::easing::expo::out>(0.f, 1.f, inputLeft[i]*0.5f + 0.5f);
+      const float sr = 1.0f - vessl::math::easing::interp<vessl::math::easing::expo::out>(0.f, 1.f, inputRight[i]*0.5f + 0.5f);
 
       // setting speed directly has a nice "creepy" feel to it when speed fluctuates wildly between very fast and very slow
       //const bool wallCollide = ball.tick(BALL_SPEED_PARAM_MAX*sl, BALL_SPEED_PARAM_MAX*sr, dt);
@@ -217,8 +217,8 @@ public:
       padCollide |= ball.collideWith(padLeft, dt);
       padCollide |= ball.collideWith(padRight, dt);
 
-      outputLeft[i] = lerp(-1.f, 1.f, ball.getX()/SCREEN_W);
-      outputRight[i] = lerp(-1.f, 1.f, ball.getY()/SCREEN_H);
+      outputLeft[i] = vessl::math::lerp(-1.f, 1.f, ball.getX()/SCREEN_W);
+      outputRight[i] = vessl::math::lerp(-1.f, 1.f, ball.getY()/SCREEN_H);
 
       if (padCollide && padCollideSample == size)
       {
@@ -410,8 +410,8 @@ inline bool Ball::tick(const float sx, const float sy, const float dt)
   else
   {
     // drag
-    vx = vessl::easing::lerp(vx, 0.0f, BALL_DRAG);
-    vy = vessl::easing::lerp(vy, 0.0f, BALL_DRAG);
+    vx = vessl::math::lerp(vx, 0.0f, BALL_DRAG);
+    vy = vessl::math::lerp(vy, 0.0f, BALL_DRAG);
   }
   
   return collidedX || collidedY;

@@ -4,7 +4,7 @@
 #include "vessicle/vessl/vessl.h"
 
 template<vessl::size_t N>
-class AudioBufferReader : public vessl::source<vessl::frame::channels<float, N>>
+class AudioBufferReader : public vessl::source<vessl::sample::frame<float, N>>
 {
   AudioBuffer* source;
   vessl::size_t readIdx;
@@ -16,9 +16,9 @@ public:
 
   [[nodiscard]] bool is_empty() const override { return readIdx == static_cast<vessl::size_t>(source->getSize()); }
 
-  vessl::frame::channels<float, N> read() override
+  vessl::sample::frame<float, N> read() override
   {
-    vessl::frame::channels<float, N> frame;
+    vessl::sample::frame<float, N> frame;
     for (vessl::size_t c = 0; c < N; ++c)
     {
       frame.samples[c] = source->getSamples(static_cast<int>(c))[readIdx];
@@ -42,8 +42,9 @@ public:
 };
 
 template<>
-class AudioBufferReader<2> : public vessl::source<vessl::frame::stereo::analog_t>
+class AudioBufferReader<2> : public vessl::source<vessl::sample::type<float>::stereo>
 {
+  using sample_t = vessl::sample::type<float>::stereo;
   vessl::array<float>::reader left;
   vessl::array<float>::reader right;
   
@@ -57,9 +58,9 @@ public:
 
   [[nodiscard]] bool is_empty() const override { return !left.available(); }
   
-  vessl::frame::stereo::analog_t read() override
+  sample_t read() override
   {
-    vessl::frame::stereo::analog_t frame;
+    sample_t frame;
     if (!is_empty())
     {
       frame.left()  = left.read();
@@ -89,8 +90,9 @@ public:
 };
 
 template<vessl::size_t N>
-class AudioBufferWriter : public vessl::sink<vessl::frame::channels<float, N>>
+class AudioBufferWriter : public vessl::sink<vessl::sample::frame<float, N>>
 {
+  using sample_t = vessl::sample::frame<float, N>;
   AudioBuffer* sink;
   vessl::size_t writeIdx;
 
@@ -99,7 +101,7 @@ public:
   {
   }
 
-  void write(const vessl::frame::channels<float, N>& in) override
+  void write(const sample_t& in) override
   {
     for (vessl::size_t c = 0; c < N; ++c)
     {
@@ -112,8 +114,9 @@ public:
 };
 
 template<>
-class AudioBufferWriter<2> : public vessl::sink<vessl::frame::stereo::analog_t>
+class AudioBufferWriter<2> : public vessl::sink<vessl::sample::type<float>::stereo>
 {
+  using sample_t = vessl::sample::type<float>::stereo;
   vessl::array<float>::writer left;
   vessl::array<float>::writer right;
   
@@ -126,12 +129,12 @@ public:
 
   [[nodiscard]] bool is_full() const override { return !left.available(); }
   
-  void write(const vessl::frame::stereo::analog_t& value) override
+  void write(const sample_t& value) override
   {
     if (!is_full())
     {
-      left << static_cast<vessl::analog_t>(value.left());
-      right << static_cast<vessl::analog_t>(value.right());
+      left << value.left();
+      right << value.right();
     }
   }
 };

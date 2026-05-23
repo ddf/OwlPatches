@@ -31,10 +31,10 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     gauss.textureSize() = getParameterValue(InputParameterId::A);
-    gauss.textureTilt() = vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::E));
+    gauss.textureTilt() = vessl::math::lerp(-1.f, 1.f, getParameterValue(InputParameterId::E));
 
     gauss.blurSize() = getParameterValue(InputParameterId::B);
-    gauss.blurTilt() = vessl::easing::lerp(-1.f, 1.f, getParameterValue(InputParameterId::F));
+    gauss.blurTilt() = vessl::math::lerp(-1.f, 1.f, getParameterValue(InputParameterId::F));
     
     gauss.feedback() = getParameterValue(InputParameterId::C);
     gauss.crossFeedback() = getParameterValue(InputParameterId::D);
@@ -68,11 +68,11 @@ public:
     int cxL = screen.getWidth() / 4 - 4;
     int cxR = screen.getWidth() - screen.getWidth() / 4 + 4;
     int txLeft = vessl::math::round(
-      vessl::easing::lerp(2, displayHeight,
+      vessl::math::lerp(2, displayHeight,
         (gauss.getTextureSizeLeft() - Gauss::MIN_TEXTURE_SIZE) / (Gauss::MAX_TEXTURE_SIZE - Gauss::MIN_TEXTURE_SIZE))
         );
     int txRight = vessl::math::round(
-      vessl::easing::lerp(2, displayHeight,
+      vessl::math::lerp(2, displayHeight,
         (gauss.getTextureSizeRight() - Gauss::MIN_TEXTURE_SIZE) / (Gauss::MAX_TEXTURE_SIZE - Gauss::MIN_TEXTURE_SIZE))
         );
     int feedWidth = 6;

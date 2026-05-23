@@ -5,7 +5,7 @@
 
 class SlewPatch : public MonochromeScreenPatch
 {
-  vessl::slew<float> slew;
+  vessl::processors::slew<float> slew;
 
 public:
   SlewPatch() : slew(getSampleRate(), 1, 1)

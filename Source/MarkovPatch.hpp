@@ -102,7 +102,7 @@ class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguideli
   MarkovProcessor* markovLeft;
   MarkovProcessor* markovRight;
   
-  array<float> markovBuffer;
+  vessl::array<float> markovBuffer;
 
 public: 
   MarkovPatch() : dcBlockingFilter(nullptr), markovBuffer(new float[getBlockSize()], getBlockSize())
@@ -164,8 +164,8 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     const int inSize = audio.getSize();
-    array<float> inLeft(audio.getSamples(0), inSize);
-    array<float> inRight(audio.getSamples(1), inSize);
+    vessl::array<float> inLeft(audio.getSamples(0), inSize);
+    vessl::array<float> inRight(audio.getSamples(1), inSize);
 
     dcBlockingFilter->process(audio, audio);
 

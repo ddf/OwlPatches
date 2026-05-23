@@ -6,15 +6,15 @@
 #include "vessicle/vessl/vessl.h"
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
-using Sine = vessl::waves::sine<vessl::analog_t>;
-using Oscil = vessl::oscil<Sine>;
-using Ramp = vessl::ramp<float>;
+using Sine = vessl::sample::waves::sine<vessl::analog_t>;
+using Oscil = vessl::generators::oscil<Sine>;
+using Ramp = vessl::generators::ramp<float>;
 using Delay = DelayWithFreeze<float>;
 using Array = vessl::array<float>;
 using AudioReader = vessl::array<float>::reader;
 using AudioWriter = vessl::array<float>::writer;
 using FreezeBuffer = vessl::array<float>;
-using Freeze = vessl::freeze<float>;
+using Freeze = vessl::processors::freeze<float>;
 
 class VesslTestPatch final : public MonochromeScreenPatch
 {
@@ -57,7 +57,7 @@ public:
     delayTime = getParameterValue(PARAMETER_A)*2.0f;
     // need to use StiffFloat or some other way of snapping size when using duration::mode::fade
     freezeDelay = getParameterValue(PARAMETER_B)*getSampleRate();
-    freezeSize = vessl::easing::lerp(getSampleRate()/256, getSampleRate(), getParameterValue(PARAMETER_C));
+    freezeSize = vessl::math::lerp(getSampleRate()/256, getSampleRate(), getParameterValue(PARAMETER_C));
 
     //delay.time() << vessl::duration::fromSeconds(getParameterValue(PARAMETER_A)*2.0f, getSampleRate());
     // note: HAS to be analog_t, otherwise the set by pointer conversion won't work.
@@ -137,7 +137,7 @@ private:
   Oscil osc;
   VoltsPerOctave voct;
   Ramp ramp;
-  vessl::ad<float> ad;
+  vessl::generators::ad<float> ad;
 
   FloatArray delayBuffer;
   Delay delay;

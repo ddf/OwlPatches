@@ -74,7 +74,7 @@ template<int spectrumSize, bool reverb_enabled, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
   using SpectralGen = SpectralSignalGenerator<false>;
-  using BitCrush = vessl::bitcrush<float, 24>;
+  using BitCrush = vessl::processors::bitcrush<float, 24>;
 
 protected:
   SpectralHarpParameterIds params;
@@ -225,28 +225,26 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    using namespace vessl::easing;
-    
     const int blockSize = audio.getSize();
     FloatArray left = audio.getSamples(0);
     FloatArray right = audio.getSamples(1);
 
-    float harpFund = lerp(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
-    float harpOctaves = lerp(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
+    float harpFund = vessl::math::lerp(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
+    float harpOctaves = vessl::math::lerp(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
     bandLast  = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
     int bandFirstIdx = spectralGen->freqToIndex(bandFirst);
     int bandLastIdx = spectralGen->freqToIndex(bandLast);
-    bandDensity = lerp(densityMin, min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
+    bandDensity = vessl::math::lerp(densityMin, vessl::math::min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
     linLogLerp = getParameterValue(params.inTuning);
 
     spread = getParameterValue(params.inSpread)*spreadMax;
-    decay = lerp(decayMin, decayMax, getParameterValue(params.inDecay));
+    decay = vessl::math::lerp(decayMin, decayMax, getParameterValue(params.inDecay));
     brightness = getParameterValue(params.inBrightness);
-    crush = interp<expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
+    crush = vessl::math::easing::interp<vessl::math::easing::expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
 
     // reduce volume based on combination of decay, spread, and brightness parameters
-    volume = interp<expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
+    volume = vessl::math::easing::interp<vessl::math::easing::expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
                                         + 0.7f*getParameterValue(params.inSpread)
                                         + 0.1f*getParameterValue(params.inBrightness));
 
@@ -286,8 +284,8 @@ public:
         float location = left[i] * 0.5f + 0.5f;
         float amplitude = clamp(right[i], 0.0f, 1.0f);
         pluck(spectralGen, location, amplitude);
-        strumX = fmax(strumX, location);
-        strumY = fmax(strumY, amplitude);
+        strumX = vessl::math::max(strumX, location);
+        strumY = vessl::math::max(strumY, amplitude);
       }
     }
     
@@ -313,7 +311,7 @@ public:
     {
       stereoWidth = getParameterValue(params.inWidth);
       reverbTime = 0.35f + 0.6f*getParameterValue(params.inReverbTime);
-      reverbTone = lerp(0.2f, 0.97f, getParameterValue(params.inReverbTone));
+      reverbTone = vessl::math::lerp(0.2f, 0.97f, getParameterValue(params.inReverbTone));
       reverbBlend = getParameterValue(params.inReverbBlend) * 0.56f;
 
       diffuser->setAmount(stereoWidth);
@@ -343,19 +341,17 @@ protected:
 
   float frequencyOfString(int stringNum)
   {
-    using namespace vessl::easing;
-    
     const float t = static_cast<float>(stringNum) / getStringCount();
     // convert first and last bands to midi notes and then do a linear interp, converting back to Hz at the end.
     Frequency lowFreq = Frequency::ofHertz(bandFirst);
     Frequency hiFreq = Frequency::ofHertz(bandLast);
-    const float linFreq = lerp(lowFreq.asHz(), hiFreq.asHz(), t);
-    const float midiNote = lerp(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
+    const float linFreq = vessl::math::lerp(lowFreq.asHz(), hiFreq.asHz(), t);
+    const float midiNote = vessl::math::lerp(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
     const float logFreq = Frequency::ofMidiNote(midiNote).asHz();
     // we lerp from logFreq up to linFreq because log spacing clusters frequencies
     // towards the bottom of the range, which means that when holding down the mouse on a string
     // and lowering this param, you'll hear the pitch drop, which makes more sense than vice versa.
-    return lerp(logFreq, linFreq, linLogLerp);
+    return vessl::math::lerp(logFreq, linFreq, linLogLerp);
   }
 
 private:

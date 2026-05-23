@@ -43,10 +43,19 @@
     <ClInclude Include="Source\vessicle\Rotator3D.h" />
     <ClInclude Include="Source\vessicle\vessl\vessl.h" />
     <ClInclude Include="Source\vessicle\vessl\vessl_arm_math.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_frame.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_core.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_filtering.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_generators.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_noise.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_parameter.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_processors.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_sample.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_math.inl" />
     <ClInclude Include="Source\vessicle\vessl\vessl_qmath.h" />
     <ClInclude Include="Source\vessicle\vessl\vessl_qmath.inl" />
     <ClInclude Include="Source\vessicle\vessl\vessl_qmath_lut.h" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_time.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_units.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\KissFFT.cpp" />

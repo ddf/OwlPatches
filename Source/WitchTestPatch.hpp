@@ -4,10 +4,12 @@
 #include "vessicle/vessl/vessl.h"
 
 // @todo full workout of all cv inputs/outputs and all buttons.
-class WitchTestPatch : public Patch
+struct WitchTestPatch : Patch
 {
-public:
-  vessl::oscil<vessl::waves::sine<vessl::analog_t>> oscillator;
+  using Waveform = vessl::sample::waves::sine<float>;
+  using Oscil = vessl::generators::oscil<Waveform>;
+
+  Oscil oscillator;
   
   WitchTestPatch() : oscillator(getSampleRate(), 220.f)  // NOLINT(modernize-use-equals-default)
   {
