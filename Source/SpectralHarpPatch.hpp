@@ -241,10 +241,10 @@ public:
     spread = getParameterValue(params.inSpread)*spreadMax;
     decay = vessl::math::lerp(decayMin, decayMax, getParameterValue(params.inDecay));
     brightness = getParameterValue(params.inBrightness);
-    crush = vessl::math::easing::interp<vessl::math::easing::expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
+    crush = vessl::math::interp<vessl::math::easing::expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
 
     // reduce volume based on combination of decay, spread, and brightness parameters
-    volume = vessl::math::easing::interp<vessl::math::easing::expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
+    volume = vessl::math::interp<vessl::math::easing::expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
                                         + 0.7f*getParameterValue(params.inSpread)
                                         + 0.1f*getParameterValue(params.inBrightness));
 
@@ -351,7 +351,7 @@ protected:
     // we lerp from logFreq up to linFreq because log spacing clusters frequencies
     // towards the bottom of the range, which means that when holding down the mouse on a string
     // and lowering this param, you'll hear the pitch drop, which makes more sense than vice versa.
-    return vessl::math::lerp(logFreq, linFreq, linLogLerp);
+    return vessl::math::lerp(logFreq, linFreq, linLogLerp.getValue());
   }
 
 private:
