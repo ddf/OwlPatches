@@ -35,6 +35,7 @@ DESCRIPTION:
 #include "VoltsPerOctave.h"
 #include "SmoothValue.h"
 #include "vessicle/Knoscillator.h"
+#include "vessicle/Projector.h"
 
 struct KnoscillatorParameterIds
 {
@@ -70,11 +71,16 @@ struct KnoscillatorParameterIds
 template<typename T, typename PatchClass = Patch>
 class KnoscillatorPatch : public PatchClass
 {
-  using KnoscilGen = Knoscillator<T>;
+  using KnoscilGen = Knoscillator<T, true>;
+  using Camera = Projector<T>;
 protected:
   KnoscillatorParameterIds params;
   VoltsPerOctave hz;
   KnoscilGen* knoscil;
+  Camera* camera;
+  
+  static constexpr float zoomFar = 60.0f * KnoscilGen::KnotOscil::KNOT_SCALE;
+  static constexpr float zoomNear = 6.0f * KnoscilGen::KnotOscil::KNOT_SCALE;
 
 private:
 
@@ -107,6 +113,7 @@ public:
     , rotateOffSmooth(4.0f * vessl::math::pi<float>() * 2 / getSampleRate())
   {
     knoscil = KnoscilGen::create(getSampleRate());
+    camera = Camera::create();
 
     registerParameter(params.inPitch, "Pitch");
     registerParameter(params.inMorph, "Morph");
@@ -170,6 +177,7 @@ public:
   virtual ~KnoscillatorPatch()
   {
     KnoscilGen::destroy(knoscil);
+    Camera::destroy(camera);
   }
 
   void processMidi(MidiMessage msg)
@@ -218,11 +226,11 @@ public:
     // float dts = getParameterValue(params.inDetuneS);
 
     float rxt = getParameterValue(params.inRotateX);
-    float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)*16 : 0;
+    float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)/16 : 0;
     float ryt = getParameterValue(params.inRotateY);
-    float ryf = ryt == 0 ? getParameterValue(params.inRotateYRate)*16 : 0;
+    float ryf = ryt == 0 ? getParameterValue(params.inRotateYRate)/16 : 0;
     float rzt = getParameterValue(params.inRotateZ);
-    float rzf = rzt == 0 ? getParameterValue(params.inRotateZRate)*16 : 0;
+    float rzf = rzt == 0 ? getParameterValue(params.inRotateZRate)/16 : 0;
 
     float nVol = getParameterValue(params.inNoiseAmp);
     
@@ -244,8 +252,9 @@ public:
     knoscil->rotRatioX() = rxf;
     knoscil->rotRatioY() = ryf;
     knoscil->rotRatioZ() = rzf;
-    // @todo add Projector
-    //knoscil->cameraZoom() = zoom;
+    
+    camera->zoom() = vessl::math::lerp(zoomFar, zoomNear, zoom);
+    
     knoscil->squiggle() = sVol;
     knoscil->noise() = nVol;
 
@@ -258,8 +267,8 @@ public:
       knoscil->rotModY() = rotateOffY;
       knoscil->rotModZ() = rotateOffZ;
 
-      typename KnoscilGen::SampleType frame = knoscil->generate();
-      // @todo use Projector to do 2D projection!
+      typename KnoscilGen::SampleType coord = knoscil->generate();
+      typename Camera::output_t frame = camera->process(coord);
       left[s] = vessl::cast<vessl::analog_t>(frame.left());
       right[s] = vessl::cast<vessl::analog_t>(frame.right());
 
