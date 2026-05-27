@@ -238,8 +238,8 @@ public:
     morph = vessl::math::constrain(getParameterValue(params.inMorph) * 2.1f, 0.f, 2.f);
     float kt;
     float blend = vessl::math::mod(morph.getValue(), &kt);
-    int typeA = static_cast<int>(kt) % KnotOscillator<T>::KNOT_TYPE_COUNT;
-    int typeB = (typeA + 1) % KnotOscillator<>::KNOT_TYPE_COUNT;
+    int typeA = static_cast<int>(kt) % KnoscilGen::KnotOscil::KNOT_TYPE_COUNT;
+    int typeB = (typeA + 1) % KnoscilGen::KnotOscil::KNOT_TYPE_COUNT;
     knoscil->knotTypeA() = typeA;
     knoscil->knotTypeB() = typeB;
     knoscil->knotMorph() = blend*1.1f; // make sure we get all the way to 1
