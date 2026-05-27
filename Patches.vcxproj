@@ -14,8 +14,7 @@
     <ClInclude Include="Source\GlitchLich2Patch.hpp" />
     <ClInclude Include="Source\GlitchLichPatch.hpp" />
     <ClInclude Include="Source\GrainzPatch.hpp" />
-    <ClInclude Include="Source\KnoscillatorGeniusPatch.hpp" />
-    <ClInclude Include="Source\KnoscillatorLichPatch.hpp" />
+    <ClInclude Include="Source\KnoscillatorParamIds.hpp" />
     <ClInclude Include="Source\KnoscillatorPatch.hpp" />
     <ClInclude Include="Source\MarkovPatch.hpp" />
     <ClInclude Include="Source\PerlinNoiseFieldLichPatch.hpp" />
