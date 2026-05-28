@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Owl Config",
+            "includePath": [
+                "${workspaceFolder}/Source/",
+                "${workspaceFolder}/Source/**",
+                "${workspaceFolder}/Source/vessicle/**",
+                "${workspaceFolder}/Source/vessicle/vessl/**",
+                "${env:OWL_SDK_PATH}/LibSource/**",
+                "${env:OWL_SDK_PATH}/Source/**",
+                "${env:ARM_NONE_EABI_IncludePath}/**"
+            ],
+            "defines": [
+            ],
+            "compilerPath": "/usr/bin/arm-none-eabi-gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}
