@@ -47,11 +47,14 @@ class KnoscillatorPatch : public MonochromeScreenPatch
   
   using NoiseTable = vessl::sample::wavetable<float, noiseDim*noiseDim>;
   using KnoscilGen = Knoscillator<float, true>;
+  using SquiggleLfo = vessl::generators::oscil<vessl::sample::waves::sine<float>>;
   using Camera = Projector<float>;
+  using knoscil_st = KnoscilGen::SampleType;
   
 protected:
   KnoscillatorParameterIds params;
   VoltsPerOctave hz;
+  SquiggleLfo squilo;
   KnoscilGen* knoscil;
   Camera* camera;
   
@@ -84,7 +87,8 @@ private:
 public:
   explicit KnoscillatorPatch()
     : params(knoscillatorParamIds)
-    , hz(true), midinote(0), tune(0.5f, -6.0f)
+    , hz(true), squilo(getSampleRate(), 1.f)
+    , midinote(0), tune(0.5f, -6.0f)
     , knotP(0.9f, 2), knotQ(0.9f, 1)
     , morph(0.9f, 0), fmRatio(0.9f, 2.0f)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
@@ -248,7 +252,7 @@ public:
 
     float dtp = freezeP ? -1 : getParameterValue(params.inDetuneP);
     float dtq = freezeQ ? -1 : getParameterValue(params.inDetuneQ);
-    // float dts = getParameterValue(params.inDetuneS);
+    float dts = getParameterValue(params.inDetuneS);
 
     float rxt = getParameterValue(params.inRotateX);
     float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)/16 : 0;
@@ -291,14 +295,19 @@ public:
       knoscil->rotModY() = rotateOffY;
       knoscil->rotModZ() = rotateOffZ;
 
-      typename KnoscilGen::SampleType coord = knoscil->generate();
+      knoscil_st coord = knoscil->generate();
 
-      float nz = nVol * 0.5f * noise(coord.x(), coord.y());
-      typename KnoscilGen::SampleType cnz(coord);
+      float nz = nVol * noise(coord.x(), coord.y());
+      knoscil_st cnz(coord);
       cnz.scale(nz);
       coord.add(cnz);
 
-      typename Camera::output_t frame = camera->process(coord);
+      squilo.fhz() = freq*(4+2*dts)*(knotP.getValue() + knotQ.getValue());
+      knoscil_st squig(coord.y(), coord.z(), coord.x());
+      squig.scale((sVol+dts*0.5f)*0.25f*squilo.generate());
+      coord.add(squig);
+
+      auto frame = camera->process(coord);
 
       left[s] = vessl::cast<vessl::analog_t>(frame.left());
       right[s] = vessl::cast<vessl::analog_t>(frame.right());
