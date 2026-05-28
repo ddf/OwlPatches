@@ -41,6 +41,11 @@ DESCRIPTION:
 
 class KnoscillatorPatch : public MonochromeScreenPatch
 {
+
+  static constexpr size_t noiseDim = 128;
+  static constexpr float  noiseStep = 4.0f / noiseDim;
+  
+  using NoiseTable = vessl::sample::wavetable<float, noiseDim*noiseDim>;
   using KnoscilGen = Knoscillator<float, true>;
   using Camera = Projector<float>;
   
@@ -66,6 +71,8 @@ private:
   float rotateOffY;
   float rotateOffZ;
   float rotateOffSmooth;
+
+  NoiseTable noiseTable;
   
   // for Genius
   size_t drawCount;
@@ -76,7 +83,8 @@ private:
 
 public:
   explicit KnoscillatorPatch()
-    : params(knoscillatorParamIds), hz(true), midinote(0), tune(0.5f, -6.0f)
+    : params(knoscillatorParamIds)
+    , hz(true), midinote(0), tune(0.5f, -6.0f)
     , knotP(0.9f, 2), knotQ(0.9f, 1)
     , morph(0.9f, 0), fmRatio(0.9f, 2.0f)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
@@ -85,6 +93,15 @@ public:
   {
     knoscil = KnoscilGen::create(getSampleRate());
     camera = Camera::create();
+
+    for (size_t x = 0; x < noiseDim; ++x)
+    {
+      for (size_t y = 0; y < noiseDim; ++y)
+      {
+        size_t i = x * noiseDim + y;
+        noiseTable.set(i, vessicle::perlin2d(x*noiseStep, y*noiseStep, 1, 4) * 2 - 1);
+      }
+    }
     
 #ifdef OWL_GENIUS
     const size_t bufferSize = getBlockSize() * 128;
@@ -264,7 +281,6 @@ public:
     camera->zoom() = vessl::math::lerp(zoomFar, zoomNear, zoom);
     
     knoscil->squiggle() = sVol;
-    knoscil->noise() = nVol;
 
     for (int s = 0; s < getBlockSize(); ++s)
     {
@@ -276,7 +292,14 @@ public:
       knoscil->rotModZ() = rotateOffZ;
 
       typename KnoscilGen::SampleType coord = knoscil->generate();
+
+      float nz = nVol * 0.5f * noise(coord.x(), coord.y());
+      typename KnoscilGen::SampleType cnz(coord);
+      cnz.scale(nz);
+      coord.add(cnz);
+
       typename Camera::output_t frame = camera->process(coord);
+
       left[s] = vessl::cast<vessl::analog_t>(frame.left());
       right[s] = vessl::cast<vessl::analog_t>(frame.right());
 
@@ -363,5 +386,15 @@ public:
     // screen.print("pz "); screen.print((int)knoscil->knot().pz()); screen.print("\n");
     // screen.print(knoscil->knot().frequency().readAnalog());
 #endif
+  }
+
+    
+private:
+  [[nodiscard]] VESSL_INLINE float noise(float x, float y) const
+  {
+    size_t nx = static_cast<size_t>(vessl::math::abs(x) / noiseStep) % noiseDim;
+    size_t ny = static_cast<size_t>(vessl::math::abs(y) / noiseStep) % noiseDim;
+    size_t ni = nx * noiseDim + ny;
+    return noiseTable.get(ni);
   }
 };
