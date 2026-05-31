@@ -18,161 +18,169 @@
 using namespace daisysp;
 
 // must be power of two
-static const int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
-static const int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
+static constexpr int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
+static constexpr int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 
-template <int MAX_GRAINS, bool WITH_REVERB>
-class GrainzPatch : public Patch
+template <int MaxGrains, bool WithReverb>
+class GrainzBase : public Patch
 {
   // panel controls
-  const PatchParameterId inPosition = PARAMETER_A;
-  const PatchParameterId inSize = PARAMETER_B;
-  const PatchParameterId inSpeed = PARAMETER_C;
-  const PatchParameterId inDensity = PARAMETER_D;
-  const PatchParameterId inDryWet = PARAMETER_E;
-  const PatchParameterId inReverb = PARAMETER_H;
-  const PatchButtonId    inFreeze = BUTTON_1;
-  const PatchButtonId    inTrigger = BUTTON_2;
+  struct
+  {
+    PatchParameterId position = PARAMETER_A;
+    PatchParameterId size     = PARAMETER_B;
+    PatchParameterId speed    = PARAMETER_C;
+    PatchParameterId density  = PARAMETER_D;
+    PatchParameterId dry_wet  = PARAMETER_E;
+    PatchParameterId reverb   = PARAMETER_H;
+    PatchButtonId    freeze   = BUTTON_1;
+    PatchButtonId    trigger  = BUTTON_2;
 
-  // midi controls
-  const PatchParameterId inEnvelope = PARAMETER_AA;
-  const PatchParameterId inSpread = PARAMETER_AB;
-  const PatchParameterId inVelocity = PARAMETER_AC;
-  const PatchParameterId inFeedback = PARAMETER_AD;
+    // midi controls
+    PatchParameterId envelope = PARAMETER_AA;
+    PatchParameterId spread   = PARAMETER_AB;
+    PatchParameterId velocity = PARAMETER_AC;
+    PatchParameterId feedback = PARAMETER_AD;
+  } pin_;
 
   // outputs
-  const PatchButtonId outGrainPlayed = PUSHBUTTON;
-  const PatchParameterId outGrainPlayback = PARAMETER_F;
-  const PatchParameterId outGrainEnvelope = PARAMETER_G;
+  struct 
+  {  
+    PatchButtonId    grain_played   = PUSHBUTTON;
+    PatchParameterId grain_playback = PARAMETER_F;
+    PatchParameterId grain_envelope = PARAMETER_G;
+  } pout_;
 
-  StereoDcBlockingFilter* dcFilter;
-  VoltsPerOctave voct;
 
-  Sample* recordBuffer;
-  int recordWriteIndex;
+  StereoDcBlockingFilter* dc_filter_;
+  VoltsPerOctave voct_;
 
-  Grain* grains[MAX_GRAINS];
-  int availableGrains[MAX_GRAINS];
-  int activeGrains;
-  uint16_t  freeze;
-  AudioBuffer* grainBuffer;
-  float grainRatePhasor;
-  bool grainTriggered;
-  float grainTriggerDelay;
+  Sample* record_buffer_;
+  int record_write_index_;
+
+  Grain* grains_[MaxGrains];
+  int available_grains_[MaxGrains];
+  int active_grains_;
+  uint16_t  freeze_;
+  AudioBuffer* grain_buffer_;
+  float grain_rate_phasor_;
+  bool grain_triggered_;
+  float grain_trigger_delay_;
 
   // these are expressed as a percentage of the total buffer size
-  const float minGrainSize;
-  const float maxGrainSize;
+  float min_grain_size_;
+  float max_grain_size_;
 
-  const int playedGateSampleLength;
-  int   playedGate;
+  int played_gate_sample_length_;
+  int played_gate_;
 
-  AudioBuffer* feedbackBuffer;
-  BiquadFilter* feedbackFilterLeft;
-  BiquadFilter* feedbackFilterRight;
-  Reverb* reverb;
+  AudioBuffer* feedback_buffer_;
+  BiquadFilter* feedback_filter_left_;
+  BiquadFilter* feedback_filter_right_;
+  Reverb* reverb_;
 
-  SmoothFloat grainOverlap;
-  SmoothFloat grainPosition;
-  SmoothFloat grainSize;
-  SmoothFloat grainSpeed;
-  SmoothFloat grainEnvelope;
-  SmoothFloat grainSpread;
-  SmoothFloat grainVelocity;
-  SmoothFloat feedback;
-  SmoothFloat reverbAmount;
-  SmoothFloat dryWet;
-  float norms[MAX_GRAINS + 1];
+  SmoothFloat grain_overlap_;
+  SmoothFloat grain_position_;
+  SmoothFloat grain_size_;
+  SmoothFloat grain_speed_;
+  SmoothFloat grain_envelope_;
+  SmoothFloat grain_spread_;
+  SmoothFloat grain_velocity_;
+  SmoothFloat feedback_;
+  SmoothFloat reverb_amount_;
+  SmoothFloat dry_wet_;
+  float norms_[MaxGrains + 1];
 
 public:
-  GrainzPatch()
-    : recordBuffer(0), recordWriteIndex(0), grainBuffer(0)
-    , grainRatePhasor(0), grainTriggered(false), activeGrains(0), freeze(OFF)
-    , minGrainSize(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 8ms
-    , maxGrainSize(getSampleRate()*1.0f / RECORD_BUFFER_SIZE) // 1 second
-    , playedGateSampleLength(10 * getSampleRate() / 1000), playedGate(0)
-    , voct(-0.5f, 4)
+  GrainzBase()
+    : voct_(-0.5f, 4), record_buffer_(nullptr), record_write_index_(0)
+    , active_grains_(0), freeze_(OFF), grain_buffer_(nullptr), grain_rate_phasor_(0)
+    , grain_triggered_(false) // 8ms
+    , min_grain_size_(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 1 second
+    , max_grain_size_(getSampleRate()*1.0f / RECORD_BUFFER_SIZE), played_gate_sample_length_(10 * getSampleRate() / 1000)
+    , played_gate_(0)
   {
-    norms[0] = 1;
-    for (int i = 1; i < MAX_GRAINS + 1; i++) {
-      norms[i] = 1 / sqrtf(i);
-    }
-    voct.setTune(-4);
-    dcFilter = StereoDcBlockingFilter::create(0.995f);
-    feedbackFilterLeft = BiquadFilter::create(getSampleRate());
-    feedbackFilterRight = BiquadFilter::create(getSampleRate());
-    feedbackBuffer = AudioBuffer::create(2, getBlockSize());
-
-    recordBuffer = new Sample[RECORD_BUFFER_SIZE];
-    grainBuffer = AudioBuffer::create(2, getBlockSize());
-
-    for (int i = 0; i < MAX_GRAINS; ++i)
+    norms_[0] = 1;
+    for (int i = 1; i < MaxGrains + 1; i++) 
     {
-      grains[i] = Grain::create(recordBuffer, RECORD_BUFFER_SIZE);
+      norms_[i] = 1 / sqrtf(static_cast<float>(i));
+    }
+    voct_.setTune(-4);
+    dc_filter_ = StereoDcBlockingFilter::create(0.995f);
+    feedback_filter_left_ = BiquadFilter::create(getSampleRate());
+    feedback_filter_right_ = BiquadFilter::create(getSampleRate());
+    feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
+
+    record_buffer_ = new Sample[RECORD_BUFFER_SIZE];
+    grain_buffer_ = AudioBuffer::create(2, getBlockSize());
+
+    for (int i = 0; i < MaxGrains; ++i)
+    {
+      grains_[i] = Grain::create(record_buffer_, RECORD_BUFFER_SIZE);
     }
 
-    if constexpr (WITH_REVERB)
+    if constexpr (WithReverb)
     {
-      reverb = Reverb::create(getSampleRate());
+      reverb_ = Reverb::create(getSampleRate());
     }
 
-    registerParameter(inPosition, "Position");
-    registerParameter(inSize, "Size");
-    registerParameter(inSpeed, "Speed");
-    registerParameter(inDensity, "Density");
-    registerParameter(inEnvelope, "Envelope");
-    registerParameter(inSpread, "Spread");
-    registerParameter(inVelocity, "Velocity Variation");
-    registerParameter(inFeedback, "Feedback");
-    registerParameter(inDryWet, "Dry/Wet");
-    if constexpr (WITH_REVERB)
+    registerParameter(pin_.position, "Position");
+    registerParameter(pin_.size, "Size");
+    registerParameter(pin_.speed, "Speed");
+    registerParameter(pin_.density, "Density");
+    registerParameter(pin_.envelope, "Envelope");
+    registerParameter(pin_.spread, "Spread");
+    registerParameter(pin_.velocity, "Velocity Variation");
+    registerParameter(pin_.feedback, "Feedback");
+    registerParameter(pin_.dry_wet, "Dry/Wet");
+    if constexpr (WithReverb)
     {
-      registerParameter(inReverb, "Reverb");
+      registerParameter(pin_.reverb, "Reverb");
+      setParameterValue(pin_.reverb, 0);
     }
-    registerParameter(outGrainPlayback, "Playback>");
-    registerParameter(outGrainEnvelope, "Envelope>");
+    registerParameter(pout_.grain_playback, "Playback>");
+    registerParameter(pout_.grain_envelope, "Envelope>");
 
     // default to triangle window
-    setParameterValue(inEnvelope, 0.5f);
-    setParameterValue(inSpread, 0);
-    setParameterValue(inVelocity, 0);
-    setParameterValue(inFeedback, 0);
-    setParameterValue(inDryWet, 1);
-    setParameterValue(inFeedback, 0);
-    setParameterValue(inReverb, 0);
+    setParameterValue(pin_.envelope, 0.5f);
+    setParameterValue(pin_.spread, 0);
+    setParameterValue(pin_.velocity, 0);
+    setParameterValue(pin_.feedback, 0);
+    setParameterValue(pin_.dry_wet, 1);
+    setParameterValue(pin_.feedback, 0);
   }
 
-  ~GrainzPatch()
+  ~GrainzBase() override
   {
-    StereoDcBlockingFilter::destroy(dcFilter);
-    BiquadFilter::destroy(feedbackFilterLeft);
-    BiquadFilter::destroy(feedbackFilterRight);
-    AudioBuffer::destroy(feedbackBuffer);
-    AudioBuffer::destroy(grainBuffer);
+    StereoDcBlockingFilter::destroy(dc_filter_);
+    BiquadFilter::destroy(feedback_filter_left_);
+    BiquadFilter::destroy(feedback_filter_right_);
+    AudioBuffer::destroy(feedback_buffer_);
+    AudioBuffer::destroy(grain_buffer_);
 
-    delete[] recordBuffer;
+    delete[] record_buffer_;
 
-    for (int i = 0; i < MAX_GRAINS; i+=2)
+    for (int i = 0; i < MaxGrains; i+=2)
     {
-      Grain::destroy(grains[i]);
+      Grain::destroy(grains_[i]);
     }
 
-    if constexpr (WITH_REVERB)
+    if constexpr (WithReverb)
     {
-      Reverb::destroy(reverb);
+      Reverb::destroy(reverb_);
     }
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (bid == inTrigger && value == ON)
+    if (bid == pin_.trigger && value == ON)
     {
-      grainTriggerDelay = samples;
-      grainTriggered = true;
+      grain_trigger_delay_ = samples;
+      grain_triggered_ = true;
     }
-    else if (bid == inFreeze && value == ON)
+    else if (bid == pin_.freeze && value == ON)
     {
-      freeze = freeze == ON ? OFF : ON;
+      freeze_ = freeze_ == ON ? OFF : ON;
     }
   }
 
@@ -185,40 +193,40 @@ public:
     const float processStart = getElapsedBlockTime();
 #endif
     const int size = audio.getSize();
-    FloatArray inOutLeft = audio.getSamples(0);
-    FloatArray inOutRight = audio.getSamples(1);
-    FloatArray grainLeft = grainBuffer->getSamples(0);
-    FloatArray grainRight = grainBuffer->getSamples(1);
-    FloatArray feedLeft = feedbackBuffer->getSamples(0);
-    FloatArray feedRight = feedbackBuffer->getSamples(1);
+    FloatArray in_out_left = audio.getSamples(0);
+    FloatArray in_out_right = audio.getSamples(1);
+    FloatArray grain_left = grain_buffer_->getSamples(0);
+    FloatArray grain_right = grain_buffer_->getSamples(1);
+    FloatArray feed_left = feedback_buffer_->getSamples(0);
+    FloatArray feed_right = feedback_buffer_->getSamples(1);
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
-    float grainDensity = getParameterValue(inDensity);
+    float grain_density = getParameterValue(pin_.density);
     float overlap = 0;
-    if (grainDensity >= 0.53f)
+    if (grain_density >= 0.53f)
     {
-      overlap = (grainDensity - 0.53f) * 2.12f;
+      overlap = (grain_density - 0.53f) * 2.12f;
     }
-    else if (grainDensity <= 0.47f)
+    else if (grain_density <= 0.47f)
     {
-      overlap = (0.47f - grainDensity) * 2.12f;
+      overlap = (0.47f - grain_density) * 2.12f;
     }
-    grainOverlap = overlap * overlap * overlap;
-    grainPosition = getParameterValue(inPosition)*0.25f;
-    grainSize = (minGrainSize + getParameterValue(inSize)*(maxGrainSize - minGrainSize));
-    grainSpeed = voct.getFrequency(getParameterValue(inSpeed)) / 440.0f;
-    grainEnvelope = getParameterValue(inEnvelope);
-    grainSpread = getParameterValue(inSpread);
-    grainVelocity = getParameterValue(inVelocity);
-    feedback = getParameterValue(inFeedback);
-    reverbAmount = getParameterValue(inReverb);
-    dryWet = getParameterValue(inDryWet);
+    grain_overlap_ = overlap * overlap * overlap;
+    grain_position_ = getParameterValue(pin_.position)*0.25f;
+    grain_size_ = (min_grain_size_ + getParameterValue(pin_.size)*(max_grain_size_ - min_grain_size_));
+    grain_speed_ = voct_.getFrequency(getParameterValue(pin_.speed)) / 440.0f;
+    grain_envelope_ = getParameterValue(pin_.envelope);
+    grain_spread_ = getParameterValue(pin_.spread);
+    grain_velocity_ = getParameterValue(pin_.velocity);
+    feedback_ = getParameterValue(pin_.feedback);
+    reverb_amount_ = getParameterValue(pin_.reverb);
+    dry_wet_ = getParameterValue(pin_.dry_wet);
 
-    dcFilter->process(audio, audio);
+    dc_filter_->process(audio, audio);
 
-    if (playedGate > 0)
+    if (played_gate_ > 0)
     {
-      playedGate -= getBlockSize();
+      played_gate_ -= getBlockSize();
     }
 
     // #TODO: clouds does a cool thing where when freeze is enabled
@@ -227,145 +235,148 @@ public:
     // the new incoming audio as it writes into the record buffer,
     // which prevents discontinuities in the record buffer.
     // #TODO: add smoothed freeze state for fading feedback in/out.
-    if (freeze == OFF)
+    if (freeze_ == OFF)
     {
       // Note: the way feedback is applied is based on how Clouds does it
-      float cutoff = (20.0f + 100.0f * feedback * feedback);
-      feedbackFilterLeft->setHighPass(cutoff, 1);
-      feedbackFilterLeft->process(feedLeft);
-      feedbackFilterRight->setHighPass(cutoff, 1);
-      feedbackFilterRight->process(feedRight);
-      float softLimitCoeff = feedback * 1.4f;
+      float cutoff = (20.0f + 100.0f * feedback_ * feedback_);
+      feedback_filter_left_->setHighPass(cutoff, 1);
+      feedback_filter_left_->process(feed_left);
+      feedback_filter_right_->setHighPass(cutoff, 1);
+      feedback_filter_right_->process(feed_right);
+      float soft_limit_coeff = feedback_ * 1.4f;
       for (int i = 0; i < size; ++i)
       {
-        float left = inOutLeft[i];
-        float right = inOutRight[i];
-        left += feedback * (SoftLimit(softLimitCoeff * feedLeft[i] + left) - left);
-        right += feedback * (SoftLimit(softLimitCoeff * feedRight[i] + right) - right);
-        recordBuffer[recordWriteIndex] = Sample(left*FloatToSample, right*FloatToSample);
-        recordWriteIndex = (recordWriteIndex + 1) & RECORD_BUFFER_WRAP;
+        float left = in_out_left[i];
+        float right = in_out_right[i];
+        left += feedback_ * (SoftLimit(soft_limit_coeff * feed_left[i] + left) - left);
+        right += feedback_ * (SoftLimit(soft_limit_coeff * feed_right[i] + right) - right);
+        record_buffer_[record_write_index_] = Sample(left*FLOAT_TO_SAMPLE, right*FLOAT_TO_SAMPLE);
+        record_write_index_ = (record_write_index_ + 1) & RECORD_BUFFER_WRAP;
       }
     }
 
-    float grainSampleLength = (grainSize*RECORD_BUFFER_SIZE);
-    float targetGrains = MAX_GRAINS * grainOverlap;
-    float grainProb = targetGrains / grainSampleLength;
-    float grainSpacing = grainSampleLength / targetGrains;
+    float grain_sample_length = (grain_size_*RECORD_BUFFER_SIZE);
+    float target_grains = MaxGrains * grain_overlap_;
+    float grain_prob = target_grains / grain_sample_length;
+    float grain_spacing = grain_sample_length / target_grains;
 
-    if (grainDensity < 0.5f)
+    if (grain_density < 0.5f)
     {
-      grainProb = -1.0f;
+      grain_prob = -1.0f;
     }
     else
     {
-      grainRatePhasor = -getBlockSize();
+      grain_rate_phasor_ = -getBlockSize();
     }
 
-    int numAvailableGrains = updateAvailableGrains();
-    const int readIdx = recordWriteIndex - size;
+    int num_available_grains = updateAvailableGrains();
+    const int readIdx = record_write_index_ - size;
     for (int i = 0; i < size; ++i)
     {
-      grainRatePhasor += 1.0f;
-      bool startProb = randf() < grainProb && targetGrains > activeGrains;
-      bool startSteady = grainRatePhasor >= grainSpacing;
-      bool startGrain = startProb || startSteady || grainTriggered;
-      if (startGrain && numAvailableGrains)
+      grain_rate_phasor_ += 1.0f;
+      bool start_prob = randf() < grain_prob && target_grains > active_grains_;
+      bool start_steady = grain_rate_phasor_ >= grain_spacing;
+      if (bool startGrain = start_prob || start_steady || grain_triggered_; startGrain && num_available_grains)
       {
-        --numAvailableGrains;
-        int gidx = availableGrains[numAvailableGrains];
-        Grain* g = grains[gidx];
-        float grainDelay = i > grainTriggerDelay ? i : grainTriggerDelay;
+        --num_available_grains;
+        int gidx = available_grains_[num_available_grains];
+        Grain* g = grains_[gidx];
+        float gdi = static_cast<float>(i);
+        float grain_delay = gdi > grain_trigger_delay_ ? gdi : grain_trigger_delay_;
         int head = readIdx + i;
-        float grainEndPos = (float)head / RECORD_BUFFER_SIZE;
-        float pan = 0.5f + (randf() - 0.5f)*grainSpread;
-        float vel = 1.0f + (randf() * 2 - 1.0f)*grainVelocity;
-        g->trigger(grainDelay, grainEndPos - grainPosition, grainSize, grainSpeed, grainEnvelope, pan, vel);
-        grainTriggered = false;
-        grainTriggerDelay = 0;
-        grainRatePhasor = 0;
-        playedGate = playedGateSampleLength;
+        float grain_end_pos = static_cast<float>(head) / RECORD_BUFFER_SIZE;
+        float pan = 0.5f + (randf() - 0.5f)*grain_spread_;
+        float vel = 1.0f + (randf() * 2 - 1.0f)*grain_velocity_;
+        g->trigger(grain_delay, grain_end_pos - grain_position_, grain_size_, grain_speed_, grain_envelope_, pan, vel);
+        grain_triggered_ = false;
+        grain_trigger_delay_ = 0;
+        grain_rate_phasor_ = 0;
+        played_gate_ = played_gate_sample_length_;
       }
     }
 
 #ifdef PROFILE
     const float genStart = getElapsedBlockTime();
 #endif
-    float avgProgress = 0;
-    float avgEnvelope = 0;
-    int prevActiveGrains = activeGrains;
-    activeGrains = 0;
+    float avg_progress = 0;
+    float avg_envelope = 0;
+    int prev_active_grains = active_grains_;
+    active_grains_ = 0;
     bool clear = true;
 
-    for (int gi = 0; gi < MAX_GRAINS; ++gi)
+    for (int gi = 0; gi < MaxGrains; ++gi)
     {
-      Grain* g = grains[gi];
+      Grain* g = grains_[gi];
 
-      if (!g->isDone)
+      if (!g->is_done)
       {
-        avgEnvelope += g->envelope();
-        avgProgress += g->progress();
-        ++activeGrains;
+        avg_envelope += g->envelope();
+        avg_progress += g->progress();
+        ++active_grains_;
         if (clear) {
-          g->generate<true>(grainLeft, grainRight, size);
+          g->generate<true>(grain_left, grain_right, size);
           clear = false;
         }
         else {
-          g->generate<false>(grainLeft, grainRight, size);
+          g->generate<false>(grain_left, grain_right, size);
         }
       }
     }
-    if (clear) {
-      grainLeft.clear();
-      grainRight.clear();
-    }
-    float fromGainAdjust = norms[prevActiveGrains];
-    float toGainAdjust = norms[activeGrains];
-    grainLeft.scale(fromGainAdjust, toGainAdjust);
-    grainRight.scale(fromGainAdjust, toGainAdjust);
-    grainLeft.copyTo(feedLeft);
-    grainRight.copyTo(feedRight);
-
-    if (activeGrains > 0)
+    
+    if (clear) 
     {
-      avgEnvelope /= activeGrains;
-      avgProgress /= activeGrains;
+      grain_left.clear();
+      grain_right.clear();
+    }
+    
+    float from_gain_adjust = norms_[prev_active_grains];
+    float to_gain_adjust = norms_[active_grains_];
+    grain_left.scale(from_gain_adjust, to_gain_adjust);
+    grain_right.scale(from_gain_adjust, to_gain_adjust);
+    grain_left.copyTo(feed_left);
+    grain_right.copyTo(feed_right);
+
+    if (active_grains_ > 0)
+    {
+      avg_envelope /= active_grains_;
+      avg_progress /= active_grains_;
     }
 #ifdef PROFILE
     const float genTime = getElapsedBlockTime() - genStart;
     debugCpy = stpcpy(debugCpy, " gen(");
-    debugCpy = stpcpy(debugCpy, msg_itoa(activeGrains, 10));
+    debugCpy = stpcpy(debugCpy, msg_itoa(active_grains_, 10));
     debugCpy = stpcpy(debugCpy, ") ");
     debugCpy = stpcpy(debugCpy, msg_itoa((int)(genTime * 1000), 10));
 #endif
 
     // #TODO reverb can also wind up with DC offset 
     // in freeze mode when feedback is engaged.
-    if constexpr (WITH_REVERB)
+    if constexpr (WithReverb)
     {
-      float reverbLevel = reverbAmount * 0.95f;
-      reverbLevel += feedback * (2.0f - feedback) * freeze;
-      reverbLevel = fclamp(reverbLevel, 0.0f, 1.0f);
+      float reverb_level = reverb_amount_ * 0.95f;
+      reverb_level += feedback_ * (2.0f - feedback_) * freeze_;
+      reverb_level = fclamp(reverb_level, 0.0f, 1.0f);
 
-      reverb->setAmount(reverbLevel * 0.54f);
-      reverb->setDiffusion(0.7f);
-      reverb->setReverbTime(0.35f + 0.63f * reverbLevel);
-      reverb->setInputGain(0.2f);
-      reverb->setLowPass(0.6f + 0.37f * feedback);
-      reverb->process(*grainBuffer, *grainBuffer);
+      reverb_->setAmount(reverb_level * 0.54f);
+      reverb_->setDiffusion(0.7f);
+      reverb_->setReverbTime(0.35f + 0.63f * reverb_level);
+      reverb_->setInputGain(0.2f);
+      reverb_->setLowPass(0.6f + 0.37f * feedback_);
+      reverb_->process(*grain_buffer_, *grain_buffer_);
     }
 
-    const float wetAmt = dryWet;
-    const float dryAmt = 1.0f - wetAmt;
+    const float wet_amt = dry_wet_;
+    const float dry_amt = 1.0f - wet_amt;
     for (int i = 0; i < size; ++i)
     {
-      inOutLeft[i]  = inOutLeft[i]*dryAmt  + grainLeft[i]*wetAmt;
-      inOutRight[i] = inOutRight[i]*dryAmt + grainRight[i]*wetAmt;
+      in_out_left[i]  = in_out_left[i]*dry_amt  + grain_left[i]*wet_amt;
+      in_out_right[i] = in_out_right[i]*dry_amt + grain_right[i]*wet_amt;
     }
 
-    setButton(inFreeze, freeze);
-    setButton(outGrainPlayed, playedGate > 0);
-    setParameterValue(outGrainPlayback, avgProgress);
-    setParameterValue(outGrainEnvelope, avgEnvelope);
+    setButton(pin_.freeze, freeze_);
+    setButton(pout_.grain_played, played_gate_ > 0);
+    setParameterValue(pout_.grain_playback, avg_progress);
+    setParameterValue(pout_.grain_envelope, avg_envelope);
 
 #ifdef PROFILE
     const float processTime = getElapsedBlockTime() - processStart - genTime;
@@ -379,13 +390,19 @@ private:
   int updateAvailableGrains()
   {
     int count = 0;
-    for (int gi = 0; gi < MAX_GRAINS; ++gi)
+    for (int gi = 0; gi < MaxGrains; ++gi)
     {
-      if (grains[gi]->isDone)
+      if (grains_[gi]->is_done)
       {
-        availableGrains[count++] = gi;
+        available_grains_[count++] = gi;
       }
     }
     return count;
   }
 };
+
+#ifdef OWL_WITCH
+using GrainzPatch = GrainzBase<24,false>;
+#else
+using GrainzPatch = GrainzBase<56,true>;
+#endif

@@ -9,8 +9,8 @@
 #if 1
 #include "ComplexFloatArray.h"
 typedef ComplexFloat Sample;
-#define SampleToFloat 1
-#define FloatToSample 1
+#define SAMPLE_TO_FLOAT 1
+#define FLOAT_TO_SAMPLE 1
 #else
 #include "ComplexShortArray.h"
 typedef ComplexShort Sample;
@@ -20,40 +20,40 @@ typedef ComplexShort Sample;
 
 class Grain : public SignalGenerator, MultiSignalGenerator
 {
-  Sample* buffer;
-  const int bufferSize;
-  const int bufferWrapMask;
-  int preDelay;
-  float ramp;
-  float start;
-  float size;
-  float speed;
-  float decayStart;
-  float attackMult;
-  float decayMult;
-  float leftScale;
-  float rightScale;
+  Sample* buffer_;
+  int buffer_size_;
+  int buffer_wrap_mask_;
+  int pre_delay_;
+  float ramp_;
+  float start_;
+  float size_;
+  float speed_;
+  float decay_start_;
+  float attack_mult_;
+  float decay_mult_;
+  float left_scale_;
+  float right_scale_;
 
 public:
   // buffer size argument must be power of two!
-  Grain(Sample* inBuffer, int bufferSz)
-    : buffer(inBuffer), bufferSize(bufferSz), bufferWrapMask(bufferSz - 1)
-    , preDelay(0), ramp(randf()*bufferSize), start(0), decayStart(0)
-    , size(bufferSize), speed(1), attackMult(0), decayMult(0)
-    , leftScale(1), rightScale(1), isDone(true)
+  Grain(Sample* in_buffer, int buffer_sz)
+    : buffer_(in_buffer), buffer_size_(buffer_sz), buffer_wrap_mask_(buffer_sz - 1)
+    , pre_delay_(0), ramp_(randf()*buffer_size_), start_(0), size_(buffer_size_)
+    , speed_(1), decay_start_(0), attack_mult_(0), decay_mult_(0)
+    , left_scale_(1), right_scale_(1), is_done(true)
   {
   }
   
-  bool isDone;
+  bool is_done;
 
   inline float progress() const
   {
-    return ramp / size;
+    return ramp_ / size_;
   }
 
   inline float envelope() const
   {
-    return ramp < decayStart ? ramp * attackMult : (size - ramp) * decayMult;
+    return ramp_ < decay_start_ ? ramp_ * attack_mult_ : (size_ - ramp_) * decay_mult_;
   }
 
   // all arguments [0,1], relative to buffer size,
@@ -62,46 +62,46 @@ public:
   // balance is only left channel at 0, only right channel at 1
   void trigger(int delay, float end, float length, float rate, float env, float balance, float velocity)
   {
-    preDelay = delay;
-    ramp = 0;
-    size = length * bufferSize;
+    pre_delay_ = delay;
+    ramp_ = 0;
+    size_ = length * buffer_size_;
     // we always advance by buffer size
     // so we don't have to worry about accessing negative indices
-    start = end * bufferSize - size + bufferSize;
-    speed = rate;
+    start_ = end * buffer_size_ - size_ + buffer_size_;
+    speed_ = rate;
     // convert -1 to 1
     balance = (balance * 2) - 1;
-    leftScale = (balance < 0  ? 1 : 1.0f - balance) * velocity;
-    rightScale = (balance > 0 ? 1 : 1.0f + balance) * velocity;
+    left_scale_ = (balance < 0  ? 1 : 1.0f - balance) * velocity;
+    right_scale_ = (balance > 0 ? 1 : 1.0f + balance) * velocity;
 
-    float nextAttack = clamp(env, 0.01f, 0.99f);
-    float nextDecay = 1.0f - nextAttack;
-    decayStart = nextAttack * size;
-    attackMult = 1.0f / (nextAttack*size);
-    decayMult = 1.0f / (nextDecay*size);
-    isDone = false;
+    float next_attack = clamp(env, 0.01f, 0.99f);
+    float next_decay = 1.0f - next_attack;
+    decay_start_ = next_attack * size_;
+    attack_mult_ = 1.0f / (next_attack*size_);
+    decay_mult_ = 1.0f / (next_decay*size_);
+    is_done = false;
   }
 
   float generate() override
   {
-    if (preDelay)
+    if (pre_delay_)
     {
-      --preDelay;
+      --pre_delay_;
       return 0.0f;
     }
 
-    const float pos = start + ramp;
-    const int i = (int)pos;
+    const float pos = start_ + ramp_;
+    const int i = static_cast<int>(pos);
     const int j = i + 1;
     const float t = pos - i;
-    float sample = interpolated(buffer[i&bufferWrapMask].re, buffer[j&bufferWrapMask].re, t) * envelope();
+    float sample = interpolated(buffer_[i&buffer_wrap_mask_].re, buffer_[j&buffer_wrap_mask_].re, t) * envelope();
 
     // keep looping, but silently, mainly so we can keep track of grain performance
-    if ((ramp += speed) >= size)
+    if ((ramp_ += speed_) >= size_)
     {
-      ramp -= size;
-      attackMult = decayMult = 0;
-      isDone = true;
+      ramp_ -= size_;
+      attack_mult_ = decay_mult_ = 0;
+      is_done = true;
     }
 
     return sample;
@@ -109,61 +109,61 @@ public:
 
   void generate(AudioBuffer& output) override
   {
-    int outLen = output.getSize();
-    FloatArray outL = output.getSamples(0);
-    FloatArray outR = output.getSamples(1);
+    int out_len = output.getSize();
+    FloatArray out_l = output.getSamples(0);
+    FloatArray out_r = output.getSamples(1);
 
-    generate<false>(outL, outR, outLen);
+    generate<false>(out_l, out_r, out_len);
   }
 
-  template<bool clear>
-  void generate(FloatArray genLeft, FloatArray genRight, int genLen)
+  template<bool Clear>
+  void generate(FloatArray gen_left, FloatArray gen_right, int gen_len)
   {
-    const int skip = min(preDelay, genLen);
-    if (skip)
+    if (const int skip = min(pre_delay_, gen_len))
     {
-      preDelay -= skip;
-      genLen -= skip;
-      if constexpr(clear) {
-        genLeft.subArray(0, skip).clear();
-        genRight.subArray(0, skip).clear();
+      pre_delay_ -= skip;
+      gen_len -= skip;
+      if constexpr(Clear) 
+      {
+        gen_left.subArray(0, skip).clear();
+        gen_right.subArray(0, skip).clear();
       }
-      genLeft = genLeft.subArray(skip, genLen);
-      genRight = genRight.subArray(skip, genLen);
+      gen_left = gen_left.subArray(skip, gen_len);
+      gen_right = gen_right.subArray(skip, gen_len);
     }
 
-    float* outL = genLeft.getData();
-    float* outR = genRight.getData();
+    float* out_l = gen_left.getData();
+    float* out_r = gen_right.getData();
 
     static Sample scratch[512];
     
     // copy the buffer data we need into our scratch array
-    if (genLen)
+    if (gen_len)
     {
-      int offset = ((int)(start + ramp)) & bufferWrapMask;
+      int offset = static_cast<int>(start_ + ramp_) & buffer_wrap_mask_;
       // need at least two samples at slower speeds when genLen*speed truncates to 0
-      int readLen = ((int)(genLen*speed)) + 2;
-      int rem = bufferSize - offset;
-      if (readLen >= rem)
+      int read_len = static_cast<int>(gen_len * speed_) + 2;
+      int rem = buffer_size_ - offset;
+      if (read_len >= rem)
       { 
-        memcpy(scratch, buffer + offset, rem*sizeof(Sample));
-        memcpy(scratch + rem, buffer, (readLen - rem)*sizeof(Sample));
+        memcpy(scratch, buffer_ + offset, rem*sizeof(Sample));
+        memcpy(scratch + rem, buffer_, (read_len - rem)*sizeof(Sample));
       }
       else
       {
-        memcpy(scratch, buffer + offset, readLen*sizeof(Sample));
+        memcpy(scratch, buffer_ + offset, read_len*sizeof(Sample));
       }
     }
 
-    const float rampBegin = ramp;
+    float ramp_begin = ramp_;
 
-    while(genLen--)
+    while(gen_len--)
     {
       // setting all of these is basically free.
       // removing modulo and using ternary logic doesn't improve performance.
-      const float pos = ramp - rampBegin;
-      const float t = pos - (int)pos;
-      const int i = ((int)pos);
+      const float pos = ramp_ - ramp_begin;
+      const float t = pos - static_cast<int>(pos);
+      const int i = static_cast<int>(pos);
       const int j = (i + 1);
       const float env = envelope();
       const Sample si = scratch[i];
@@ -176,26 +176,29 @@ public:
       // but probably something relating to array access?
       // doesn't seem to matter whether we access the member arrays or pass in arguments.
       // on the forums it was pointed out that accessing the array is just slow because it lives in SDRAM.
-      if constexpr(clear) {
-        *outL++ = interpolated(si.re, sj.re, t) * env * leftScale;
-        *outR++ = interpolated(si.im, sj.im, t) * env * rightScale;
+      if constexpr(Clear) 
+      {
+        *out_l++ = interpolated(si.re, sj.re, t) * env * left_scale_;
+        *out_r++ = interpolated(si.im, sj.im, t) * env * right_scale_;
       }
-      else {
-        *outL++ += interpolated(si.re, sj.re, t) * env * leftScale;
-        *outR++ += interpolated(si.im, sj.im, t) * env * rightScale;
+      else 
+      {
+        *out_l++ += interpolated(si.re, sj.re, t) * env * left_scale_;
+        *out_r++ += interpolated(si.im, sj.im, t) * env * right_scale_;
       }
 
       // keep looping, but silently, mainly so we can keep track of grain performance
       // just this on its own is about 6ns per grain
-      if ((ramp += speed) >= size)
+      if ((ramp_ += speed_) >= size_)
       {
-        ramp = size;
+        ramp_ = size_;
         //ramp -= size;
         //attackMult = decayMult = 0;
-        isDone = true;
-        if constexpr(clear) {
-          memset(outL, 0, sizeof(float) * genLen);
-          memset(outR, 0, sizeof(float) * genLen);
+        is_done = true;
+        if constexpr(Clear) 
+        {
+          memset(out_l, 0, sizeof(float) * gen_len);
+          memset(out_r, 0, sizeof(float) * gen_len);
         }
         break;
       }
@@ -206,7 +209,7 @@ private:
 
   inline float interpolated(float a, float b, float t) const
   {
-    return (a + t * (b - a)) * SampleToFloat;
+    return (a + t * (b - a)) * SAMPLE_TO_FLOAT;
   }
 
 public:
