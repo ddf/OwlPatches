@@ -62,6 +62,7 @@ DESCRIPTION:
 static constexpr PatchButtonId IN_TOGGLE_LISTEN = BUTTON_1;
 static constexpr PatchButtonId IN_CLOCK = BUTTON_2;
 static constexpr PatchButtonId OUT_WORD_STARTED_LEFT = OUT_GATE_1;
+// @todo handle variation for Lich, which has only one gate out.
 static constexpr PatchButtonId OUT_WORD_STARTED_RIGHT = OUT_GATE_2;
 
 static constexpr PatchParameterId IN_WORD_SIZE = PARAMETER_A;
@@ -101,7 +102,7 @@ class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguideli
   MarkovProcessor* markovLeft;
   MarkovProcessor* markovRight;
   
-  array<float> markovBuffer;
+  vessl::array<float> markovBuffer;
 
 public: 
   MarkovPatch() : dcBlockingFilter(nullptr), markovBuffer(new float[getBlockSize()], getBlockSize())
@@ -124,7 +125,7 @@ public:
 
   ~MarkovPatch() override
   {
-    delete[] markovBuffer.getData();
+    delete[] markovBuffer.data();
     delete markovLeft;
     delete markovRight;
     StereoDcBlockingFilter::destroy(dcBlockingFilter);
@@ -163,8 +164,8 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     const int inSize = audio.getSize();
-    array<float> inLeft(audio.getSamples(0), inSize);
-    array<float> inRight(audio.getSamples(1), inSize);
+    vessl::array<float> inLeft(audio.getSamples(0), inSize);
+    vessl::array<float> inRight(audio.getSamples(1), inSize);
 
     dcBlockingFilter->process(audio, audio);
 
@@ -203,10 +204,10 @@ public:
     
     // @todo use this again when we can
     uint32_t wordStartDelay = 0;
-    bool wordState = markovLeft->wordStarted().readBinary();
+    bool wordState = markovLeft->wordStarted().read_binary();
     setButton(OUT_WORD_STARTED_LEFT, wordState, static_cast<uint16_t>(wordStartDelay));
     
-    wordState = markovRight->wordStarted().readBinary();
+    wordState = markovRight->wordStarted().read_binary();
     setButton(OUT_WORD_STARTED_RIGHT, wordState, static_cast<uint16_t>(wordStartDelay));
     
     setParameterValue(OUT_WORD_PROGRESS_LEFT, markovLeft->progress().read<float>());
@@ -232,6 +233,6 @@ public:
     screen.print("\n Wms " );
     screen.print(markovLeft->wordSizeMs());
     screen.print("\n BPM ");
-    screen.print(markovLeft->getBpm());
+    screen.print(markovLeft->bpm());
   }
 };

@@ -31,11 +31,77 @@ DESCRIPTION:
 */
 #pragma once
 
-#include "KnoscillatorPatch.hpp"
+#include "PatchParameterIds.h"
 
-typedef KnoscillatorPatch<Patch> BasePatch;
+struct KnoscillatorParameterIds
+{
+  PatchParameterId inPitch;
+  PatchParameterId inMorph;
+  PatchParameterId inKnotP;
+  PatchParameterId inKnotQ;
+  PatchParameterId inKnotS;
+  PatchParameterId inDetuneP;
+  PatchParameterId inDetuneQ;
+  PatchParameterId inDetuneS;
+  PatchParameterId inRotateX;
+  PatchParameterId inRotateY;
+  PatchParameterId inRotateZ;
+  PatchParameterId inRotateXRate;
+  PatchParameterId inRotateYRate;
+  PatchParameterId inRotateZRate;
+  PatchParameterId inNoiseAmp;
+  PatchParameterId inFMRatio;
+  PatchParameterId inZoom;
 
-static const KnoscillatorParameterIds knoscillatorLichParams = 
+  PatchParameterId outRotateX;
+  PatchParameterId outRotateY;
+  PatchParameterId outRotateZ;
+
+  PatchButtonId inFreezeP;
+  PatchButtonId inFreezeQ;
+  PatchButtonId outRotateXGate;
+  PatchButtonId outRotateYGate;
+  PatchButtonId outRotateZGate;
+};
+
+#ifdef OWL_GENIUS
+static constexpr KnoscillatorParameterIds knoscillatorParamIds =
+{
+  .inPitch = PARAMETER_H,
+  .inMorph = PARAMETER_D,
+  .inKnotP = PARAMETER_A,
+  .inKnotQ = PARAMETER_B,
+  .inKnotS = PARAMETER_C,
+  .inDetuneP = PARAMETER_E,
+  .inDetuneQ = PARAMETER_F,
+  .inDetuneS = PARAMETER_G,
+
+  .inRotateX = PARAMETER_AE,
+  .inRotateY = PARAMETER_AF,
+  .inRotateZ = PARAMETER_AG,
+
+  .inRotateXRate = PARAMETER_AA,
+  .inRotateYRate = PARAMETER_AB,
+  .inRotateZRate = PARAMETER_AC,
+
+  .inNoiseAmp = PARAMETER_AD,
+  .inFMRatio = PARAMETER_AH,
+  .inZoom = PARAMETER_BA,
+
+  .outRotateX = PARAMETER_BB,
+  .outRotateY = PARAMETER_BC,
+  .outRotateZ = PARAMETER_BD,
+
+  .inFreezeP = BUTTON_1,
+  .inFreezeQ = BUTTON_2,
+
+  .outRotateXGate = BUTTON_1,
+  .outRotateYGate = BUTTON_2,
+  .outRotateZGate = BUTTON_3
+};
+#else
+#ifdef OWL_LICH
+static constexpr KnoscillatorParameterIds knoscillatorParamIds = 
 {
   .inPitch = PARAMETER_A,
   .inMorph = PARAMETER_B,
@@ -68,13 +134,7 @@ static const KnoscillatorParameterIds knoscillatorLichParams =
   .outRotateYGate = PUSHBUTTON,
   .outRotateZGate = PUSHBUTTON
 };
-
-class KnoscillatorLichPatch : public BasePatch
-{
-
-public:
-  KnoscillatorLichPatch() : BasePatch(knoscillatorLichParams)
-  {
-
-  }
-};
+#else
+static constexpr KnoscillatorParameterIds knoscillatorParamIds = {};
+#endif
+#endif

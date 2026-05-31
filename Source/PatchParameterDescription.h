@@ -98,7 +98,7 @@ public:
 
 // when using the gate outs on Genius we can't use F and G as output parameters
 // so we define standard output parameter names here based on the module we are building for
-#if defined(OWL_GENIUS)
+#ifdef OWL_GENIUS
 #define OUT_PARAMETER_A PARAMETER_CA
 #define OUT_PARAMETER_B PARAMETER_CB
 #define OUT_GATE_1 BUTTON_1

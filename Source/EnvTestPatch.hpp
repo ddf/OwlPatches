@@ -6,10 +6,10 @@
 
 class EnvTestPatch : public MonochromeScreenPatch
 {
-  vessl::envelope<float>::stage envStage;
-  vessl::ad<float> ad;
-  vessl::asr<float> asr;
-  vessl::adsr<float> adsr;
+  vessl::generators::envelope<float>::stage envStage;
+  vessl::generators::ad<float> ad;
+  vessl::generators::asr<float> asr;
+  vessl::generators::adsr<float> adsr;
   
 public:
   EnvTestPatch()
@@ -20,7 +20,7 @@ public:
   {
     envStage.target() = 1.0f;
     envStage.duration() = 4.0f;
-    envStage.setSampleRate(getSampleRate());
+    envStage.set_sample_rate(getSampleRate());
     
     registerParameter(PARAMETER_A, "att dur");
     registerParameter(PARAMETER_B, "dec dur");
@@ -63,8 +63,8 @@ public:
     FloatArray outRight = audio.getSamples(RIGHT_CHANNEL);
     for (int i = 0; i < outLeft.getSize(); ++i)
     {
-      outLeft[i] = ad.generate<vessl::easing::expo::in>();
-      outRight[i] = asr.generate<vessl::easing::expo::out>();
+      outLeft[i] = ad.generate<vessl::math::easing::expo::in>();
+      outRight[i] = asr.generate<vessl::math::easing::expo::out>();
     }
     
     setButton(BUTTON_1, asr.attack().active().read<uint16_t>());

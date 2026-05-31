@@ -60,7 +60,7 @@ DESCRIPTION:
 #include "TapTempo.hpp"
 #include "vessicle/vessl/vessl.h"
 
-using BitCrush = vessl::bitcrush<float, 24>;
+using BitCrush = vessl::processors::bitcrush<float, 24>;
 
 static const uint32_t TRIGGER_LIMIT = (1 << 17);
 

@@ -121,17 +121,17 @@ public:
     Array audioRight(audio.getSamples(RIGHT_CHANNEL), audio.getSize());
     delayMatrix.processStereo(audioLeft, audioRight);
     
-    float lfoGen = delayMatrix.lfo().readAnalog();
-    float rndGen = delayMatrix.rnd().readAnalog();
+    float lfoGen = delayMatrix.lfo().read_analog();
+    float rndGen = delayMatrix.rnd().read_analog();
     setParameterValue(patchParams.lfoOut, vessl::math::constrain(lfoGen*0.5f + 0.5f, 0.f, 1.f));
     setParameterValue(patchParams.rndOut, vessl::math::constrain(rndGen, 0.f, 1.f));
     
-    setButton(PUSHBUTTON, delayMatrix.gate().readBinary());
+    setButton(PUSHBUTTON, delayMatrix.gate().read_binary());
     
     FreezeState freezeState = delayMatrix.freeze().read<FreezeState>();
-    setButton(BUTTON_2, freezeState == FreezeState::FreezeOn ? 1 : 0);
+    setButton(BUTTON_2, freezeState == FreezeState::On ? 1 : 0);
     // this is the second gate output on the Witch
-    setButton(BUTTON_6, freezeState == FreezeState::FreezeOn ? 1 : 0);
+    setButton(BUTTON_6, freezeState == FreezeState::On ? 1 : 0);
   }
   
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override  // NOLINT(portability-template-virtual-member-function)
@@ -163,7 +163,7 @@ public:
     if (delayMatrix.isClocked())
     {
       screen.print("Q=");
-      screen.print(static_cast<int>(delayMatrix.getBpm()));
+      screen.print(static_cast<int>(delayMatrix.bpm()));
     }
     else
     {
@@ -180,9 +180,9 @@ public:
     const Delaytrix::DelayLineData& lastData = delayMatrix.getDelayData(DELAY_COUNT - 1);
     FreezeState freezeState = delayMatrix.freeze().read<FreezeState>();
     float lastTime = lastData.time.value;
-    const float lastMaxFreezePosition = min(lastTime * 8 - lastTime - lastData.skew, static_cast<float>(lastData.delayLength) - lastTime - lastData.skew);
+    const float lastMaxFreezePosition = vessl::math::min(lastTime * 8 - lastTime - lastData.skew, static_cast<float>(lastData.delayLength) - lastTime - lastData.skew);
     const float maxFreezeSize = lastMaxFreezePosition + lastTime + lastData.skew;
-    if (freezeState == FreezeState::FreezeOn)
+    if (freezeState == FreezeState::On)
     {
       screen.setCursor(x, headingY);
       screen.print("/");
@@ -368,10 +368,10 @@ public:
       //screen.setCursor(x, rowY);
       //screen.print(ftoa(data.delayLength / getSampleRate(), 10));
 
-      if (freezeState == FreezeState::FreezeOn)
+      if (freezeState == FreezeState::On)
       {
         const float windowStart = 1.0f - ((delayMatrix.freezePosition(i) + data.time.value) / maxFreezeSize);
-        const float windowSize = min(data.time.value / maxFreezeSize, 1.0f);
+        const float windowSize = vessl::math::min(data.time.value / maxFreezeSize, 1.0f);
         const int freezeX = x - knobRadius;
         const int freezeY = knobY - knobRadius;
         constexpr float freezeW = (knobRadius * 2 + 4)*DELAY_COUNT - 1;
@@ -437,9 +437,9 @@ private:
   static void drawKnob(float value, MonochromeScreenBuffer& screen, uint16_t x, uint16_t y, uint16_t radius)
   {
     static constexpr float PI_4 = vessl::math::pi<float>() / 4.f;
-    float angle = vessl::easing::lerp(-3.1f*PI_4, 3.1f*PI_4, value);
-    float dirX = vessl::math::sin(angle);
-    float dirY = -vessl::math::cos(angle);
+    float angle = vessl::math::lerp(-3.1f*PI_4, 3.1f*PI_4, value);
+    float dirX = vessl::math::sin<float>(angle);
+    float dirY = -vessl::math::cos<float>(angle);
     float x1 = static_cast<float>(x) + dirX * static_cast<float>(radius);
     float y1 = static_cast<float>(y) + dirY * static_cast<float>(radius);
     screen.drawCircle(x, y, radius+1, WHITE);
@@ -475,7 +475,7 @@ private:
     const int iconDim = h-2;
 
     FreezeState freezeState = delayMatrix.freeze().read<FreezeState>();
-    if (freezeState == FreezeState::FreezeOn)
+    if (freezeState == FreezeState::On)
     {
       screen.drawLine(x, iconY, x, iconY - iconDim, WHITE);
       screen.drawLine(x, iconY - iconDim, x + iconDim, iconY - iconDim, WHITE);
@@ -533,7 +533,7 @@ private:
     {
       for (int iy = 0; iy < w; ++iy)
       {
-        screen.setPixel(x + ix, y - iy, noise2(ix, iy+dryWetAnim) > 224);
+        screen.setPixel(x + ix, y - iy, vessicle::noise2(ix, iy+dryWetAnim) > 224);
       }
     }
 

@@ -30,53 +30,38 @@ DESCRIPTION:
 */
 #pragma once
 
-#include "Patch.h"
+#include "MonochromeScreenPatch.h"
 #include "MidiMessage.h"
 #include "VoltsPerOctave.h"
 #include "SmoothValue.h"
 #include "vessicle/Knoscillator.h"
+#include "vessicle/Projector.h"
+#include "KnoscillatorParamIds.hpp"
+#include "CircularBuffer.h"
 
-struct KnoscillatorParameterIds
+class KnoscillatorPatch : public MonochromeScreenPatch
 {
-  PatchParameterId inPitch;
-  PatchParameterId inMorph;
-  PatchParameterId inKnotP;
-  PatchParameterId inKnotQ;
-  PatchParameterId inKnotS;
-  PatchParameterId inDetuneP;
-  PatchParameterId inDetuneQ;
-  PatchParameterId inDetuneS;
-  PatchParameterId inRotateX;
-  PatchParameterId inRotateY;
-  PatchParameterId inRotateZ;
-  PatchParameterId inRotateXRate;
-  PatchParameterId inRotateYRate;
-  PatchParameterId inRotateZRate;
-  PatchParameterId inNoiseAmp;
-  PatchParameterId inFMRatio;
-  PatchParameterId inZoom;
 
-  PatchParameterId outRotateX;
-  PatchParameterId outRotateY;
-  PatchParameterId outRotateZ;
-
-  PatchButtonId inFreezeP;
-  PatchButtonId inFreezeQ;
-  PatchButtonId outRotateXGate;
-  PatchButtonId outRotateYGate;
-  PatchButtonId outRotateZGate;
-};
-
-template<typename PatchClass = Patch>
-class KnoscillatorPatch : public PatchClass
-{
-  using KnoscilGen = Knoscillator<>;
+  static constexpr size_t noiseDim = 128;
+  static constexpr float  noiseStep = 4.0f / noiseDim;
+  
+  using NoiseTable = vessl::sample::wavetable<float, noiseDim*noiseDim>;
+  using KnoscilGen = Knoscillator<float, true>;
+  using SquiggleLfo = vessl::generators::oscil<vessl::sample::waves::sine<float>>;
+  using Camera = Projector<float>;
+  using knoscil_st = KnoscilGen::SampleType;
+  
 protected:
   KnoscillatorParameterIds params;
   VoltsPerOctave hz;
+  SquiggleLfo squilo;
+  KnoscilGen* knoscil;
+  Camera* camera;
+  
+  static constexpr float zoomFar = 60.0f * KnoscilGen::KnotOscil::KNOT_SCALE;
+  static constexpr float zoomNear = 6.0f * KnoscilGen::KnotOscil::KNOT_SCALE;
 
 private:
-  KnoscilGen* knoscil;
 
   int midinote;
   SmoothFloat tune;
@@ -90,23 +75,44 @@ private:
   float rotateOffZ;
   float rotateOffSmooth;
 
-public:
-  using PatchClass::registerParameter;
-  using PatchClass::getParameterValue;
-  using PatchClass::setParameterValue;
-  using PatchClass::getSampleRate;
-  using PatchClass::isButtonPressed;
-  using PatchClass::setButton;
-  using PatchClass::getBlockSize;
+  NoiseTable noiseTable;
+  
+  // for Genius
+  size_t drawCount;
+  float  knotPhase;
+  CircularFloatBuffer* scopeLeft;
+  CircularFloatBuffer* scopeRight;
+  MonochromeScreenBuffer backBuffer;
 
-  explicit KnoscillatorPatch(const KnoscillatorParameterIds& paramIds)
-    : PatchClass()
-    , params(paramIds), hz(true), midinote(0), tune(0.5f, -6.0f), knotP(0.9f, 2), knotQ(0.9f, 1)
+public:
+  explicit KnoscillatorPatch()
+    : params(knoscillatorParamIds)
+    , hz(true), squilo(getSampleRate(), 1.f)
+    , midinote(0), tune(0.5f, -6.0f)
+    , knotP(0.9f, 2), knotQ(0.9f, 1)
     , morph(0.9f, 0), fmRatio(0.9f, 2.0f)
     , rotateOffX(0), rotateOffY(0), rotateOffZ(0)
     , rotateOffSmooth(4.0f * vessl::math::pi<float>() * 2 / getSampleRate())
+    , drawCount(0), knotPhase(0), backBuffer(128,64)
   {
-    knoscil = Knoscillator<>::create(getSampleRate());
+    knoscil = KnoscilGen::create(getSampleRate());
+    camera = Camera::create();
+
+    for (size_t x = 0; x < noiseDim; ++x)
+    {
+      for (size_t y = 0; y < noiseDim; ++y)
+      {
+        size_t i = x * noiseDim + y;
+        noiseTable.set(i, vessicle::perlin2d(x*noiseStep, y*noiseStep, 1, 4) * 2 - 1);
+      }
+    }
+    
+#ifdef OWL_GENIUS
+    const size_t bufferSize = getBlockSize() * 128;
+    scopeLeft = CircularFloatBuffer::create(bufferSize);
+    scopeRight = CircularFloatBuffer::create(bufferSize);
+    backBuffer.setBuffer(new uint8_t[backBuffer.getWidth()*backBuffer.getHeight()/8]);
+#endif
 
     registerParameter(params.inPitch, "Pitch");
     registerParameter(params.inMorph, "Morph");
@@ -167,9 +173,22 @@ public:
     setParameterValue(params.inZoom, 1);
   }
 
-  virtual ~KnoscillatorPatch()
+  virtual ~KnoscillatorPatch() override
   {
     KnoscilGen::destroy(knoscil);
+    Camera::destroy(camera);
+    
+#ifdef OWL_GENIUS
+    CircularFloatBuffer::destroy(scopeLeft);
+    CircularFloatBuffer::destroy(scopeRight);
+    delete[] backBuffer.getBuffer();
+#endif
+  }
+  
+  // returns CPU% as [0,1] value
+  float getElapsedTime()
+  {
+    return getElapsedCycles() / getBlockSize() / 10000.0f;
   }
 
   void processMidi(MidiMessage msg)
@@ -182,14 +201,30 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+#ifdef OWL_GENIUS
+    {
+      const int size = audio.getSize();
+      FloatArray inLeft = audio.getSamples(0);
+      const float phaseStep = 1.0f / getSampleRate();
+      for (int i = 0; i < size; ++i)
+      {
+        const float freq = hz.getFrequency(inLeft[i]);
+        knotPhase += freq * phaseStep;
+        if (knotPhase >= 1)
+        {
+          knotPhase -= 1;
+          drawCount = scopeLeft->getReadCapacity() + i;
+        }
+      }
+    }
+#endif
+    
     FloatArray left = audio.getSamples(LEFT_CHANNEL);
     FloatArray right = audio.getSamples(RIGHT_CHANNEL);
 
     // adjust so that midinote 60 (C4) actually generates a C4 when the pitch param is zero.
     tune = (midinote - 69 + getParameterValue(params.inPitch) * 73) / 12.0f;
     hz.setTune(tune);
-
-    morph = getParameterValue(params.inMorph);
 
     float fmParam = getParameterValue(params.inFMRatio);
     if (fmParam < 0.34f)
@@ -217,24 +252,26 @@ public:
 
     float dtp = freezeP ? -1 : getParameterValue(params.inDetuneP);
     float dtq = freezeQ ? -1 : getParameterValue(params.inDetuneQ);
-    // float dts = getParameterValue(params.inDetuneS);
+    float dts = getParameterValue(params.inDetuneS);
 
     float rxt = getParameterValue(params.inRotateX);
-    float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)*16 : 0;
+    float rxf = rxt == 0 ? getParameterValue(params.inRotateXRate)/16 : 0;
     float ryt = getParameterValue(params.inRotateY);
-    float ryf = ryt == 0 ? getParameterValue(params.inRotateYRate)*16 : 0;
+    float ryf = ryt == 0 ? getParameterValue(params.inRotateYRate)/16 : 0;
     float rzt = getParameterValue(params.inRotateZ);
-    float rzf = rzt == 0 ? getParameterValue(params.inRotateZRate)*16 : 0;
+    float rzf = rzt == 0 ? getParameterValue(params.inRotateZRate)/16 : 0;
 
     float nVol = getParameterValue(params.inNoiseAmp);
     
-    float knotTypeSmooth = -0.5f*vessl::math::cos(morph*vessl::math::pi<float>()) + 0.5f;
-    // calculate coefficients based on the morph setting
-    float fracIdx = static_cast<float>(KnotOscillator::KNOT_TYPE_COUNT - 1) * knotTypeSmooth;
-    int typeA = static_cast<int>(fracIdx);
+    // trefoil -> lissa -> torus
+    morph = vessl::math::constrain(getParameterValue(params.inMorph) * 2.1f, 0.f, 2.f);
+    float kt;
+    float blend = vessl::math::mod(morph.getValue(), &kt);
+    int typeA = static_cast<int>(kt) % KnoscilGen::KnotOscil::KNOT_TYPE_COUNT;
+    int typeB = (typeA + 1) % KnoscilGen::KnotOscil::KNOT_TYPE_COUNT;
     knoscil->knotTypeA() = typeA;
-    knoscil->knotTypeB() = (typeA + 1) % KnotOscillator::KNOT_TYPE_COUNT;
-    knoscil->knotMorph() = fracIdx - static_cast<float>(typeA);
+    knoscil->knotTypeB() = typeB;
+    knoscil->knotMorph() = blend*1.1f; // make sure we get all the way to 1
     
     knoscil->knotP() = knotP.getValue();
     knoscil->knotQ() = knotQ.getValue();
@@ -244,9 +281,10 @@ public:
     knoscil->rotRatioX() = rxf;
     knoscil->rotRatioY() = ryf;
     knoscil->rotRatioZ() = rzf;
-    knoscil->cameraZoom() = zoom;
+    
+    camera->zoom() = vessl::math::lerp(zoomFar, zoomNear, zoom);
+    
     knoscil->squiggle() = sVol;
-    knoscil->noise() = nVol;
 
     for (int s = 0; s < getBlockSize(); ++s)
     {
@@ -256,19 +294,32 @@ public:
       knoscil->rotModX() = rotateOffX;
       knoscil->rotModY() = rotateOffY;
       knoscil->rotModZ() = rotateOffZ;
-      
-      KnoscilGen::SampleType frame = knoscil->generate();
-      left[s] = frame.left();
-      right[s] = frame.right();
+
+      knoscil_st coord = knoscil->generate();
+
+      float nz = nVol * noise(coord.x(), coord.y());
+      knoscil_st cnz(coord);
+      cnz.scale(nz);
+      coord.add(cnz);
+
+      squilo.fhz() = freq*(4+2*dts)*(knotP.getValue() + knotQ.getValue());
+      knoscil_st squig(coord.y(), coord.z(), coord.x());
+      squig.scale((sVol+dts*0.5f)*0.25f*squilo.generate());
+      coord.add(squig);
+
+      auto frame = camera->process(coord);
+
+      left[s] = vessl::cast<vessl::analog_t>(frame.left());
+      right[s] = vessl::cast<vessl::analog_t>(frame.right());
 
       rotateOffX += (rxt - rotateOffX) * rotateOffSmooth;
       rotateOffY += (ryt - rotateOffY) * rotateOffSmooth;
       rotateOffZ += (rzt - rotateOffZ) * rotateOffSmooth;
     }
     
-    float rx = knoscil->rotationX().readAnalog()*0.5f + 0.5f;
-    float ry = knoscil->rotationY().readAnalog()*0.5f + 0.5f;
-    float rz = knoscil->rotationZ().readAnalog()*0.5f + 0.5f;
+    float rx = knoscil->rotationX().read_analog()*0.5f + 0.5f;
+    float ry = knoscil->rotationY().read_analog()*0.5f + 0.5f;
+    float rz = knoscil->rotationZ().read_analog()*0.5f + 0.5f;
 
     setParameterValue(params.outRotateX, vessl::math::constrain(rx, 0.f, 1.f));
     setParameterValue(params.outRotateY, vessl::math::constrain(ry, 0.f, 1.f));
@@ -291,5 +342,68 @@ public:
       setButton(params.outRotateYGate, gateY);
       setButton(params.outRotateZGate, gateZ);
     }
+    
+#ifdef OWL_GENIUS
+    {
+      scopeLeft->write(audio.getSamples(0), audio.getSize());
+      scopeRight->write(audio.getSamples(1), audio.getSize());
+    }
+#endif
+  }
+  
+  void processScreen(MonochromeScreenBuffer& screen) override
+  {
+#ifdef OWL_GENIUS
+    const int displayHeight = screen.getHeight() - 18;
+    const int cy = displayHeight / 2;
+    const int cx = screen.getWidth() / 2;
+    const int sz = screen.getHeight() / 2;
+
+    if (drawCount)
+    {
+      backBuffer.clear();
+      float t1 = getElapsedTime();
+      size_t count = vessl::math::min(drawCount, scopeLeft->getSize() / 2);
+      drawCount -= count;
+      while (count--)
+      {
+        int x = cx + scopeLeft->read()*sz;
+        int y = cy + scopeRight->read()*sz;
+        backBuffer.setPixel(x, y, WHITE);
+      }
+      float t2 = getElapsedTime();
+
+      //backBuffer.setCursor(0, 8);
+      //backBuffer.print(t2 - t1);
+    }
+    // copy pixels one at a time so we don't overwrite
+    // the selected parameters displayed at the bottom of the screen
+    for (int x = 0; x < screen.getWidth(); ++x)
+    {
+      for (int y = 0; y < displayHeight; ++y)
+      {
+        auto c = screen.getPixel(x, y) | backBuffer.getPixel(x, y);
+        screen.setPixel(x, y, c);
+      }
+    }
+    
+    // screen.setCursor(0, 10);
+    // screen.print("dt "); screen.print((int)knoscil->knot().pi()); 
+    // screen.print(" sr " ); screen.print(knoscil->knot().sr()); screen.print("\n");
+    // screen.print("pp "); screen.print((int)knoscil->knot().pp()); screen.print("\n");
+    // screen.print("pq "); screen.print((int)knoscil->knot().pq()); screen.print("\n");
+    // screen.print("pz "); screen.print((int)knoscil->knot().pz()); screen.print("\n");
+    // screen.print(knoscil->knot().frequency().readAnalog());
+#endif
+  }
+
+    
+private:
+  [[nodiscard]] VESSL_INLINE float noise(float x, float y) const
+  {
+    size_t nx = static_cast<size_t>(vessl::math::abs(x) / noiseStep) % noiseDim;
+    size_t ny = static_cast<size_t>(vessl::math::abs(y) / noiseStep) % noiseDim;
+    size_t ni = nx * noiseDim + ny;
+    return noiseTable.get(ni);
   }
 };

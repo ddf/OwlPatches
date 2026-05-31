@@ -5,13 +5,12 @@
 #include "vessicle/vessl/vessl.h"
 
 using Array = vessl::array<float>;
-using WhiteNoise = vessl::noiseGenerator<float, vessl::noise::white>;
-using PinkNoise = vessl::noiseGenerator<float, vessl::noise::pink>;
-using RedNoise = vessl::noiseGenerator<float, vessl::noise::red>;
+using WhiteNoise = vessl::generators::noise<float, vessl::noise::white>;
+using PinkNoise = vessl::generators::noise<float, vessl::noise::pink>;
+using RedNoise = vessl::generators::noise<float, vessl::noise::red>;
 
-using namespace vessl::filtering;
-using SlewFilter = vessl::slew<float>;
-using Filter = vessl::filter<float, biquad<1>::lowPass>;
+using SlewFilter = vessl::processors::slew<float>;
+using Filter = vessl::processors::filter<float, vessl::filtering::biquad<1>::low_pass>;
 
 class VesslNoiseTestPatch final : public MonochromeScreenPatch
 {
@@ -43,7 +42,7 @@ public:
     
     AudioWriter outL(audioLeft);
     AudioWriter outR(audioRight);
-    while (outL)
+    while (outL.available())
     {
       outL << 2.f*redNoise.generate()  - 1.f;
       outR << 2.f*pinkNoise.generate() - 1.f;

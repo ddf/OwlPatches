@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|x64">
       <Configuration>Release</Configuration>
@@ -9,7 +9,6 @@
   <ItemGroup>
     <ClInclude Include="Source\AllpassNetwork.h" />
     <ClInclude Include="Source\AudioBufferSourceSink.h" />
-    <ClInclude Include="Source\CartesianFloatArray.h" />
     <ClInclude Include="Source\Delay.h" />
     <ClInclude Include="Source\Diffuser.h" />
     <ClInclude Include="Source\EnvelopeFollower.h" />
@@ -28,8 +27,6 @@
     <ClInclude Include="Source\vessicle\BlurKernel.h" />
     <ClInclude Include="Source\vessicle\BlurProcessor1D.h" />
     <ClInclude Include="Source\vessicle\BlurProcessor2D.h" />
-    <ClInclude Include="Source\vessicle\CartesianFloat.h" />
-    <ClInclude Include="Source\vessicle\CartesianTransform.h" />
     <ClInclude Include="Source\vessicle\CircularTexture.h" />
     <ClInclude Include="Source\vessicle\DelayMatrix.h" />
     <ClInclude Include="Source\vessicle\DelayWithFreeze.h" />
@@ -42,15 +39,35 @@
     <ClInclude Include="Source\vessicle\MarkovChain.hpp" />
     <ClInclude Include="Source\vessicle\MarkovGenerator.h" />
     <ClInclude Include="Source\vessicle\Noise.hpp" />
+    <ClInclude Include="Source\vessicle\Projector.h" />
+    <ClInclude Include="Source\vessicle\Rotator3D.h" />
     <ClInclude Include="Source\vessicle\vessl\vessl.h" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_arm_math.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_core.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_filtering.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_generators.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_noise.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_parameter.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_processors.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_sample.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_math.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_qmath.h" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_qmath.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_qmath_lut.h" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_time.inl" />
+    <ClInclude Include="Source\vessicle\vessl\vessl_units.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\KissFFT.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Source\vessicle\.clang-format" />
     <Content Include="Source\vessicle\.git" />
     <Content Include="Source\vessicle\.gitignore" />
+    <Content Include="Source\vessicle\.gitmodules" />
     <Content Include="Source\vessicle\LICENSE" />
+    <Content Include="Source\vessicle\vessl\.clang-format" />
+    <Content Include="Source\vessicle\vessl\.git" />
     <Content Include="Source\vessicle\vessl\.gitignore" />
     <Content Include="Source\vessicle\vessl\LICENSE" />
     <Content Include="Source\vessicle\vessl\README.md" />
@@ -62,7 +79,6 @@
     <RootNamespace>Common</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
@@ -73,7 +89,6 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
@@ -86,7 +101,7 @@
     <LinkIncremental>false</LinkIncremental>
       <OutDir />
       <IntDir />
-      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1</IncludePath>
+      <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\Libraries\CMSIS\DSP\Include;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1;$(ARM_NONE_EABI_IncludePath)\c++\9.2.1</IncludePath>
       <ExternalIncludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -110,7 +125,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>
