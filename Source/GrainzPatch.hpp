@@ -21,6 +21,8 @@ using namespace daisysp;
 static constexpr int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
 static constexpr int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 
+using GrainType = Grain;
+
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
 {
@@ -55,10 +57,10 @@ class GrainzBase : public Patch
   StereoDcBlockingFilter* dc_filter_;
   VoltsPerOctave voct_;
 
-  Sample* record_buffer_;
+  GrainSample* record_buffer_;
   int record_write_index_;
 
-  Grain* grains_[MaxGrains];
+  GrainType* grains_[MaxGrains];
   int available_grains_[MaxGrains];
   int active_grains_;
   uint16_t  freeze_;
@@ -111,12 +113,12 @@ public:
     feedback_filter_right_ = BiquadFilter::create(getSampleRate());
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
 
-    record_buffer_ = new Sample[RECORD_BUFFER_SIZE];
+    record_buffer_ = new GrainSample[RECORD_BUFFER_SIZE];
     grain_buffer_ = AudioBuffer::create(2, getBlockSize());
 
     for (int i = 0; i < MaxGrains; ++i)
     {
-      grains_[i] = Grain::create(record_buffer_, RECORD_BUFFER_SIZE);
+      grains_[i] = GrainType::create(record_buffer_, RECORD_BUFFER_SIZE);
     }
 
     if constexpr (WithReverb)
@@ -162,7 +164,7 @@ public:
 
     for (int i = 0; i < MaxGrains; i+=2)
     {
-      Grain::destroy(grains_[i]);
+      GrainType::destroy(grains_[i]);
     }
 
     if constexpr (WithReverb)
@@ -250,7 +252,9 @@ public:
         float right = in_out_right[i];
         left += feedback_ * (SoftLimit(soft_limit_coeff * feed_left[i] + left) - left);
         right += feedback_ * (SoftLimit(soft_limit_coeff * feed_right[i] + right) - right);
-        record_buffer_[record_write_index_] = Sample(left*FLOAT_TO_SAMPLE, right*FLOAT_TO_SAMPLE);
+        GrainSample& grain_sample = record_buffer_[record_write_index_];
+        grain_sample.re = left;
+        grain_sample.im = right;
         record_write_index_ = (record_write_index_ + 1) & RECORD_BUFFER_WRAP;
       }
     }
@@ -270,7 +274,7 @@ public:
     }
 
     int num_available_grains = updateAvailableGrains();
-    const int readIdx = record_write_index_ - size;
+    const int read_idx = record_write_index_ - size;
     for (int i = 0; i < size; ++i)
     {
       grain_rate_phasor_ += 1.0f;
@@ -280,10 +284,10 @@ public:
       {
         --num_available_grains;
         int gidx = available_grains_[num_available_grains];
-        Grain* g = grains_[gidx];
+        GrainType* g = grains_[gidx];
         float gdi = static_cast<float>(i);
         float grain_delay = gdi > grain_trigger_delay_ ? gdi : grain_trigger_delay_;
-        int head = readIdx + i;
+        int head = read_idx + i;
         float grain_end_pos = static_cast<float>(head) / RECORD_BUFFER_SIZE;
         float pan = 0.5f + (randf() - 0.5f)*grain_spread_;
         float vel = 1.0f + (randf() * 2 - 1.0f)*grain_velocity_;
@@ -302,31 +306,27 @@ public:
     float avg_envelope = 0;
     int prev_active_grains = active_grains_;
     active_grains_ = 0;
-    bool clear = true;
 
+    grain_left.clear();
+    grain_right.clear();
+    
     for (int gi = 0; gi < MaxGrains; ++gi)
     {
-      Grain* g = grains_[gi];
+      GrainType* g = grains_[gi];
 
       if (!g->is_done)
       {
         avg_envelope += g->envelope();
         avg_progress += g->progress();
         ++active_grains_;
-        if (clear) {
-          g->generate<true>(grain_left, grain_right, size);
-          clear = false;
-        }
-        else {
-          g->generate<false>(grain_left, grain_right, size);
+
+        for (int i = 0; i < size; ++i)
+        {
+          GrainSample grain_sample = g->generate();
+          grain_left[i] += grain_sample.re;
+          grain_right[i] += grain_sample.im;
         }
       }
-    }
-    
-    if (clear) 
-    {
-      grain_left.clear();
-      grain_right.clear();
     }
     
     float from_gain_adjust = norms_[prev_active_grains];
@@ -402,7 +402,7 @@ private:
 };
 
 #ifdef OWL_WITCH
-using GrainzPatch = GrainzBase<24,false>;
+using GrainzPatch = GrainzBase<16,false>;
 #else
 using GrainzPatch = GrainzBase<56,true>;
 #endif
