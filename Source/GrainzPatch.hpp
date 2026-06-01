@@ -4,7 +4,6 @@
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
 #include "VoltsPerOctave.h"
-#include "BiquadFilter.h"
 #include "Reverb.h"
 #include "Grain.hpp"
 #include "custom_dsp.h" // for SoftLimit
@@ -22,6 +21,8 @@ static constexpr int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
 static constexpr int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 
 using GrainType = Grain;
+using Array = vessl::array<float>;
+using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad<1>::high_pass>;
 
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
@@ -33,7 +34,7 @@ class GrainzBase : public Patch
     PatchParameterId size     = PARAMETER_B;
     PatchParameterId speed    = PARAMETER_C;
     PatchParameterId density  = PARAMETER_D;
-    PatchParameterId dry_wet  = PARAMETER_E;
+    PatchParameterId dry_wet  = PARAMETER_AD;
     PatchParameterId reverb   = PARAMETER_H;
     PatchButtonId    freeze   = BUTTON_1;
     PatchButtonId    trigger  = BUTTON_2;
@@ -42,7 +43,7 @@ class GrainzBase : public Patch
     PatchParameterId envelope = PARAMETER_AA;
     PatchParameterId spread   = PARAMETER_AB;
     PatchParameterId velocity = PARAMETER_AC;
-    PatchParameterId feedback = PARAMETER_AD;
+    PatchParameterId feedback = PARAMETER_E;
   } pin_;
 
   // outputs
@@ -77,8 +78,8 @@ class GrainzBase : public Patch
   int played_gate_;
 
   AudioBuffer* feedback_buffer_;
-  BiquadFilter* feedback_filter_left_;
-  BiquadFilter* feedback_filter_right_;
+  HighPassFilter feedback_filter_left_;
+  HighPassFilter feedback_filter_right_;
   Reverb* reverb_;
 
   SmoothFloat grain_overlap_;
@@ -101,6 +102,7 @@ public:
     , min_grain_size_(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 1 second
     , max_grain_size_(getSampleRate()*1.0f / RECORD_BUFFER_SIZE), played_gate_sample_length_(10 * getSampleRate() / 1000)
     , played_gate_(0)
+    , feedback_filter_left_(getSampleRate()), feedback_filter_right_(getSampleRate())
   {
     norms_[0] = 1;
     for (int i = 1; i < MaxGrains + 1; i++) 
@@ -109,9 +111,9 @@ public:
     }
     voct_.setTune(-4);
     dc_filter_ = StereoDcBlockingFilter::create(0.995f);
-    feedback_filter_left_ = BiquadFilter::create(getSampleRate());
-    feedback_filter_right_ = BiquadFilter::create(getSampleRate());
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
+    feedback_filter_left_.q() = vessl::filtering::q::butterworth<float>();
+    feedback_filter_right_.q() = vessl::filtering::q::butterworth<float>();
 
     record_buffer_ = new GrainSample[RECORD_BUFFER_SIZE];
     grain_buffer_ = AudioBuffer::create(2, getBlockSize());
@@ -155,8 +157,6 @@ public:
   ~GrainzBase() override
   {
     StereoDcBlockingFilter::destroy(dc_filter_);
-    BiquadFilter::destroy(feedback_filter_left_);
-    BiquadFilter::destroy(feedback_filter_right_);
     AudioBuffer::destroy(feedback_buffer_);
     AudioBuffer::destroy(grain_buffer_);
 
@@ -197,10 +197,10 @@ public:
     const int size = audio.getSize();
     FloatArray in_out_left = audio.getSamples(0);
     FloatArray in_out_right = audio.getSamples(1);
-    FloatArray grain_left = grain_buffer_->getSamples(0);
-    FloatArray grain_right = grain_buffer_->getSamples(1);
-    FloatArray feed_left = feedback_buffer_->getSamples(0);
-    FloatArray feed_right = feedback_buffer_->getSamples(1);
+    Array grain_left(grain_buffer_->getSamples(0).getData(), size);
+    Array grain_right(grain_buffer_->getSamples(1).getData(), size);
+    Array feed_left(feedback_buffer_->getSamples(0).getData(), size);
+    Array feed_right(feedback_buffer_->getSamples(1).getData(), size);
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float grain_density = getParameterValue(pin_.density);
@@ -241,17 +241,17 @@ public:
     {
       // Note: the way feedback is applied is based on how Clouds does it
       float cutoff = (20.0f + 100.0f * feedback_ * feedback_);
-      feedback_filter_left_->setHighPass(cutoff, 1);
-      feedback_filter_left_->process(feed_left);
-      feedback_filter_right_->setHighPass(cutoff, 1);
-      feedback_filter_right_->process(feed_right);
+      feedback_filter_left_.fhz() = cutoff;
+      feedback_filter_right_.fhz() = cutoff;
+      feedback_filter_left_.process(feed_left, feed_left);
+      feedback_filter_right_.process(feed_right, feed_right);
       float soft_limit_coeff = feedback_ * 1.4f;
       for (int i = 0; i < size; ++i)
       {
         float left = in_out_left[i];
         float right = in_out_right[i];
-        left += feedback_ * (SoftLimit(soft_limit_coeff * feed_left[i] + left) - left);
-        right += feedback_ * (SoftLimit(soft_limit_coeff * feed_right[i] + right) - right);
+        left += feedback_ * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
+        right += feedback_ * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
         GrainSample& grain_sample = record_buffer_[record_write_index_];
         grain_sample.re = left;
         grain_sample.im = right;
@@ -278,7 +278,7 @@ public:
     for (int i = 0; i < size; ++i)
     {
       grain_rate_phasor_ += 1.0f;
-      bool start_prob = randf() < grain_prob && target_grains > active_grains_;
+      bool start_prob = vessl::math::random::range(0.f, 1.f) < grain_prob && target_grains > active_grains_;
       bool start_steady = grain_rate_phasor_ >= grain_spacing;
       if (bool startGrain = start_prob || start_steady || grain_triggered_; startGrain && num_available_grains)
       {
@@ -289,8 +289,8 @@ public:
         float grain_delay = gdi > grain_trigger_delay_ ? gdi : grain_trigger_delay_;
         int head = read_idx + i;
         float grain_end_pos = static_cast<float>(head) / RECORD_BUFFER_SIZE;
-        float pan = 0.5f + (randf() - 0.5f)*grain_spread_;
-        float vel = 1.0f + (randf() * 2 - 1.0f)*grain_velocity_;
+        float pan = 0.5f + (vessl::math::random::range(0.f, 1.f) - 0.5f)*grain_spread_;
+        float vel = 1.0f + (vessl::math::random::range(0.f, 1.f) * 2 - 1.0f)*grain_velocity_;
         g->trigger(grain_delay, grain_end_pos - grain_position_, grain_size_, grain_speed_, grain_envelope_, pan, vel);
         grain_triggered_ = false;
         grain_trigger_delay_ = 0;
@@ -307,8 +307,8 @@ public:
     int prev_active_grains = active_grains_;
     active_grains_ = 0;
 
-    grain_left.clear();
-    grain_right.clear();
+    grain_left.fill(0);
+    grain_right.fill(0);
     
     for (int gi = 0; gi < MaxGrains; ++gi)
     {
@@ -329,12 +329,12 @@ public:
       }
     }
     
-    float from_gain_adjust = norms_[prev_active_grains];
-    float to_gain_adjust = norms_[active_grains_];
-    grain_left.scale(from_gain_adjust, to_gain_adjust);
-    grain_right.scale(from_gain_adjust, to_gain_adjust);
-    grain_left.copyTo(feed_left);
-    grain_right.copyTo(feed_right);
+    // float from_gain_adjust = norms_[prev_active_grains];
+    // float to_gain_adjust = norms_[active_grains_];
+    // grain_left.scale(from_gain_adjust, to_gain_adjust);
+    // grain_right.scale(from_gain_adjust, to_gain_adjust);
+    grain_left.copy_to(feed_left);
+    grain_right.copy_to(feed_right);
 
     if (active_grains_ > 0)
     {
@@ -386,7 +386,7 @@ public:
 #endif
   }
 private:
-
+  
   int updateAvailableGrains()
   {
     int count = 0;
