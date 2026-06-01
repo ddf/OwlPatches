@@ -1,20 +1,16 @@
 #pragma once
 
 #include "Patch.h"
-#include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
 #include "VoltsPerOctave.h"
 #include "Reverb.h"
 #include "Grain.hpp"
-#include "custom_dsp.h" // for SoftLimit
 
 //#define PROFILE
 
 #ifdef PROFILE
 #include <string.h>
 #endif
-
-using namespace daisysp;
 
 // must be power of two
 static constexpr int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
@@ -23,6 +19,7 @@ static constexpr int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 using GrainType = Grain;
 using Array = vessl::array<float>;
 using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad<1>::high_pass>;
+using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
 
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
@@ -34,7 +31,7 @@ class GrainzBase : public Patch
     PatchParameterId size     = PARAMETER_B;
     PatchParameterId speed    = PARAMETER_C;
     PatchParameterId density  = PARAMETER_D;
-    PatchParameterId dry_wet  = PARAMETER_AD;
+    PatchParameterId dry_wet  = PARAMETER_E;
     PatchParameterId reverb   = PARAMETER_H;
     PatchButtonId    freeze   = BUTTON_1;
     PatchButtonId    trigger  = BUTTON_2;
@@ -43,7 +40,7 @@ class GrainzBase : public Patch
     PatchParameterId envelope = PARAMETER_AA;
     PatchParameterId spread   = PARAMETER_AB;
     PatchParameterId velocity = PARAMETER_AC;
-    PatchParameterId feedback = PARAMETER_E;
+    PatchParameterId feedback = PARAMETER_AD;
   } pin_;
 
   // outputs
@@ -53,10 +50,10 @@ class GrainzBase : public Patch
     PatchParameterId grain_playback = PARAMETER_F;
     PatchParameterId grain_envelope = PARAMETER_G;
   } pout_;
-
-
-  StereoDcBlockingFilter* dc_filter_;
+  
   VoltsPerOctave voct_;
+  DcBlockingFilter dc_filter_left_;
+  DcBlockingFilter dc_filter_right_;
 
   GrainSample* record_buffer_;
   int record_write_index_;
@@ -96,7 +93,8 @@ class GrainzBase : public Patch
 
 public:
   GrainzBase()
-    : voct_(-0.5f, 4), record_buffer_(nullptr), record_write_index_(0)
+    : voct_(-0.5f, 4), dc_filter_left_(getSampleRate()), dc_filter_right_(getSampleRate())
+    , record_buffer_(nullptr), record_write_index_(0)
     , active_grains_(0), freeze_(OFF), grain_buffer_(nullptr), grain_rate_phasor_(0)
     , grain_triggered_(false) // 8ms
     , min_grain_size_(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 1 second
@@ -110,7 +108,6 @@ public:
       norms_[i] = 1 / sqrtf(static_cast<float>(i));
     }
     voct_.setTune(-4);
-    dc_filter_ = StereoDcBlockingFilter::create(0.995f);
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
     feedback_filter_left_.q() = vessl::filtering::q::butterworth<float>();
     feedback_filter_right_.q() = vessl::filtering::q::butterworth<float>();
@@ -156,7 +153,6 @@ public:
 
   ~GrainzBase() override
   {
-    StereoDcBlockingFilter::destroy(dc_filter_);
     AudioBuffer::destroy(feedback_buffer_);
     AudioBuffer::destroy(grain_buffer_);
 
@@ -195,8 +191,8 @@ public:
     const float processStart = getElapsedBlockTime();
 #endif
     const int size = audio.getSize();
-    FloatArray in_out_left = audio.getSamples(0);
-    FloatArray in_out_right = audio.getSamples(1);
+    Array in_out_left(audio.getSamples(0), size);
+    Array in_out_right(audio.getSamples(1), size);
     Array grain_left(grain_buffer_->getSamples(0).getData(), size);
     Array grain_right(grain_buffer_->getSamples(1).getData(), size);
     Array feed_left(feedback_buffer_->getSamples(0).getData(), size);
@@ -224,7 +220,8 @@ public:
     reverb_amount_ = getParameterValue(pin_.reverb);
     dry_wet_ = getParameterValue(pin_.dry_wet);
 
-    dc_filter_->process(audio, audio);
+    dc_filter_left_.process(in_out_left, in_out_left);
+    dc_filter_right_.process(in_out_right, in_out_right);
 
     if (played_gate_ > 0)
     {
@@ -280,7 +277,8 @@ public:
       grain_rate_phasor_ += 1.0f;
       bool start_prob = vessl::math::random::range(0.f, 1.f) < grain_prob && target_grains > active_grains_;
       bool start_steady = grain_rate_phasor_ >= grain_spacing;
-      if (bool startGrain = start_prob || start_steady || grain_triggered_; startGrain && num_available_grains)
+      bool start_grain = start_prob || start_steady || grain_triggered_;
+      if (start_grain && num_available_grains)
       {
         --num_available_grains;
         int gidx = available_grains_[num_available_grains];
@@ -355,7 +353,7 @@ public:
     {
       float reverb_level = reverb_amount_ * 0.95f;
       reverb_level += feedback_ * (2.0f - feedback_) * freeze_;
-      reverb_level = fclamp(reverb_level, 0.0f, 1.0f);
+      reverb_level = vessl::math::constrain(reverb_level, 0.0f, 1.0f);
 
       reverb_->setAmount(reverb_level * 0.54f);
       reverb_->setDiffusion(0.7f);
