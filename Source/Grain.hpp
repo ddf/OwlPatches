@@ -55,20 +55,27 @@ public:
   {
     return ramp_ < decay_start_ ? ramp_ * attack_mult_ : (size_ - ramp_) * decay_mult_;
   }
-
-  // all arguments [0,1], relative to buffer size,
+  
   // env describes a blend from:
   // short attack / long decay -> triangle -> long attack / short delay
   // balance is only left channel at 0, only right channel at 1
-  void trigger(int delay, float end, float length, float rate, float env, float balance, float velocity)
+  void trigger(
+    int delay, // samples to wait until starting grain 
+    float end_sample_position, 
+    float length_in_samples, 
+    float playback_rate, 
+    float env, 
+    float balance, 
+    float velocity
+  )
   {
     pre_delay_ = delay;
     ramp_ = 0;
-    size_ = length * buffer_size_;
+    size_ = length_in_samples;
     // we always advance by buffer size
     // so we don't have to worry about accessing negative indices
-    start_ = end * buffer_size_ - size_ + buffer_size_;
-    speed_ = rate;
+    start_ = end_sample_position - size_ + static_cast<float>(buffer_size_);
+    speed_ = playback_rate;
     // convert -1 to 1
     balance = (balance * 2) - 1;
     left_scale_ = (balance < 0  ? 1 : 1.0f - balance) * velocity;

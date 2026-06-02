@@ -13,7 +13,7 @@
 #endif
 
 // must be power of two
-static constexpr int RECORD_BUFFER_SIZE = 1 << 19; // approx 11 seconds at 48k
+static constexpr int RECORD_BUFFER_SIZE = 1 << 18; // approx 5.5 seconds at 48k
 static constexpr int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 
 using GrainType = Grain;
@@ -27,20 +27,20 @@ class GrainzBase : public Patch
   // panel controls
   struct
   {
-    PatchParameterId position = PARAMETER_A;
-    PatchParameterId size     = PARAMETER_B;
-    PatchParameterId speed    = PARAMETER_C;
-    PatchParameterId density  = PARAMETER_D;
-    PatchParameterId dry_wet  = PARAMETER_E;
+    PatchParameterId duration = PARAMETER_A;
+    PatchParameterId speed    = PARAMETER_B;
+    PatchParameterId position = PARAMETER_C;
+    PatchParameterId feedback = PARAMETER_D;
+    PatchParameterId density  = PARAMETER_E;
     PatchParameterId reverb   = PARAMETER_H;
-    PatchButtonId    freeze   = BUTTON_1;
-    PatchButtonId    trigger  = BUTTON_2;
+    PatchButtonId    trigger  = BUTTON_1;
+    PatchButtonId    freeze   = BUTTON_2;
 
     // midi controls
     PatchParameterId envelope = PARAMETER_AA;
     PatchParameterId spread   = PARAMETER_AB;
     PatchParameterId velocity = PARAMETER_AC;
-    PatchParameterId feedback = PARAMETER_AD;
+    PatchParameterId dry_wet  = PARAMETER_AD;
   } pin_;
 
   // outputs
@@ -67,9 +67,9 @@ class GrainzBase : public Patch
   bool grain_triggered_;
   float grain_trigger_delay_;
 
-  // these are expressed as a percentage of the total buffer size
-  float min_grain_size_;
-  float max_grain_size_;
+  // these are in seconds
+  float min_grain_duration_;
+  float max_grain_duration_;
 
   int played_gate_sample_length_;
   int played_gate_;
@@ -81,7 +81,7 @@ class GrainzBase : public Patch
 
   SmoothFloat grain_overlap_;
   SmoothFloat grain_position_;
-  SmoothFloat grain_size_;
+  SmoothFloat grain_duration_;
   SmoothFloat grain_speed_;
   SmoothFloat grain_envelope_;
   SmoothFloat grain_spread_;
@@ -97,8 +97,9 @@ public:
     , record_buffer_(nullptr), record_write_index_(0)
     , active_grains_(0), freeze_(OFF), grain_buffer_(nullptr), grain_rate_phasor_(0)
     , grain_triggered_(false) // 8ms
-    , min_grain_size_(getSampleRate()*0.008f / RECORD_BUFFER_SIZE) // 1 second
-    , max_grain_size_(getSampleRate()*1.0f / RECORD_BUFFER_SIZE), played_gate_sample_length_(10 * getSampleRate() / 1000)
+    , min_grain_duration_(2.0f/getSampleRate())
+    , max_grain_duration_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
+    , played_gate_sample_length_(10 * getSampleRate() / 1000)
     , played_gate_(0)
     , feedback_filter_left_(getSampleRate()), feedback_filter_right_(getSampleRate())
   {
@@ -126,7 +127,7 @@ public:
     }
 
     registerParameter(pin_.position, "Position");
-    registerParameter(pin_.size, "Size");
+    registerParameter(pin_.duration, "Duration");
     registerParameter(pin_.speed, "Speed");
     registerParameter(pin_.density, "Density");
     registerParameter(pin_.envelope, "Envelope");
@@ -200,18 +201,13 @@ public:
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float grain_density = getParameterValue(pin_.density);
-    float overlap = 0;
-    if (grain_density >= 0.53f)
-    {
-      overlap = (grain_density - 0.53f) * 2.12f;
-    }
-    else if (grain_density <= 0.47f)
-    {
-      overlap = (0.47f - grain_density) * 2.12f;
-    }
-    grain_overlap_ = overlap * overlap * overlap;
-    grain_position_ = getParameterValue(pin_.position)*0.25f;
-    grain_size_ = (min_grain_size_ + getParameterValue(pin_.size)*(max_grain_size_ - min_grain_size_));
+    grain_overlap_ = vessl::math::interp<vessl::math::easing::quad::out>(0.f, 0.999f, grain_density);
+    grain_position_ = vessl::math::interp<vessl::math::easing::expo::in>(
+      1.f, 0.25f*RECORD_BUFFER_SIZE, getParameterValue(pin_.position)
+    );
+    grain_duration_ = vessl::math::interp<vessl::math::easing::expo::in>(
+      min_grain_duration_, max_grain_duration_, getParameterValue(pin_.duration)
+    );
     grain_speed_ = voct_.getFrequency(getParameterValue(pin_.speed)) / 440.0f;
     grain_envelope_ = getParameterValue(pin_.envelope);
     grain_spread_ = getParameterValue(pin_.spread);
@@ -256,27 +252,24 @@ public:
       }
     }
 
-    float grain_sample_length = (grain_size_*RECORD_BUFFER_SIZE);
+    // we want a grain to always last the same amount of real time, regardless of playback rate.
+    // so we have to select a sample length that achieves that.
+    float grain_playback_rate = grain_speed_.getValue();
+    float grain_sample_length = grain_duration_* getSampleRate() * grain_playback_rate;
     float target_grains = MaxGrains * grain_overlap_;
-    float grain_prob = target_grains / grain_sample_length;
-    float grain_spacing = grain_sample_length / target_grains;
-
-    if (grain_density < 0.5f)
-    {
-      grain_prob = -1.0f;
-    }
-    else
-    {
-      grain_rate_phasor_ = -getBlockSize();
-    }
+    // disable this for now
+    float grain_prob = 0; // target_grains / grain_sample_length;
+    float grain_spacing = target_grains >= 1.f ? grain_sample_length / target_grains : 0;
 
     int num_available_grains = updateAvailableGrains();
     const int read_idx = record_write_index_ - size;
+    float grain_envelope = grain_envelope_.getValue();
+    bool grains_enabled = grain_spacing > 0;
     for (int i = 0; i < size; ++i)
     {
       grain_rate_phasor_ += 1.0f;
       bool start_prob = vessl::math::random::range(0.f, 1.f) < grain_prob && target_grains > active_grains_;
-      bool start_steady = grain_rate_phasor_ >= grain_spacing;
+      bool start_steady = grains_enabled && grain_rate_phasor_ >= grain_spacing;
       bool start_grain = start_prob || start_steady || grain_triggered_;
       if (start_grain && num_available_grains)
       {
@@ -284,16 +277,19 @@ public:
         int gidx = available_grains_[num_available_grains];
         GrainType* g = grains_[gidx];
         float gdi = static_cast<float>(i);
-        float grain_delay = gdi > grain_trigger_delay_ ? gdi : grain_trigger_delay_;
-        int head = read_idx + i;
-        float grain_end_pos = static_cast<float>(head) / RECORD_BUFFER_SIZE;
+        int grain_delay = gdi > grain_trigger_delay_ ? gdi : grain_trigger_delay_;
+        float grain_end_pos = static_cast<float>(read_idx + i) - grain_position_;
         float pan = 0.5f + (vessl::math::random::range(0.f, 1.f) - 0.5f)*grain_spread_;
         float vel = 1.0f + (vessl::math::random::range(0.f, 1.f) * 2 - 1.0f)*grain_velocity_;
-        g->trigger(grain_delay, grain_end_pos - grain_position_, grain_size_, grain_speed_, grain_envelope_, pan, vel);
+        g->trigger(grain_delay, grain_end_pos, grain_sample_length,
+          grain_playback_rate, grain_envelope, pan, vel);
         grain_triggered_ = false;
         grain_trigger_delay_ = 0;
-        grain_rate_phasor_ = 0;
         played_gate_ = played_gate_sample_length_;
+      }
+      if (start_steady)
+      {
+        grain_rate_phasor_ -= grain_spacing;
       }
     }
 
@@ -385,7 +381,7 @@ public:
   }
 private:
   
-  int updateAvailableGrains()
+  VESSL_INLINE int updateAvailableGrains()
   {
     int count = 0;
     for (int gi = 0; gi < MaxGrains; ++gi)
@@ -400,7 +396,7 @@ private:
 };
 
 #ifdef OWL_WITCH
-using GrainzPatch = GrainzBase<16,false>;
+using GrainzPatch = GrainzBase<20,false>;
 #else
 using GrainzPatch = GrainzBase<56,true>;
 #endif
