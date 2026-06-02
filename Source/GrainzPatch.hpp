@@ -191,17 +191,17 @@ public:
     debugCpy = stpcpy(debugCpy, msg_itoa(audio.getSize(), 10));
     const float processStart = getElapsedBlockTime();
 #endif
-    const int size = audio.getSize();
-    Array in_out_left(audio.getSamples(0), size);
-    Array in_out_right(audio.getSamples(1), size);
-    Array grain_left(grain_buffer_->getSamples(0).getData(), size);
-    Array grain_right(grain_buffer_->getSamples(1).getData(), size);
-    Array feed_left(feedback_buffer_->getSamples(0).getData(), size);
-    Array feed_right(feedback_buffer_->getSamples(1).getData(), size);
+    const int blockSize = audio.getSize();
+    Array in_out_left(audio.getSamples(0), blockSize);
+    Array in_out_right(audio.getSamples(1), blockSize);
+    Array grain_left(grain_buffer_->getSamples(0).getData(), blockSize);
+    Array grain_right(grain_buffer_->getSamples(1).getData(), blockSize);
+    Array feed_left(feedback_buffer_->getSamples(0).getData(), blockSize);
+    Array feed_right(feedback_buffer_->getSamples(1).getData(), blockSize);
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float grain_density = getParameterValue(pin_.density);
-    grain_overlap_ = vessl::math::interp<vessl::math::easing::quad::out>(0.f, 0.999f, grain_density);
+    grain_overlap_ = vessl::math::interp<vessl::math::easing::quad::in>(0.f, 0.999f, grain_density);
     grain_position_ = vessl::math::interp<vessl::math::easing::expo::in>(
       1.f, 0.25f*RECORD_BUFFER_SIZE, getParameterValue(pin_.position)
     );
@@ -239,7 +239,7 @@ public:
       feedback_filter_left_.process(feed_left, feed_left);
       feedback_filter_right_.process(feed_right, feed_right);
       float soft_limit_coeff = feedback_ * 1.4f;
-      for (int i = 0; i < size; ++i)
+      for (int i = 0; i < blockSize; ++i)
       {
         float left = in_out_left[i];
         float right = in_out_right[i];
@@ -251,23 +251,25 @@ public:
         record_write_index_ = (record_write_index_ + 1) & RECORD_BUFFER_WRAP;
       }
     }
-
-    // we want a grain to always last the same amount of real time, regardless of playback rate.
-    // so we have to select a sample length that achieves that.
+    
     float grain_playback_rate = grain_speed_.getValue();
-    float grain_sample_length = grain_duration_* getSampleRate() * grain_playback_rate;
+    float grain_sample_length = grain_duration_* getSampleRate();
     float target_grains = MaxGrains * grain_overlap_;
     // disable this for now
     float grain_prob = 0; // target_grains / grain_sample_length;
-    float grain_spacing = target_grains >= 1.f ? grain_sample_length / target_grains : 0;
+    float grain_spacing = target_grains > 0.0001f ? grain_sample_length / target_grains : 0;
+    // we want a grain to always last the same amount of real time, regardless of playback rate.
+    // so now we adjust the length with playback speed
+    grain_sample_length *= grain_playback_rate;
 
     int num_available_grains = updateAvailableGrains();
-    const int read_idx = record_write_index_ - size;
+    const int read_idx = record_write_index_ - blockSize;
     float grain_envelope = grain_envelope_.getValue();
     bool grains_enabled = grain_spacing > 0;
-    for (int i = 0; i < size; ++i)
+    float grain_phasor_rate = grains_enabled ? 1.0f : 0.f;
+    for (int i = 0; i < blockSize; ++i)
     {
-      grain_rate_phasor_ += 1.0f;
+      grain_rate_phasor_ += grain_phasor_rate;
       bool start_prob = vessl::math::random::range(0.f, 1.f) < grain_prob && target_grains > active_grains_;
       bool start_steady = grains_enabled && grain_rate_phasor_ >= grain_spacing;
       bool start_grain = start_prob || start_steady || grain_triggered_;
@@ -285,10 +287,10 @@ public:
           grain_playback_rate, grain_envelope, pan, vel);
         grain_triggered_ = false;
         grain_trigger_delay_ = 0;
-        played_gate_ = played_gate_sample_length_;
       }
       if (start_steady)
       {
+        played_gate_ = played_gate_sample_length_;
         grain_rate_phasor_ -= grain_spacing;
       }
     }
@@ -314,7 +316,7 @@ public:
         avg_progress += g->progress();
         ++active_grains_;
 
-        for (int i = 0; i < size; ++i)
+        for (int i = 0; i < blockSize; ++i)
         {
           GrainSample grain_sample = g->generate();
           grain_left[i] += grain_sample.re;
@@ -361,7 +363,7 @@ public:
 
     const float wet_amt = dry_wet_;
     const float dry_amt = 1.0f - wet_amt;
-    for (int i = 0; i < size; ++i)
+    for (int i = 0; i < blockSize; ++i)
     {
       in_out_left[i]  = in_out_left[i]*dry_amt  + grain_left[i]*wet_amt;
       in_out_right[i] = in_out_right[i]*dry_amt + grain_right[i]*wet_amt;
