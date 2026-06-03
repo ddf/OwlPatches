@@ -8,10 +8,14 @@ struct WitchTestPatch : Patch
 {
   using Waveform = vessl::sample::waves::sine<float>;
   using Oscil = vessl::generators::oscil<Waveform>;
+  using Clock = vessl::generators::clock<float>;
 
   Oscil oscillator;
+  Clock clock;
   
-  WitchTestPatch() : oscillator(getSampleRate(), 220.f)  // NOLINT(modernize-use-equals-default)
+  WitchTestPatch() // NOLINT(modernize-use-equals-default)
+  : oscillator(getSampleRate(), 220.f)  
+  , clock(getBlockRate(), 2, getBlockRate()*10)
   {
   }
 
@@ -26,5 +30,16 @@ struct WitchTestPatch : Patch
       out << oscillator.generate();
     }
     left.copy_to(right);
+    
+    float cs = clock.generate();
+    setButton(BUTTON_6, cs > 0);
+  }
+
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
+  {
+    if (bid == BUTTON_3 && value == ON)
+    {
+      clock.tap(samples);
+    }
   }
 };
