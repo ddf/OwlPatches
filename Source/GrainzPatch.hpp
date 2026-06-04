@@ -20,6 +20,8 @@ using GrainType = Grain;
 using Array = vessl::array<float>;
 using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad<1>::high_pass>;
 using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
+using Clock = vessl::generators::clock<uint8_t>;
+using Noise = vessl::generators::noise<float, vessl::noise::white>;
 
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
@@ -34,7 +36,8 @@ class GrainzBase : public Patch
     PatchParameterId density  = PARAMETER_E;
     PatchParameterId reverb   = PARAMETER_H;
     PatchButtonId    trigger  = BUTTON_1;
-    PatchButtonId    freeze   = BUTTON_2;
+    PatchButtonId    clock    = BUTTON_2;
+    PatchButtonId    freeze   = BUTTON_3;
 
     // midi controls
     PatchParameterId envelope = PARAMETER_AA;
@@ -47,13 +50,16 @@ class GrainzBase : public Patch
   struct 
   {  
     PatchButtonId    grain_played   = PUSHBUTTON;
+    PatchButtonId    random_gate    = BUTTON_6;
     PatchParameterId grain_playback = PARAMETER_F;
-    PatchParameterId grain_envelope = PARAMETER_G;
+    PatchParameterId random_value   = PARAMETER_G;
   } pout_;
   
   VoltsPerOctave voct_;
   DcBlockingFilter dc_filter_left_;
   DcBlockingFilter dc_filter_right_;
+  Clock clock_;
+  Noise noise_;
 
   GrainSample* record_buffer_;
   int record_write_index_;
@@ -71,8 +77,10 @@ class GrainzBase : public Patch
   float min_grain_duration_;
   float max_grain_duration_;
 
-  int played_gate_sample_length_;
+  int out_gate_sample_length_;
   int played_gate_;
+  int random_gate_;
+  uint8_t clock_value_;
 
   AudioBuffer* feedback_buffer_;
   HighPassFilter feedback_filter_left_;
@@ -93,15 +101,24 @@ class GrainzBase : public Patch
 
 public:
   GrainzBase()
-    : voct_(-0.5f, 4), dc_filter_left_(getSampleRate()), dc_filter_right_(getSampleRate())
-    , record_buffer_(nullptr), record_write_index_(0)
-    , active_grains_(0), freeze_(OFF), grain_buffer_(nullptr), grain_rate_phasor_(0)
+    : voct_(-0.5f, 4)
+    , dc_filter_left_(getSampleRate())
+    , dc_filter_right_(getSampleRate())
+    , clock_(getBlockRate(), 2, getBlockRate()*4)
+    , noise_(getBlockRate())
+    , record_buffer_(nullptr)
+    , record_write_index_(0)
+    , active_grains_(0)
+    , freeze_(OFF)
+    , grain_buffer_(nullptr)
+    , grain_rate_phasor_(0)
     , grain_triggered_(false) // 8ms
     , min_grain_duration_(2.0f/getSampleRate())
     , max_grain_duration_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
-    , played_gate_sample_length_(10 * getSampleRate() / 1000)
+    , out_gate_sample_length_(10 * getSampleRate() / 1000)
     , played_gate_(0)
-    , feedback_filter_left_(getSampleRate()), feedback_filter_right_(getSampleRate())
+    , feedback_filter_left_(getSampleRate())
+    , feedback_filter_right_(getSampleRate())
   {
     norms_[0] = 1;
     for (int i = 1; i < MaxGrains + 1; i++) 
@@ -141,7 +158,7 @@ public:
       setParameterValue(pin_.reverb, 0);
     }
     registerParameter(pout_.grain_playback, "Playback>");
-    registerParameter(pout_.grain_envelope, "Envelope>");
+    registerParameter(pout_.random_value, "Random>");
 
     // default to triangle window
     setParameterValue(pin_.envelope, 0.5f);
@@ -176,6 +193,10 @@ public:
     {
       grain_trigger_delay_ = samples;
       grain_triggered_ = true;
+    }
+    else if (bid == pin_.clock && value == ON)
+    {
+      clock_.tap(samples);
     }
     else if (bid == pin_.freeze && value == ON)
     {
@@ -221,7 +242,12 @@ public:
 
     if (played_gate_ > 0)
     {
-      played_gate_ -= getBlockSize();
+      played_gate_ -= blockSize;
+    }
+    
+    if (random_gate_ > 0)
+    {
+      random_gate_ -= blockSize;
     }
 
     // #TODO: clouds does a cool thing where when freeze is enabled
@@ -290,7 +316,7 @@ public:
       }
       if (start_steady)
       {
-        played_gate_ = played_gate_sample_length_;
+        played_gate_ = out_gate_sample_length_;
         grain_rate_phasor_ -= grain_spacing;
       }
     }
@@ -368,11 +394,29 @@ public:
       in_out_left[i]  = in_out_left[i]*dry_amt  + grain_left[i]*wet_amt;
       in_out_right[i] = in_out_right[i]*dry_amt + grain_right[i]*wet_amt;
     }
+    
+    if (played_gate_ == out_gate_sample_length_)
+    {
+      clock_.tap();
+    }
+    
+    noise_.rate() = clock_.frequency();
+    float noise_value = noise_.generate()*0.5f + 0.5f;
+    uint8_t cs = clock_.generate();
+    if (cs > clock_value_)
+    {
+      if (noise_value < vessl::math::random::range(0.f, 1.f))
+      {
+        random_gate_ = out_gate_sample_length_;
+      }
+    }
+    clock_value_ = cs;
 
     setButton(pin_.freeze, freeze_);
     setButton(pout_.grain_played, played_gate_ > 0);
+    setButton(pout_.random_gate, random_gate_ > 0);
     setParameterValue(pout_.grain_playback, avg_progress);
-    setParameterValue(pout_.grain_envelope, avg_envelope);
+    setParameterValue(pout_.random_value, noise_value);
 
 #ifdef PROFILE
     const float processTime = getElapsedBlockTime() - processStart - genTime;
