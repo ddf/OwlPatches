@@ -35,6 +35,9 @@ class Grain : public vessl::generator<GrainSample>
   float right_scale_;
 
 public:
+  // @todo: replace with function
+  bool is_done;
+  
   // buffer size argument must be power of two!
   Grain(SampleBuffer in_buffer, int buffer_sz)
     : buffer_(in_buffer), buffer_size_(buffer_sz), buffer_wrap_mask_(buffer_sz - 1)
@@ -43,8 +46,6 @@ public:
     , left_scale_(1), right_scale_(1), is_done(true)
   {
   }
-  
-  bool is_done;
 
   inline float progress() const
   {

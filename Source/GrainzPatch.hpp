@@ -26,6 +26,17 @@ using Smoother = vessl::math::easing::smoother<float>;
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
 {
+  GrainSample*     record_buffer_;
+  AudioBuffer*     grain_buffer_;
+  AudioBuffer*     feedback_buffer_;
+  Reverb*          reverb_;
+  DcBlockingFilter dc_filter_left_;
+  DcBlockingFilter dc_filter_right_;
+  HighPassFilter   feedback_filter_left_;
+  HighPassFilter   feedback_filter_right_;
+  Clock            clock_;
+  Noise            noise_;
+  
   // panel controls
   struct
   {
@@ -55,39 +66,6 @@ class GrainzBase : public Patch
     PatchParameterId random_value   = PARAMETER_G;
   } pout_;
   
-  VoltsPerOctave voct_;
-  DcBlockingFilter dc_filter_left_;
-  DcBlockingFilter dc_filter_right_;
-  Clock clock_;
-  Noise noise_;
-
-  GrainSample* record_buffer_;
-  int record_write_index_;
-
-  GrainType* grains_[MaxGrains];
-  int available_grains_[MaxGrains];
-  int active_grains_;
-  uint16_t  freeze_;
-  AudioBuffer* grain_buffer_;
-  float grain_rate_phasor_;
-  bool grain_triggered_;
-  float grain_trigger_delay_;
-
-  // these are in seconds
-  float min_grain_duration_;
-  float max_grain_duration_;
-
-  int out_gate_sample_length_;
-  int played_gate_;
-  int random_gate_;
-  uint8_t clock_value_;
-  float   noise_value_;
-
-  AudioBuffer* feedback_buffer_;
-  HighPassFilter feedback_filter_left_;
-  HighPassFilter feedback_filter_right_;
-  Reverb* reverb_;
-
   Smoother grain_overlap_;
   Smoother grain_rate_;
   Smoother grain_position_;
@@ -99,31 +77,54 @@ class GrainzBase : public Patch
   Smoother feedback_;
   Smoother reverb_amount_;
   Smoother dry_wet_;
+  
+  VoltsPerOctave voct_;
+  
+  int record_write_index_;
+  int active_grains_;
+  int out_gate_sample_length_;
+  int played_gate_;
+  int random_gate_;
+
+  // these are in seconds
+  float grain_duration_min_;
+  float grain_duration_max_;
+  
+  float grain_rate_phasor_;
+  float grain_trigger_delay_;
+  float noise_value_;
+  
+  uint16_t  freeze_; 
+  uint8_t   clock_value_;
+  uint8_t   grain_triggered_;
+  
+  GrainType* grains_[MaxGrains];
   float norms_[MaxGrains + 1];
+  int available_grains_[MaxGrains];
 
 public:
   GrainzBase()
-    : voct_(-0.5f, 4)
+    : record_buffer_(nullptr)
+    , grain_buffer_(nullptr)
     , dc_filter_left_(getSampleRate())
     , dc_filter_right_(getSampleRate())
-    , clock_(getSampleRate(), 2, getSampleRate()*4)
-    , noise_(getSampleRate())
-    , record_buffer_(nullptr)
-    , record_write_index_(0)
-    , active_grains_(0)
-    , freeze_(OFF)
-    , grain_buffer_(nullptr)
-    , grain_rate_phasor_(0)
-    , grain_triggered_(false) // 8ms
-    , min_grain_duration_(2.0f/getSampleRate())
-    , max_grain_duration_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
-    , out_gate_sample_length_(getBlockSize())
-    , played_gate_(0)
-    , random_gate_(0)
-    , clock_value_(0)
-    , noise_value_(0)
     , feedback_filter_left_(getSampleRate())
     , feedback_filter_right_(getSampleRate())
+    , clock_(getSampleRate(), 2, getSampleRate()*4)
+    , noise_(getSampleRate())
+    , voct_(-0.5f, 4)
+    , record_write_index_(0)
+    , active_grains_(0)
+    , out_gate_sample_length_(getBlockSize()) // 8ms
+    , played_gate_(0)
+    , random_gate_(0)
+    , grain_duration_min_(2.0f/getSampleRate())
+    , grain_duration_max_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
+    , grain_rate_phasor_(0)
+    , noise_value_(0)
+    , freeze_(OFF)
+    , clock_value_(0)
+    , grain_triggered_(false)
   {
     norms_[0] = 1;
     for (int i = 1; i < MaxGrains + 1; i++) 
@@ -235,7 +236,7 @@ public:
       1.f, 0.25f*RECORD_BUFFER_SIZE, getParameterValue(pin_.position)
     );
     grain_duration_ = vessl::math::interp<vessl::math::easing::expo::in>(
-      min_grain_duration_, max_grain_duration_, getParameterValue(pin_.duration)
+      grain_duration_min_, grain_duration_max_, getParameterValue(pin_.duration)
     );
     grain_speed_ = voct_.getFrequency(getParameterValue(pin_.speed)) / 440.0f;
     grain_envelope_ = getParameterValue(pin_.envelope);
