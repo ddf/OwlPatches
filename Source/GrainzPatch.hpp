@@ -81,6 +81,7 @@ class GrainzBase : public Patch
   int played_gate_;
   int random_gate_;
   uint8_t clock_value_;
+  float   noise_value_;
 
   AudioBuffer* feedback_buffer_;
   HighPassFilter feedback_filter_left_;
@@ -88,6 +89,7 @@ class GrainzBase : public Patch
   Reverb* reverb_;
 
   SmoothFloat grain_overlap_;
+  SmoothFloat grain_rate_;
   SmoothFloat grain_position_;
   SmoothFloat grain_duration_;
   SmoothFloat grain_speed_;
@@ -104,8 +106,8 @@ public:
     : voct_(-0.5f, 4)
     , dc_filter_left_(getSampleRate())
     , dc_filter_right_(getSampleRate())
-    , clock_(getBlockRate(), 2, getBlockRate()*4)
-    , noise_(getBlockRate())
+    , clock_(getSampleRate(), 2, getSampleRate()*4)
+    , noise_(getSampleRate())
     , record_buffer_(nullptr)
     , record_write_index_(0)
     , active_grains_(0)
@@ -115,8 +117,11 @@ public:
     , grain_triggered_(false) // 8ms
     , min_grain_duration_(2.0f/getSampleRate())
     , max_grain_duration_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
-    , out_gate_sample_length_(10 * getSampleRate() / 1000)
+    , out_gate_sample_length_(getBlockSize())
     , played_gate_(0)
+    , random_gate_(0)
+    , clock_value_(0)
+    , noise_value_(0)
     , feedback_filter_left_(getSampleRate())
     , feedback_filter_right_(getSampleRate())
   {
@@ -221,8 +226,11 @@ public:
     Array feed_right(feedback_buffer_->getSamples(1).getData(), blockSize);
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
-    float grain_density = getParameterValue(pin_.density);
-    grain_overlap_ = vessl::math::interp<vessl::math::easing::quad::in>(0.f, 0.999f, grain_density);
+    float density_param = getParameterValue(pin_.density);
+    grain_overlap_ = vessl::math::interp<vessl::math::easing::quad::in>(0.f, 0.999f, density_param);
+    grain_rate_ = density_param < 0.45f ? vessl::math::lerp(4.0f, 1.0f, density_param)
+      : density_param > 0.55f ? vessl::math::lerp(1.0f, 0.25f, density_param)
+        : 1.0f;
     grain_position_ = vessl::math::interp<vessl::math::easing::expo::in>(
       1.f, 0.25f*RECORD_BUFFER_SIZE, getParameterValue(pin_.position)
     );
@@ -280,10 +288,18 @@ public:
     
     float grain_playback_rate = grain_speed_.getValue();
     float grain_sample_length = grain_duration_* getSampleRate();
-    float target_grains = MaxGrains * grain_overlap_;
-    // disable this for now
-    float grain_prob = 0; // target_grains / grain_sample_length;
-    float grain_spacing = target_grains > 0.0001f ? grain_sample_length / target_grains : 0;
+    float grain_spacing;
+    if (clock_.is_clocked())
+    {
+      float dur = clock_.tempo().read<vessl::time::duration>().to_seconds(getSampleRate());
+      grain_spacing = dur * getSampleRate() * grain_rate_.getValue();
+    }
+    else
+    {
+      float target_grains = MaxGrains * grain_overlap_;
+      grain_spacing = target_grains > 0.0001f ? grain_sample_length / target_grains : 0;
+      clock_.tempo() = vessl::duration_t::from_seconds(grain_spacing / getSampleRate(), getSampleRate());
+    }
     // we want a grain to always last the same amount of real time, regardless of playback rate.
     // so now we adjust the length with playback speed
     grain_sample_length *= grain_playback_rate;
@@ -296,9 +312,8 @@ public:
     for (int i = 0; i < blockSize; ++i)
     {
       grain_rate_phasor_ += grain_phasor_rate;
-      bool start_prob = vessl::math::random::range(0.f, 1.f) < grain_prob && target_grains > active_grains_;
       bool start_steady = grains_enabled && grain_rate_phasor_ >= grain_spacing;
-      bool start_grain = start_prob || start_steady || grain_triggered_;
+      bool start_grain = start_steady || grain_triggered_;
       if (start_grain && num_available_grains)
       {
         --num_available_grains;
@@ -386,6 +401,8 @@ public:
       reverb_->setLowPass(0.6f + 0.37f * feedback_);
       reverb_->process(*grain_buffer_, *grain_buffer_);
     }
+    
+    noise_.rate() = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate());
 
     const float wet_amt = dry_wet_;
     const float dry_amt = 1.0f - wet_amt;
@@ -393,30 +410,24 @@ public:
     {
       in_out_left[i]  = in_out_left[i]*dry_amt  + grain_left[i]*wet_amt;
       in_out_right[i] = in_out_right[i]*dry_amt + grain_right[i]*wet_amt;
-    }
-    
-    if (played_gate_ == out_gate_sample_length_)
-    {
-      clock_.tap();
-    }
-    
-    noise_.rate() = clock_.frequency();
-    float noise_value = noise_.generate()*0.5f + 0.5f;
-    uint8_t cs = clock_.generate();
-    if (cs > clock_value_)
-    {
-      if (noise_value < vessl::math::random::range(0.f, 1.f))
+      
+      noise_value_ = noise_.generate<vessl::math::easing::smoothstep>()*0.5f + 0.5f;
+      uint8_t cs = clock_.generate();
+      if (cs > clock_value_)
       {
-        random_gate_ = out_gate_sample_length_;
+        if (noise_value_ < vessl::math::random::range(0.f, 1.f))
+        {
+          random_gate_ = out_gate_sample_length_;
+        }
       }
+      clock_value_ = cs;
     }
-    clock_value_ = cs;
 
     setButton(pin_.freeze, freeze_);
     setButton(pout_.grain_played, played_gate_ > 0);
     setButton(pout_.random_gate, random_gate_ > 0);
     setParameterValue(pout_.grain_playback, avg_progress);
-    setParameterValue(pout_.random_value, noise_value);
+    setParameterValue(pout_.random_value, noise_value_);
 
 #ifdef PROFILE
     const float processTime = getElapsedBlockTime() - processStart - genTime;
