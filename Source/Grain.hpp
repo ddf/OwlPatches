@@ -103,8 +103,10 @@ public:
     const int i = static_cast<int>(pos);
     const int j = i + 1;
     const float t = pos - i;
-    float sample_left = vessl::math::lerp(buffer_[i&buffer_wrap_mask_].re, buffer_[j&buffer_wrap_mask_].im, t) * env * left_scale_;
-    float sample_right = vessl::math::lerp(buffer_[i&buffer_wrap_mask_].re, buffer_[j&buffer_wrap_mask_].im, t) * env * right_scale_;
+    GrainSample si = buffer_[i&buffer_wrap_mask_];
+    GrainSample sj = buffer_[j&buffer_wrap_mask_];
+    float sample_left = vessl::math::lerp(si.re, sj.re, t) * env * left_scale_;
+    float sample_right = vessl::math::lerp(si.im, sj.im, t) * env * right_scale_;
 
     // keep looping, but silently, mainly so we can keep track of grain performance
     if ((ramp_ += speed_) >= size_)
@@ -112,6 +114,7 @@ public:
       ramp_ -= size_;
       attack_mult_ = decay_mult_ = 0;
       is_done = true;
+      return { 0.f, 0.f };
     }
 
     return { sample_left, sample_right };
