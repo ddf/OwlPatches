@@ -447,7 +447,7 @@ private:
 };
 
 #ifdef OWL_WITCH
-using GrainzPatch = GrainzBase<20,false>;
+using GrainzPatch = GrainzBase<16,false>;
 #else
 using GrainzPatch = GrainzBase<56,true>;
 #endif
