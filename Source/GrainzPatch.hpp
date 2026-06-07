@@ -1,7 +1,6 @@
 #pragma once
 
 #include "Patch.h"
-#include "CircularBuffer.h"
 #include "VoltsPerOctave.h"
 #include "Reverb.h"
 #include "Grain.hpp"
@@ -22,6 +21,7 @@ using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad
 using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
 using Clock = vessl::generators::clock<uint8_t>;
 using Noise = vessl::generators::noise<float, vessl::noise::white>;
+using Smoother = vessl::math::easing::smoother<float>;
 
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
@@ -88,17 +88,17 @@ class GrainzBase : public Patch
   HighPassFilter feedback_filter_right_;
   Reverb* reverb_;
 
-  SmoothFloat grain_overlap_;
-  SmoothFloat grain_rate_;
-  SmoothFloat grain_position_;
-  SmoothFloat grain_duration_;
-  SmoothFloat grain_speed_;
-  SmoothFloat grain_envelope_;
-  SmoothFloat grain_spread_;
-  SmoothFloat grain_velocity_;
-  SmoothFloat feedback_;
-  SmoothFloat reverb_amount_;
-  SmoothFloat dry_wet_;
+  Smoother grain_overlap_;
+  Smoother grain_rate_;
+  Smoother grain_position_;
+  Smoother grain_duration_;
+  Smoother grain_speed_;
+  Smoother grain_envelope_;
+  Smoother grain_spread_;
+  Smoother grain_velocity_;
+  Smoother feedback_;
+  Smoother reverb_amount_;
+  Smoother dry_wet_;
   float norms_[MaxGrains + 1];
 
 public:
@@ -267,18 +267,18 @@ public:
     if (freeze_ == OFF)
     {
       // Note: the way feedback is applied is based on how Clouds does it
-      float cutoff = (20.0f + 100.0f * feedback_ * feedback_);
+      float cutoff = (20.0f + 100.0f * feedback_.value * feedback_.value);
       feedback_filter_left_.fhz() = cutoff;
       feedback_filter_right_.fhz() = cutoff;
       feedback_filter_left_.process(feed_left, feed_left);
       feedback_filter_right_.process(feed_right, feed_right);
-      float soft_limit_coeff = feedback_ * 1.4f;
+      float soft_limit_coeff = feedback_.value * 1.4f;
       for (int i = 0; i < blockSize; ++i)
       {
         float left = in_out_left[i];
         float right = in_out_right[i];
-        left += feedback_ * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
-        right += feedback_ * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
+        left += feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
+        right += feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
         GrainSample& grain_sample = record_buffer_[record_write_index_];
         grain_sample.re = left;
         grain_sample.im = right;
@@ -286,17 +286,17 @@ public:
       }
     }
     
-    float grain_playback_rate = grain_speed_.getValue();
-    float grain_sample_length = grain_duration_* getSampleRate();
+    float grain_playback_rate = grain_speed_.value;
+    float grain_sample_length = grain_duration_.value * getSampleRate();
     float grain_spacing;
     if (clock_.is_clocked())
     {
       float dur = clock_.tempo().read<vessl::time::duration>().to_seconds(getSampleRate());
-      grain_spacing = dur * getSampleRate() * grain_rate_.getValue();
+      grain_spacing = dur * getSampleRate() * grain_rate_.value;
     }
     else
     {
-      float target_grains = MaxGrains * grain_overlap_;
+      float target_grains = MaxGrains * grain_overlap_.value;
       grain_spacing = target_grains > 0.0001f ? grain_sample_length / target_grains : 0;
       clock_.tempo() = vessl::duration_t::from_seconds(grain_spacing / getSampleRate(), getSampleRate());
     }
@@ -306,7 +306,7 @@ public:
 
     int num_available_grains = updateAvailableGrains();
     const int read_idx = record_write_index_ - blockSize;
-    float grain_envelope = grain_envelope_.getValue();
+    float grain_envelope = grain_envelope_.value;
     bool grains_enabled = grain_spacing > 0;
     float grain_phasor_rate = grains_enabled ? 1.0f : 0.f;
     for (int i = 0; i < blockSize; ++i)
@@ -321,9 +321,9 @@ public:
         GrainType* g = grains_[gidx];
         float gdi = static_cast<float>(i);
         int grain_delay = gdi > grain_trigger_delay_ ? gdi : grain_trigger_delay_;
-        float grain_end_pos = static_cast<float>(read_idx + i) - grain_position_;
-        float pan = 0.5f + (vessl::math::random::range(0.f, 1.f) - 0.5f)*grain_spread_;
-        float vel = 1.0f + (vessl::math::random::range(0.f, 1.f) * 2 - 1.0f)*grain_velocity_;
+        float grain_end_pos = static_cast<float>(read_idx + i) - grain_position_.value;
+        float pan = 0.5f + (vessl::math::random::range(0.f, 1.f) - 0.5f) * grain_spread_.value;
+        float vel = 1.0f + (vessl::math::random::range(0.f, 1.f) * 2 - 1.0f) * grain_velocity_.value;
         g->trigger(grain_delay, grain_end_pos, grain_sample_length,
           grain_playback_rate, grain_envelope, pan, vel);
         grain_triggered_ = false;
@@ -390,21 +390,21 @@ public:
     // in freeze mode when feedback is engaged.
     if constexpr (WithReverb)
     {
-      float reverb_level = reverb_amount_ * 0.95f;
-      reverb_level += feedback_ * (2.0f - feedback_) * freeze_;
+      float reverb_level = reverb_amount_.value * 0.95f;
+      reverb_level += feedback_.value * (2.0f - feedback_.value) * freeze_;
       reverb_level = vessl::math::constrain(reverb_level, 0.0f, 1.0f);
 
       reverb_->setAmount(reverb_level * 0.54f);
       reverb_->setDiffusion(0.7f);
       reverb_->setReverbTime(0.35f + 0.63f * reverb_level);
       reverb_->setInputGain(0.2f);
-      reverb_->setLowPass(0.6f + 0.37f * feedback_);
+      reverb_->setLowPass(0.6f + 0.37f * feedback_.value);
       reverb_->process(*grain_buffer_, *grain_buffer_);
     }
     
     noise_.rate() = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate());
 
-    const float wet_amt = dry_wet_;
+    const float wet_amt = dry_wet_.value;
     const float dry_amt = 1.0f - wet_amt;
     for (int i = 0; i < blockSize; ++i)
     {
