@@ -21,6 +21,7 @@ using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad
 using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
 using Clock = vessl::generators::clock<uint8_t>;
 using Noise = vessl::generators::noise<float, vessl::noise::white>;
+using Lfo   = vessl::generators::oscil<vessl::sample::waves::triangle<float>>;
 using Smoother = vessl::math::easing::smoother<float>;
 
 template <int MaxGrains, bool WithReverb>
@@ -36,6 +37,7 @@ class GrainzBase : public Patch
   HighPassFilter   feedback_filter_right_;
   Clock            clock_;
   Noise            noise_;
+  Lfo              lfo_;
   
   // panel controls
   struct
@@ -62,7 +64,7 @@ class GrainzBase : public Patch
   {  
     PatchButtonId    grain_played   = PUSHBUTTON;
     PatchButtonId    random_gate    = BUTTON_6;
-    PatchParameterId grain_playback = PARAMETER_F;
+    PatchParameterId envelope       = PARAMETER_F;
     PatchParameterId random_value   = PARAMETER_G;
   } pout_;
   
@@ -78,8 +80,6 @@ class GrainzBase : public Patch
   Smoother reverb_amount_;
   Smoother dry_wet_;
   
-  VoltsPerOctave voct_;
-  
   int record_write_index_;
   int active_grains_;
   int out_gate_sample_length_;
@@ -93,6 +93,7 @@ class GrainzBase : public Patch
   float grain_rate_phasor_;
   float grain_trigger_delay_;
   float noise_value_;
+  float lfo_value_;
   
   uint16_t  freeze_; 
   uint8_t   clock_value_;
@@ -112,7 +113,7 @@ public:
     , feedback_filter_right_(getSampleRate())
     , clock_(getSampleRate(), 2, getSampleRate()*4)
     , noise_(getSampleRate())
-    , voct_(-0.5f, 4)
+    , lfo_(getSampleRate(), 1.f)
     , record_write_index_(0)
     , active_grains_(0)
     , out_gate_sample_length_(getBlockSize()) // 8ms
@@ -122,6 +123,7 @@ public:
     , grain_duration_max_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
     , grain_rate_phasor_(0)
     , noise_value_(0)
+    , lfo_value_(0)
     , freeze_(OFF)
     , clock_value_(0)
     , grain_triggered_(false)
@@ -131,13 +133,10 @@ public:
     {
       norms_[i] = 1 / sqrtf(static_cast<float>(i));
     }
-    voct_.setTune(-4);
-    feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
-    feedback_filter_left_.q() = vessl::filtering::q::butterworth<float>();
-    feedback_filter_right_.q() = vessl::filtering::q::butterworth<float>();
 
     record_buffer_ = new GrainSample[RECORD_BUFFER_SIZE];
     grain_buffer_ = AudioBuffer::create(2, getBlockSize());
+    feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
 
     for (int i = 0; i < MaxGrains; ++i)
     {
@@ -163,7 +162,7 @@ public:
       registerParameter(pin_.reverb, "Reverb");
       setParameterValue(pin_.reverb, 0);
     }
-    registerParameter(pout_.grain_playback, "Playback>");
+    registerParameter(pout_.envelope, "Envelope>");
     registerParameter(pout_.random_value, "Random>");
 
     // default to triangle window
@@ -238,7 +237,9 @@ public:
     grain_duration_ = vessl::math::interp<vessl::math::easing::expo::in>(
       grain_duration_min_, grain_duration_max_, getParameterValue(pin_.duration)
     );
-    grain_speed_ = voct_.getFrequency(getParameterValue(pin_.speed)) / 440.0f;
+    constexpr float octaves = 2;
+    float speed_param = getParameterValue(pin_.speed)*octaves;
+    grain_speed_ = vessl::math::exp2(speed_param)/octaves;
     grain_envelope_ = getParameterValue(pin_.envelope);
     grain_spread_ = getParameterValue(pin_.spread);
     grain_velocity_ = getParameterValue(pin_.velocity);
@@ -340,9 +341,6 @@ public:
 #ifdef PROFILE
     const float genStart = getElapsedBlockTime();
 #endif
-    float avg_progress = 0;
-    float avg_envelope = 0;
-    int prev_active_grains = active_grains_;
     active_grains_ = 0;
 
     grain_left.fill(0);
@@ -354,10 +352,6 @@ public:
 
       if (!g->is_done)
       {
-        avg_envelope += g->envelope();
-        avg_progress += g->progress();
-        ++active_grains_;
-
         for (int i = 0; i < blockSize; ++i)
         {
           GrainSample grain_sample = g->generate();
@@ -374,11 +368,6 @@ public:
     grain_left.copy_to(feed_left);
     grain_right.copy_to(feed_right);
 
-    if (active_grains_ > 0)
-    {
-      avg_envelope /= active_grains_;
-      avg_progress /= active_grains_;
-    }
 #ifdef PROFILE
     const float genTime = getElapsedBlockTime() - genStart;
     debugCpy = stpcpy(debugCpy, " gen(");
@@ -403,7 +392,9 @@ public:
       reverb_->process(*grain_buffer_, *grain_buffer_);
     }
     
-    noise_.rate() = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate());
+    float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate()); 
+    noise_.rate() = clock_rate;
+    lfo_.fhz() = clock_rate;
 
     const float wet_amt = dry_wet_.value;
     const float dry_amt = 1.0f - wet_amt;
@@ -420,14 +411,16 @@ public:
         {
           random_gate_ = out_gate_sample_length_;
         }
+        lfo_.reset();
       }
+      lfo_value_ = lfo_.generate();
       clock_value_ = cs;
     }
 
     setButton(pin_.freeze, freeze_);
     setButton(pout_.grain_played, played_gate_ > 0);
     setButton(pout_.random_gate, random_gate_ > 0);
-    setParameterValue(pout_.grain_playback, avg_progress);
+    setParameterValue(pout_.envelope, vessl::math::constrain(lfo_value_*0.5f + 0.5f, 0.f, 0.999f));
     setParameterValue(pout_.random_value, noise_value_);
 
 #ifdef PROFILE
