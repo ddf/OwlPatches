@@ -1,29 +1,15 @@
 #pragma once
 #include "vessicle/vessl/vessl.h"
 
-// tried out recording to a sample buffer of shorts,
-// which requires converting back to float when a grain reads from the buffer.
-// this turned out to be quite a bit slower than just operating on the float buffer.
-#if 1
-//#include "ComplexFloatArray.h"
-using GrainSample = ComplexFloat;
-#define SAMPLE_TO_FLOAT 1
-#define FLOAT_TO_SAMPLE 1
-#else
-#include "ComplexShortArray.h"
-typedef ComplexShort GrainSample;
-#define SampleToFloat 0.0000305185f // 1 / 32767
-#define FloatToSample 32767
-#endif
-
-class Grain : public vessl::generator<GrainSample>
+template<typename T>
+struct Grain : public vessl::generator<T>
 {
-  using SampleBuffer = const GrainSample*;
+  using SampleType   = T;
+  using SampleBuffer = const T*;
   
   SampleBuffer buffer_;
   int buffer_size_;
   int buffer_wrap_mask_;
-  int pre_delay_;
   float ramp_;
   float start_;
   float size_;
@@ -31,28 +17,29 @@ class Grain : public vessl::generator<GrainSample>
   float decay_start_;
   float attack_mult_;
   float decay_mult_;
-  float left_scale_;
-  float right_scale_;
-
-public:
-  // @todo: replace with function
-  bool is_done;
+  float balance_;
+  float volume_;
   
   // buffer size argument must be power of two!
   Grain(SampleBuffer in_buffer, int buffer_sz)
     : buffer_(in_buffer), buffer_size_(buffer_sz), buffer_wrap_mask_(buffer_sz - 1)
-    , pre_delay_(0), ramp_(randf()*buffer_size_), start_(0), size_(buffer_size_)
+    , ramp_(randf()*buffer_size_), start_(0), size_(buffer_size_)
     , speed_(1), decay_start_(0), attack_mult_(0), decay_mult_(0)
-    , left_scale_(1), right_scale_(1), is_done(true)
+    , balance_(0), volume_(1)
   {
   }
+  
+  VESSL_INLINE bool is_done() const
+  {
+    return ramp_ >= size_;
+  }
 
-  inline float progress() const
+  VESSL_INLINE float progress() const
   {
     return ramp_ / size_;
   }
 
-  inline float envelope() const
+  VESSL_INLINE float envelope() const
   {
     return ramp_ < decay_start_ ? ramp_ * attack_mult_ : (size_ - ramp_) * decay_mult_;
   }
@@ -61,7 +48,6 @@ public:
   // short attack / long decay -> triangle -> long attack / short delay
   // balance is only left channel at 0, only right channel at 1
   void trigger(
-    int delay, // samples to wait until starting grain 
     float end_sample_position, 
     float length_in_samples, 
     float playback_rate, 
@@ -70,7 +56,6 @@ public:
     float velocity
   )
   {
-    pre_delay_ = delay;
     ramp_ = 0;
     size_ = length_in_samples;
     // we always advance by buffer size
@@ -78,49 +63,33 @@ public:
     start_ = end_sample_position - size_ + static_cast<float>(buffer_size_);
     speed_ = playback_rate;
     // convert -1 to 1
-    balance = (balance * 2) - 1;
-    left_scale_ = (balance < 0  ? 1 : 1.0f - balance) * velocity;
-    right_scale_ = (balance > 0 ? 1 : 1.0f + balance) * velocity;
+    balance_ = (balance * 2) - 1;
+    volume_ = velocity;
 
     float next_attack = vessl::math::constrain(env, 0.01f, 0.99f);
     float next_decay = 1.0f - next_attack;
     decay_start_ = next_attack * size_;
     attack_mult_ = 1.0f / (next_attack*size_);
     decay_mult_ = 1.0f / (next_decay*size_);
-    is_done = false;
   }
 
-  VESSL_INLINE GrainSample generate() override
+  VESSL_INLINE SampleType generate() override
   {
-    if (pre_delay_)
-    {
-      --pre_delay_;
-      return { 0.f, 0.f };
-    }
-
     const float pos = start_ + ramp_;
-    const float env = envelope();
+    const float env = envelope() * volume_;
     const int i = static_cast<int>(pos);
     const int j = i + 1;
     const float t = pos - i;
-    GrainSample si = buffer_[i&buffer_wrap_mask_];
-    GrainSample sj = buffer_[j&buffer_wrap_mask_];
-    float sample_left = vessl::math::lerp(si.re, sj.re, t) * env * left_scale_;
-    float sample_right = vessl::math::lerp(si.im, sj.im, t) * env * right_scale_;
+    SampleType si = buffer_[i&buffer_wrap_mask_];
+    SampleType sj = buffer_[j&buffer_wrap_mask_];
+    SampleType grn = vessl::math::lerp(si, sj, t) * env;
+    
+    ramp_ += speed_;
 
-    // keep looping, but silently, mainly so we can keep track of grain performance
-    if ((ramp_ += speed_) >= size_)
-    {
-      ramp_ -= size_;
-      attack_mult_ = decay_mult_ = 0;
-      is_done = true;
-      return { 0.f, 0.f };
-    }
-
-    return { sample_left, sample_right };
+    return grn;
   }
   
-  static Grain* create(GrainSample* buffer, int size)
+  static Grain* create(SampleType* buffer, int size)
   {
     return new Grain(buffer, size);
   }
