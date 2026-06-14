@@ -289,6 +289,7 @@ public:
     granular_processor_->grain_speed() = grain_playback_rate;
     granular_processor_->grain_offset() = vessl::duration_t(grain_position_.value);
     granular_processor_->grain_rate() = vessl::duration_t(grain_spacing);
+    granular_processor_->grain_pan() = vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
 
     bool only_gen = freeze_ == ON;
     for (int i = 0; i < block_size; ++i)
