@@ -32,6 +32,7 @@
     <ClInclude Include="Source\vessicle\DelayWithFreeze.h" />
     <ClInclude Include="Source\vessicle\Gauss.h" />
     <ClInclude Include="Source\vessicle\Glitch.h" />
+    <ClInclude Include="Source\vessicle\Granulator.h" />
     <ClInclude Include="Source\vessicle\HashMap.h" />
     <ClInclude Include="Source\vessicle\Knoscillator.h" />
     <ClInclude Include="Source\vessicle\KnotOscillator.h" />

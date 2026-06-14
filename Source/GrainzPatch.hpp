@@ -1,9 +1,8 @@
 #pragma once
 
 #include "Patch.h"
-#include "VoltsPerOctave.h"
+#include "vessicle/Granulator.h"
 #include "Reverb.h"
-#include "Grain.hpp"
 
 #define PROFILE
 
@@ -13,10 +12,7 @@
 
 // must be power of two
 static constexpr int RECORD_BUFFER_SIZE = 1 << 18; // approx 5.5 seconds at 48k
-static constexpr int RECORD_BUFFER_WRAP = RECORD_BUFFER_SIZE - 1;
 
-using GrainType = Grain<vessl::sample::type<float>::stereo>;
-using GrainSample = GrainType::SampleType;
 using Array = vessl::array<float>;
 using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad<1>::high_pass>;
 using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
@@ -28,9 +24,11 @@ using Smoother = vessl::math::easing::smoother<float>;
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
 {
-  GrainSample*     record_buffer_;
+  using GranularProcessor = Granulator<float, 2, MaxGrains>;
+
   AudioBuffer*     grain_buffer_;
   AudioBuffer*     feedback_buffer_;
+  GranularProcessor* granular_processor_;
   Reverb*          reverb_;
   DcBlockingFilter dc_filter_left_;
   DcBlockingFilter dc_filter_right_;
@@ -81,34 +79,26 @@ class GrainzBase : public Patch
   Smoother reverb_amount_;
   Smoother dry_wet_;
   
-  int record_write_index_;
-  int active_grain_count_;
   int out_gate_sample_length_;
   int played_gate_;
   int random_gate_;
-  int grain_trigger_delay_;
 
   // these are in seconds
   float grain_duration_min_;
   float grain_duration_max_;
-  
-  float grain_rate_phasor_;
 
   float noise_value_;
   float lfo_value_;
   
   uint16_t  freeze_; 
   uint8_t   clock_value_;
-  uint8_t   grain_triggered_;
   
-  GrainType* grains_[MaxGrains];
-  GrainType* active_grains_[MaxGrains];
   float norms_[MaxGrains + 1];
 
 public:
   GrainzBase()
-    : record_buffer_(nullptr)
-    , grain_buffer_(nullptr)
+    : grain_buffer_(nullptr)
+    , feedback_buffer_(nullptr)
     , dc_filter_left_(getSampleRate())
     , dc_filter_right_(getSampleRate())
     , feedback_filter_left_(getSampleRate())
@@ -116,34 +106,25 @@ public:
     , clock_(getSampleRate(), 2, getSampleRate()*4)
     , noise_(getSampleRate())
     , lfo_(getSampleRate(), 1.f)
-    , record_write_index_(0)
-    , active_grain_count_(0)
     , out_gate_sample_length_(getBlockSize()) // 8ms
     , played_gate_(0)
     , random_gate_(0)
     , grain_duration_min_(2.0f/getSampleRate())
     , grain_duration_max_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
-    , grain_rate_phasor_(0)
     , noise_value_(0)
     , lfo_value_(0)
     , freeze_(OFF)
     , clock_value_(0)
-    , grain_triggered_(false)
   {
     norms_[0] = 1;
     for (int i = 1; i < MaxGrains + 1; i++) 
     {
       norms_[i] = 1 / sqrtf(static_cast<float>(i));
     }
-
-    record_buffer_ = new GrainSample[RECORD_BUFFER_SIZE];
+    
+    granular_processor_ = GranularProcessor::create(RECORD_BUFFER_SIZE);
     grain_buffer_ = AudioBuffer::create(2, getBlockSize());
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
-
-    for (int i = 0; i < MaxGrains; ++i)
-    {
-      grains_[i] = GrainType::create(record_buffer_, RECORD_BUFFER_SIZE);
-    }
 
     if constexpr (WithReverb)
     {
@@ -178,15 +159,9 @@ public:
 
   ~GrainzBase() override
   {
+    GranularProcessor::destroy(granular_processor_);
     AudioBuffer::destroy(feedback_buffer_);
     AudioBuffer::destroy(grain_buffer_);
-
-    delete[] record_buffer_;
-
-    for (int i = 0; i < MaxGrains; i+=2)
-    {
-      GrainType::destroy(grains_[i]);
-    }
 
     if constexpr (WithReverb)
     {
@@ -198,8 +173,7 @@ public:
   {
     if (bid == pin_.trigger && value == ON)
     {
-      grain_trigger_delay_ = samples;
-      grain_triggered_ = true;
+      granular_processor_->trigger(samples);
     }
     else if (bid == pin_.clock && value == ON)
     {
@@ -214,18 +188,18 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
 #ifdef PROFILE
-    char debugMsg[64];
-    char* debugCpy = stpcpy(debugMsg, "blk ");
-    debugCpy = stpcpy(debugCpy, msg_itoa(audio.getSize(), 10));
-    const float processStart = getElapsedBlockTime();
+    char debug_msg[64];
+    char* debug_cpy = stpcpy(debug_msg, "blk ");
+    debug_cpy = stpcpy(debug_cpy, msg_itoa(audio.getSize(), 10));
+    const float process_start = getElapsedBlockTime();
 #endif
-    const int blockSize = audio.getSize();
-    Array in_out_left(audio.getSamples(0), blockSize);
-    Array in_out_right(audio.getSamples(1), blockSize);
-    Array grain_left(grain_buffer_->getSamples(0).getData(), blockSize);
-    Array grain_right(grain_buffer_->getSamples(1).getData(), blockSize);
-    Array feed_left(feedback_buffer_->getSamples(0).getData(), blockSize);
-    Array feed_right(feedback_buffer_->getSamples(1).getData(), blockSize);
+    const int block_size = audio.getSize();
+    Array in_out_left(audio.getSamples(0), block_size);
+    Array in_out_right(audio.getSamples(1), block_size);
+    Array grain_left(grain_buffer_->getSamples(0).getData(), block_size);
+    Array grain_right(grain_buffer_->getSamples(1).getData(), block_size);
+    Array feed_left(feedback_buffer_->getSamples(0).getData(), block_size);
+    Array feed_right(feedback_buffer_->getSamples(1).getData(), block_size);
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float density_param = getParameterValue(pin_.density);
@@ -254,12 +228,12 @@ public:
 
     if (played_gate_ > 0)
     {
-      played_gate_ -= blockSize;
+      played_gate_ -= block_size;
     }
     
     if (random_gate_ > 0)
     {
-      random_gate_ -= blockSize;
+      random_gate_ -= block_size;
     }
 
     // #TODO: clouds does a cool thing where when freeze is enabled
@@ -277,14 +251,12 @@ public:
       feedback_filter_left_.process(feed_left, feed_left);
       feedback_filter_right_.process(feed_right, feed_right);
       float soft_limit_coeff = feedback_.value * 1.4f;
-      for (int i = 0; i < blockSize; ++i)
+      for (int i = 0; i < block_size; ++i)
       {
         float left = in_out_left[i];
         float right = in_out_right[i];
-        left += feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
-        right += feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
-        record_buffer_[record_write_index_] = GrainSample(left, right);
-        record_write_index_ = (record_write_index_ + 1) & RECORD_BUFFER_WRAP;
+        grain_left[i] = left + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
+        grain_right[i] = right + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
       }
     }
     
@@ -306,72 +278,48 @@ public:
     // so now we adjust the length with playback speed
     grain_sample_length *= grain_playback_rate;
     
-    const int read_idx = record_write_index_ - blockSize;
     float grain_envelope = grain_envelope_.value;
     bool grains_enabled = grain_spacing > 0;
-    float grain_phasor_rate = grains_enabled ? 1.0f : 0.f;
 
 #ifdef PROFILE
-    const float genStart = getElapsedBlockTime();
+    const float gen_start = getElapsedBlockTime();
 #endif
 
-    grain_left.fill(0);
-    grain_right.fill(0);
-    for (int i = 0; i < blockSize; ++i)
+    granular_processor_->grain_duration() = vessl::duration_t(grain_sample_length);
+    granular_processor_->grain_speed() = grain_playback_rate;
+    granular_processor_->grain_offset() = vessl::duration_t(grain_position_.value);
+    granular_processor_->grain_rate() = vessl::duration_t(grain_spacing);
+
+    bool only_gen = freeze_ == ON;
+    for (int i = 0; i < block_size; ++i)
     {
-      grain_rate_phasor_ += grain_phasor_rate;
-      bool start_steady = grains_enabled && grain_rate_phasor_ >= grain_spacing;
-      bool start_triggerd = grain_triggered_ && i > grain_trigger_delay_;
-      int num_available_grains = MaxGrains - active_grain_count_;
-      if ((start_steady || start_triggerd) && num_available_grains)
+      typename GranularProcessor::SampleType grn;
+      if (only_gen)
       {
-        int gidx = --num_available_grains;
-        GrainType* g = grains_[gidx];
-        float grain_end_pos = static_cast<float>(read_idx + i) - grain_position_.value;
-        float pan = 0.5f + (vessl::math::random::range(0.f, 1.f) - 0.5f) * grain_spread_.value;
-        float vel = 1.0f + (vessl::math::random::range(0.f, 1.f) * 2 - 1.0f) * grain_velocity_.value;
-        g->trigger(grain_end_pos, grain_sample_length,
-          grain_playback_rate, grain_envelope, pan, vel);
-        active_grains_[active_grain_count_++] = g;
+        grn = granular_processor_->generate();
+      }
+      else
+      {
+        grn.left() = grain_left[i];
+        grn.right() = grain_right[i];
+        grn = granular_processor_->process(grn);
       }
       
-      if (start_steady)
+      if (granular_processor_->started_grain())
       {
         played_gate_ = out_gate_sample_length_;
-        grain_rate_phasor_ -= grain_spacing;
       }
       
-      if (start_triggerd)
-      {
-        grain_triggered_ = false;
-        grain_trigger_delay_ = 0;
-      }
-      
-      for (int gi = 0; gi < active_grain_count_; ++gi)
-      {
-        GrainType* g = active_grains_[gi];
-        GrainSample grain_sample = g->generate();
-        grain_left[i] += grain_sample.left();
-        grain_right[i] += grain_sample.right();
-        
-        // swap last into this slot, continue processing
-        if (g->is_done())
-        {
-          int gidx = MaxGrains - active_grain_count_;
-          grains_[gidx] = g;
-          --active_grain_count_;
-          active_grains_[gi] = active_grains_[active_grain_count_];
-          --gi;
-        }
-      }
+      grain_left[i] = grn.left();
+      grain_right[i] = grn.right();
     }
 
 #ifdef PROFILE
-    const float genTime = getElapsedBlockTime() - genStart;
-    debugCpy = stpcpy(debugCpy, " gen(");
-    debugCpy = stpcpy(debugCpy, msg_itoa(active_grain_count_, 10));
-    debugCpy = stpcpy(debugCpy, ") ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)(genTime * 1000), 10));
+    const float gen_time = getElapsedBlockTime() - gen_start;
+    debug_cpy = stpcpy(debug_cpy, " gen(");
+    debug_cpy = stpcpy(debug_cpy, msg_itoa(granular_processor_->active_grain_count(), 10));
+    debug_cpy = stpcpy(debug_cpy, ") ");
+    debug_cpy = stpcpy(debug_cpy, msg_itoa((int)(gen_time * 1000), 10));
 #endif
     
     // float from_gain_adjust = norms_[prev_active_grains];
@@ -403,7 +351,7 @@ public:
 
     const float wet_amt = dry_wet_.value;
     const float dry_amt = 1.0f - wet_amt;
-    for (int i = 0; i < blockSize; ++i)
+    for (int i = 0; i < block_size; ++i)
     {
       in_out_left[i]  = in_out_left[i]*dry_amt  + grain_left[i]*wet_amt;
       in_out_right[i] = in_out_right[i]*dry_amt + grain_right[i]*wet_amt;
@@ -429,10 +377,10 @@ public:
     setParameterValue(pout_.random_value, noise_value_);
 
 #ifdef PROFILE
-    const float processTime = getElapsedBlockTime() - processStart - genTime;
-    debugCpy = stpcpy(debugCpy, " proc ");
-    debugCpy = stpcpy(debugCpy, msg_itoa((int)(processTime * 1000), 10));
-    debugMessage(debugMsg);
+    const float processTime = getElapsedBlockTime() - process_start - gen_time;
+    debug_cpy = stpcpy(debug_cpy, " proc ");
+    debug_cpy = stpcpy(debug_cpy, msg_itoa((int)(processTime * 1000), 10));
+    debugMessage(debug_msg);
 #endif
   }
 };
