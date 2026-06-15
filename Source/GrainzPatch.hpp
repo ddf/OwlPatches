@@ -25,9 +25,10 @@ template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
 {
   using GranularProcessor = Granulator<float, 2, MaxGrains>;
-
-  AudioBuffer*     grain_buffer_;
+  using GranularSampleType = typename GranularProcessor::SampleType;
+  
   AudioBuffer*     feedback_buffer_;
+  GranularSampleType* grain_buffer_;
   GranularProcessor* granular_processor_;
   Reverb*          reverb_;
   DcBlockingFilter dc_filter_left_;
@@ -97,8 +98,8 @@ class GrainzBase : public Patch
 
 public:
   GrainzBase()
-    : grain_buffer_(nullptr)
-    , feedback_buffer_(nullptr)
+    : feedback_buffer_(nullptr)
+    , grain_buffer_(nullptr)
     , dc_filter_left_(getSampleRate())
     , dc_filter_right_(getSampleRate())
     , feedback_filter_left_(getSampleRate())
@@ -122,8 +123,8 @@ public:
       norms_[i] = 1 / sqrtf(static_cast<float>(i));
     }
     
-    granular_processor_ = GranularProcessor::create(RECORD_BUFFER_SIZE);
-    grain_buffer_ = AudioBuffer::create(2, getBlockSize());
+    granular_processor_ = GranularProcessor::create(getBlockSize(), RECORD_BUFFER_SIZE);
+    grain_buffer_ = new GranularSampleType[getBlockSize()];
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
 
     if constexpr (WithReverb)
@@ -161,7 +162,7 @@ public:
   {
     GranularProcessor::destroy(granular_processor_);
     AudioBuffer::destroy(feedback_buffer_);
-    AudioBuffer::destroy(grain_buffer_);
+    delete[] grain_buffer_;
 
     if constexpr (WithReverb)
     {
@@ -196,8 +197,6 @@ public:
     const int block_size = audio.getSize();
     Array in_out_left(audio.getSamples(0), block_size);
     Array in_out_right(audio.getSamples(1), block_size);
-    Array grain_left(grain_buffer_->getSamples(0).getData(), block_size);
-    Array grain_right(grain_buffer_->getSamples(1).getData(), block_size);
     Array feed_left(feedback_buffer_->getSamples(0).getData(), block_size);
     Array feed_right(feedback_buffer_->getSamples(1).getData(), block_size);
 
@@ -255,8 +254,9 @@ public:
       {
         float left = in_out_left[i];
         float right = in_out_right[i];
-        grain_left[i] = left + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
-        grain_right[i] = right + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
+        GranularSampleType& grn = grain_buffer_[i];
+        grn.left() = left + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
+        grn.right() = right + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
       }
     }
     
@@ -290,30 +290,45 @@ public:
     granular_processor_->grain_offset() = vessl::duration_t(grain_position_.value);
     granular_processor_->grain_rate() = vessl::duration_t(grain_spacing);
     granular_processor_->grain_pan() = vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
-
-    bool only_gen = freeze_ == ON;
-    for (int i = 0; i < block_size; ++i)
+    
+    vessl::array grain_buffer(grain_buffer_, getBlockSize());
+    if (freeze_ == ON)
     {
-      typename GranularProcessor::SampleType grn;
-      if (only_gen)
-      {
-        grn = granular_processor_->generate();
-      }
-      else
-      {
-        grn.left() = grain_left[i];
-        grn.right() = grain_right[i];
-        grn = granular_processor_->process(grn);
-      }
-      
-      if (granular_processor_->started_grain())
-      {
-        played_gate_ = out_gate_sample_length_;
-      }
-      
-      grain_left[i] = grn.left();
-      grain_right[i] = grn.right();
+      granular_processor_->generate(grain_buffer);
     }
+    else
+    {
+      granular_processor_->process(grain_buffer, grain_buffer);
+    }
+    
+    if (granular_processor_->started_grain())
+    {
+      played_gate_ = out_gate_sample_length_;
+    }
+
+    // bool only_gen = freeze_ == ON;
+    // for (int i = 0; i < block_size; ++i)
+    // {
+    //   typename GranularProcessor::SampleType grn;
+    //   if (only_gen)
+    //   {
+    //     grn = granular_processor_->generate();
+    //   }
+    //   else
+    //   {
+    //     grn.left() = grain_left[i];
+    //     grn.right() = grain_right[i];
+    //     grn = granular_processor_->process(grn);
+    //   }
+    //   
+    //   if (granular_processor_->started_grain())
+    //   {
+    //     played_gate_ = out_gate_sample_length_;
+    //   }
+    //   
+    //   grain_left[i] = grn.left();
+    //   grain_right[i] = grn.right();
+    // }
 
 #ifdef PROFILE
     const float gen_time = getElapsedBlockTime() - gen_start;
@@ -327,8 +342,15 @@ public:
     // float to_gain_adjust = norms_[active_grains_];
     // grain_left.scale(from_gain_adjust, to_gain_adjust);
     // grain_right.scale(from_gain_adjust, to_gain_adjust);
-    grain_left.copy_to(feed_left);
-    grain_right.copy_to(feed_right);
+    auto gread = grain_buffer.make_reader();
+    auto flw = feed_left.make_writer();
+    auto frw = feed_right.make_writer();
+    while (gread)
+    {
+      auto g = gread.read();
+      flw << g.left();
+      frw << g.right();
+    }
 
     // #TODO reverb can also wind up with DC offset 
     // in freeze mode when feedback is engaged.
@@ -354,8 +376,9 @@ public:
     const float dry_amt = 1.0f - wet_amt;
     for (int i = 0; i < block_size; ++i)
     {
-      in_out_left[i]  = in_out_left[i]*dry_amt  + grain_left[i]*wet_amt;
-      in_out_right[i] = in_out_right[i]*dry_amt + grain_right[i]*wet_amt;
+      auto& gs = grain_buffer_[i];
+      in_out_left[i]  = in_out_left[i]*dry_amt  + gs.left()*wet_amt;
+      in_out_right[i] = in_out_right[i]*dry_amt + gs.right()*wet_amt;
       
       noise_value_ = noise_.generate<vessl::math::easing::smoothstep>()*0.5f + 0.5f;
       uint8_t cs = clock_.generate();
