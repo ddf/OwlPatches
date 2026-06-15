@@ -279,13 +279,13 @@ public:
     // so now we adjust the length with playback speed
     grain_sample_length *= grain_playback_rate;
     
-    float grain_envelope = grain_envelope_.value;
     bool grains_enabled = grain_spacing > 0;
 
 #ifdef PROFILE
     const float gen_start = getElapsedBlockTime();
 #endif
 
+    granular_processor_->envelope.set_pulse_width(vessl::cast<vessl::phase_t>(grain_envelope_.value));
     granular_processor_->grain_duration() = vessl::duration_t(grain_sample_length);
     granular_processor_->grain_speed() = grain_playback_rate;
     granular_processor_->grain_offset() = vessl::duration_t(grain_position_.value);
