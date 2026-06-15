@@ -123,7 +123,7 @@ public:
       norms_[i] = 1 / sqrtf(static_cast<float>(i));
     }
     
-    granular_processor_ = GranularProcessor::create(getBlockSize(), RECORD_BUFFER_SIZE);
+    granular_processor_ = GranularProcessor::create(RECORD_BUFFER_SIZE, getBlockSize());
     grain_buffer_ = new GranularSampleType[getBlockSize()];
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
 
