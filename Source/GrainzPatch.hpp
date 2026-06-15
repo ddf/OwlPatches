@@ -175,6 +175,7 @@ public:
     if (bid == pin_.trigger && value == ON)
     {
       granular_processor_->trigger(samples);
+      played_gate_ = out_gate_sample_length_;
     }
     else if (bid == pin_.clock && value == ON)
     {
@@ -305,30 +306,6 @@ public:
     {
       played_gate_ = out_gate_sample_length_;
     }
-
-    // bool only_gen = freeze_ == ON;
-    // for (int i = 0; i < block_size; ++i)
-    // {
-    //   typename GranularProcessor::SampleType grn;
-    //   if (only_gen)
-    //   {
-    //     grn = granular_processor_->generate();
-    //   }
-    //   else
-    //   {
-    //     grn.left() = grain_left[i];
-    //     grn.right() = grain_right[i];
-    //     grn = granular_processor_->process(grn);
-    //   }
-    //   
-    //   if (granular_processor_->started_grain())
-    //   {
-    //     played_gate_ = out_gate_sample_length_;
-    //   }
-    //   
-    //   grain_left[i] = grn.left();
-    //   grain_right[i] = grn.right();
-    // }
 
 #ifdef PROFILE
     const float gen_time = getElapsedBlockTime() - gen_start;
