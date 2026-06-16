@@ -6,7 +6,7 @@
 #include "vessicle/vessl/vessl.h"
 
 // turns out one doesn't need a very large wavetable (32 samples!) to have a decent sounding sine wave at lower frequencies
-using Sine = vessl::sample::waves::sine<vessl::analog_t>;
+using Sine = vessl::sample::waves::bipolar::sine<vessl::analog_t>;
 using Oscil = vessl::generators::oscil<Sine>;
 using Ramp = vessl::generators::ramp<float>;
 using Delay = DelayWithFreeze<float>;

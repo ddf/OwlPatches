@@ -47,7 +47,7 @@ class KnoscillatorPatch : public MonochromeScreenPatch
   
   using NoiseTable = vessl::sample::wavetable<float, noiseDim*noiseDim>;
   using KnoscilGen = Knoscillator<float, true>;
-  using SquiggleLfo = vessl::generators::oscil<vessl::sample::waves::sine<float>>;
+  using SquiggleLfo = vessl::generators::oscil<vessl::sample::waves::bipolar::sine<float>>;
   using Camera = Projector<float>;
   using knoscil_st = KnoscilGen::SampleType;
   
@@ -284,7 +284,7 @@ public:
     
     camera->zoom() = vessl::math::lerp(zoomFar, zoomNear, zoom);
     
-    knoscil->squiggle() = sVol;
+    // knoscil->squiggle() = sVol;
 
     for (int s = 0; s < getBlockSize(); ++s)
     {
@@ -299,13 +299,13 @@ public:
 
       float nz = nVol * noise(coord.x(), coord.y());
       knoscil_st cnz(coord);
-      cnz.scale(nz);
-      coord.add(cnz);
+      cnz.as_array().scale(nz);
+      coord.as_array().add(cnz.as_array());
 
       squilo.fhz() = freq*(4+2*dts)*(knotP.getValue() + knotQ.getValue());
       knoscil_st squig(coord.y(), coord.z(), coord.x());
-      squig.scale((sVol+dts*0.5f)*0.25f*squilo.generate());
-      coord.add(squig);
+      squig.as_array().scale((sVol+dts*0.5f)*0.25f*squilo.generate());
+      coord.as_array().add(squig.as_array());
 
       auto frame = camera->process(coord);
 

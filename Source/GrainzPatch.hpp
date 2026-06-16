@@ -18,7 +18,7 @@ using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad
 using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
 using Clock = vessl::generators::clock<uint8_t>;
 using Noise = vessl::generators::noise<float, vessl::noise::white>;
-using Lfo   = vessl::generators::oscil<vessl::sample::waves::triangle<float>>;
+using Lfo   = vessl::generators::oscil<vessl::sample::waves::unipolar::triangle<float>>;
 using Smoother = vessl::math::easing::smoother<float>;
 
 template <int MaxGrains, bool WithReverb>
@@ -374,7 +374,7 @@ public:
     setButton(pin_.freeze, freeze_);
     setButton(pout_.grain_played, played_gate_ > 0);
     setButton(pout_.random_gate, random_gate_ > 0);
-    setParameterValue(pout_.envelope, lfo_value_*0.5f + 0.5f);
+    setParameterValue(pout_.envelope, lfo_value_);
     setParameterValue(pout_.random_value, noise_value_);
 
 #ifdef PROFILE
