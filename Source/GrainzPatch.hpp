@@ -351,9 +351,9 @@ public:
     }
     
     float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate()); 
-    noise_unipolar_.rate() = clock_rate*0.5f;
-    noise_bipolar_.rate() = clock_rate;
-    lfo_.fhz() = clock_rate;
+    noise_unipolar_.rate() = clock_rate*0.25f;
+    noise_bipolar_.rate() = clock_rate*0.25f;
+    lfo_.fhz() = clock_rate*0.25f;
 
     const float wet_amt = dry_wet_.value;
     const float dry_amt = 1.0f - wet_amt;
@@ -372,7 +372,7 @@ public:
         {
           random_gate_ = out_gate_sample_length_;
         }
-        lfo_.reset();
+        //lfo_.reset();
       }
       lfo_value_ = lfo_.generate();
       clock_value_ = cs;
