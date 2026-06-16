@@ -36,7 +36,8 @@ class GrainzBase : public Patch
   HighPassFilter   feedback_filter_left_;
   HighPassFilter   feedback_filter_right_;
   Clock            clock_;
-  Noise            noise_;
+  Noise            noise_unipolar_;
+  Noise            noise_bipolar_;
   Lfo              lfo_;
   
   // panel controls
@@ -88,7 +89,8 @@ class GrainzBase : public Patch
   float grain_duration_min_;
   float grain_duration_max_;
 
-  float noise_value_;
+  float noise_unipolar_value_;
+  float noise_bipolar_value_;
   float lfo_value_;
   
   uint16_t  freeze_; 
@@ -105,14 +107,16 @@ public:
     , feedback_filter_left_(getSampleRate())
     , feedback_filter_right_(getSampleRate())
     , clock_(getSampleRate(), 2, getSampleRate()*4)
-    , noise_(getSampleRate())
+    , noise_unipolar_(getSampleRate())
+    , noise_bipolar_(getSampleRate())
     , lfo_(getSampleRate(), 1.f)
     , out_gate_sample_length_(getBlockSize()) // 8ms
     , played_gate_(0)
     , random_gate_(0)
     , grain_duration_min_(2.0f/getSampleRate())
     , grain_duration_max_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
-    , noise_value_(0)
+    , noise_unipolar_value_(0)
+    , noise_bipolar_value_(0)
     , lfo_value_(0)
     , freeze_(OFF)
     , clock_value_(0)
@@ -290,7 +294,8 @@ public:
     granular_processor_->grain_speed() = grain_playback_rate;
     granular_processor_->grain_offset() = vessl::duration_t(grain_position_.value);
     granular_processor_->grain_rate() = vessl::duration_t(grain_spacing);
-    granular_processor_->grain_pan() = vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
+    granular_processor_->grain_pan() = noise_bipolar_value_ * grain_spread_.value; // vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
+    granular_processor_->grain_volume() = 1.f - noise_unipolar_value_ * grain_velocity_.value; // vessl::math::random::range(1.f - grain_velocity_.value, 1.0f);
     
     vessl::array grain_buffer(grain_buffer_, getBlockSize());
     if (freeze_ == ON)
@@ -346,7 +351,8 @@ public:
     }
     
     float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate()); 
-    noise_.rate() = clock_rate;
+    noise_unipolar_.rate() = clock_rate*0.5f;
+    noise_bipolar_.rate() = clock_rate;
     lfo_.fhz() = clock_rate;
 
     const float wet_amt = dry_wet_.value;
@@ -357,11 +363,12 @@ public:
       in_out_left[i]  = in_out_left[i]*dry_amt  + gs.left()*wet_amt;
       in_out_right[i] = in_out_right[i]*dry_amt + gs.right()*wet_amt;
       
-      noise_value_ = noise_.generate<vessl::math::easing::smoothstep>()*0.5f + 0.5f;
+      noise_bipolar_value_ = noise_bipolar_.generate<vessl::math::easing::smoothstep>()*2.f - 1.f;
+      noise_unipolar_value_ = noise_unipolar_.generate<vessl::math::easing::smoothstep>();
       uint8_t cs = clock_.generate();
       if (cs > clock_value_)
       {
-        if (noise_value_ < vessl::math::random::range(0.f, 1.f))
+        if (noise_unipolar_value_ < vessl::math::random::range(0.f, 1.f))
         {
           random_gate_ = out_gate_sample_length_;
         }
@@ -375,7 +382,7 @@ public:
     setButton(pout_.grain_played, played_gate_ > 0);
     setButton(pout_.random_gate, random_gate_ > 0);
     setParameterValue(pout_.envelope, lfo_value_);
-    setParameterValue(pout_.random_value, noise_value_);
+    setParameterValue(pout_.random_value, noise_unipolar_value_);
 
 #ifdef PROFILE
     const float processTime = getElapsedBlockTime() - process_start - gen_time;
