@@ -51,7 +51,8 @@ class GrainzBase : public Patch
     PatchParameterId reverb   = PARAMETER_H;
     PatchButtonId    trigger  = BUTTON_1;
     PatchButtonId    clock    = BUTTON_2;
-    PatchButtonId    freeze   = BUTTON_3;
+    PatchButtonId    reverse  = BUTTON_3;
+    PatchButtonId    freeze   = BUTTON_4;
 
     // midi controls
     PatchParameterId envelope = PARAMETER_AA;
@@ -94,6 +95,7 @@ class GrainzBase : public Patch
   float lfo_value_;
   
   uint16_t  freeze_; 
+  uint16_t  reverse_;
   uint8_t   clock_value_;
   
   float norms_[MaxGrains + 1];
@@ -119,6 +121,7 @@ public:
     , noise_bipolar_value_(0)
     , lfo_value_(0)
     , freeze_(OFF)
+    , reverse_(OFF)
     , clock_value_(0)
   {
     norms_[0] = 1;
@@ -184,6 +187,10 @@ public:
     else if (bid == pin_.clock && value == ON)
     {
       clock_.tap(samples);
+    }
+    else if (bid == pin_.reverse && value == ON)
+    {
+      reverse_ = reverse_ == ON ? OFF : ON;
     }
     else if (bid == pin_.freeze && value == ON)
     {
@@ -296,6 +303,7 @@ public:
     granular_processor_->grain_rate() = vessl::duration_t(grain_spacing);
     granular_processor_->grain_pan() = noise_bipolar_value_ * grain_spread_.value; // vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
     granular_processor_->grain_volume() = 1.f - noise_unipolar_value_ * grain_velocity_.value; // vessl::math::random::range(1.f - grain_velocity_.value, 1.0f);
+    granular_processor_->grain_reverse() = reverse_;
     
     vessl::array grain_buffer(grain_buffer_, getBlockSize());
     if (freeze_ == ON)
@@ -378,6 +386,7 @@ public:
       clock_value_ = cs;
     }
 
+    setButton(pin_.reverse, reverse_);
     setButton(pin_.freeze, freeze_);
     setButton(pout_.grain_played, played_gate_ > 0);
     setButton(pout_.random_gate, random_gate_ > 0);
