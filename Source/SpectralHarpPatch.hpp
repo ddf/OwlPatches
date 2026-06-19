@@ -320,11 +320,11 @@ public:
       float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
       float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
 
-      reverb->setDiffusion(0.7f);
-      reverb->setInputGain(reverbInputGain);
-      reverb->setReverbTime(reverbTime);
-      reverb->setLowPass(reverbTone);
-      reverb->setAmount(reverbBlend);
+      reverb->set_diffusion(0.7f);
+      reverb->set_input_gain(reverbInputGain);
+      reverb->set_reverb_time(reverbTime);
+      reverb->set_low_pass(reverbTone);
+      reverb->set_amount(reverbBlend);
       reverb->process(audio, audio);
     }
 

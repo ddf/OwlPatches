@@ -7,7 +7,7 @@
 #define PROFILE
 
 #ifdef PROFILE
-#include <string.h>
+#include <cstring>
 #endif
 
 // must be power of two
@@ -20,6 +20,7 @@ using Clock = vessl::generators::clock<uint8_t>;
 using Noise = vessl::generators::noise<float, vessl::noise::white>;
 using Lfo   = vessl::generators::oscil<vessl::sample::waves::unipolar::triangle<float>>;
 using Smoother = vessl::math::easing::smoother<float>;
+using ReverbProcessor = Reverb<float>;
 
 template <int MaxGrains, bool WithReverb>
 class GrainzBase : public Patch
@@ -30,7 +31,7 @@ class GrainzBase : public Patch
   AudioBuffer*     feedback_buffer_;
   GranularSampleType* grain_buffer_;
   GranularProcessor* granular_processor_;
-  Reverb*          reverb_;
+  ReverbProcessor*   reverb_;
   DcBlockingFilter dc_filter_left_;
   DcBlockingFilter dc_filter_right_;
   HighPassFilter   feedback_filter_left_;
@@ -48,7 +49,6 @@ class GrainzBase : public Patch
     PatchParameterId position = PARAMETER_C;
     PatchParameterId feedback = PARAMETER_D;
     PatchParameterId density  = PARAMETER_E;
-    PatchParameterId reverb   = PARAMETER_H;
     PatchButtonId    trigger  = BUTTON_1;
     PatchButtonId    clock    = BUTTON_2;
     PatchButtonId    reverse  = BUTTON_3;
@@ -58,7 +58,8 @@ class GrainzBase : public Patch
     PatchParameterId envelope = PARAMETER_AA;
     PatchParameterId spread   = PARAMETER_AB;
     PatchParameterId velocity = PARAMETER_AC;
-    PatchParameterId dry_wet  = PARAMETER_AD;
+    PatchParameterId reverb   = PARAMETER_AD;
+    PatchParameterId dry_wet  = PARAMETER_AE;
   } pin_;
 
   // outputs
@@ -136,7 +137,9 @@ public:
 
     if constexpr (WithReverb)
     {
-      reverb_ = Reverb::create(getSampleRate());
+      reverb_ = ReverbProcessor::create(getSampleRate());
+      reverb_->diffusion() = 0.7f;
+      reverb_->input_gain() = 0.2f;
     }
 
     registerParameter(pin_.position, "Position");
@@ -173,7 +176,7 @@ public:
 
     if constexpr (WithReverb)
     {
-      Reverb::destroy(reverb_);
+      ReverbProcessor::destroy(reverb_);
     }
   }
 
@@ -325,23 +328,9 @@ public:
     debug_cpy = stpcpy(debug_cpy, " gen(");
     debug_cpy = stpcpy(debug_cpy, msg_itoa(granular_processor_->active_grain_count(), 10));
     debug_cpy = stpcpy(debug_cpy, ") ");
-    debug_cpy = stpcpy(debug_cpy, msg_itoa((int)(gen_time * 1000), 10));
+    debug_cpy = stpcpy(debug_cpy, msg_itoa(static_cast<int>(gen_time * 1000), 10));
 #endif
     
-    // float from_gain_adjust = norms_[prev_active_grains];
-    // float to_gain_adjust = norms_[active_grains_];
-    // grain_left.scale(from_gain_adjust, to_gain_adjust);
-    // grain_right.scale(from_gain_adjust, to_gain_adjust);
-    auto gread = grain_buffer.make_reader();
-    auto flw = feed_left.make_writer();
-    auto frw = feed_right.make_writer();
-    while (gread)
-    {
-      auto g = gread.read();
-      flw << g.left();
-      frw << g.right();
-    }
-
     // #TODO reverb can also wind up with DC offset 
     // in freeze mode when feedback is engaged.
     if constexpr (WithReverb)
@@ -350,12 +339,26 @@ public:
       reverb_level += feedback_.value * (2.0f - feedback_.value) * freeze_;
       reverb_level = vessl::math::constrain(reverb_level, 0.0f, 1.0f);
 
-      reverb_->setAmount(reverb_level * 0.54f);
-      reverb_->setDiffusion(0.7f);
-      reverb_->setReverbTime(0.35f + 0.63f * reverb_level);
-      reverb_->setInputGain(0.2f);
-      reverb_->setLowPass(0.6f + 0.37f * feedback_.value);
-      reverb_->process(*grain_buffer_, *grain_buffer_);
+      reverb_->wet_mix() = reverb_level * 0.54f;
+      reverb_->reverb_time() = 0.35f + 0.63f * reverb_level;
+      reverb_->low_pass() = 0.6f + 0.37f * feedback_.value;
+    }
+    
+    // float from_gain_adjust = norms_[prev_active_grains];
+    // float to_gain_adjust = norms_[active_grains_];
+    // grain_left.scale(from_gain_adjust, to_gain_adjust);
+    // grain_right.scale(from_gain_adjust, to_gain_adjust);
+    auto flw = feed_left.make_writer();
+    auto frw = feed_right.make_writer();
+    for (int i = 0; i < block_size; ++i)
+    {
+      GranularSampleType& g = grain_buffer_[i];
+      flw << g.left();
+      frw << g.right();
+      if constexpr (WithReverb)
+      {
+        grain_buffer_[i] = reverb_->process(g);
+      }
     }
     
     float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate()); 
@@ -396,7 +399,7 @@ public:
 #ifdef PROFILE
     const float processTime = getElapsedBlockTime() - process_start - gen_time;
     debug_cpy = stpcpy(debug_cpy, " proc ");
-    debug_cpy = stpcpy(debug_cpy, msg_itoa((int)(processTime * 1000), 10));
+    debug_cpy = stpcpy(debug_cpy, msg_itoa(static_cast<int>(processTime * 1000), 10));
     debugMessage(debug_msg);
 #endif
   }

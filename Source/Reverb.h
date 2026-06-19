@@ -1,154 +1,175 @@
-// Based on the reverb from Clouds https://github.com/pichenettes/eurorack/blob/master/clouds/dsp/fx/reverb.h
+// Based on the reverb from Clouds:
+// https://github.com/pichenettes/eurorack/blob/master/clouds/dsp/fx/reverb.h
 // Which is itself based on a paper by Dattoro.
 #pragma once
 
-#include "SignalProcessor.h"
-#include "SineOscillator.h"
-#include "AudioBuffer.h"
+#include "vessicle/vessl/vessl.h"
 #include "AllpassNetwork.h"
-#include "CircularBuffer.h"
-#include "InterpolatingCircularBuffer.h"
 
-class Reverb : public MultiSignalProcessor
+template<typename T = float>
+class Reverb : public vessl::unit_processor<vessl::sample::frame<T,2>>
+             , vessl::plist<5>
 {
-  using LFO = SineOscillator;
-
-  AllpassNetwork* diffuser;
-  AllpassNetwork* dap1;
-  AllpassNetwork* dap2;
-  LFO* lfo1;
-  LFO* lfo2;
-  CircularFloatBuffer* delay1;
-  CircularFloatBuffer* delay2;
-  float lpDecay1;
-  float lpDecay2;
-
-  float inputGain;
-  float reverbTime;
-  float lpAmount;
-  float wetAmount;
-
-  Reverb(AllpassNetwork* diffuser, AllpassNetwork* dap1, AllpassNetwork* dap2,
-         LFO* lfo1, LFO* lfo2, CircularFloatBuffer* delay1, CircularFloatBuffer* delay2)
-    : diffuser(diffuser), dap1(dap1), dap2(dap2), lfo1(lfo1), lfo2(lfo2), delay1(delay1), delay2(delay2)
-    , lpDecay1(0), lpDecay2(0), inputGain(0.2f), reverbTime(0), lpAmount(0.7f), wetAmount(0)
-  {
-    lfo1->setFrequency(0.5f);
-    lfo2->setFrequency(0.3f);
-    delay1->setDelay(delay1->getSize() - 1);
-    delay2->setDelay(delay2->getSize() - 1);
-    setDiffusion(0.625f);
-  }
-
 public:
+  using size_t = vessl::size_t;
+  using sample_t = T;
+  using SampleFrame = vessl::sample::frame<T,2>;
+  using Parameter = vessl::parameter;
+  using DelayLine = vessl::sample::delay_line<sample_t>;
+  using Allpass4 = AllpassNetwork<sample_t, 4>;
+  using Allpass2 = AllpassNetwork<sample_t, 2>;
 
   static Reverb* create(float sr)
   {
-    static size_t diffuseTimes[4] { 113, 162, 241, 399 };
-    static size_t dap1Times[2]{ 1653, 2038 };
-    static size_t dap2Times[2]{ 1913, 1663 };
+    static size_t diffuse_times[4] { 113, 162, 241, 399 };
+    static size_t dap1_times[2] { 1653, 2038 };
+    static size_t dap2_times[2] { 1913, 1663 };
+    static size_t delay_times[2] { 3411, 4782 };
+    
+    sample_t* delay_buffer_1 = new sample_t[delay_times[0]];
+    sample_t* delay_buffer_2 = new sample_t[delay_times[1]];
 
-    return new Reverb(AllpassNetwork::create(diffuseTimes, 4, 0.625f),
-      AllpassNetwork::create(dap1Times, 2, 0.625f),
-      AllpassNetwork::create(dap2Times, 2, 0.625f),
-      LFO::create(sr), LFO::create(sr),
-      CircularFloatBuffer::create(3411),
-      CircularFloatBuffer::create(4782));
+    static constexpr sample_t diffusion = vessl::cast<sample_t>(0.625f);
+    return new Reverb(sr, diffusion, 
+      Allpass4::create(diffuse_times, 0),
+      Allpass2::create(dap1_times, 0),
+      Allpass2::create(dap2_times, 0),
+      delay_buffer_1, delay_times[0], 
+      delay_buffer_2, delay_times[1]);
   }
 
-  static void destroy(Reverb* reverb)
+  static void destroy(const Reverb* reverb)
   {
-    AllpassNetwork::destroy(reverb->diffuser);
-    AllpassNetwork::destroy(reverb->dap1);
-    AllpassNetwork::destroy(reverb->dap2);
-    LFO::destroy(reverb->lfo1);
-    LFO::destroy(reverb->lfo2);
-    CircularFloatBuffer::destroy(reverb->delay1);
-    CircularFloatBuffer::destroy(reverb->delay2);
+    Allpass4::destroy(reverb->diffuser_);
+    Allpass2::destroy(reverb->dap1_);
+    Allpass2::destroy(reverb->dap2_);
+    delete[] reverb->delay1_.data();
+    delete[] reverb->delay2_.data();
     delete reverb;
   }
-
-  void setInputGain(float amt)
+  
+  [[nodiscard]] const parameter_list & parameters() const override { return *this; }
+  
+  [[nodiscard]] Parameter input_gain() const { return params_.input_gain("input gain", 'g'); }
+  [[nodiscard]] Parameter diffusion() const { return params_.diffusion("diffusion", 'd'); }
+  [[nodiscard]] Parameter reverb_time() const { return params_.reverb_time("size", 't'); }
+  [[nodiscard]] Parameter low_pass() const { return params_.lp_amount("low pass", 'l'); }
+  [[nodiscard]] Parameter wet_mix() const { return params_.wet_amount("wet mix", 'w'); }
+  
+  VESSL_INLINE SampleFrame process(const SampleFrame& in) override
   {
-    inputGain = amt;
-  }
-
-  void setDiffusion(float amt)
-  {
-    diffuser->setDiffusion(amt);
-    dap1->setDiffusion(amt);
-    dap2->setDiffusion(amt);
-  }
-
-  void setReverbTime(float rvt)
-  {
-    reverbTime = rvt;
-  }
-
-  void setLowPass(float lp)
-  {
-    lpAmount = lp;
-  }
-
-  void setAmount(float amt)
-  {
-    wetAmount = amt;
-  }
-
-  void process(AudioBuffer& input, AudioBuffer& output) override
-  {
-    float* inL = input.getSamples(0);
-    float* inR = input.getSamples(1);
-    float* outL = output.getSamples(0);
-    float* outR = output.getSamples(1);
-    int size = input.getSize();
-    float lp1 = lpDecay1;
-    float lp2 = lpDecay2;
-    while (size--)
+    if (diffusion_ != params_.diffusion.value)
     {
-      float left = *inL++;
-      float right = *inR++;
-      float m = (left + right) * inputGain;
-
-      float lfo = lfo1->generate()*0.5f + 0.5f;
-      float smear = diffuser->read(0, 10.0f + lfo * 60.0f);
-      diffuser->write(0, 100, smear);
-
-      float d = diffuser->process(m);
-
-      float accum = d;
-      // interpolated read from delay2
-      {
-        lfo = lfo2->generate()*0.5f + 0.5f;
-        float df = 4680.0f + lfo*100.0f;
-        int da = (int)df;
-        int db = da + 1;
-        float t = df - da;
-        delay2->setDelay(da);
-        float a = delay2->read();
-        delay2->setDelay(db);
-        float b = delay2->read();
-        accum += Interpolator::linear(a, b, t) * reverbTime;
-      }
-      // low pass filter
-      lp1 += lpAmount * (accum - lp1);
-      // through two allpass filters
-      accum = dap1->process(lp1);
-      delay1->write(accum);
-
-      *outL++ = left + (accum*2 - left) * wetAmount;
-
-      accum = d;
-      accum += delay1->read() * reverbTime;
-      lp2 += lpAmount * (accum - lp2);
-      accum = dap2->process(lp2);
-      delay2->write(accum);
-
-      *outR++ = right + (accum*2 - right) * wetAmount;
+      diffusion_ = params_.diffusion.value;
+      diffuser_->diffusion() = diffusion_;
+      dap1_->diffusion() = diffusion_;
+      dap2_->diffusion() = diffusion_;
     }
+    
+    sample_t left = in.left();
+    sample_t right = in.right();
+    sample_t m = (left + right) * params_.input_gain.value;
 
-    lpDecay1 = lp1;
-    lpDecay2 = lp2;
+    sample_t lfo = lfo1_.wave.evaluate(lfo1_.phase);
+    lfo1_.phase += lfo1_.phase_step;
+    sample_t smear = diffuser_->read(0, 10.0f + lfo * 60.0f);
+    diffuser_->write(0, 100, smear);
+
+    sample_t d = diffuser_->process(m);
+
+    sample_t verb_left = d;
+    // interpolated read from delay2
+    lfo = lfo2_.wave.evaluate(lfo2_.phase);
+    lfo2_.phase += lfo2_.phase_step;
+    float df = 4680.0f + lfo*100.0f;
+    verb_left += delay2_.readf(df);
+    
+    // low pass filter
+    lp_decay1_ += params_.lp_amount.value * (verb_left - lp_decay1_);
+    // through two allpass filters
+    verb_left = dap1_->process(lp_decay1_);
+    sample_t pd1 = delay1_.write(verb_left);
+    verb_left *= 2;
+
+    sample_t verb_right = d + pd1 * params_.reverb_time.value;
+    lp_decay2_ += params_.lp_amount.value * (verb_right - lp_decay2_);
+    verb_right = dap2_->process(lp_decay2_);
+    delay2_.write(verb_right);
+    verb_right *= 2;
+
+    sample_t wet = params_.wet_amount.value;
+    return { left + (verb_left - left) * wet, right + (verb_right - right) * wet };
   }
+  
+protected:
+  [[nodiscard]] Parameter element_at(vessl::size_t index) const override
+  {
+    switch (index)
+    {
+    case 0: return input_gain();
+    case 1: return diffusion();
+    case 2: return reverb_time();
+    case 3: return low_pass();
+    case 4: return wet_mix();
+    default: return Parameter::none();
+    }
+  }
+  
+private:
+  struct Lfo
+  {
+    vessl::phase_t phase = 0;
+    vessl::phase_t phase_step = 0;
+    vessl::sample::waves::unipolar::sine<sample_t> wave;
+  };
 
+  Allpass4* diffuser_;
+  Allpass2* dap1_;
+  Allpass2* dap2_;
+  DelayLine delay1_;
+  DelayLine delay2_;
+  Lfo lfo1_;
+  Lfo lfo2_; 
+  sample_t lp_decay1_;
+  sample_t lp_decay2_;
+  sample_t diffusion_;
+  
+  using sample_p = vessl::param<sample_t>;
+  
+  struct
+  {
+    sample_p input_gain;
+    sample_p diffusion;
+    sample_p reverb_time;
+    sample_p lp_amount;
+    sample_p wet_amount;
+  } params_;
+
+  Reverb(float sample_rate,
+         sample_t diffusion_amount,
+         Allpass4* diffuser, 
+         Allpass2* dap1, 
+         Allpass2* dap2, 
+         sample_t* delay_data_1, size_t delay_data_size_1, 
+         sample_t* delay_data_2, size_t delay_data_size_2)
+    : diffuser_(diffuser)
+    , dap1_(dap1)
+    , dap2_(dap2)
+    , delay1_(delay_data_1, delay_data_size_1)
+    , delay2_(delay_data_2, delay_data_size_2)
+    , lp_decay1_(0)
+    , lp_decay2_(0)
+    , diffusion_(diffusion_amount)
+  {
+    lfo1_.phase_step = 0.5f * vessl::cast<vessl::phase_t>(1.f / sample_rate);
+    lfo2_.phase_step = 0.3f * vessl::cast<vessl::phase_t>(1.f / sample_rate);
+    params_.input_gain.value = vessl::cast<sample_t>(0.2f);
+    params_.reverb_time.value = 0;
+    params_.lp_amount.value = vessl::cast<sample_t>(0.7f);
+    params_.wet_amount.value = 0;
+    params_.diffusion.value = diffusion_;
+    diffuser_->diffusion() = diffusion_;
+    dap1_->diffusion() = diffusion_;
+    dap2_->diffusion() = diffusion_;
+  }
 };

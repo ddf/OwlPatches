@@ -1,109 +1,121 @@
-#ifndef __ALLPASS_NETWORK_H__
-#define __ALLPASS_NETWORK_H__
+#pragma once
 
 // Configurable network of Allpass filters
-#include "SignalProcessor.h"
-#include "FloatArray.h"
-#include "SimpleArray.h"
+#include "vessicle/vessl/vessl.h"
 
-class AllpassNetwork : public SignalProcessor 
+template<typename T, vessl::size_t Stages>
+class AllpassNetwork : public vessl::unit_processor<T>, vessl::plist<2>
 {
-  struct DelayLine
-  {
-    float* buf;
-    size_t bufPos;
-    size_t bufLen;
-  };
-
-  FloatArray buffer;
-  SimpleArray<DelayLine> delays;
-  float coeff;
-  float amount;
-
-  AllpassNetwork(float* bufferData, size_t bufferSize, DelayLine* delayData, size_t apSize, float diffusion)
-    : buffer(bufferData, bufferSize)
-    , delays(delayData, apSize)
-    , coeff(diffusion), amount(1)
-  {
-
-  }
-
 public:
-  void setAmount(float amt)
-  {
-    amount = amt;
-  }
+  using sample_t = T;
+  using size_t = vessl::size_t;
+  using Parameter = vessl::parameter;
+  
+  [[nodiscard]] const parameter_list & parameters() const override { return *this; }
+  
+  [[nodiscard]] Parameter amount() const { return params_.amount("amount", 'a'); }
+  [[nodiscard]] Parameter diffusion() const { return params_.coeff("diffusion", 'd'); }
 
-  void setDiffusion(float diffusion)
+  VESSL_INLINE sample_t read(int api, float offset)
   {
-    coeff = diffusion;
-  }
-
-  float read(int api, float offset)
-  {
-    DelayLine& d = delays[api];
-    int lidx = (int)offset;
+    DelayLine& d = delays_[api];
+    int lidx = static_cast<int>(offset);
     int hidx = lidx + 1;
-    float t = offset - lidx;
+    sample_t t = vessl::cast<sample_t>(offset - lidx);
     // wrap in the buffer
-    lidx = (d.bufPos - lidx + d.bufLen) % d.bufLen;
-    hidx = (d.bufPos - hidx + d.bufLen) % d.bufLen;
+    lidx = (d.buf_pos - lidx + d.buf_len) % d.buf_len;
+    hidx = (d.buf_pos - hidx + d.buf_len) % d.buf_len;
     return d.buf[lidx] + t * (d.buf[hidx] - d.buf[lidx]);
   }
 
-  void write(int api, int offset, float v)
+  VESSL_INLINE void write(int api, int offset, sample_t v)
   {
-    DelayLine& d = delays[api];
-    int widx = (d.bufPos - offset + d.bufLen) % d.bufLen;
+    DelayLine& d = delays_[api];
+    int widx = d.buf_pos - offset;
+    if (widx < 0) widx += d.buf_len;
     d.buf[widx] = v;
   }
 
-  float process(float input) override
+  VESSL_INLINE sample_t process(const sample_t& input) override
   {
-    float output = input;
-    for (int i = 0; i < delays.getSize(); ++i)
+    sample_t output = input;
+    for (int i = 0; i < Stages; ++i)
     {
-      DelayLine& d = delays[i];
-      float y = d.buf[d.bufPos];
-      float z = coeff * y + output;
-      d.buf[d.bufPos] = z;
-      output = y - coeff * z;
-      d.bufPos = (d.bufPos + 1) % d.bufLen;
+      DelayLine& d = delays_[i];
+      sample_t y = d.buf[d.buf_pos];
+      sample_t z = params_.coeff.value * y + output;
+      d.buf[d.buf_pos++] = z;
+      output = y - params_.coeff.value * z;
+      
+      if (d.buf_pos == d.buf_len)
+      {
+        d.buf_pos = 0;
+      }
     }
-    return input + amount * (output - input);
+    return input + params_.amount.value * (output - input);
   }
-
-  using SignalProcessor::process;
-
-  static AllpassNetwork* create(size_t* delayLengths, size_t delayCount, float diffusion)
+  
+  static AllpassNetwork* create(const size_t (&delay_lengths)[Stages], sample_t diffusion)
   {
-    DelayLine* delayData = new DelayLine[delayCount];
-    size_t bufferSize = 0;
-    for (int i = 0; i < delayCount; ++i)
+    size_t buffer_size = 0;
+    for (int i = 0; i < Stages; ++i)
     {
-      bufferSize += delayLengths[i];
+      buffer_size += delay_lengths[i];
     }
-    float* bufferData = new float[bufferSize];
-    memset(bufferData, 0, sizeof(float)*bufferSize);
-    float* head = bufferData;
-    for (int i = 0; i < delayCount; ++i)
+    sample_t* buffer_data = new sample_t[buffer_size];
+    memset(buffer_data, 0, sizeof(sample_t)*buffer_size);
+    AllpassNetwork* ap = new AllpassNetwork(buffer_data, diffusion);
+    sample_t* head = buffer_data;
+    for (int i = 0; i < Stages; ++i)
     {
-      int len = delayLengths[i];
-      DelayLine& ap = delayData[i];
-      ap.bufPos = 0;
-      ap.bufLen = len;
-      ap.buf = head;
+      size_t len = delay_lengths[i];
+      DelayLine& dl = ap->delays_[i];
+      dl.buf_pos = 0;
+      dl.buf_len = len;
+      dl.buf = head;
       head = head + len;
     }
-    return new AllpassNetwork(bufferData, bufferSize, delayData, delayCount, diffusion);
+    return ap;
   }
 
-  static void destroy(AllpassNetwork* network)
+  static void destroy(const AllpassNetwork* network)
   {
-    delete[] network->buffer.getData();
-    delete[] network->delays.getData();
+    delete[] network->shared_buffer_;
     delete network;
   }
+  
+protected:
+  [[nodiscard]] Parameter element_at(vessl::size_t index) const override
+  {
+    switch (index)
+    {
+      case 0: return amount();
+      case 1: return diffusion();
+      default: return Parameter::none();
+    }
+  }
+  
+private:
+  struct DelayLine
+  {
+    sample_t* buf;
+    size_t buf_pos;
+    size_t buf_len;
+  };
+  
+  sample_t* shared_buffer_;
+  DelayLine delays_[Stages];
+  
+  struct
+  {
+    vessl::param<sample_t> coeff;
+    vessl::param<sample_t> amount;
+  } params_;
+  
+  AllpassNetwork(sample_t* buffer_data, sample_t diffusion)
+    : shared_buffer_(buffer_data)
+  {
+    params_.coeff.value = diffusion;
+    params_.amount.value = vessl::cast<sample_t>(1.f);
+  }
 };
-
-#endif // __ALLPASS_NETWORK_H__

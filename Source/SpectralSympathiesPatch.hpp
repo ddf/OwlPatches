@@ -73,6 +73,7 @@ class SpectralSympathiesPatch : public MonochromeScreenPatch
 {
   using SpectralGen = SpectralSignalGenerator<false>;
   using BitCrush = vessl::processors::bitcrush<float, 24>;
+  using ReverbProcessor = Reverb<float>;
 
 protected:
   const SpectralSympathiesParameterIds params;
@@ -100,7 +101,7 @@ protected:
 
   SpectralGen* spectralGen;
   Diffuser* diffuser;
-  Reverb*   reverb;
+  ReverbProcessor*   reverb;
 
   BitCrush bitCrusher;
 
@@ -143,7 +144,7 @@ public:
     if (reverb_enabled)
     {
       diffuser = Diffuser::create();
-      reverb = Reverb::create(getSampleRate());
+      reverb = ReverbProcessor::create(getSampleRate());
     }
 
     midiNotes = new MidiMessage[128];
@@ -196,7 +197,7 @@ public:
     if (reverb_enabled)
     {
       Diffuser::destroy(diffuser);
-      Reverb::destroy(reverb);
+      ReverbProcessor::destroy(reverb);
     }
     delete[] midiNotes;
   }
@@ -317,11 +318,12 @@ public:
       float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
       float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
 
-      reverb->setDiffusion(0.7f);
-      reverb->setInputGain(reverbInputGain);
-      reverb->setReverbTime(reverbTime);
-      reverb->setLowPass(reverbTone);
-      reverb->setAmount(reverbBlend);
+      reverb->diffusion() = (0.7f);
+      reverb->input_gain() = (reverbInputGain);
+      reverb->reverb_time() = (reverbTime);
+      reverb->low_pass() = (reverbTone);
+      reverb->wet_mix() = (reverbBlend);
+      // @todo fix this
       reverb->process(audio, audio);
     }
 
