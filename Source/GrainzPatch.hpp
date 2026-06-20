@@ -16,6 +16,7 @@ static constexpr int RECORD_BUFFER_SIZE = 1 << 18; // approx 5.5 seconds at 48k
 using Array = vessl::array<float>;
 using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad<1>::high_pass>;
 using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
+using Limiter = vessl::processors::limiter<float>;
 using Clock = vessl::generators::clock<uint8_t>;
 using Noise = vessl::generators::noise<float, vessl::noise::white>;
 using Lfo   = vessl::generators::oscil<vessl::sample::waves::unipolar::triangle<float>>;
@@ -28,14 +29,15 @@ class GrainzBase : public Patch
   using GranularProcessor = Granulator<float, 2, MaxGrains>;
   using GranularSampleType = typename GranularProcessor::SampleType;
   
-  AudioBuffer*     feedback_buffer_;
+  AudioBuffer*        feedback_buffer_;
   GranularSampleType* grain_buffer_;
-  GranularProcessor* granular_processor_;
-  ReverbProcessor*   reverb_;
+  GranularProcessor*  granular_processor_;
+  ReverbProcessor*    reverb_;
   DcBlockingFilter dc_filter_left_;
   DcBlockingFilter dc_filter_right_;
   HighPassFilter   feedback_filter_left_;
   HighPassFilter   feedback_filter_right_;
+  Limiter          grain_limiter_;
   Clock            clock_;
   Noise            noise_unipolar_;
   Noise            noise_bipolar_;
@@ -55,11 +57,14 @@ class GrainzBase : public Patch
     PatchButtonId    freeze   = BUTTON_4;
 
     // midi controls
-    PatchParameterId envelope = PARAMETER_AA;
-    PatchParameterId spread   = PARAMETER_AB;
-    PatchParameterId velocity = PARAMETER_AC;
-    PatchParameterId reverb   = PARAMETER_AD;
-    PatchParameterId dry_wet  = PARAMETER_AE;
+    PatchParameterId varidur  = PARAMETER_AA;
+    PatchParameterId varispd  = PARAMETER_AB;
+    PatchParameterId varipos  = PARAMETER_AC;
+    PatchParameterId velocity = PARAMETER_AD;
+    PatchParameterId spread   = PARAMETER_AE;
+    PatchParameterId envelope = PARAMETER_AF;
+    PatchParameterId reverb   = PARAMETER_AG;
+    PatchParameterId dry_wet  = PARAMETER_AH;
   } pin_;
 
   // outputs
@@ -98,8 +103,6 @@ class GrainzBase : public Patch
   uint16_t  freeze_; 
   uint16_t  reverse_;
   uint8_t   clock_value_;
-  
-  float norms_[MaxGrains + 1];
 
 public:
   GrainzBase()
@@ -116,7 +119,7 @@ public:
     , out_gate_sample_length_(getBlockSize()) // 8ms
     , played_gate_(0)
     , random_gate_(0)
-    , grain_duration_min_(2.0f/getSampleRate())
+    , grain_duration_min_(4.0f/getSampleRate())
     , grain_duration_max_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
     , noise_unipolar_value_(0)
     , noise_bipolar_value_(0)
@@ -125,12 +128,6 @@ public:
     , reverse_(OFF)
     , clock_value_(0)
   {
-    norms_[0] = 1;
-    for (int i = 1; i < MaxGrains + 1; i++) 
-    {
-      norms_[i] = 1 / sqrtf(static_cast<float>(i));
-    }
-    
     granular_processor_ = GranularProcessor::create(RECORD_BUFFER_SIZE, getBlockSize());
     grain_buffer_ = new GranularSampleType[getBlockSize()];
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
@@ -151,11 +148,15 @@ public:
     registerParameter(pin_.velocity, "Velocity Variation");
     registerParameter(pin_.feedback, "Feedback");
     registerParameter(pin_.dry_wet, "Dry/Wet");
+    registerParameter(pin_.varidur, "Duration Vari");
+    registerParameter(pin_.varispd, "Speed Vari");
+    registerParameter(pin_.varipos, "Position Vari");
     if constexpr (WithReverb)
     {
       registerParameter(pin_.reverb, "Reverb");
       setParameterValue(pin_.reverb, 0);
     }
+    
     registerParameter(pout_.envelope, "Envelope>");
     registerParameter(pout_.random_value, "Random>");
 
@@ -221,15 +222,20 @@ public:
     grain_rate_ = density_param < 0.45f ? vessl::math::lerp(4.0f, 1.0f, density_param)
       : density_param > 0.55f ? vessl::math::lerp(1.0f, 0.25f, density_param)
         : 1.0f;
+    float position_vari = noise_bipolar_value_ * 0.5f * getParameterValue(pin_.varipos);
+    float position_param = vessl::math::constrain(getParameterValue(pin_.position) + position_vari, 0.f, 1.f);
     grain_position_ = vessl::math::interp<vessl::math::easing::expo::in>(
-      1.f, 0.25f*RECORD_BUFFER_SIZE, getParameterValue(pin_.position)
+      1.f, 0.25f*RECORD_BUFFER_SIZE, position_param
     );
+    float duration_vari = (1.0f - noise_bipolar_value_) * 0.25f * getParameterValue(pin_.varidur);
+    float duration_param = vessl::math::constrain(getParameterValue(pin_.duration) + duration_vari, 0.f, 1.f);
     grain_duration_ = vessl::math::interp<vessl::math::easing::expo::in>(
-      grain_duration_min_, grain_duration_max_, getParameterValue(pin_.duration)
+      grain_duration_min_, grain_duration_max_, duration_param
     );
     constexpr float octaves = 2;
-    float speed_param = getParameterValue(pin_.speed)*octaves;
-    grain_speed_ = vessl::math::exp2(speed_param)/octaves;
+    float speed_vari  = noise_bipolar_value_ * 0.25f * getParameterValue(pin_.varispd);
+    float speed_param = vessl::math::constrain(getParameterValue(pin_.speed) + speed_vari, 0.f, 1.f);
+    grain_speed_ = vessl::math::exp2(speed_param*octaves)/octaves;
     grain_envelope_ = getParameterValue(pin_.envelope);
     grain_spread_ = getParameterValue(pin_.spread);
     grain_velocity_ = getParameterValue(pin_.velocity);
@@ -259,12 +265,12 @@ public:
     if (freeze_ == OFF)
     {
       // Note: the way feedback is applied is based on how Clouds does it
-      float cutoff = (20.0f + 100.0f * feedback_.value * feedback_.value);
+      const float cutoff = (20.0f + 100.0f * feedback_.value * feedback_.value);
       feedback_filter_left_.fhz() = cutoff;
       feedback_filter_right_.fhz() = cutoff;
       feedback_filter_left_.process(feed_left, feed_left);
       feedback_filter_right_.process(feed_right, feed_right);
-      float soft_limit_coeff = feedback_.value * 1.4f;
+      const float soft_limit_coeff = feedback_.value * 1.4f;
       for (int i = 0; i < block_size; ++i)
       {
         float left = in_out_left[i];
@@ -275,38 +281,37 @@ public:
       }
     }
     
+    const float sample_rate = getSampleRate();
     float grain_playback_rate = grain_speed_.value;
-    float grain_sample_length = grain_duration_.value * getSampleRate();
+    float grain_sample_length = (grain_duration_.value + duration_vari) * sample_rate;
     float grain_spacing;
     if (clock_.is_clocked())
     {
-      float dur = clock_.tempo().read<vessl::time::duration>().to_seconds(getSampleRate());
-      grain_spacing = dur * getSampleRate() * grain_rate_.value;
+      float dur = clock_.tempo().read<vessl::time::duration>().to_seconds(sample_rate);
+      grain_spacing = dur * sample_rate * grain_rate_.value;
     }
     else
     {
       float target_grains = MaxGrains * grain_overlap_.value;
       grain_spacing = target_grains > 0.0001f ? grain_sample_length / target_grains : 0;
-      clock_.tempo() = vessl::duration_t::from_seconds(grain_spacing / getSampleRate(), getSampleRate());
+      clock_.tempo() = vessl::time::duration::from_seconds(grain_spacing / sample_rate, sample_rate);
     }
     // we want a grain to always last the same amount of real time, regardless of playback rate.
     // so now we adjust the length with playback speed
     grain_sample_length *= grain_playback_rate;
-    
-    bool grains_enabled = grain_spacing > 0;
 
 #ifdef PROFILE
     const float gen_start = getElapsedBlockTime();
 #endif
 
     granular_processor_->envelope.set_pulse_width(vessl::cast<vessl::phase_t>(grain_envelope_.value));
-    granular_processor_->grain_duration() = vessl::duration_t(grain_sample_length);
-    granular_processor_->grain_speed() = grain_playback_rate;
-    granular_processor_->grain_offset() = vessl::duration_t(grain_position_.value);
-    granular_processor_->grain_rate() = vessl::duration_t(grain_spacing);
-    granular_processor_->grain_pan() = noise_bipolar_value_ * grain_spread_.value; // vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
-    granular_processor_->grain_volume() = 1.f - noise_unipolar_value_ * grain_velocity_.value; // vessl::math::random::range(1.f - grain_velocity_.value, 1.0f);
-    granular_processor_->grain_reverse() = reverse_;
+    granular_processor_->duration() = vessl::duration_t(grain_sample_length);
+    granular_processor_->speed() = grain_playback_rate;
+    granular_processor_->offset() = vessl::duration_t(grain_position_.value);
+    granular_processor_->rate() = vessl::duration_t(grain_spacing);
+    granular_processor_->pan() = noise_bipolar_value_ * grain_spread_.value; // vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
+    granular_processor_->volume() = 1.f - noise_unipolar_value_ * grain_velocity_.value; // vessl::math::random::range(1.f - grain_velocity_.value, 1.0f);
+    granular_processor_->reverse() = reverse_;
     
     vessl::array grain_buffer(grain_buffer_, getBlockSize());
     if (freeze_ == ON)
@@ -353,6 +358,15 @@ public:
     for (int i = 0; i < block_size; ++i)
     {
       GranularSampleType& g = grain_buffer_[i];
+      
+      // run the limiter on the mono signal.
+      // and then scale the stereo signal based on how much amplitude reduction was applied.
+      // this should prevent left/right balance going out of whack?
+      grain_limiter_.process(g.to_mono().value());
+      const float peak = grain_limiter_.peak().read_analog();
+      const float reduction = peak <= 1.f ? 1.f : 1.f / peak;
+      g *= reduction;
+      
       flw << g.left();
       frw << g.right();
       if constexpr (WithReverb)
@@ -361,7 +375,7 @@ public:
       }
     }
     
-    float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(getSampleRate()); 
+    float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(sample_rate); 
     noise_unipolar_.rate() = clock_rate*0.25f;
     noise_bipolar_.rate() = clock_rate*0.25f;
     lfo_.fhz() = clock_rate*0.25f;
