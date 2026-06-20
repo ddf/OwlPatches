@@ -23,7 +23,7 @@ using Lfo   = vessl::generators::oscil<vessl::sample::waves::unipolar::triangle<
 using Smoother = vessl::math::easing::smoother<float>;
 using ReverbProcessor = Reverb<float>;
 
-template <int MaxGrains, bool WithReverb>
+template <int MaxGrains>
 class GrainzBase : public Patch
 {
   using GranularProcessor = Granulator<float, 2, MaxGrains>;
@@ -33,16 +33,16 @@ class GrainzBase : public Patch
   AudioBuffer*        tail_buffer_;
   GranularSampleType* grain_buffer_;
   GranularProcessor*  granular_processor_;
-  ReverbProcessor*    reverb_;
-  DcBlockingFilter dc_filter_left_;
-  DcBlockingFilter dc_filter_right_;
-  HighPassFilter   feedback_filter_left_;
-  HighPassFilter   feedback_filter_right_;
-  Limiter          grain_limiter_;
-  Clock            clock_;
-  Noise            noise_unipolar_;
-  Noise            noise_bipolar_;
-  Lfo              lfo_;
+  ReverbProcessor*    reverb_processor_;
+  DcBlockingFilter    dc_filter_left_;
+  DcBlockingFilter    dc_filter_right_;
+  HighPassFilter      feedback_filter_left_;
+  HighPassFilter      feedback_filter_right_;
+  Limiter             grain_limiter_;
+  Clock               clock_;
+  Noise               noise_unipolar_;
+  Noise               noise_bipolar_;
+  Lfo                 lfo_;
   
   // panel controls
   struct
@@ -52,10 +52,11 @@ class GrainzBase : public Patch
     PatchParameterId position = PARAMETER_C;
     PatchParameterId feedback = PARAMETER_D;
     PatchParameterId density  = PARAMETER_E;
-    PatchButtonId    trigger  = BUTTON_1;
-    PatchButtonId    clock    = BUTTON_2;
-    PatchButtonId    reverse  = BUTTON_3;
-    PatchButtonId    freeze   = BUTTON_4;
+    PatchButtonId    clock    = BUTTON_1;
+    PatchButtonId    reverse  = BUTTON_2;
+    PatchButtonId    freeze   = BUTTON_3;
+    PatchButtonId    reverb   = BUTTON_4;
+    PatchButtonId    trigger  = BUTTON_5;
 
     // midi controls
     PatchParameterId varidur  = PARAMETER_AA;
@@ -64,7 +65,7 @@ class GrainzBase : public Patch
     PatchParameterId velocity = PARAMETER_AD;
     PatchParameterId spread   = PARAMETER_AE;
     PatchParameterId envelope = PARAMETER_AF;
-    PatchParameterId reverb   = PARAMETER_AG;
+    PatchParameterId verb_amt = PARAMETER_AG;
     PatchParameterId dry_wet  = PARAMETER_AH;
   } pin_;
 
@@ -106,6 +107,7 @@ class GrainzBase : public Patch
   
   uint16_t  freeze_; 
   uint16_t  reverse_;
+  uint16_t  reverb_;
   uint8_t   clock_value_;
   uint8_t   freeze_toggled_;
 
@@ -133,19 +135,17 @@ public:
     , overdub_sample_delay_(0)
     , freeze_(OFF)
     , reverse_(OFF)
+    , reverb_(OFF)
     , clock_value_(0)
   {
     granular_processor_ = GranularProcessor::create(RECORD_BUFFER_SIZE, getBlockSize());
     grain_buffer_ = new GranularSampleType[getBlockSize()];
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
     tail_buffer_ = AudioBuffer::create(2, getBlockSize());
-
-    if constexpr (WithReverb)
-    {
-      reverb_ = ReverbProcessor::create(getSampleRate());
-      reverb_->diffusion() = 0.7f;
-      reverb_->input_gain() = 0.2f;
-    }
+    
+    reverb_processor_ = ReverbProcessor::create(getSampleRate());
+    reverb_processor_->diffusion() = 0.7f;
+    reverb_processor_->input_gain() = 0.2f;
 
     registerParameter(pin_.position, "Position");
     registerParameter(pin_.duration, "Duration");
@@ -159,11 +159,7 @@ public:
     registerParameter(pin_.varidur, "Duration Vari");
     registerParameter(pin_.varispd, "Speed Vari");
     registerParameter(pin_.varipos, "Position Vari");
-    if constexpr (WithReverb)
-    {
-      registerParameter(pin_.reverb, "Reverb");
-      setParameterValue(pin_.reverb, 0);
-    }
+    registerParameter(pin_.verb_amt, "Reverb");
     
     registerParameter(pout_.envelope, "Envelope>");
     registerParameter(pout_.random_value, "Random>");
@@ -175,19 +171,16 @@ public:
     setParameterValue(pin_.feedback, 0);
     setParameterValue(pin_.dry_wet, 1);
     setParameterValue(pin_.feedback, 0);
+    setParameterValue(pin_.verb_amt, 0.5f);
   }
 
   ~GrainzBase() override
   {
     GranularProcessor::destroy(granular_processor_);
+    ReverbProcessor::destroy(reverb_processor_);
     AudioBuffer::destroy(feedback_buffer_);
     AudioBuffer::destroy(tail_buffer_);
     delete[] grain_buffer_;
-
-    if constexpr (WithReverb)
-    {
-      ReverbProcessor::destroy(reverb_);
-    }
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -211,6 +204,10 @@ public:
       freeze_toggled_ = true;
       setParameterValue(pin_.feedback, freeze_ == ON ? overdub_.value : feedback_.value);
     }
+    else if (bid == pin_.reverb && value == ON)
+    {
+      reverb_ = reverb_ == ON ? OFF : ON;
+    }
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -230,9 +227,9 @@ public:
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float density_param = getParameterValue(pin_.density);
     grain_overlap_ = vessl::math::interp<vessl::math::easing::quad::in>(0.f, 0.999f, density_param);
-    grain_rate_ = density_param < 0.45f ? vessl::math::lerp(4.0f, 1.0f, density_param)
-      : density_param > 0.55f ? vessl::math::lerp(1.0f, 0.25f, density_param)
-        : 1.0f;
+    grain_rate_ = density_param < 0.45f ? vessl::math::lerp(4.0f, 0.25f, density_param * 2.125f)
+                  : density_param > 0.55f ? vessl::math::lerp(0.0625f, 0.25f, (1.0f - density_param) * 2.125f)
+                  : 0.25f;
     float position_vari = noise_bipolar_value_ * 0.5f * getParameterValue(pin_.varipos);
     float position_param = vessl::math::constrain(getParameterValue(pin_.position) + position_vari, 0.f, 1.f);
     grain_position_ = vessl::math::interp<vessl::math::easing::expo::in>(
@@ -258,21 +255,23 @@ public:
     {
       feedback_ = getParameterValue(pin_.feedback); 
     }
-    reverb_amount_ = getParameterValue(pin_.reverb);
+    float reverb_boost = overdub_.value * (2.0f - overdub_.value) * (freeze_ == ON);
+    reverb_amount_ = reverb_ ? getParameterValue(pin_.verb_amt) + reverb_boost : 0.f;
     dry_wet_ = getParameterValue(pin_.dry_wet);
     
     const float sample_rate = getSampleRate();
+    const unsigned max_grains = reverb_ ? MaxGrains / 2 : MaxGrains;
     float grain_playback_rate = grain_speed_.value;
     float grain_sample_length = (grain_duration_.value + duration_vari) * sample_rate;
     float grain_spacing;
     if (clock_.is_clocked())
     {
       float dur = clock_.tempo().read<vessl::time::duration>().to_seconds(sample_rate);
-      grain_spacing = dur * sample_rate * grain_rate_.value;
+      grain_spacing = grain_overlap_.value > 0.0001f ? dur * sample_rate * grain_rate_.value : 0.f;
     }
     else
     {
-      float target_grains = MaxGrains * grain_overlap_.value;
+      float target_grains = vessl::math::min(MaxGrains * grain_overlap_.value, static_cast<float>(max_grains));
       grain_spacing = target_grains > 0.0001f ? grain_sample_length / target_grains : 0;
       clock_.tempo() = vessl::time::duration::from_seconds(grain_spacing / sample_rate, sample_rate);
     }
@@ -288,6 +287,7 @@ public:
     granular_processor_->pan() = noise_bipolar_value_ * grain_spread_.value; // vessl::math::random::range(-grain_spread_.value, grain_spread_.value);
     granular_processor_->volume() = 1.f - noise_unipolar_value_ * grain_velocity_.value; // vessl::math::random::range(1.f - grain_velocity_.value, 1.0f);
     granular_processor_->reverse() = reverse_;
+    granular_processor_->max_active() = max_grains;
 
     if (played_gate_ > 0)
     {
@@ -403,23 +403,16 @@ public:
     
     // #TODO reverb can also wind up with DC offset 
     // in freeze mode when feedback is engaged.
-    if constexpr (WithReverb)
+    if (reverb_)
     {
       float reverb_level = reverb_amount_.value * 0.95f;
-      reverb_level += feedback_.value * (2.0f - feedback_.value) * freeze_;
       reverb_level = vessl::math::constrain(reverb_level, 0.0f, 1.0f);
 
-      reverb_->wet_mix() = reverb_level * 0.54f;
-      reverb_->reverb_time() = 0.35f + 0.63f * reverb_level;
-      reverb_->low_pass() = 0.6f + 0.37f * feedback_.value;
+      reverb_processor_->wet_mix() = reverb_level * 0.54f;
+      reverb_processor_->reverb_time() = 0.35f + 0.63f * reverb_level;
+      reverb_processor_->low_pass() = 0.6f + 0.37f * overdub_.value;
     }
     
-    // float from_gain_adjust = norms_[prev_active_grains];
-    // float to_gain_adjust = norms_[active_grains_];
-    // grain_left.scale(from_gain_adjust, to_gain_adjust);
-    // grain_right.scale(from_gain_adjust, to_gain_adjust);
-    auto flw = feed_left.make_writer();
-    auto frw = feed_right.make_writer();
     for (int i = 0; i < block_size; ++i)
     {
       GranularSampleType& g = grain_buffer_[i];
@@ -432,12 +425,13 @@ public:
       const float reduction = peak <= 1.f ? 1.f : 1.f / peak;
       g *= reduction;
       
-      flw << g.left();
-      frw << g.right();
-      if constexpr (WithReverb)
+      if (reverb_)
       {
-        grain_buffer_[i] = reverb_->process(g);
+        grain_buffer_[i] = reverb_processor_->process(g);
       }
+      
+      feed_left[i] = g.left();
+      feed_right[i] = g.right();
     }
     
     float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(sample_rate); 
@@ -470,6 +464,7 @@ public:
 
     setButton(pin_.reverse, reverse_);
     setButton(pin_.freeze, freeze_);
+    setButton(pin_.reverb, reverb_);
     setButton(pout_.grain_played, played_gate_ > 0);
     setButton(pout_.random_gate, random_gate_ > 0);
     setParameterValue(pout_.envelope, lfo_value_);
@@ -485,7 +480,7 @@ public:
 };
 
 #ifdef OWL_WITCH
-using GrainzPatch = GrainzBase<16,false>;
+using GrainzPatch = GrainzBase<16>;
 #else
-using GrainzPatch = GrainzBase<56,true>;
+using GrainzPatch = GrainzBase<56>;
 #endif
