@@ -30,6 +30,7 @@ class GrainzBase : public Patch
   using GranularSampleType = typename GranularProcessor::SampleType;
   
   AudioBuffer*        feedback_buffer_;
+  AudioBuffer*        tail_buffer_;
   GranularSampleType* grain_buffer_;
   GranularProcessor*  granular_processor_;
   ReverbProcessor*    reverb_;
@@ -103,10 +104,12 @@ class GrainzBase : public Patch
   uint16_t  freeze_; 
   uint16_t  reverse_;
   uint8_t   clock_value_;
+  uint8_t   freeze_toggled_;
 
 public:
   GrainzBase()
     : feedback_buffer_(nullptr)
+    , tail_buffer_(nullptr)
     , grain_buffer_(nullptr)
     , dc_filter_left_(getSampleRate())
     , dc_filter_right_(getSampleRate())
@@ -131,6 +134,7 @@ public:
     granular_processor_ = GranularProcessor::create(RECORD_BUFFER_SIZE, getBlockSize());
     grain_buffer_ = new GranularSampleType[getBlockSize()];
     feedback_buffer_ = AudioBuffer::create(2, getBlockSize());
+    tail_buffer_ = AudioBuffer::create(2, getBlockSize());
 
     if constexpr (WithReverb)
     {
@@ -173,6 +177,7 @@ public:
   {
     GranularProcessor::destroy(granular_processor_);
     AudioBuffer::destroy(feedback_buffer_);
+    AudioBuffer::destroy(tail_buffer_);
     delete[] grain_buffer_;
 
     if constexpr (WithReverb)
@@ -199,6 +204,7 @@ public:
     else if (bid == pin_.freeze && value == ON)
     {
       freeze_ = freeze_ == ON ? OFF : ON;
+      freeze_toggled_ = true;
     }
   }
 
@@ -255,29 +261,56 @@ public:
     {
       random_gate_ -= block_size;
     }
-
-    // #TODO: clouds does a cool thing where when freeze is enabled
-    // it continues recording input for 256 samples into a "tail" buffer
-    // and then when freeze is disabled it crossfades from the tail to 
-    // the new incoming audio as it writes into the record buffer,
-    // which prevents discontinuities in the record buffer.
+    
+    // Note: the way feedback is applied is based on how Clouds does it
+    const float cutoff = (20.0f + 100.0f * feedback_.value * feedback_.value);
+    feedback_filter_left_.fhz() = cutoff;
+    feedback_filter_right_.fhz() = cutoff;
+    feedback_filter_left_.process(feed_left, feed_left);
+    feedback_filter_right_.process(feed_right, feed_right);
+    const float soft_limit_coeff = feedback_.value * 1.4f;
+    
     // #TODO: add smoothed freeze state for fading feedback in/out.
     if (freeze_ == OFF)
     {
-      // Note: the way feedback is applied is based on how Clouds does it
-      const float cutoff = (20.0f + 100.0f * feedback_.value * feedback_.value);
-      feedback_filter_left_.fhz() = cutoff;
-      feedback_filter_right_.fhz() = cutoff;
-      feedback_filter_left_.process(feed_left, feed_left);
-      feedback_filter_right_.process(feed_right, feed_right);
-      const float soft_limit_coeff = feedback_.value * 1.4f;
       for (int i = 0; i < block_size; ++i)
       {
         float left = in_out_left[i];
         float right = in_out_right[i];
-        GranularSampleType& grn = grain_buffer_[i];
-        grn.left() = left + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
-        grn.right() = right + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
+        float grn_left = left + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
+        float grn_right = right + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
+        grain_buffer_[i] = { grn_left, grn_right };
+      }
+      
+      if (freeze_toggled_)
+      {
+        float* tail_left = tail_buffer_->getSamples(0);
+        float* tail_right = tail_buffer_->getSamples(1);
+        float inc = 1.0f / block_size;
+        float t = 0;
+        for (int i = 0; i < block_size; ++i, t+=inc)
+        {
+          GranularSampleType& grn = grain_buffer_[i];
+          grn.left() = vessl::sample::crossfade(tail_left[i], grn.left(), t);
+          grn.right() = vessl::sample::crossfade(tail_right[i], grn.right(), t);
+        }
+        freeze_toggled_ = false;
+      }
+    }
+    else if (freeze_ == ON)
+    {
+      if (freeze_toggled_)
+      {
+        float* tail_left = tail_buffer_->getSamples(0);
+        float* tail_right = tail_buffer_->getSamples(1);
+        for (int i = 0; i < block_size; ++i)
+        {
+          float left = in_out_left[i];
+          float right = in_out_right[i];
+          tail_left[i] = left + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_left[i] + left) - left);
+          tail_right[i] = right + feedback_.value * (vessl::sample::softlimit(soft_limit_coeff * feed_right[i] + right) - right);
+        }
+        freeze_toggled_ = false;
       }
     }
     
