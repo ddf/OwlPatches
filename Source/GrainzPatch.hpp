@@ -119,7 +119,7 @@ public:
     , out_gate_sample_length_(getBlockSize()) // 8ms
     , played_gate_(0)
     , random_gate_(0)
-    , grain_duration_min_(4.0f/getSampleRate())
+    , grain_duration_min_(0.008f)
     , grain_duration_max_(0.25f*(RECORD_BUFFER_SIZE/getSampleRate()))
     , noise_unipolar_value_(0)
     , noise_bipolar_value_(0)
