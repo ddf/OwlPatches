@@ -225,6 +225,10 @@ public:
     Array in_out_right(audio.getSamples(1), block_size);
     Array feed_left(feedback_buffer_->getSamples(0).getData(), block_size);
     Array feed_right(feedback_buffer_->getSamples(1).getData(), block_size);
+    
+    const float sample_rate = getSampleRate();
+    const unsigned max_grains = reverb_ ? MaxGrains / 2 : MaxGrains;
+    const bool reverb_enabled = reverb_ && granular_processor_->active_grain_count() <= max_grains;
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
     float density_param = getParameterValue(pin_.density);
@@ -257,12 +261,11 @@ public:
     {
       feedback_ = getParameterValue(pin_.feedback); 
     }
+    
     float reverb_boost = overdub_.value * (2.0f - overdub_.value) * (freeze_ == ON);
-    reverb_amount_ = reverb_ ? getParameterValue(pin_.verb_amt) + reverb_boost : 0.f;
+    reverb_amount_ = reverb_enabled ? getParameterValue(pin_.verb_amt) + reverb_boost : 0.f;
     dry_wet_ = getParameterValue(pin_.dry_wet);
     
-    const float sample_rate = getSampleRate();
-    const unsigned max_grains = reverb_ ? MaxGrains / 2 : MaxGrains;
     float grain_playback_rate = grain_speed_.value;
     float grain_sample_length = (grain_duration_.value + duration_vari) * sample_rate;
     float grain_spacing;
@@ -333,8 +336,9 @@ public:
         for (int i = 0; i < block_size; ++i, t+=inc)
         {
           GranularSampleType& grn = grain_buffer_[i];
-          grn.left() = vessl::sample::crossfade(tail_left[i], grn.left(), t);
-          grn.right() = vessl::sample::crossfade(tail_right[i], grn.right(), t);
+          float fade = 1.0f - t;
+          vessl::sample::crossfade(grn.left(), *tail_left++, fade, &grn.left());
+          vessl::sample::crossfade(grn.right(), *tail_right++, fade, &grn.right());
         }
         freeze_toggled_ = false;
       }
@@ -398,7 +402,7 @@ public:
     
     // #TODO reverb can also wind up with DC offset 
     // in freeze mode when feedback is engaged.
-    if (reverb_)
+    if (reverb_enabled)
     {
       float reverb_level = reverb_amount_.value * 0.95f;
       reverb_level = vessl::math::constrain(reverb_level, 0.0f, 1.0f);
@@ -420,7 +424,7 @@ public:
       const float reduction = peak <= 1.f ? 1.f : 1.f / peak;
       g *= reduction;
       
-      if (reverb_)
+      if (reverb_enabled)
       {
         grain_buffer_[i] = reverb_processor_->process(g);
       }
