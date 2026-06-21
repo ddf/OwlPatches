@@ -14,9 +14,9 @@ public:
   {
   }
 
-  [[nodiscard]] bool is_empty() const override { return readIdx == static_cast<vessl::size_t>(source->getSize()); }
+  [[nodiscard]] VESSL_INLINE bool is_empty() const override { return readIdx == static_cast<vessl::size_t>(source->getSize()); }
 
-  vessl::sample::frame<float, N> read() override
+  VESSL_INLINE vessl::sample::frame<float, N> read() override
   {
     vessl::sample::frame<float, N> frame;
     for (vessl::size_t c = 0; c < N; ++c)
@@ -33,8 +33,8 @@ public:
   public:
     explicit MonoReader(AudioBuffer& sourceBuffer) : reader(&sourceBuffer) {}
 
-    [[nodiscard]] bool is_empty() const override { return reader.is_empty(); }
-    float read() override
+    [[nodiscard]] bool VESSL_INLINE is_empty() const override { return reader.is_empty(); }
+    [[nodiscard]] VESSL_INLINE float read() override
     {
       return reader.read().toMono().value();
     }
@@ -56,17 +56,15 @@ public:
     
   }
 
-  [[nodiscard]] bool is_empty() const override { return !left.available(); }
+  [[nodiscard]] VESSL_INLINE bool is_empty() const override { return !left.available(); }
   
-  sample_t read() override
+  [[nodiscard]] VESSL_INLINE sample_t read() override
   {
-    sample_t frame;
     if (!is_empty())
     {
-      frame.left()  = left.read();
-      frame.right() = right.read();
+      return { left.read(), right.read() };
     }
-    return frame;
+    return {0,0};
   }
 
   class MonoReader : public vessl::source<float>
@@ -81,8 +79,8 @@ public:
     
     }
 
-    [[nodiscard]] bool is_empty() const override { return !left.available(); }
-    float read() override
+    [[nodiscard]] VESSL_INLINE bool is_empty() const override { return !left.available(); }
+    VESSL_INLINE float read() override
     {
       return (left.read() + right.read())*0.5f;
     }
@@ -101,7 +99,7 @@ public:
   {
   }
 
-  void write(const sample_t& in) override
+  VESSL_INLINE void write(const sample_t& in) override
   {
     for (vessl::size_t c = 0; c < N; ++c)
     {
@@ -127,9 +125,9 @@ public:
   {
   }
 
-  [[nodiscard]] bool is_full() const override { return !left.available(); }
+  [[nodiscard]] VESSL_INLINE bool is_full() const override { return !left.available(); }
   
-  void write(const sample_t& value) override
+  VESSL_INLINE void write(const sample_t& value) override
   {
     if (!is_full())
     {

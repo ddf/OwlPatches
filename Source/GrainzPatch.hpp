@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AudioBufferSourceSink.h"
 #include "Patch.h"
 #include "vessicle/Granulator.h"
 #include "Reverb.h"
@@ -56,7 +57,7 @@ class GrainzBase : public Patch
     PatchButtonId    reverse  = BUTTON_2;
     PatchButtonId    freeze   = BUTTON_3;
     PatchButtonId    reverb   = BUTTON_4;
-    PatchButtonId    trigger  = BUTTON_5;
+    PatchButtonId    trigger  = BUTTON_8;
 
     // midi controls
     PatchParameterId varidur  = PARAMETER_AA;
@@ -185,12 +186,13 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    if (bid == pin_.trigger && value == ON)
-    {
-      granular_processor_->trigger(samples);
-      played_gate_ = out_gate_sample_length_;
-    }
-    else if (bid == pin_.clock && value == ON)
+    // if (bid == pin_.trigger && value == ON)
+    // {
+    //   granular_processor_->trigger(samples);
+    //   played_gate_ = out_gate_sample_length_;
+    // }
+    // else 
+      if (bid == pin_.clock && value == ON)
     {
       clock_.tap(samples);
     }
@@ -326,7 +328,7 @@ public:
       {
         float* tail_left = tail_buffer_->getSamples(0);
         float* tail_right = tail_buffer_->getSamples(1);
-        float inc = 1.0f / block_size;
+        float inc = 1.0f / static_cast<float>(block_size);
         float t = 0;
         for (int i = 0; i < block_size; ++i, t+=inc)
         {
@@ -353,19 +355,12 @@ public:
         freeze_toggled_ = false;
         overdub_sample_delay_ = 0;
       }
-      
-      const float overdub = overdub_.value;
-      if (overdub > 0.001f)
+
+      // overdub feedback onto frozen section of the buffer
       {
-        for (int i = 0; i < block_size; ++i)
-        {
-          float grn_left = vessl::sample::softlimit(1.4f * feed_left[i]);
-          float grn_right = vessl::sample::softlimit(1.4f * feed_right[i]);
-          grain_buffer_[i] = { grn_left, grn_right };
-        }
-      
-        vessl::array<GranularSampleType> grain_buffer(grain_buffer_, block_size);
-        granular_processor_->overdub(grain_buffer, overdub, overdub_sample_delay_);
+        const float overdub = overdub_.value * 0.5f;
+        AudioBufferReader<2> feed_read(*feedback_buffer_);
+        granular_processor_->overdub(feed_read, overdub, overdub_sample_delay_);
         overdub_sample_delay_ += block_size;
         if (overdub_sample_delay_ > grain_sample_length)
         {
