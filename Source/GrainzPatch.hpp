@@ -11,6 +11,9 @@
 #include <cstring>
 #endif
 
+// @todo on Witch: set parameters BA, BB, BC, BD when matching MIDI comes in.
+// these parameters are secretly the attenuation amount for A, B, C, and D CV inputs.
+
 // must be power of two
 static constexpr int RECORD_BUFFER_SIZE = 1 << 18; // approx 5.5 seconds at 48k
 
@@ -315,7 +318,6 @@ public:
     feedback_filter_right_.process(feed_right, feed_right);
     const float soft_limit_coeff = feedback_.value * 1.4f;
     
-    // #TODO: add smoothed freeze state for fading feedback in/out.
     if (freeze_ == OFF)
     {
       for (int i = 0; i < block_size; ++i)
@@ -400,8 +402,6 @@ public:
     debug_cpy = stpcpy(debug_cpy, msg_itoa(static_cast<int>(gen_time * 1000), 10));
 #endif
     
-    // #TODO reverb can also wind up with DC offset 
-    // in freeze mode when feedback is engaged.
     if (reverb_enabled)
     {
       float reverb_level = reverb_amount_.value * 0.95f;
