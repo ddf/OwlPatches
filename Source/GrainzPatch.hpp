@@ -423,13 +423,13 @@ public:
       const float reduction = peak <= 1.f ? 1.f : 1.f / peak;
       g *= reduction;
       
+      feed_left[i] = g.left();
+      feed_right[i] = g.right();
+      
       if (reverb_enabled)
       {
         grain_buffer_[i] = reverb_processor_->process(g);
       }
-      
-      feed_left[i] = g.left();
-      feed_right[i] = g.right();
     }
     
     float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(sample_rate); 
