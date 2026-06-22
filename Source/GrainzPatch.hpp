@@ -1,18 +1,15 @@
 #pragma once
 
+#include "PatchBase.h"
 #include "AudioBufferSourceSink.h"
-#include "Patch.h"
 #include "vessicle/Granulator.h"
 #include "Reverb.h"
 
-#define PROFILE
+//#define PROFILE
 
 #ifdef PROFILE
 #include <cstring>
 #endif
-
-// @todo on Witch: set parameters BA, BB, BC, BD when matching MIDI comes in.
-// these parameters are secretly the attenuation amount for A, B, C, and D CV inputs.
 
 // must be power of two
 static constexpr int RECORD_BUFFER_SIZE = 1 << 18; // approx 5.5 seconds at 48k
@@ -28,7 +25,7 @@ using Smoother = vessl::math::easing::smoother<float>;
 using ReverbProcessor = Reverb<float>;
 
 template <int MaxGrains>
-class GrainzBase : public Patch
+class GrainzBase : public PatchBase
 {
   using GranularProcessor = Granulator<float, 2, MaxGrains>;
   using GranularSampleType = typename GranularProcessor::SampleType;
@@ -217,6 +214,8 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+    PatchBase::processAudio(audio);
+    
 #ifdef PROFILE
     char debug_msg[64];
     char* debug_cpy = stpcpy(debug_msg, "blk ");

@@ -70,7 +70,7 @@ struct OutputParameterId
   operator PatchParameterId() const { return id; }
 };
 
-#if defined(OWL_LICH)
+#ifdef OWL_LICH
 constexpr OutputParameterId OutputParameterId::A {PARAMETER_F}, OutputParameterId::B = {PARAMETER_G};
 #else
 constexpr OutputParameterId OutputParameterId::A {PARAMETER_DA}, OutputParameterId::B = {PARAMETER_DB};
@@ -85,7 +85,7 @@ struct OutputGateId
   operator PatchButtonId() const { return id; }
 };
 
-#if defined(OWL_LICH)
+#ifdef OWL_LICH
 constexpr OutputGateId OutputGateId::A {PUSHBUTTON}, OutputGateId::B = {PUSHBUTTON};
 #else
 constexpr OutputGateId OutputGateId::A {BUTTON_1}, OutputGateId::B = {BUTTON_2};
