@@ -71,6 +71,26 @@ public:
         }
         break;
         
+        case PATCH_BUTTON_ON:
+        {
+          PatchButtonId bid = static_cast<PatchButtonId>(msg.getControllerValue());
+          if (bid > BUTTON_4)
+          {
+            buttonChanged(bid, ON, 0);
+          }
+        }
+        break;
+        
+        case PATCH_BUTTON_OFF:
+        {
+          PatchButtonId bid = static_cast<PatchButtonId>(msg.getControllerValue());
+          if (bid > BUTTON_4)
+          {
+            buttonChanged(bid, OFF, 0);
+          }
+        }
+        break;
+        
         default: break;
       }
     }

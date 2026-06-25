@@ -57,7 +57,8 @@ class GrainzBase : public PatchBase
     PatchButtonId    reverse  = BUTTON_2;
     PatchButtonId    freeze   = BUTTON_3;
     PatchButtonId    reverb   = BUTTON_4;
-    PatchButtonId    trigger  = BUTTON_8;
+    PatchButtonId    trigger  = BUTTON_5;
+    PatchButtonId    all_wet  = BUTTON_8;
 
     // midi controls
     PatchParameterId varidur  = PARAMETER_AA;
@@ -111,6 +112,7 @@ class GrainzBase : public PatchBase
   uint16_t  reverb_;
   uint8_t   clock_value_;
   uint8_t   freeze_toggled_;
+  uint8_t   all_wet_;
 
 public:
   GrainzBase()
@@ -138,6 +140,8 @@ public:
     , reverse_(OFF)
     , reverb_(OFF)
     , clock_value_(0)
+    , freeze_toggled_(0)
+    , all_wet_(0)
   {
     granular_processor_ = GranularProcessor::create(RECORD_BUFFER_SIZE, getBlockSize());
     grain_buffer_ = new GranularSampleType[getBlockSize()];
@@ -186,13 +190,12 @@ public:
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
-    // if (bid == pin_.trigger && value == ON)
-    // {
-    //   granular_processor_->trigger(samples);
-    //   played_gate_ = out_gate_sample_length_;
-    // }
-    // else 
-      if (bid == pin_.clock && value == ON)
+    if (bid == pin_.trigger && value == ON)
+    {
+      granular_processor_->trigger(samples);
+      played_gate_ = out_gate_sample_length_;
+    }
+    else if (bid == pin_.clock && value == ON)
     {
       clock_.tap(samples);
     }
@@ -209,6 +212,10 @@ public:
     else if (bid == pin_.reverb && value == ON)
     {
       reverb_ = reverb_ == ON ? OFF : ON;
+    }
+    else if (bid == pin_.all_wet && value == ON)
+    {
+      all_wet_ = !all_wet_;
     }
   }
 
@@ -258,15 +265,17 @@ public:
     if (freeze_ == ON)
     {
       overdub_ = getParameterValue(pin_.feedback);
+      dry_wet_ = 1.f;
     }
     else
     {
-      feedback_ = getParameterValue(pin_.feedback); 
+      feedback_ = getParameterValue(pin_.feedback);
+      dry_wet_ = all_wet_ ? 1.f 
+        : vessl::math::constrain(getParameterValue(pin_.dry_wet)*1.05f, 0.f, 1.f);
     }
     
     float reverb_boost = overdub_.value * (2.0f - overdub_.value) * (freeze_ == ON);
     reverb_amount_ = reverb_enabled ? getParameterValue(pin_.verb_amt) + reverb_boost : 0.f;
-    dry_wet_ = getParameterValue(pin_.dry_wet);
     
     float grain_playback_rate = grain_speed_.value;
     float grain_sample_length = (grain_duration_.value + duration_vari) * sample_rate;
@@ -411,6 +420,7 @@ public:
       reverb_processor_->low_pass() = 0.6f + 0.37f * overdub_.value;
     }
     
+    //grain_limiter_.pre_gain() = vessl::sample::gain::from_decibels(-2.f);
     for (int i = 0; i < block_size; ++i)
     {
       GranularSampleType& g = grain_buffer_[i];
@@ -420,8 +430,13 @@ public:
       // this should prevent left/right balance going out of whack?
       grain_limiter_.process(g.to_mono().value());
       const float peak = grain_limiter_.peak().read_analog();
-      const float reduction = peak <= 1.f ? 1.f : 1.f / peak;
-      g *= reduction;
+      //const float comp = peak <= 1.f ? 1.f : 1.f / peak;
+      // @todo track input signal peak to set max amplification allowed for wet signal.
+      // low numbers of grains tend to produce output that is noticeably quieter than the dry signal.
+      // so we allow for boosting the wet signal when it's lower than full peak.
+      // however, this should be relative to the tracked peak of the dry signal.
+      const float comp = vessl::math::min(1.f / peak, 2.f);
+      g *= comp;
       
       feed_left[i] = g.left();
       feed_right[i] = g.right();
@@ -438,12 +453,14 @@ public:
     lfo_.fhz() = clock_rate*0.25f;
 
     const float wet_amt = dry_wet_.value;
-    const float dry_amt = 1.0f - wet_amt;
+    using DryWetEasing = vessl::math::easing::quad::out;
     for (int i = 0; i < block_size; ++i)
     {
-      auto& gs = grain_buffer_[i];
-      in_out_left[i]  = in_out_left[i]*dry_amt  + gs.left()*wet_amt;
-      in_out_right[i] = in_out_right[i]*dry_amt + gs.right()*wet_amt;
+      GranularSampleType& gs = grain_buffer_[i];
+      GranularSampleType out = { in_out_left[i], in_out_right[i] };
+      vessl::sample::crossfade<DryWetEasing>(out, gs, wet_amt, &out);
+      in_out_left[i] = out.left();
+      in_out_right[i] = out.right();
       
       noise_bipolar_value_ = noise_bipolar_.generate<vessl::math::easing::smoothstep>()*2.f - 1.f;
       noise_unipolar_value_ = noise_unipolar_.generate<vessl::math::easing::smoothstep>();
