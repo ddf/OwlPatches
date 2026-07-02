@@ -66,7 +66,8 @@ constexpr FloatPatchParameterDescription mix = {"Mix", 0, 1, 0 };
 
 namespace glitch_outputs
 {
-constexpr PatchButtonId freeze_gate = OUT_GATE_1;
+constexpr PatchButtonId glitch_rand_gate = OUT_GATE_1;
+constexpr PatchButtonId glitching_gate   = OUT_GATE_2;
 constexpr OutputParameterDescription env = { "Env", OUT_PARAMETER_A };
 constexpr OutputParameterDescription rand = { "Rand", OUT_PARAMETER_B };
 }
@@ -76,6 +77,7 @@ constexpr uint32_t GlitchBufferSize = 1 << 17;
 
 class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-member-functions)
 {
+  using GlitchProcessor = Glitch<GlitchBufferSize>;
   FloatParameter pin_repeats_;
   FloatParameter pin_glitch_;
   FloatParameter pin_shape_;
@@ -84,14 +86,14 @@ class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-memb
   OutputParameter pout_env_;
   OutputParameter pout_rand_;
 
-  StereoDcBlockingFilter* dcFilter;
-  Glitch<GlitchBufferSize>* glitch;
-  vessl::array<GlitchSampleType> processBuffer;
+  StereoDcBlockingFilter* dc_filter_;
+  GlitchProcessor* glitch_processor_;
+  vessl::array<GlitchSampleType> process_buffer_;
 
 public:
   GlitchPatch()
     : Patch(), pout_env_(this, glitch_outputs::env), pout_rand_(this, glitch_outputs::rand)
-    , processBuffer(new GlitchSampleType[getBlockSize()], getBlockSize())
+    , process_buffer_(new GlitchSampleType[getBlockSize()], getBlockSize())
   {
     // order of registration determines parameter assignment, starting from PARAMETER_A
     pin_repeats_ = glitch_inputs::repeats.registerParameter(this);
@@ -100,45 +102,46 @@ public:
     pin_shape_ = glitch_inputs::shape.registerParameter(this);
     pin_mix_ = glitch_inputs::mix.registerParameter(this);
 
-    dcFilter = StereoDcBlockingFilter::create(0.995f);
-    glitch = new Glitch<GlitchBufferSize>(getSampleRate(), getBlockSize());
+    dc_filter_ = StereoDcBlockingFilter::create(0.995f);
+    glitch_processor_ = new GlitchProcessor(getSampleRate(), getBlockSize());
   }
 
   ~GlitchPatch() override
   {
-    StereoDcBlockingFilter::destroy(dcFilter);
-    delete[] processBuffer.data();
-    delete glitch;
+    StereoDcBlockingFilter::destroy(dc_filter_);
+    delete[] process_buffer_.data();
+    delete glitch_processor_;
   }
 
   void processAudio(AudioBuffer& audio) override
   {
-    glitch->repeats() = pin_repeats_.getValue();
-    glitch->crush() = pin_crush_.getValue();
-    glitch->glitch() = pin_glitch_.getValue();
-    glitch->shape() = pin_shape_.getValue();
+    glitch_processor_->repeats() = pin_repeats_.getValue();
+    glitch_processor_->crush() = pin_crush_.getValue();
+    glitch_processor_->glitch() = pin_glitch_.getValue();
+    glitch_processor_->shape() = pin_shape_.getValue();
 
-    dcFilter->process(audio, audio);
+    dc_filter_->process(audio, audio);
 
     AudioBufferReader<2> reader(audio);
-    auto pbw = processBuffer.make_writer();
+    auto pbw = process_buffer_.make_writer();
     while (reader)
     {
       pbw << reader.read();
     }
     
-    glitch->process(processBuffer, processBuffer);
+    glitch_processor_->process(process_buffer_, process_buffer_);
     
     AudioBufferWriter<2> writer(audio);
-    auto pbr = processBuffer.make_reader();
+    auto pbr = process_buffer_.make_reader();
     while (pbr)
     {
       writer.write(pbr.read());
     }
     
-    pout_env_.setValue(glitch->envelope());
-    pout_rand_.setValue(glitch->rand());
-    setButton(glitch_outputs::freeze_gate, glitch->freezePhase() < 0.5f);
+    pout_env_.setValue(glitch_processor_->envelope());
+    pout_rand_.setValue(glitch_processor_->glitch_rand());
+    setButton(glitch_outputs::glitching_gate, glitch_processor_->glitching() ? ON : OFF);
+    setButton(glitch_outputs::glitch_rand_gate, glitch_processor_->glitch_rand() > 0.5f ? ON : OFF);
   }
 
 
@@ -148,17 +151,17 @@ public:
     {
       if (value == ON)
       {
-        glitch->freeze() = true;
+        glitch_processor_->freeze() = true;
       }
       else
       {
-        glitch->freeze() = false;
+        glitch_processor_->freeze() = false;
       }
     }
 
     if (bid == glitch_inputs::clock && value == ON)
     {
-      glitch->clock(samples);
+      glitch_processor_->clock(samples);
     }
   }
 
