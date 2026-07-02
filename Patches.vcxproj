@@ -11,7 +11,7 @@
     <ClInclude Include="Source\EnvTestPatch.hpp" />
     <ClInclude Include="Source\FFTTestPatch.hpp" />
     <ClInclude Include="Source\GaussPatch.hpp" />
-    <ClInclude Include="Source\GlitchLich2Patch.hpp" />
+    <ClInclude Include="Source\GlitchPatch.hpp" />
     <ClInclude Include="Source\GlitchLichPatch.hpp" />
     <ClInclude Include="Source\GrainzPatch.hpp" />
     <ClInclude Include="Source\KnoscillatorParamIds.hpp" />

@@ -103,15 +103,18 @@ public:
 #define OUT_PARAMETER_B PARAMETER_CB
 #define OUT_GATE_1 BUTTON_1
 #define OUT_GATE_2 BUTTON_2
-#elif defined(OWL_LICH)
+#endif
+
+#ifdef OWL_LICH
 #define OUT_PARAMETER_A PARAMETER_F
 #define OUT_PARAMETER_B PARAMETER_G
 #define OUT_GATE_1 PUSHBUTTON
-// Lich doesn't have a second output gate, so cause an error
-#define OUT_GATE_2 ERROR 
-#else
-#define OUT_PARAMETER_A PARAMETER_CA
-#define OUT_PARAMETER_B PARAMETER_CB
-#define OUT_GATE_1 BUTTON_1
-#define OUT_GATE_2 BUTTON_2
+#define OUT_GATE_2 BUTTON_3
+#endif
+
+#ifdef OWL_WITCH
+#define OUT_PARAMETER_A PARAMETER_F
+#define OUT_PARAMETER_B PARAMETER_G
+#define OUT_GATE_1 BUTTON_5
+#define OUT_GATE_2 BUTTON_6
 #endif

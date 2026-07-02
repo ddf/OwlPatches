@@ -47,55 +47,64 @@ DESCRIPTION:
 */
 #pragma once
 
-#include <ios>
-
 #include "DcBlockingFilter.h"
 #include "Patch.h"
 #include "PatchParameterDescription.h"
 #include "AudioBufferSourceSink.h"
 #include "vessicle/Glitch.h"
 
-constexpr FloatPatchParameterDescription IN_REPEATS = { "Repeats", 0, 1, 0.5f, 0.0f, 0.01f };
-constexpr FloatPatchParameterDescription IN_SHAPE = { "Shape", 0, 1, 0.0f };
-constexpr FloatPatchParameterDescription IN_CRUSH = { "Crush", 0, 1, 0.0f };
-constexpr FloatPatchParameterDescription IN_GLITCH = { "Glitch", 0, 1, 0 };
-constexpr FloatPatchParameterDescription IN_MIX = {"Mix", 0, 1, 0 };
+namespace glitch_inputs
+{
+constexpr PatchButtonId clock = BUTTON_1;
+constexpr PatchButtonId freeze = BUTTON_2;
+constexpr FloatPatchParameterDescription repeats = { "Repeats", 0, 1, 0.5f, 0.0f, 0.01f };
+constexpr FloatPatchParameterDescription shape = { "Shape", 0, 1, 0.0f };
+constexpr FloatPatchParameterDescription crush = { "Crush", 0, 1, 0.0f };
+constexpr FloatPatchParameterDescription glitch = { "Glitch", 0, 1, 0 };
+constexpr FloatPatchParameterDescription mix = {"Mix", 0, 1, 0 };
+}
 
-constexpr OutputParameterDescription OUT_ENV = { "Env", PARAMETER_F };
-constexpr OutputParameterDescription OUT_RAND = { "Rand", PARAMETER_G };
+namespace glitch_outputs
+{
+constexpr PatchButtonId freeze_gate = OUT_GATE_1;
+constexpr OutputParameterDescription env = { "Env", OUT_PARAMETER_A };
+constexpr OutputParameterDescription rand = { "Rand", OUT_PARAMETER_B };
+}
+
+
 constexpr uint32_t GlitchBufferSize = 1 << 17;
 
-class GlitchLich2Patch final : public Patch  // NOLINT(cppcoreguidelines-special-member-functions)
+class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-member-functions)
 {
-  FloatParameter pinRepeats;
-  FloatParameter pinGlitch;
-  FloatParameter pinShape;
-  FloatParameter pinCrush;
-  FloatParameter pinMix;
-  OutputParameter poutEnv;
-  OutputParameter poutRand;
+  FloatParameter pin_repeats_;
+  FloatParameter pin_glitch_;
+  FloatParameter pin_shape_;
+  FloatParameter pin_crush_;
+  FloatParameter pin_mix_;
+  OutputParameter pout_env_;
+  OutputParameter pout_rand_;
 
   StereoDcBlockingFilter* dcFilter;
   Glitch<GlitchBufferSize>* glitch;
   vessl::array<GlitchSampleType> processBuffer;
 
 public:
-  GlitchLich2Patch()
-    : Patch(), poutEnv(this, OUT_ENV), poutRand(this, OUT_RAND)
+  GlitchPatch()
+    : Patch(), pout_env_(this, glitch_outputs::env), pout_rand_(this, glitch_outputs::rand)
     , processBuffer(new GlitchSampleType[getBlockSize()], getBlockSize())
   {
     // order of registration determines parameter assignment, starting from PARAMETER_A
-    pinRepeats = IN_REPEATS.registerParameter(this);
-    pinCrush = IN_CRUSH.registerParameter(this);
-    pinGlitch = IN_GLITCH.registerParameter(this);
-    pinShape = IN_SHAPE.registerParameter(this);
-    pinMix = IN_MIX.registerParameter(this);
+    pin_repeats_ = glitch_inputs::repeats.registerParameter(this);
+    pin_crush_ = glitch_inputs::crush.registerParameter(this);
+    pin_glitch_ = glitch_inputs::glitch.registerParameter(this);
+    pin_shape_ = glitch_inputs::shape.registerParameter(this);
+    pin_mix_ = glitch_inputs::mix.registerParameter(this);
 
     dcFilter = StereoDcBlockingFilter::create(0.995f);
     glitch = new Glitch<GlitchBufferSize>(getSampleRate(), getBlockSize());
   }
 
-  ~GlitchLich2Patch() override
+  ~GlitchPatch() override
   {
     StereoDcBlockingFilter::destroy(dcFilter);
     delete[] processBuffer.data();
@@ -104,10 +113,10 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    glitch->repeats() = pinRepeats.getValue();
-    glitch->crush() = pinCrush.getValue();
-    glitch->glitch() = pinGlitch.getValue();
-    glitch->shape() = pinShape.getValue();
+    glitch->repeats() = pin_repeats_.getValue();
+    glitch->crush() = pin_crush_.getValue();
+    glitch->glitch() = pin_glitch_.getValue();
+    glitch->shape() = pin_shape_.getValue();
 
     dcFilter->process(audio, audio);
 
@@ -119,7 +128,7 @@ public:
     }
     
     glitch->process(processBuffer, processBuffer);
-
+    
     AudioBufferWriter<2> writer(audio);
     auto pbr = processBuffer.make_reader();
     while (pbr)
@@ -127,15 +136,15 @@ public:
       writer.write(pbr.read());
     }
     
-    poutEnv.setValue(glitch->envelope());
-    poutRand.setValue(glitch->rand());
-    setButton(PUSHBUTTON, glitch->freezePhase() < 0.5f);
+    pout_env_.setValue(glitch->envelope());
+    pout_rand_.setValue(glitch->rand());
+    setButton(glitch_outputs::freeze_gate, glitch->freezePhase() < 0.5f);
   }
 
 
   void buttonChanged(const PatchButtonId bid, const uint16_t value, const uint16_t samples) override
   {
-    if (bid == BUTTON_1)
+    if (bid == glitch_inputs::freeze)
     {
       if (value == ON)
       {
@@ -147,7 +156,7 @@ public:
       }
     }
 
-    if (bid == BUTTON_2 && value == ON)
+    if (bid == glitch_inputs::clock && value == ON)
     {
       glitch->clock(samples);
     }
