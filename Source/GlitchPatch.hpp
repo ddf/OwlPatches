@@ -61,6 +61,7 @@ constexpr FloatPatchParameterDescription repeats = { "Repeats", 0, 1, 0.5f, 0.0f
 constexpr FloatPatchParameterDescription shape = { "Shape", 0, 1, 0.0f };
 constexpr FloatPatchParameterDescription crush = { "Crush", 0, 1, 0.0f };
 constexpr FloatPatchParameterDescription glitch = { "Glitch", 0, 1, 0 };
+constexpr FloatPatchParameterDescription play_rate = { "PlayRate", -1.f, 1.f, 0 };
 constexpr FloatPatchParameterDescription mix = {"Mix", 0, 1, 0 };
 }
 
@@ -82,6 +83,7 @@ class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-memb
   FloatParameter pin_glitch_;
   FloatParameter pin_shape_;
   FloatParameter pin_crush_;
+  FloatParameter pin_play_rate_;
   FloatParameter pin_mix_;
   OutputParameter pout_env_;
   OutputParameter pout_rand_;
@@ -97,6 +99,7 @@ public:
   {
     // order of registration determines parameter assignment, starting from PARAMETER_A
     pin_repeats_ = glitch_inputs::repeats.registerParameter(this);
+    pin_play_rate_ = glitch_inputs::play_rate.registerParameter(this);
     pin_crush_ = glitch_inputs::crush.registerParameter(this);
     pin_glitch_ = glitch_inputs::glitch.registerParameter(this);
     pin_shape_ = glitch_inputs::shape.registerParameter(this);
@@ -119,6 +122,22 @@ public:
     glitch_processor_->crush() = pin_crush_.getValue();
     glitch_processor_->glitch() = pin_glitch_.getValue();
     glitch_processor_->shape() = pin_shape_.getValue();
+    
+    float play_param = pin_play_rate_.getValue();
+    constexpr float play_dead = 0.1f;
+    constexpr float play_rate_max = 8.f;
+    float play_rate = 1.0f;
+    if (play_param < -play_dead)
+    {
+      float t = play_param*-1.1f - play_dead;
+      play_rate = -vessl::math::lerp(play_rate, play_rate_max, t);
+    }
+    else
+    {
+      float t = play_param*1.1f - play_dead;
+      play_rate = vessl::math::lerp(play_rate, play_rate_max, t);
+    }
+    glitch_processor_->play_rate() = play_rate;
 
     dc_filter_->process(audio, audio);
 
