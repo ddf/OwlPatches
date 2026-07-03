@@ -57,6 +57,7 @@ namespace glitch_inputs
 {
 constexpr PatchButtonId clock = BUTTON_1;
 constexpr PatchButtonId freeze = BUTTON_2;
+constexpr PatchButtonId glitch_enabled = BUTTON_4;
 constexpr FloatPatchParameterDescription repeats = { "Repeats", 0, 1, 0.5f, 0.0f, 0.01f };
 constexpr FloatPatchParameterDescription shape = { "Shape", 0, 1, 0.0f };
 constexpr FloatPatchParameterDescription crush = { "Crush", 0, 1, 0.0f };
@@ -90,6 +91,9 @@ class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-memb
 
   StereoDcBlockingFilter* dc_filter_;
   GlitchProcessor* glitch_processor_;
+  
+  bool glitch_enabled_ = true;
+  
   vessl::array<GlitchSampleType> process_buffer_;
 
 public:
@@ -121,6 +125,7 @@ public:
     glitch_processor_->repeats() = pin_repeats_.getValue();
     glitch_processor_->crush() = pin_crush_.getValue();
     glitch_processor_->glitch() = pin_glitch_.getValue();
+    glitch_processor_->glitch_enabled() = glitch_enabled_;
     glitch_processor_->shape() = pin_shape_.getValue();
     
     float play_param = pin_play_rate_.getValue();
@@ -159,8 +164,9 @@ public:
     
     pout_env_.setValue(glitch_processor_->envelope());
     pout_rand_.setValue(glitch_processor_->glitch_rand());
-    setButton(glitch_outputs::glitching_gate, glitch_processor_->glitching() ? ON : OFF);
+    setButton(glitch_outputs::glitching_gate, glitch_processor_->is_glitching() ? ON : OFF);
     setButton(glitch_outputs::glitch_rand_gate, glitch_processor_->glitch_rand() > 0.5f ? ON : OFF);
+    setButton(glitch_inputs::glitch_enabled, glitch_enabled_ ? ON : OFF);
   }
 
 
@@ -181,6 +187,11 @@ public:
     if (bid == glitch_inputs::clock && value == ON)
     {
       glitch_processor_->clock(samples);
+    }
+    
+    if (bid == glitch_inputs::glitch_enabled && value == ON)
+    {
+      glitch_enabled_ = !glitch_enabled_;
     }
   }
 
