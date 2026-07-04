@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|LICH">
+      <Configuration>Release</Configuration>
+      <Platform>LICH</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|WITCH">
       <Configuration>Release</Configuration>
       <Platform>WITCH</Platform>
@@ -84,7 +88,7 @@
   <PropertyGroup>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|WITCH'" Label="Configuration">
+  <PropertyGroup Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>/std:c++latest</PlatformToolset>
@@ -95,18 +99,18 @@
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|WITCH'" Label="PropertySheets">
+  <ImportGroup Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|WITCH'">
+  <PropertyGroup>
     <LinkIncremental>false</LinkIncremental>
     <OutDir />
     <IntDir />
     <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\Libraries\CMSIS\DSP\Include;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1;$(ARM_NONE_EABI_IncludePath)\c++\9.2.1</IncludePath>
     <ExternalIncludePath />
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|WITCH'">
+  <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
@@ -114,7 +118,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>OWL_WITCH;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_LIB;ARM_CORTEX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard_C>stdc11</LanguageStandard_C>
@@ -127,6 +131,16 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|WITCH'">
+    <ClCompile>
+        <PreprocessorDefinitions>OWL_WITCH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|LICH'">
+        <ClCompile>
+            <PreprocessorDefinitions>OWL_LICH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+        </ClCompile>
+    </ItemDefinitionGroup>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
 </Project>

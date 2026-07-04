@@ -92,14 +92,15 @@ class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-memb
   StereoDcBlockingFilter* dc_filter_;
   GlitchProcessor* glitch_processor_;
   
-  bool glitch_enabled_ = true;
+  bool glitch_enabled_;
   
   vessl::array<GlitchSampleType> process_buffer_;
 
 public:
-  GlitchPatch()
-    : Patch(), pout_env_(this, glitch_outputs::env), pout_rand_(this, glitch_outputs::rand)
-    , process_buffer_(new GlitchSampleType[getBlockSize()], getBlockSize())
+  GlitchPatch() : Patch()
+  , pout_env_(this, glitch_outputs::env)
+  , pout_rand_(this, glitch_outputs::rand)
+  , process_buffer_(new GlitchSampleType[getBlockSize()], getBlockSize())
   {
     // order of registration determines parameter assignment, starting from PARAMETER_A
     pin_repeats_ = glitch_inputs::repeats.registerParameter(this);
@@ -111,6 +112,11 @@ public:
 
     dc_filter_ = StereoDcBlockingFilter::create(0.995f);
     glitch_processor_ = new GlitchProcessor(getSampleRate(), getBlockSize());
+#ifdef OWL_WITCH
+    glitch_enabled_ = true;
+#else
+    glitch_enabled_ = false;
+#endif
   }
 
   ~GlitchPatch() override
@@ -125,7 +131,11 @@ public:
     glitch_processor_->repeats() = pin_repeats_.getValue();
     glitch_processor_->crush() = pin_crush_.getValue();
     glitch_processor_->glitch() = pin_glitch_.getValue();
+#ifdef OWL_WITCH
     glitch_processor_->glitch_enabled() = glitch_enabled_;
+#else
+    glitch_processor_->glitch_enabled() = pin_glitch_.getValue() > 0.001f;
+#endif
     glitch_processor_->shape() = pin_shape_.getValue();
     
     float play_param = pin_play_rate_.getValue();
