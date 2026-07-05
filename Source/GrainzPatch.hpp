@@ -17,7 +17,7 @@ static constexpr int RECORD_BUFFER_SIZE = 1 << 18; // approx 5.5 seconds at 48k
 using Array = vessl::array<float>;
 using HighPassFilter = vessl::processors::filter<float, vessl::filtering::biquad<1>::high_pass>;
 using DcBlockingFilter = vessl::processors::filter<float, vessl::filtering::dc_block>;
-using Limiter = vessl::processors::limiter<float>;
+using PeakMeter = vessl::processors::peak_meter<float>;
 using Clock = vessl::generators::clock<uint8_t>;
 using Noise = vessl::generators::noise<float, vessl::noise::white>;
 using Lfo   = vessl::generators::oscil<vessl::sample::waves::unipolar::triangle<float>>;
@@ -39,7 +39,8 @@ class GrainzBase : public PatchBase
   DcBlockingFilter    dc_filter_right_;
   HighPassFilter      feedback_filter_left_;
   HighPassFilter      feedback_filter_right_;
-  Limiter             grain_limiter_;
+  PeakMeter           input_meter_;
+  PeakMeter           grain_meter_;
   Clock               clock_;
   Noise               noise_unipolar_;
   Noise               noise_bipolar_;
@@ -423,20 +424,25 @@ public:
     //grain_limiter_.pre_gain() = vessl::sample::gain::from_decibels(-2.f);
     for (int i = 0; i < block_size; ++i)
     {
+      const float input_peak = input_meter_.process((in_out_left[i] + in_out_right[i]) * 0.5f);
+      
       GranularSampleType& g = grain_buffer_[i];
       
       // run the limiter on the mono signal.
       // and then scale the stereo signal based on how much amplitude reduction was applied.
       // this should prevent left/right balance going out of whack?
-      grain_limiter_.process(g.to_mono().value());
-      const float peak = grain_limiter_.peak().read_analog();
-      //const float comp = peak <= 1.f ? 1.f : 1.f / peak;
-      // @todo track input signal peak to set max amplification allowed for wet signal.
-      // low numbers of grains tend to produce output that is noticeably quieter than the dry signal.
-      // so we allow for boosting the wet signal when it's lower than full peak.
-      // however, this should be relative to the tracked peak of the dry signal.
-      const float comp = vessl::math::min(1.f / peak, 2.f);
-      g *= comp;
+      const float grain_peak = grain_meter_.process(g.to_mono().value());
+      if (grain_peak > 0.0001f)
+      {
+        //const float comp = peak <= 1.f ? 1.f : 1.f / peak;
+        // @todo track input signal peak to set max amplification allowed for wet signal.
+        // low numbers of grains tend to produce output that is noticeably quieter than the dry signal.
+        // so we allow for boosting the wet signal when it's lower than full peak.
+        // however, this should be relative to the tracked peak of the dry signal.
+        const float max_amp = (input_peak*2.f) / grain_peak;
+        const float comp = vessl::math::min(1.f / grain_peak, max_amp);
+        g *= comp;
+      }
       
       feed_left[i] = g.left();
       feed_right[i] = g.right();
