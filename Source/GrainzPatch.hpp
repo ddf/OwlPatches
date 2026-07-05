@@ -5,7 +5,7 @@
 #include "vessicle/Granulator.h"
 #include "Reverb.h"
 
-//#define PROFILE
+// #define PROFILE
 
 #ifdef PROFILE
 #include <cstring>
@@ -222,13 +222,13 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    PatchBase::processAudio(audio);
-    
 #ifdef PROFILE
     char debug_msg[64];
     char* debug_cpy = stpcpy(debug_msg, "blk ");
     debug_cpy = stpcpy(debug_cpy, msg_itoa(audio.getSize(), 10));
     const float process_start = getElapsedBlockTime();
+#else
+    PatchBase::processAudio(audio);
 #endif
     const int block_size = audio.getSize();
     Array in_out_left(audio.getSamples(0), block_size);
@@ -237,7 +237,7 @@ public:
     Array feed_right(feedback_buffer_->getSamples(1).getData(), block_size);
     
     const float sample_rate = getSampleRate();
-    const unsigned max_grains = reverb_ ? MaxGrains / 2 : MaxGrains;
+    const unsigned max_grains = reverb_ ? MaxGrains / 2 - 1 : MaxGrains;
     const bool reverb_enabled = reverb_ && granular_processor_->active_grain_count() <= max_grains;
 
     // like Clouds, Density describes how many grains we want playing simultaneously at any given time
@@ -316,6 +316,7 @@ public:
       random_gate_ -= block_size;
     }
     
+    // block processing the filters is slightly faster than looping
     dc_filter_left_.process(in_out_left, in_out_left);
     dc_filter_right_.process(in_out_right, in_out_right);
     
@@ -411,6 +412,14 @@ public:
     debug_cpy = stpcpy(debug_cpy, msg_itoa(static_cast<int>(gen_time * 1000), 10));
 #endif
     
+    float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(sample_rate); 
+    noise_unipolar_.rate() = clock_rate*0.25f;
+    noise_bipolar_.rate() = clock_rate*0.25f;
+    lfo_.fhz() = clock_rate*0.25f;
+
+    const float wet_amt = dry_wet_.value;
+    using DryWetEasing = vessl::math::easing::quad::out;
+    
     if (reverb_enabled)
     {
       float reverb_level = reverb_amount_.value * 0.95f;
@@ -424,13 +433,10 @@ public:
     //grain_limiter_.pre_gain() = vessl::sample::gain::from_decibels(-2.f);
     for (int i = 0; i < block_size; ++i)
     {
-      const float input_peak = input_meter_.process((in_out_left[i] + in_out_right[i]) * 0.5f);
-      
+      GranularSampleType in = { in_out_left[i], in_out_right[i] };
       GranularSampleType& g = grain_buffer_[i];
       
-      // run the limiter on the mono signal.
-      // and then scale the stereo signal based on how much amplitude reduction was applied.
-      // this should prevent left/right balance going out of whack?
+      const float input_peak = input_meter_.process(in.to_mono().value());
       const float grain_peak = grain_meter_.process(g.to_mono().value());
       if (grain_peak > 0.0001f)
       {
@@ -451,20 +457,9 @@ public:
       {
         grain_buffer_[i] = reverb_processor_->process(g);
       }
-    }
-    
-    float clock_rate = clock_.tempo().read<vessl::time::duration>().to_frequency(sample_rate); 
-    noise_unipolar_.rate() = clock_rate*0.25f;
-    noise_bipolar_.rate() = clock_rate*0.25f;
-    lfo_.fhz() = clock_rate*0.25f;
-
-    const float wet_amt = dry_wet_.value;
-    using DryWetEasing = vessl::math::easing::quad::out;
-    for (int i = 0; i < block_size; ++i)
-    {
-      GranularSampleType& gs = grain_buffer_[i];
-      GranularSampleType out = { in_out_left[i], in_out_right[i] };
-      vessl::sample::crossfade<DryWetEasing>(out, gs, wet_amt, &out);
+      
+      GranularSampleType out;
+      vessl::sample::crossfade<DryWetEasing>(in, g, wet_amt, &out);
       in_out_left[i] = out.left();
       in_out_right[i] = out.right();
       
@@ -501,7 +496,7 @@ public:
 };
 
 #ifdef OWL_WITCH
-using GrainzPatch = GrainzBase<16>;
+using GrainzPatch = GrainzBase<14>;
 #else
 using GrainzPatch = GrainzBase<56>;
 #endif
