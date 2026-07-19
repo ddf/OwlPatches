@@ -1,144 +1,144 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Release|LICH">
-      <Configuration>Release</Configuration>
-      <Platform>LICH</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|WITCH">
-      <Configuration>Release</Configuration>
-      <Platform>WITCH</Platform>
-    </ProjectConfiguration>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Source\AllpassNetwork.h" />
-    <ClInclude Include="Source\AudioBufferSourceSink.h" />
-    <ClInclude Include="Source\Delay.h" />
-    <ClInclude Include="Source\Diffuser.h" />
-    <ClInclude Include="Source\EnvelopeFollower.h" />
-    <ClInclude Include="Source\EqualLoudnessCurves.h" />
-    <ClInclude Include="Source\FastCrossFadingCircularBuffer.h" />
-    <ClInclude Include="Source\Frequency.h" />
-    <ClInclude Include="Source\Grain.hpp" />
-    <ClInclude Include="Source\KissFFT.h" />
-    <ClInclude Include="Source\PatchBase.h" />
-    <ClInclude Include="Source\PatchParameterDescription.h" />
-    <ClInclude Include="Source\PatchParameterIds.h" />
-    <ClInclude Include="Source\PerlinNoiseField.hpp" />
-    <ClInclude Include="Source\Reverb.h" />
-    <ClInclude Include="Source\SkewedValue.h" />
-    <ClInclude Include="Source\SpectralSignalGenerator.h" />
-    <ClInclude Include="Source\TapTempo.hpp" />
-    <ClInclude Include="Source\vessicle\BlurKernel.h" />
-    <ClInclude Include="Source\vessicle\BlurProcessor1D.h" />
-    <ClInclude Include="Source\vessicle\BlurProcessor2D.h" />
-    <ClInclude Include="Source\vessicle\CircularTexture.h" />
-    <ClInclude Include="Source\vessicle\DelayMatrix.h" />
-    <ClInclude Include="Source\vessicle\DelayWithFreeze.h" />
-    <ClInclude Include="Source\vessicle\Gauss.h" />
-    <ClInclude Include="Source\vessicle\Glitch.h" />
-    <ClInclude Include="Source\vessicle\Granulator.h" />
-    <ClInclude Include="Source\vessicle\HashMap.h" />
-    <ClInclude Include="Source\vessicle\Knoscillator.h" />
-    <ClInclude Include="Source\vessicle\KnotOscillator.h" />
-    <ClInclude Include="Source\vessicle\Markov.h" />
-    <ClInclude Include="Source\vessicle\MarkovChain.hpp" />
-    <ClInclude Include="Source\vessicle\MarkovGenerator.h" />
-    <ClInclude Include="Source\vessicle\Noise.hpp" />
-    <ClInclude Include="Source\vessicle\Projector.h" />
-    <ClInclude Include="Source\vessicle\Rotator3D.h" />
-    <ClInclude Include="Source\vessicle\vessl\vessl.h" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_arm_math.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_core.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_filtering.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_generators.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_noise.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_parameter.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_processors.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_sample.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_math.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_qmath.h" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_qmath.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_qmath_lut.h" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_time.inl" />
-    <ClInclude Include="Source\vessicle\vessl\vessl_units.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Source\KissFFT.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="Source\vessicle\.clang-format" />
-    <Content Include="Source\vessicle\.git" />
-    <Content Include="Source\vessicle\.gitignore" />
-    <Content Include="Source\vessicle\.gitmodules" />
-    <Content Include="Source\vessicle\LICENSE" />
-    <Content Include="Source\vessicle\vessl\.clang-format" />
-    <Content Include="Source\vessicle\vessl\.git" />
-    <Content Include="Source\vessicle\vessl\.gitignore" />
-    <Content Include="Source\vessicle\vessl\LICENSE" />
-    <Content Include="Source\vessicle\vessl\README.md" />
-  </ItemGroup>
-  <PropertyGroup Label="Globals">
-    <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}</ProjectGuid>
-    <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Common</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-  </PropertyGroup>
-  <PropertyGroup>
-    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
-  </PropertyGroup>
-  <PropertyGroup Label="Configuration">
-    <ConfigurationType>Makefile</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>/std:c++17</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
-  <ImportGroup Label="Shared">
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" /> 
-  </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
-  <PropertyGroup>
-    <LinkIncremental>false</LinkIncremental>
-    <OutDir />
-    <IntDir />
-    <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\Libraries\CMSIS\DSP\Include;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);$(ARM_NONE_EABI_IncludePath)\c++\10.3.1;$(ARM_NONE_EABI_IncludePath)\c++\9.2.1</IncludePath>
-    <ExternalIncludePath />
-  </PropertyGroup>
-  <ItemDefinitionGroup>
-    <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_LIB;ARM_CORTEX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Windows</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|WITCH'">
-    <ClCompile>
-        <PreprocessorDefinitions>OWL_WITCH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
+    <ItemGroup Label="ProjectConfigurations">
+        <ProjectConfiguration Include="Release|LICH">
+            <Configuration>Release</Configuration>
+            <Platform>LICH</Platform>
+        </ProjectConfiguration>
+        <ProjectConfiguration Include="Release|WITCH">
+            <Configuration>Release</Configuration>
+            <Platform>WITCH</Platform>
+        </ProjectConfiguration>
+    </ItemGroup>
+    <ItemGroup>
+        <ClInclude Include="Source\AllpassNetwork.h"/>
+        <ClInclude Include="Source\AudioBufferSourceSink.h"/>
+        <ClInclude Include="Source\Delay.h"/>
+        <ClInclude Include="Source\Diffuser.h"/>
+        <ClInclude Include="Source\EnvelopeFollower.h"/>
+        <ClInclude Include="Source\EqualLoudnessCurves.h"/>
+        <ClInclude Include="Source\FastCrossFadingCircularBuffer.h"/>
+        <ClInclude Include="Source\Frequency.h"/>
+        <ClInclude Include="Source\Grain.hpp"/>
+        <ClInclude Include="Source\KissFFT.h"/>
+        <ClInclude Include="Source\PatchBase.h"/>
+        <ClInclude Include="Source\PatchParameterDescription.h"/>
+        <ClInclude Include="Source\PatchParameterIds.h"/>
+        <ClInclude Include="Source\PerlinNoiseField.hpp"/>
+        <ClInclude Include="Source\Reverb.h"/>
+        <ClInclude Include="Source\SkewedValue.h"/>
+        <ClInclude Include="Source\SpectralSignalGenerator.h"/>
+        <ClInclude Include="Source\TapTempo.hpp"/>
+        <ClInclude Include="Source\vessicle\BlurKernel.h"/>
+        <ClInclude Include="Source\vessicle\BlurProcessor1D.h"/>
+        <ClInclude Include="Source\vessicle\BlurProcessor2D.h"/>
+        <ClInclude Include="Source\vessicle\CircularTexture.h"/>
+        <ClInclude Include="Source\vessicle\DelayMatrix.h"/>
+        <ClInclude Include="Source\vessicle\DelayWithFreeze.h"/>
+        <ClInclude Include="Source\vessicle\Gauss.h"/>
+        <ClInclude Include="Source\vessicle\Glitch.h"/>
+        <ClInclude Include="Source\vessicle\Granulator.h"/>
+        <ClInclude Include="Source\vessicle\HashMap.h"/>
+        <ClInclude Include="Source\vessicle\Knoscillator.h"/>
+        <ClInclude Include="Source\vessicle\KnotOscillator.h"/>
+        <ClInclude Include="Source\vessicle\Markov.h"/>
+        <ClInclude Include="Source\vessicle\MarkovChain.hpp"/>
+        <ClInclude Include="Source\vessicle\MarkovGenerator.h"/>
+        <ClInclude Include="Source\vessicle\Noise.hpp"/>
+        <ClInclude Include="Source\vessicle\Projector.h"/>
+        <ClInclude Include="Source\vessicle\Rotator3D.h"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl.h"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_arm_math.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_core.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_filtering.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_generators.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_noise.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_parameter.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_processors.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_sample.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_math.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_qmath.h"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_qmath.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_qmath_lut.h"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_time.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_units.h"/>
+    </ItemGroup>
+    <ItemGroup>
+        <ClCompile Include="Source\KissFFT.cpp"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Content Include="Source\vessicle\.clang-format"/>
+        <Content Include="Source\vessicle\.git"/>
+        <Content Include="Source\vessicle\.gitignore"/>
+        <Content Include="Source\vessicle\.gitmodules"/>
+        <Content Include="Source\vessicle\LICENSE"/>
+        <Content Include="Source\vessicle\vessl\.clang-format"/>
+        <Content Include="Source\vessicle\vessl\.git"/>
+        <Content Include="Source\vessicle\vessl\.gitignore"/>
+        <Content Include="Source\vessicle\vessl\LICENSE"/>
+        <Content Include="Source\vessicle\vessl\README.md"/>
+    </ItemGroup>
+    <PropertyGroup Label="Globals">
+        <VCProjectVersion>15.0</VCProjectVersion>
+        <ProjectGuid>{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}</ProjectGuid>
+        <Keyword>Win32Proj</Keyword>
+        <RootNamespace>Common</RootNamespace>
+        <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    </PropertyGroup>
+    <PropertyGroup>
+        <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+    </PropertyGroup>
+    <PropertyGroup Label="Configuration">
+        <ConfigurationType>Makefile</ConfigurationType>
+        <UseDebugLibraries>false</UseDebugLibraries>
+        <PlatformToolset>/std:c++17</PlatformToolset>
+        <WholeProgramOptimization>true</WholeProgramOptimization>
+        <CharacterSet>Unicode</CharacterSet>
+    </PropertyGroup>
+    <ImportGroup Label="ExtensionSettings">
+    </ImportGroup>
+    <ImportGroup Label="Shared">
+    </ImportGroup>
+    <ImportGroup Label="PropertySheets">
+        <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform"/>
+        <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets"/>
+    </ImportGroup>
+    <PropertyGroup Label="UserMacros"/>
+    <PropertyGroup>
+        <LinkIncremental>false</LinkIncremental>
+        <OutDir/>
+        <IntDir/>
+        <IncludePath>$(OWL_SDK_PATH)\Libraries;$(OWL_SDK_PATH)\Libraries\CMSIS\DSP\Include;$(OWL_SDK_PATH)\LibSource;$(ARM_NONE_EABI_IncludePath);</IncludePath>
+        <ExternalIncludePath/>
+    </PropertyGroup>
+    <ItemDefinitionGroup>
+        <ClCompile>
+            <PrecompiledHeader>NotUsing</PrecompiledHeader>
+            <WarningLevel>Level3</WarningLevel>
+            <Optimization>MaxSpeed</Optimization>
+            <FunctionLevelLinking>true</FunctionLevelLinking>
+            <IntrinsicFunctions>true</IntrinsicFunctions>
+            <SDLCheck>true</SDLCheck>
+            <PreprocessorDefinitions>NDEBUG;_LIB;ARM_CORTEX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+            <ConformanceMode>true</ConformanceMode>
+        </ClCompile>
+        <Link>
+            <SubSystem>Windows</SubSystem>
+            <EnableCOMDATFolding>true</EnableCOMDATFolding>
+            <OptimizeReferences>true</OptimizeReferences>
+            <GenerateDebugInformation>true</GenerateDebugInformation>
+        </Link>
+    </ItemDefinitionGroup>
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|WITCH'">
+        <ClCompile>
+            <PreprocessorDefinitions>OWL_WITCH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+        </ClCompile>
+    </ItemDefinitionGroup>
     <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|LICH'">
         <ClCompile>
             <PreprocessorDefinitions>OWL_LICH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
         </ClCompile>
     </ItemDefinitionGroup>
-  <ImportGroup Label="ExtensionTargets">
-  </ImportGroup>
+    <ImportGroup Label="ExtensionTargets">
+    </ImportGroup>
 </Project>
