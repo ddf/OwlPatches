@@ -40,6 +40,7 @@ DESCRIPTION:
 
 #define USE_MIDI_CALLBACK
 
+#include "AudioBufferSourceSink.h"
 #include "Patch.h"
 #include "MidiMessage.h"
 #include "SpectralSignalGenerator.h"
@@ -75,6 +76,7 @@ class SpectralHarpPatch : public PatchClass
 {
   using SpectralGen = SpectralSignalGenerator<false>;
   using BitCrush = vessl::processors::bitcrush<float, 24>;
+  using ReverbProc = Reverb<float>;
 
 protected:
   SpectralHarpParameterIds params;
@@ -95,7 +97,7 @@ protected:
 
   SpectralGen* spectralGen;
   Diffuser* diffuser;
-  Reverb*   reverb;
+  ReverbProc*   reverb;
 
   BitCrush bitCrusher;
   
@@ -137,7 +139,7 @@ public:
     if (reverb_enabled)
     {
       diffuser = Diffuser::create();
-      reverb = Reverb::create(getSampleRate());
+      reverb = ReverbProc::create(getSampleRate());
     }
 
     midiNotes = new MidiMessage[128];
@@ -185,7 +187,7 @@ public:
     if (reverb_enabled)
     {
       Diffuser::destroy(diffuser);
-      Reverb::destroy(reverb);
+      ReverbProc::destroy(reverb);
     }
     delete[] midiNotes;
   }
@@ -282,7 +284,7 @@ public:
       if (gateState)
       {
         float location = left[i] * 0.5f + 0.5f;
-        float amplitude = clamp(right[i], 0.0f, 1.0f);
+        float amplitude = 0.75f; // clamp(right[i], 0.0f, 1.0f);
         pluck(spectralGen, location, amplitude);
         strumX = vessl::math::max(strumX, location);
         strumY = vessl::math::max(strumY, amplitude);
@@ -320,12 +322,15 @@ public:
       float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
       float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
 
-      reverb->set_diffusion(0.7f);
-      reverb->set_input_gain(reverbInputGain);
-      reverb->set_reverb_time(reverbTime);
-      reverb->set_low_pass(reverbTone);
-      reverb->set_amount(reverbBlend);
-      reverb->process(audio, audio);
+      reverb->diffusion() = 0.7f;
+      reverb->input_gain() = reverbInputGain;
+      reverb->reverb_time() = reverbTime.getValue();
+      reverb->low_pass() = reverbTone.getValue();
+      reverb->wet_mix() = reverbBlend.getValue();
+      
+      AudioBufferReader<2> audioReader(audio);
+      AudioBufferWriter<2> audioWriter(audio);
+      audioReader >> *reverb >> audioWriter;
     }
 
     setParameterValue(params.outStrumX, strumX);

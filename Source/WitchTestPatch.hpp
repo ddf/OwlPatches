@@ -7,7 +7,8 @@
 struct WitchTestPatch : Patch
 {
   using Waveform = vessl::sample::waves::bipolar::sine<float>;
-  using Oscil = vessl::generators::oscil<Waveform>;
+  using Tri = vessl::sample::windows::triangle<float>;
+  using Oscil = vessl::generators::oscil<Tri>;
   using Clock = vessl::generators::clock<float>;
 
   Oscil oscillator;

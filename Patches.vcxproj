@@ -34,6 +34,9 @@
     <ClInclude Include="Source\VesslTestPatch.hpp" />
     <ClInclude Include="Source\WitchTestPatch.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Source\VesslSpectralTestPatch.hpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{08837541-02AA-4E93-802F-AF0B78306529}</ProjectGuid>

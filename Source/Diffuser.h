@@ -8,11 +8,13 @@
 class Diffuser : public MultiSignalProcessor
 {
   static const int kBufferSize = 2048;
+  using Apn = AllpassNetwork<float,4>;
+  using Array = vessl::array<float>;
 
-  AllpassNetwork* apl;
-  AllpassNetwork* apr;
+  Apn* apl;
+  Apn* apr;
 
-  Diffuser(AllpassNetwork* apl, AllpassNetwork* apr)
+  Diffuser(Apn* apl, Apn* apr)
     : apl(apl), apr(apr)
   {
   }
@@ -20,35 +22,35 @@ class Diffuser : public MultiSignalProcessor
 public:
   void setAmount(float amt)
   {
-    apl->setAmount(amt);
-    apr->setAmount(amt);
+    apl->amount() = amt;
+    apr->amount() = amt;
   }
 
   void process(AudioBuffer& input, AudioBuffer& output) override
   {
     int size = input.getSize();
-    FloatArray inL = input.getSamples(0);
-    FloatArray inR = input.getSamples(1);
-    FloatArray outL = output.getSamples(0);
-    FloatArray outR = output.getSamples(1);
+    Array inL(input.getSamples(0), size);
+    Array inR(input.getSamples(1), size);
+    Array outL(output.getSamples(0), size);
+    Array outR(output.getSamples(1), size);
 
-    apl->process(inL, outL);
-    apr->process(inR, outR);
+    inL >> *apl >> outL;
+    inR >> *apr >> outR;
   }
 
   static Diffuser* create()
   {
-    static size_t leftLen[4]{ 126, 180, 269, 444 };
-    static size_t rightLen[4]{ 151, 205, 245, 405 };
-    AllpassNetwork* apl = AllpassNetwork::create(leftLen, 4, 0.625f);
-    AllpassNetwork* apr = AllpassNetwork::create(rightLen, 4, 0.625f);
+    static vessl::size_t left_len[4]{ 126, 180, 269, 444 };
+    static vessl::size_t right_len[4]{ 151, 205, 245, 405 };
+    Apn* apl = Apn::create(left_len, 0.625f);
+    Apn* apr = Apn::create(right_len, 0.625f);
     return new Diffuser(apl, apr);
   }
 
-  static void destroy(Diffuser* diffuser)
+  static void destroy(const Diffuser* diffuser)
   {
-    AllpassNetwork::destroy(diffuser->apl);
-    AllpassNetwork::destroy(diffuser->apr);
+    Apn::destroy(diffuser->apl);
+    Apn::destroy(diffuser->apr);
     delete diffuser;
   }
 };

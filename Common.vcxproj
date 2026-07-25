@@ -47,6 +47,7 @@
         <ClInclude Include="Source\vessicle\Noise.hpp"/>
         <ClInclude Include="Source\vessicle\Projector.h"/>
         <ClInclude Include="Source\vessicle\Rotator3D.h"/>
+        <ClInclude Include="Source\vessicle\SpectralGenerator.h" />
         <ClInclude Include="Source\vessicle\vessl\vessl.h"/>
         <ClInclude Include="Source\vessicle\vessl\vessl_arm_math.inl"/>
         <ClInclude Include="Source\vessicle\vessl\vessl_core.inl"/>
@@ -61,6 +62,7 @@
         <ClInclude Include="Source\vessicle\vessl\vessl_qmath.inl"/>
         <ClInclude Include="Source\vessicle\vessl\vessl_qmath_lut.h"/>
         <ClInclude Include="Source\vessicle\vessl\vessl_time.inl"/>
+        <ClInclude Include="Source\vessicle\vessl\vessl_transform.inl" />
         <ClInclude Include="Source\vessicle\vessl\vessl_units.h"/>
     </ItemGroup>
     <ItemGroup>

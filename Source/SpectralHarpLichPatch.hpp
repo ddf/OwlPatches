@@ -1,3 +1,5 @@
+#pragma once
+
 #include "SpectralHarpPatch.hpp"
 
 typedef SpectralHarpPatch<2048, false, Patch> BasePatch;
