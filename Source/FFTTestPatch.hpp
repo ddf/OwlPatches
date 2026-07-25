@@ -1,11 +1,13 @@
 #pragma once
 
 #include "Patch.h"
+#include "VesslSpectralTestPatch.hpp"
 #include "vessicle/vessl/vessl.h"
 
 #define SPECTRUM_SIZE 2048
 
 using FastFourierTransform = vessl::transform::fft<float>;
+using FrequencyBand = SpectralGenerator<float, SPECTRUM_SIZE>::frequency_band;
 using Complex = vessl::transform::complex<float>;
 using ComplexArray = vessl::array<Complex>;
 using SampleArray = vessl::array<float>;
@@ -13,6 +15,7 @@ using SampleArray = vessl::array<float>;
 class FFTTestPatch : public Patch
 {
   FastFourierTransform fft;
+  vessl::array<FrequencyBand> bands;
   ComplexArray complex;
   SampleArray output_a;
   SampleArray output_b;
@@ -23,6 +26,7 @@ class FFTTestPatch : public Patch
 public:
   FFTTestPatch() : Patch()
   , fft(SPECTRUM_SIZE)
+  , bands(new FrequencyBand[SPECTRUM_SIZE/2], SPECTRUM_SIZE/2)
   , complex(new Complex[SPECTRUM_SIZE/2], SPECTRUM_SIZE/2)
   , output_a(new float[SPECTRUM_SIZE], SPECTRUM_SIZE)
   , output_b(new float[SPECTRUM_SIZE], SPECTRUM_SIZE)
@@ -31,13 +35,18 @@ public:
   , output_b_idx(SPECTRUM_SIZE/2)
   {
     vessl::sample::windows::render(vessl::sample::windows::type::triangle, window);
-    complex[128].set_polar(8.f, 0);
-    complex[0] = Complex(0,0);
+    for (int i = 1; i < bands.size(); ++i)
+    {
+      bands[i].magnitude = 0;
+      bands[i].phase = vessl::math::random::u32();
+    }
+    bands[62].magnitude = 8.f;
     registerParameter(PARAMETER_F, "CPU>>");
   }
 
-  ~FFTTestPatch()
+  ~FFTTestPatch() override
   {
+    delete[] bands.data();
     delete[] complex.data();
     delete[] output_a.data();
     delete[] output_b.data();
@@ -71,11 +80,27 @@ public:
       }
       if (output_a_idx == SPECTRUM_SIZE)
       {
+        complex[0].set_complex(0,0);
+        for (int c = 1; c < complex.size(); ++c)
+        {
+          FrequencyBand& band = bands[c-1];
+          float m = band.magnitude;
+          vessl::phase_t z = m>0 ? band.phase : vessl::phase_zero;
+          complex[c].set_polar(m, z);
+        }
         fft.inverse(complex, output_a);
         output_a_idx = 0;
       }
       if (output_b_idx == SPECTRUM_SIZE)
       {
+        complex[0].set_complex(0,0);
+        for (int c = 1; c < complex.size(); ++c)
+        {
+          FrequencyBand& band = bands[c-1];
+          float m = band.magnitude;
+          vessl::phase_t z = (m > 0) ? (c&1 ? band.phase + vessl::phase_180 : band.phase) : vessl::phase_zero; 
+          complex[c].set_polar(m, z);
+        }
         fft.inverse(complex, output_b);
         output_b_idx = 0;
       }

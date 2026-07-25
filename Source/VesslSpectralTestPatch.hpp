@@ -4,29 +4,23 @@
 #include "PatchBase.h"
 #include "AudioBufferSourceSink.h"
 
-constexpr vessl::size_t SpectrumSize = 1024;
-using SpectralGen = SpectralGenerator<float, SpectrumSize, 2>;
+constexpr vessl::size_t SpectrumSize = 2048;
+using SpectralGen = SpectralGenerator<float, SpectrumSize>;
 
 class VesslSpectralTestPatch : public PatchBase
 {
-  vessl::array<float> window_;
-  int windx_ = 0;
-  
 public:
   VesslSpectralTestPatch() : PatchBase()
-  , window_(new float[SpectrumSize], SpectrumSize)
   {
     spectral_generator_ = SpectralGen::create(getSampleRate(), vessl::sample::windows::type::triangle);
-    spectral_generator_->get_band(31).magnitude = 2.f;
+    //spectral_generator_->get_band(63).magnitude = 8.f;
+    //spectral_generator_->get_band(63).phase = 0;
     
     registerParameter(PARAMETER_A, "band");
-    
-    vessl::sample::windows::render(vessl::sample::windows::type::triangle, window_);
   }
   
   virtual ~VesslSpectralTestPatch() override
   {
-    delete window_.data();
     SpectralGen::destroy(spectral_generator_);
   }
   
@@ -34,12 +28,19 @@ public:
   {
     PatchBase::processAudio(audio);
     
-    // int bidx = vessl::math::lerp(0, 255, getParameterValue(PARAMETER_A));
-    // for (int i = 0; i < 256; i++)
-    // {
-    //   auto&[magnitude, phase] = spectral_generator_->get_band(i);
-    //   bidx == i ? magnitude = 2.75 : magnitude *= 0.f;
-    // }
+    const int bidx = vessl::math::lerp(0, 255, getParameterValue(PARAMETER_A));
+    for (int i = 0; i < 256; i++)
+    {
+      SpectralGen::frequency_band& band = spectral_generator_->get_band(i);
+      if (bidx == i)
+      {
+        band.magnitude = 8.f;
+      }
+      else
+      {
+        band.magnitude *= 0.75f;
+      }
+    }
     
     AudioBufferWriter<2> writer(audio);
     while (writer)
@@ -48,11 +49,8 @@ public:
       writer.write(frame);
     }
     
-    if (windx_ < SpectrumSize)
-    {
-      float wv = window_[windx_++];
-      setParameterValue(PARAMETER_F, wv);
-    }
+    setParameterValue(PARAMETER_BA, static_cast<float>(spectral_generator_->get_read_head(0)) / SpectrumSize);
+    setParameterValue(PARAMETER_BB, static_cast<float>(spectral_generator_->get_read_head(1)) / SpectrumSize);
   }
 
 private:
