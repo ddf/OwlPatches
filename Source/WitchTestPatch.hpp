@@ -6,7 +6,7 @@
 // @todo full workout of all cv inputs/outputs and all buttons.
 struct WitchTestPatch : Patch
 {
-  using Waveform = vessl::sample::waves::sine<float>;
+  using Waveform = vessl::sample::waves::bipolar::sine<float>;
   using Oscil = vessl::generators::oscil<Waveform>;
 
   Oscil oscillator;
