@@ -7,12 +7,12 @@ typedef SpectralHarpPatch<2048, false, Patch> BasePatch;
 static const SpectralHarpParameterIds spectraHarpLichParams =
 {
   .inHarpFundamental = PARAMETER_A,
-  .inHarpOctaves = PARAMETER_B,
-  .inDensity = PARAMETER_C,
-  .inTuning = PARAMETER_D,
+  .inHarpOctaves = PARAMETER_BA,
+  .inDensity = PARAMETER_B,
+  .inTuning = PARAMETER_BB,
   .inDecay = PARAMETER_E,
-  .inSpread = PARAMETER_AE,
-  .inBrightness = PARAMETER_AF,
+  .inSpread = PARAMETER_BD,
+  .inBrightness = PARAMETER_C,
   .inCrush = PARAMETER_H,
 
   .inWidth = PARAMETER_AA,
@@ -55,6 +55,6 @@ public:
     //  highElapsedTime += (elapsed - highElapsedTime)*0.001f;
     //}
 
-    debugMessage("CPU High: ", highElapsedTime);
+    //debugMessage("CPU High: ", highElapsedTime);
   }
 };

@@ -71,10 +71,10 @@ struct SpectralHarpParameterIds
   PatchParameterId outStrumY; // = PARAMETER_AF;
 };
 
-template<int spectrumSize, bool reverb_enabled, typename PatchClass = Patch>
+template<vessl::size_t SpectrumSize, bool ReverbEnabled, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
-  using SpectralGen = SpectralSignalGenerator<false>;
+  using SpectralGen = SpectralSignalGenerator<SpectrumSize, false>;
   using BitCrush = vessl::processors::bitcrush<float, 24>;
   using ReverbProc = Reverb<float>;
 
@@ -129,14 +129,20 @@ public:
   using PatchClass::getSampleRate;
   using PatchClass::isButtonPressed;
 
-  SpectralHarpPatch(const SpectralHarpParameterIds& paramIds) : PatchClass()
-    , params(paramIds), decayMin(static_cast<float>(spectrumSize)*0.5f / getSampleRate()), decayMax(10.0f), bitCrusher(getSampleRate(), getSampleRate()), pluckAtSample(-1), gateOnAtSample(-1)
-    , gateOffAtSample(-1), gateState(false)
-    , bandFirst(1.f), bandLast(1.f)
+  explicit SpectralHarpPatch(const SpectralHarpParameterIds& paramIds) : PatchClass()
+    , params(paramIds)
+    , decayMin(static_cast<float>(SpectrumSize)*0.5f / getSampleRate())
+    , decayMax(10.0f), bitCrusher(getSampleRate(), getSampleRate())
+    , pluckAtSample(-1)
+    , gateOnAtSample(-1)
+    , gateOffAtSample(-1)
+    , gateState(false)
+    , bandFirst(1.f)
+    , bandLast(1.f)
   {
-    spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
+    spectralGen = SpectralGen::create(getSampleRate());
     
-    if (reverb_enabled)
+    if (ReverbEnabled)
     {
       diffuser = Diffuser::create();
       reverb = ReverbProc::create(getSampleRate());
@@ -155,7 +161,7 @@ public:
     registerParameter(params.inHarpOctaves, "Octaves");
     registerParameter(params.inDensity, "Density");
     registerParameter(params.inTuning, "Tuning");
-    if (reverb_enabled)
+    if (ReverbEnabled)
     {
       registerParameter(params.inWidth, "Width");
       registerParameter(params.inReverbTime, "Verb Time");
@@ -175,7 +181,7 @@ public:
     setParameterValue(params.inCrush, 0.0f);
     setParameterValue(params.inTuning, 0.0f);
 
-    if (reverb_enabled)
+    if (ReverbEnabled)
     {
       setParameterValue(params.inReverbTone, 1.0f);
     }
@@ -184,7 +190,7 @@ public:
   ~SpectralHarpPatch()
   {
     SpectralGen::destroy(spectralGen);
-    if (reverb_enabled)
+    if (ReverbEnabled)
     {
       Diffuser::destroy(diffuser);
       ReverbProc::destroy(reverb);
@@ -235,8 +241,8 @@ public:
     float harpOctaves = vessl::math::lerp(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
     bandLast  = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
-    int bandFirstIdx = spectralGen->freqToIndex(bandFirst);
-    int bandLastIdx = spectralGen->freqToIndex(bandLast);
+    int bandFirstIdx = spectralGen->freq_to_index(bandFirst);
+    int bandLastIdx = spectralGen->freq_to_index(bandLast);
     bandDensity = vessl::math::lerp(densityMin, vessl::math::min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
     linLogLerp = getParameterValue(params.inTuning);
 
@@ -252,7 +258,7 @@ public:
 
     spectralGen->setSpread(spread);
     spectralGen->setDecay(decay);
-    spectralGen->setBrightness(brightness);
+    spectralGen->setBrightness(brightness.getValue());
     spectralGen->setVolume(volume);
     bitCrusher.rate() = crush.getValue();
 
@@ -262,7 +268,7 @@ public:
     if (pluckAtSample != -1)
     {
       float location = left[pluckAtSample] * 0.5f + 0.5f;
-      float amplitude = clamp(right[pluckAtSample], 0.0f, 1.0f);
+      float amplitude = 1.0f; // clamp(right[pluckAtSample], 0.0f, 1.0f);
       pluck(spectralGen, location, amplitude);
       pluckAtSample = -1;
       strumX = location;
@@ -283,7 +289,7 @@ public:
 
       if (gateState)
       {
-        float location = left[i] * 0.5f + 0.5f;
+        float location = 0.f; // = left[i] * 0.5f + 0.5f;
         float amplitude = 0.75f; // clamp(right[i], 0.0f, 1.0f);
         pluck(spectralGen, location, amplitude);
         strumX = vessl::math::max(strumX, location);
@@ -302,14 +308,14 @@ public:
       }
     }
 
-    spectralGen->generate(left);
-
-    vessl::array<float> bcp(left.getData(), left.getSize());
-    bitCrusher.process(bcp, bcp);
+    vessl::array<float> out(left.getData(), left.getSize());
+    spectralGen->generate(out);
+    // @todo this can fuck up the audio even when at sample rate.
+    //bitCrusher.process(out, out);
 
     left.copyTo(right);
 
-    if (reverb_enabled)
+    if (ReverbEnabled)
     {
       stereoWidth = getParameterValue(params.inWidth);
       reverbTime = 0.35f + 0.6f*getParameterValue(params.inReverbTime);
@@ -363,7 +369,7 @@ private:
   void pluck(SpectralGen* spectrum, float location, float amp)
   {
     const int   numBands = getStringCount();
-    const int   band = vessl::math::round(Interpolator::linear(0, numBands, location));
+    const int   band = vessl::math::round(vessl::math::lerp(0, numBands, location));
     const float freq = frequencyOfString(band);
     spectrum->pluck(freq, amp);
   }
@@ -373,5 +379,6 @@ private:
     float freq = Frequency::ofMidiNote(msg.getNote()).asHz();
     float amp = msg.getVelocity() / 127.0f;
     spectrum->pluck(freq, amp);
+    debugMessage("MIDI Pluck: ", (int)spectrum->freq_to_index(freq));
   }
 }; 

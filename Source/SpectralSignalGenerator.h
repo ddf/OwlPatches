@@ -1,171 +1,153 @@
 #pragma once 
 
-#include "SignalGenerator.h"
-#include "Window.h"
-#include "SimpleArray.h"
-#include "FloatArray.h"
-#include "ComplexFloatArray.h"
 #include "ExponentialDecayEnvelope.h"
 #include "EqualLoudnessCurves.h"
+#include "vessicle/SpectralGenerator.h"
 #include "vessicle/vessl/vessl.h"
-
-#include "FastFourierTransform.h"
-typedef FastFourierTransform FFT;
 
 //#include "KissFFT.h"
 //typedef KissFFT FFT;
 
 static const int kSpectralBandPartials = 40;
 
-template<bool linearDecay = true>
-class SpectralSignalGenerator : public SignalGenerator
+// @todo: the freq <-> index conversion functions are a little confused now.
+// this is because I gave SpectralGen a 0-indexed frequency bands array, but band[0] is complex_bin[1].
+// it will probably help to add the following to SpectralGenerator:
+// get_band_frequency(size_t index) -> the center frequency of the complex_bin that band[index] maps to.
+// get_band_index(analog_t frequency) -> the index of the band that "contains" the frequency.
+// these can then be used instead of the translation functions built into this class.
+template<vessl::size_t SpectrumSize, bool LinearDecay = true>
+class SpectralSignalGenerator
 {
+  using size_t = vessl::size_t;
+  using phase_t = vessl::phase_t;
+  using SpectralGen = SpectralGenerator<float, SpectrumSize>;
   struct Band
   {
     // the frequency of this band, for faster conversion between index and frequency
     float frequency;
     float amplitude;
     float decay;
-    float phase;
-    ComplexFloat complex[2];
     int   partials[kSpectralBandPartials];
   };
+  
+  static constexpr vessl::size_t BandsSize = SpectrumSize >> 1;
+  using BandArray = vessl::array<Band>;
+  using SampleArray = vessl::array<float>;
 
-  FFT* fft;
-  Window window;
+  SpectralGen* generator_;
 
-  SimpleArray<Band> bands;
-  float decayDec;
-  float spread;
-  float brightness;
-  float volume;
-  float spectralMagnitude;
+  BandArray bands_;
+  float decay_dec_;
+  float spread_;
+  float brightness_;
+  float volume_;
+  float spectral_magnitude_;
 
-  FloatArray specBright;
-  FloatArray specSpread;
+  SampleArray spec_bright_;
+  SampleArray spec_spread_;
 
-  FloatArray specMag;
-  ComplexFloatArray complex;
-  FloatArray outputBufferA;
-  FloatArray outputBufferB;
-  int outIndexA;
-  int outIndexB;
-  int phaseIdx;
-
-  const float sampleRate;
-  const float oneOverSampleRate;
-  const float bandWidth;
-  const float halfBandWidth;
-  const int   overlapSize;
-  const int   overlapSizeHalf;
-  const int   overlapSizeMask;
-  const float spreadBandsMax;
-
-  const int outIndexMask;
+  float sample_rate_;
+  float one_over_sample_rate_;
+  float band_width_;
+  float half_band_width_;
+  size_t overlap_size_;
+  size_t overlap_size_half_;
+  size_t overlap_size_mask_;
+  float spread_bands_max_;
 
 public:
-  SpectralSignalGenerator(FFT* fft, float sampleRate, 
+  SpectralSignalGenerator(SpectralGen* spec_gen, float sample_rate, 
                           // these need to all be the same length
-                          Band* bandsData, float* specBrightData, float* specSpreadData, float* specMagData, int specSize,
-                          // these need to all be the same length
-                          ComplexFloat* complexData, float* outputDataA, float* outputDataB, float* windowData, int blockSize)
-    : fft(fft), window(windowData, blockSize), bands(bandsData, specSize), sampleRate(sampleRate), oneOverSampleRate(1.0f/sampleRate)
-    , bandWidth((2.0f / blockSize) * (sampleRate / 2.0f)), halfBandWidth(bandWidth/2.0f)
-    , overlapSize(blockSize/2), overlapSizeHalf(overlapSize/2), overlapSizeMask(overlapSize-1), spectralMagnitude(blockSize/64)
-    , specBright(specBrightData, specSize), specSpread(specSpreadData, specSize), specMag(specMagData, specSize)
-    , complex(complexData, blockSize), outputBufferA(outputDataA, blockSize), outputBufferB(outputDataB, blockSize)
-    , outIndexA(0), outIndexB(blockSize/2), outIndexMask(blockSize-1), phaseIdx(0)
-    , spread(0), spreadBandsMax(specSize/4), brightness(0)
+                          Band* bands_data, float* spec_bright_data, float* spec_spread_data)
+    : generator_(spec_gen)
+    , bands_(bands_data, BandsSize)
+    , spread_(0)
+    , brightness_(0)
+    , spectral_magnitude_(SpectrumSize/64)
+    , spec_bright_(spec_bright_data, BandsSize)
+    , spec_spread_(spec_spread_data, BandsSize)
+    , sample_rate_(sample_rate)
+    , one_over_sample_rate_(1.0f/sample_rate)
+    , band_width_((2.0f / SpectrumSize) * (sample_rate / 2.0f))
+    , half_band_width_(band_width_/2.0f)
+    , overlap_size_(BandsSize)
+    , overlap_size_half_(overlap_size_/2)
+    , overlap_size_mask_(overlap_size_-1)
+    , spread_bands_max_(BandsSize/4)
   {
     setVolume(1.0f);
     setDecay(1.0f);
-    for (int i = 0; i < specSize; ++i)
+    for (int i = 0; i < BandsSize; ++i)
     {
-      bands[i].frequency = frequencyForIndex(i);
-      bands[i].amplitude = 0;
-      bands[i].phase = randf()*M_PI*2;
+      bands_[i].frequency = frequencyForIndex(i);
+      bands_[i].amplitude = 0;
       // boost low frequencies and attenuate high frequencies with an equal loudness curve.
       // attenuation of high frequencies is to try to prevent distortion that happens when 
       // the spectrum is particularly overloaded in the high end.
-      float weight = bands[i].frequency < 1000.0f ? clamp(1.0f / elc::b(bands[i].frequency), 0.0f, 4.0f) : elc::b(bands[i].frequency);
-      bands[i].complex[0].setPolar(weight, bands[i].phase);
-      // ODD bands need to be 180 out of phase every other buffer generation
-      // because our overlap is half the size of the buffer generated.
-      // this ensure that phase lines up for those sinusoids in every buffer.
-      if (i % 2 == 1)
-      {
-        bands[i].complex[1].setPolar(weight, bands[i].phase + M_PI);
-      }
-      else
-      {
-        bands[i].complex[1] = bands[i].complex[0];
-      }
+      float weight = bands_[i].frequency < 1000.0f ? clamp(1.0f / elc::b(bands_[i].frequency), 0.0f, 4.0f) : elc::b(bands_[i].frequency);
 
       for (int p = 0; p < kSpectralBandPartials; ++p)
       {
-        float partialFreq = bands[i].frequency*(2 + p);
+        float partialFreq = bands_[i].frequency*(2 + p);
         // only add partials most people can actually hear
-        bands[i].partials[p] = partialFreq < 16000.0f ? freqToIndex(partialFreq) : blockSize;
+        bands_[i].partials[p] = partialFreq < 16000.0f ? freq_to_index(partialFreq) : SpectrumSize;
       }
     }
-    specSpread.clear();
-    specMag.clear();
-    complex.clear();
-    outputBufferA.clear();
-    outputBufferB.clear();
+    spec_spread_.fill(0);
   }
 
   void setSpread(float val)
   {
-    spread = val;
+    spread_ = val;
   }
 
-  void setDecay(float inSeconds)
+  void setDecay(float in_seconds)
   {
     // having a shorter decay than the overlap size doesn't make sense
     // and we also want to avoid divide-by-zero.
-    float decaySeconds = fmax(overlapSize * oneOverSampleRate, inSeconds);
-    if (linearDecay)
+    float decay_seconds = vessl::math::max(overlap_size_ * one_over_sample_rate_, in_seconds);
+    if (LinearDecay)
     {
       // amplitude needs to decrease by 1 / (decaySeconds * sampleRate()) every sample.
       // eg decaySeconds == 1 -> 1 / sampleRate()
       //    decaySeconds == 0.5 -> 1 / (0.5 * sampleRate), which is twice as fast, equivalent to 2 / sampleRate()
       // since we generate a new buffer every overlapSize samples, we multiply that rate by overlapSize, giving:
-      decayDec = overlapSize / (decaySeconds * sampleRate);
+      decay_dec_ = overlap_size_ / (decay_seconds * sample_rate_);
     }
     else // exponential decay
     {
-      float blockRate = sampleRate / overlapSize;
-      float lengthInBlocks = decaySeconds * blockRate;
-      decayDec = 1.0 + vessl::math::log(0.0001f) / (lengthInBlocks + 20);
+      float block_rate = sample_rate_ / overlap_size_;
+      float length_in_blocks = decay_seconds * block_rate;
+      decay_dec_ = 1.0 + vessl::math::log(0.0001f) / (length_in_blocks + 20);
     }
   }
 
   void setBrightness(float amt)
   {
-    brightness = amt;
+    brightness_ = amt;
   }
 
   void setVolume(float amt)
   {
-    volume = clamp(amt, 0.0f, 1.0f);
+    volume_ = clamp(amt, 0.0f, 1.0f);
   }
 
   void pluck(float freq, float amp)
   {
-    const int bidx = freqToIndex(freq);
-    if (bidx > 0 && bidx < bands.getSize())
+    const size_t bidx = freq_to_index(freq);
+    if (bidx < bands_.size())
     {
-      bands[bidx].amplitude = amp;
-      bands[bidx].decay = 1;
+      bands_[bidx].amplitude = amp;
+      bands_[bidx].decay = 1;
     }
   }
 
   void excite(int bidx, float amp, float phase)
   {
-    if (bidx > 0 && bidx < bands.getSize())
+    if (bidx >= 0 && bidx < bands_.size())
     {
-      Band& b = bands[bidx];
+      Band& b = bands_[bidx];
       const float ea = amp;
       const float ba = b.amplitude;
       if (ea > ba)
@@ -177,87 +159,74 @@ public:
     }
   }
 
-  void generate(FloatArray output) override
+  void generate(SampleArray output)
   {
-    const int blockSize = complex.getSize();
-    // transfer bands into spread array halfway through the overlap
-    // so that we do this work in a different block than synthesis
-    if (outIndexA+overlapSizeHalf == blockSize || outIndexB+overlapSizeHalf == blockSize)
-    {
-      fillSpread();
-    }
-    
-    if (outIndexA == 0)
-    {
-      phaseIdx = 0;
-      fillComplex();
-      fft->ifft(complex, outputBufferA);
-    }
-    
-    if (outIndexB == 0)
-    {
-      phaseIdx = 1;
-      fillComplex();
-      fft->ifft(complex, outputBufferB);
-    }
-
-    int size = output.getSize();
-    float* out = output.getData();
+    int size = output.size();
+    float* out = output.data();
     while (size--)
     {
-      *out++ = outputBufferA[outIndexA] * window[outIndexA];
-      outIndexA = (outIndexA+1) & outIndexMask;
-    }
-
-    size = output.getSize();
-    out = output.getData();
-    while (size--)
-    {
-      *out++ += outputBufferB[outIndexB] * window[outIndexB];
-      outIndexB = (outIndexB+1) & outIndexMask;
+      // transfer bands into spread array halfway through the overlap
+      // so that we do this work in a different block than synthesis
+      if ( generator_->get_read_head(0)+overlap_size_half_ == SpectrumSize 
+        || generator_->get_read_head(1)+overlap_size_half_ == SpectrumSize
+      )
+      {
+        fill_spectrum();
+      }
+      
+      *out++ = generator_->generate();
     }
   }
 
-  static SpectralSignalGenerator* create(int blockSize, float sampleRate)
+  static SpectralSignalGenerator* create(float sampleRate)
   {
-    const int specSize = blockSize / 2;
-    Band* bandsData = new Band[specSize];
-    float* brightData = new float[specSize];
-    float* spreadData = new float[specSize];
-    float* magData = new float[specSize];
-    float* outputB = new float[blockSize];
-    Window window  = Window::create(Window::TriangularWindow, blockSize);
-    ComplexFloat* complexData = new ComplexFloat[blockSize];
-    float* outputA = new float[blockSize];
-    return new SpectralSignalGenerator(FFT::create(blockSize), sampleRate,
-      bandsData, brightData, spreadData, magData, specSize,
-      complexData, outputA, outputB, window.getData(), blockSize
-    );
+    Band* bands_data = new Band[BandsSize];
+    float* bright_data = new float[BandsSize];
+    float* spread_data = new float[BandsSize];
+    SpectralGen* spectral_gen = SpectralGen::create(sampleRate, vessl::sample::windows::type::triangle);
+    return new SpectralSignalGenerator(spectral_gen, sampleRate, bands_data, bright_data, spread_data);
   }
 
-  static void destroy(SpectralSignalGenerator* spectralGen)
+  static void destroy(SpectralSignalGenerator* synth)
   {
-    FFT::destroy(spectralGen->fft);
-    delete[] spectralGen->bands.getData();
-    delete[] spectralGen->specBright.getData();
-    delete[] spectralGen->specSpread.getData();
-    delete[] spectralGen->specMag.getData();
-    delete[] spectralGen->outputBufferA.getData();
-    delete[] spectralGen->outputBufferB.getData();
-    delete[] spectralGen->window.getData();
-    delete[] spectralGen->complex.getData();
-    delete spectralGen;
+    SpectralGen::destroy(synth->generator_);
+    delete[] synth->bands_.data();
+    delete[] synth->spec_bright_.data();
+    delete[] synth->spec_spread_.data();
+    delete synth;
   }
 
   float indexToFreq(int i)
   {
-    return bands[i].frequency;
+    return bands_[i].frequency;
+  }
+  
+  float frequencyForIndex(int i) const
+  {
+    // special case: the width of the first bin is half that of the others.
+    //               so the center frequency is a quarter of the way.
+    if (i == 0) return band_width_ * 0.25f;
+    // special case: the width of the last bin is half that of the others.
+    if (i == bands_.size()-1)
+    {
+      float lastBinBeginFreq = (sample_rate_ / 2) - (band_width_ / 2);
+      float binHalfWidth = band_width_ * 0.25f;
+      return lastBinBeginFreq + binHalfWidth;
+    }
+    // the center frequency of the ith band is simply i*bw
+    // because the first band is half the width of all others.
+    // treating it as if it wasn't offsets us to the middle 
+    // of the band.
+    return i * band_width_;
   }
 
-  int freqToIndex(float freq)
+  size_t freq_to_index(float freq) const
   {
+    //return freq >= half_band_width_ ? vessl::math::round((freq - half_band_width_) / band_width_) : 0;
+    
     // simplified version of below
-    return freq > 0 && freq < halfBandWidth ? 0 : (int)((float)fft->getSize()*freq*oneOverSampleRate + 0.5f);
+    return freq > 0 && freq < half_band_width_ ? 0 
+    : static_cast<int>(vessl::math::round(static_cast<float>(SpectrumSize) * freq * one_over_sample_rate_));
 
     //// special case: freq is lower than the bandwidth of spectrum[0] but not negative
     //if (freq > 0 && freq < halfBandWidth) return 0;
@@ -268,19 +237,24 @@ public:
     //return i;
   }
 
-  Band getBand(float freq)
+  typename SpectralGen::frequency_band getBand(float freq) const
   {
-    const int idx = freqToIndex(freq);
-    // get from bands array for phase
-    Band b = bands[idx];
+    const size_t idx = freq_to_index(freq);
+    // get from band generator for phase
+    typename SpectralGen::frequency_band band = generator_->get_band(idx);
     // set normalized amplitude based on magnitude array (which includes spread and brightness)
-    b.amplitude = specMag[idx] / spectralMagnitude;
-    return b;
+    band.amplitude /= spectral_magnitude_;
+    return band;
   }
 
   float getMagnitudeMean()
   {
-    return specMag.getMean() / spectralMagnitude;
+    float accum = 0;
+    for (int i = 0; i < BandsSize; ++i)
+    {
+      accum += generator_->get_band(i).magnitude;
+    }
+    return (accum / BandsSize) / spectral_magnitude_;
   }
 
 private:
@@ -288,7 +262,7 @@ private:
 
   void addSinusoidWithSpread(const int idx, const float amp, const int lidx, const int hidx)
   {
-    specSpread[idx] += amp;
+    spec_spread_[idx] += amp;
 
     if (lidx < idx)
     {
@@ -297,7 +271,7 @@ private:
       falloffEnv.generate();
       for (int bidx = idx-1; bidx >= lidx && bidx > 0; --bidx)
       {
-        specSpread[bidx] += amp * falloffEnv.generate();
+        spec_spread_[bidx] += amp * falloffEnv.generate();
       }
     }
 
@@ -306,9 +280,9 @@ private:
       falloffEnv.setDecaySamples(hidx - idx + 1);
       falloffEnv.setLevel(1);
       falloffEnv.generate();
-      for (int bidx = idx + 1; bidx <= hidx && bidx < bands.getSize(); ++bidx)
+      for (int bidx = idx + 1; bidx <= hidx && bidx < bands_.getSize(); ++bidx)
       {
-        specSpread[bidx] += amp * falloffEnv.generate();
+        spec_spread_[bidx] += amp * falloffEnv.generate();
       }
     }
 
@@ -334,115 +308,89 @@ private:
   void addSinusoidWithSpread(float bandFreq, float amp)
   {
     // get low and high frequencies for spread
-    const int midx = freqToIndex(bandFreq);
-    const int lidx = midx - spreadBandsMax * spread; // freqToIndex(bandFreq - bandFreq * 0.5f*spread);
-    const int hidx = midx + spreadBandsMax * spread; // freqToIndex(bandFreq + bandFreq * spread);
+    const int midx = freq_to_index(bandFreq);
+    const int lidx = midx - spread_bands_max_ * spread_; // freqToIndex(bandFreq - bandFreq * 0.5f*spread);
+    const int hidx = midx + spread_bands_max_ * spread_; // freqToIndex(bandFreq + bandFreq * spread);
     addSinusoidWithSpread(midx, amp, lidx, hidx);
   }
 
-  void fillComplex()
-  {
-    const int specSize = bands.getSize();
-
-    complex.clear();
-
-    spectralMagnitude = (complex.getSize() / 8.0f)*volume;
-    for (int i = 1; i < specSize; ++i)
-    {
-      // grab the magnitude as set by our pluck with spread pass
-      const float a = fmin(specSpread[i] * spectralMagnitude, spectralMagnitude);
-
-      // copy accumulated result into the magnitude array, scaling by our max amplitude
-      specMag[i] = a;
-
-      // #TODO probably sounds better to do the pitch-shift here?
-      // At this point we have gAnaMagn and gAnaFreq from
-      // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
-
-      // done with this band, we can construct the complex representation.
-      //complex[i] = bands[i].complex[phaseIdx] * a;
-      complex[i].setPolar(a, bands[i].phase + (M_PI*phaseIdx*(i%2)));
-    }
-  }
-
-  void fillSpread()
+  void fill_spectrum()
   {
     const float freqMult = 1.0f;
-    const int specSize = bands.getSize();
 
-    specBright.clear();
-    specSpread.clear();
+    spec_bright_.fill(0);
+    spec_spread_.fill(0);
 
-    for (int i = 1; i < specSize; ++i)
+    for (size_t i = 0; i < BandsSize; ++i)
     {
-      processBand(i, specSize);
+      processBand(i, BandsSize);
     }
 
     // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
     // adapted from ExponentialDecayEnvelope
-    float spreadMult = 1.0 + (logf(0.00001f) - logf(1.0f)) / (spreadBandsMax*spread + 12);
-    spreadMult *= spreadMult;
+    float spread_mult = 1.0 + (vessl::math::log(0.00001f) - vessl::math::log(1.0f)) / (spread_bands_max_*spread_ + 12);
+    spread_mult *= spread_mult;
     float pi = 0;
     float pj = 0;
-    int count = specSize - 1;
-    for (int i = 1; i < count; ++i)
+    size_t count = spec_bright_.size();
+    for (size_t i = 0; i < count; ++i)
     {
-      float ci = specBright[i];
-      specSpread[i] += ci + pi;
-      pi = max(ci, pi)*spreadMult;
-
+      float ci = spec_bright_[i];
+      spec_spread_[i] += ci + pi;
+      pi = vessl::math::max(ci, pi)*spread_mult;
+    
       // we don't add in bright on the backwards pass
       // because it gets added in the forward pass
-      int j = count - i;
-      float cj = specBright[j];
-      specSpread[j] += pj;
-      pj = max(cj, pj)*spreadMult;
+      size_t j = count - 1 - i;
+      float cj = spec_bright_[j];
+      spec_spread_[j] += pj;
+      pj = vessl::math::max(cj, pj)*spread_mult;
+    }
+    
+    spectral_magnitude_ = static_cast<float>(BandsSize / 8)*volume_;  // NOLINT(bugprone-integer-division)
+    for (size_t i = 0; i < BandsSize; ++i)
+    {
+      // grab the magnitude as set by our pluck with spread pass
+      const float a = vessl::math::min(spec_spread_[i] * spectral_magnitude_, spectral_magnitude_);
+      //const float a = vessl::math::min(bands_[i].amplitude * spectral_magnitude_, spectral_magnitude_);
+      
+      // copy result into the generator's band magnitudes
+      auto& gen_band = generator_->get_band(i);
+      gen_band.magnitude = a;
+
+      // #TODO probably sounds better to do the pitch-shift here?
+      // At this point we have gAnaMagn and gAnaFreq from
+      // http://blogs.zynaptiq.com/bernsee/pitch-shifting-using-the-ft/
     }
   }
 
   void processBand(int idx, int specSize)
   {
-    Band& b = bands[idx];
-    if (linearDecay)
+    Band& b = bands_[idx];
+    if (LinearDecay)
     {
-      b.decay = b.decay > decayDec ? b.decay - decayDec : 0;
+      b.decay = b.decay > decay_dec_ ? b.decay - decay_dec_ : 0;
     }
     else
     {
       //b.decay *= decayDec;
-      b.amplitude *= decayDec;
+      b.amplitude *= decay_dec_;
     }
+    
     //if (b.decay > 0)
     {
       //float a = b.decay*b.amplitude;
       float a = b.amplitude;
-      specBright[idx] += a;
-      for (int i = 0; i < kSpectralBandPartials && b.partials[i] < specSize; ++i)
+      spec_bright_[idx] += a;
+      // @todo brightness is causing glitching :(
+      constexpr int iters = kSpectralBandPartials;
+      for (int i = 0; i < iters && b.partials[i] < specSize; ++i)
       {
         int p = 2 + i;
-        a *= brightness;
+        a *= brightness_;
         int pidx = b.partials[i];
-        specBright[pidx] += a / p;
+        spec_bright_[pidx] += a / p;
       }
     }
-  }
-
-  float frequencyForIndex(int i) const
-  {
-    // special case: the width of the first bin is half that of the others.
-    //               so the center frequency is a quarter of the way.
-    if (i == 0) return bandWidth * 0.25f;
-    // special case: the width of the last bin is half that of the others.
-    if (i == bands.getSize())
-    {
-      float lastBinBeginFreq = (sampleRate / 2) - (bandWidth / 2);
-      float binHalfWidth = bandWidth * 0.25f;
-      return lastBinBeginFreq + binHalfWidth;
-    }
-    // the center frequency of the ith band is simply i*bw
-    // because the first band is half the width of all others.
-    // treating it as if it wasn't offsets us to the middle 
-    // of the band.
-    return i * bandWidth;
   }
 };
