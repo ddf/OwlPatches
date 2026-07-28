@@ -24,14 +24,11 @@ class SpectralSignalGenerator
   using SpectralGen = SpectralGenerator<float, SpectrumSize>;
   struct Band
   {
-    // the frequency of this band, for faster conversion between index and frequency
-    float frequency;
     float amplitude;
     float decay;
     int   partials[kSpectralBandPartials];
   };
   
-  static constexpr vessl::size_t BandsSize = SpectrumSize >> 1;
   using BandArray = vessl::array<Band>;
   using SampleArray = vessl::array<float>;
 
@@ -57,41 +54,41 @@ class SpectralSignalGenerator
   float spread_bands_max_;
 
 public:
-  SpectralSignalGenerator(SpectralGen* spec_gen, float sample_rate, 
-                          // these need to all be the same length
+  SpectralSignalGenerator(SpectralGen* spec_gen, float sample_rate, size_t bands_size,
+                          // should be at least bands_size long.
                           Band* bands_data, float* spec_bright_data, float* spec_spread_data)
     : generator_(spec_gen)
-    , bands_(bands_data, BandsSize)
+    , bands_(bands_data, bands_size)
     , spread_(0)
     , brightness_(0)
     , spectral_magnitude_(SpectrumSize/64)
-    , spec_bright_(spec_bright_data, BandsSize)
-    , spec_spread_(spec_spread_data, BandsSize)
+    , spec_bright_(spec_bright_data, bands_size)
+    , spec_spread_(spec_spread_data, bands_size)
     , sample_rate_(sample_rate)
     , one_over_sample_rate_(1.0f/sample_rate)
     , band_width_((2.0f / SpectrumSize) * (sample_rate / 2.0f))
     , half_band_width_(band_width_/2.0f)
-    , overlap_size_(BandsSize)
+    , overlap_size_(SpectrumSize/2)
     , overlap_size_half_(overlap_size_/2)
     , overlap_size_mask_(overlap_size_-1)
-    , spread_bands_max_(BandsSize/4)
+    , spread_bands_max_(SpectrumSize/8)
   {
     setVolume(1.0f);
     setDecay(1.0f);
-    for (int i = 0; i < BandsSize; ++i)
+    for (int i = 0; i < bands_size; ++i)
     {
-      bands_[i].frequency = frequencyForIndex(i);
+      const float band_freq = generator_->get_band_frequency(i);
       bands_[i].amplitude = 0;
       // boost low frequencies and attenuate high frequencies with an equal loudness curve.
       // attenuation of high frequencies is to try to prevent distortion that happens when 
       // the spectrum is particularly overloaded in the high end.
-      float weight = bands_[i].frequency < 1000.0f ? clamp(1.0f / elc::b(bands_[i].frequency), 0.0f, 4.0f) : elc::b(bands_[i].frequency);
+      float weight = band_freq < 1000.0f ? clamp(1.0f / elc::b(band_freq), 0.0f, 4.0f) : elc::b(band_freq);
 
       for (int p = 0; p < kSpectralBandPartials; ++p)
       {
-        float partialFreq = bands_[i].frequency*(2 + p);
+        float partial_freq = band_freq*(2 + p);
         // only add partials most people can actually hear
-        bands_[i].partials[p] = partialFreq < 16000.0f ? freq_to_index(partialFreq) : SpectrumSize;
+        bands_[i].partials[p] = partial_freq < 16000.0f ? generator_->get_band_index(partial_freq) : SpectrumSize;
       }
     }
     spec_spread_.fill(0);
@@ -180,11 +177,12 @@ public:
 
   static SpectralSignalGenerator* create(float sampleRate)
   {
-    Band* bands_data = new Band[BandsSize];
-    float* bright_data = new float[BandsSize];
-    float* spread_data = new float[BandsSize];
     SpectralGen* spectral_gen = SpectralGen::create(sampleRate, vessl::sample::windows::type::triangle);
-    return new SpectralSignalGenerator(spectral_gen, sampleRate, bands_data, bright_data, spread_data);
+    size_t bands_max = spectral_gen->get_band_index(16000.f);
+    Band* bands_data = new Band[bands_max];
+    float* bright_data = new float[bands_max];
+    float* spread_data = new float[bands_max];
+    return new SpectralSignalGenerator(spectral_gen, sampleRate, bands_max, bands_data, bright_data, spread_data);
   }
 
   static void destroy(SpectralSignalGenerator* synth)
@@ -196,50 +194,9 @@ public:
     delete synth;
   }
 
-  float indexToFreq(int i)
-  {
-    return bands_[i].frequency;
-  }
-  
-  float frequencyForIndex(int i) const
-  {
-    // special case: the width of the first bin is half that of the others.
-    //               so the center frequency is a quarter of the way.
-    if (i == 0) return band_width_ * 0.25f;
-    // special case: the width of the last bin is half that of the others.
-    if (i == bands_.size()-1)
-    {
-      float lastBinBeginFreq = (sample_rate_ / 2) - (band_width_ / 2);
-      float binHalfWidth = band_width_ * 0.25f;
-      return lastBinBeginFreq + binHalfWidth;
-    }
-    // the center frequency of the ith band is simply i*bw
-    // because the first band is half the width of all others.
-    // treating it as if it wasn't offsets us to the middle 
-    // of the band.
-    return i * band_width_;
-  }
-
-  size_t freq_to_index(float freq) const
-  {
-    //return freq >= half_band_width_ ? vessl::math::round((freq - half_band_width_) / band_width_) : 0;
-    
-    // simplified version of below
-    return freq > 0 && freq < half_band_width_ ? 0 
-    : static_cast<int>(vessl::math::round(static_cast<float>(SpectrumSize) * freq * one_over_sample_rate_));
-
-    //// special case: freq is lower than the bandwidth of spectrum[0] but not negative
-    //if (freq > 0 && freq < halfBandWidth) return 0;
-    //// all other cases
-    //const float fraction = freq * oneOverSampleRate;
-    //// roundf is not available in windows, so we do this
-    //const int i = (int)((float)fft->getSize() * fraction + 0.5f);
-    //return i;
-  }
-
   typename SpectralGen::frequency_band getBand(float freq) const
   {
-    const size_t idx = freq_to_index(freq);
+    const size_t idx = generator_->get_band_index(freq);
     // get from band generator for phase
     typename SpectralGen::frequency_band band = generator_->get_band(idx);
     // set normalized amplitude based on magnitude array (which includes spread and brightness)
@@ -250,11 +207,16 @@ public:
   float getMagnitudeMean()
   {
     float accum = 0;
-    for (int i = 0; i < BandsSize; ++i)
+    for (int i = 0; i < bands_.size(); ++i)
     {
       accum += generator_->get_band(i).magnitude;
     }
-    return (accum / BandsSize) / spectral_magnitude_;
+    return (accum / bands_.size()) / spectral_magnitude_;
+  }
+  
+  VESSL_INLINE size_t freq_to_index(float freq) const
+  {
+    return generator_->get_band_index(freq);
   }
 
 private:
@@ -316,14 +278,14 @@ private:
 
   void fill_spectrum()
   {
-    const float freqMult = 1.0f;
+    constexpr float freq_mult = 1.0f;
 
     spec_bright_.fill(0);
     spec_spread_.fill(0);
 
-    for (size_t i = 0; i < BandsSize; ++i)
+    for (size_t i = 0; i < bands_.size(); ++i)
     {
-      processBand(i, BandsSize);
+      processBand(i, bands_.size());
     }
 
     // spread the raw bright spectrum with a sort of filter than runs forwards and backwards.
@@ -347,8 +309,8 @@ private:
       pj = vessl::math::max(cj, pj)*spread_mult;
     }
     
-    spectral_magnitude_ = static_cast<float>(BandsSize / 8)*volume_;  // NOLINT(bugprone-integer-division)
-    for (size_t i = 0; i < BandsSize; ++i)
+    spectral_magnitude_ = static_cast<float>(SpectrumSize)/8.f * volume_;  // NOLINT(bugprone-integer-division)
+    for (size_t i = 0; i < spec_spread_.size(); ++i)
     {
       // grab the magnitude as set by our pluck with spread pass
       const float a = vessl::math::min(spec_spread_[i] * spectral_magnitude_, spectral_magnitude_);

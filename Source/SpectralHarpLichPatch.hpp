@@ -11,7 +11,7 @@ static const SpectralHarpParameterIds spectraHarpLichParams =
   .inDensity = PARAMETER_B,
   .inTuning = PARAMETER_BB,
   .inDecay = PARAMETER_E,
-  .inSpread = PARAMETER_BD,
+  .inSpread = PARAMETER_D,
   .inBrightness = PARAMETER_C,
   .inCrush = PARAMETER_H,
 
