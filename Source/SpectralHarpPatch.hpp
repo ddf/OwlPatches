@@ -241,8 +241,8 @@ public:
     float harpOctaves = vessl::math::lerp(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
     bandFirst = Frequency::ofMidiNote(harpFund).asHz();
     bandLast  = fmin(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
-    int bandFirstIdx = spectralGen->freq_to_index(bandFirst);
-    int bandLastIdx = spectralGen->freq_to_index(bandLast);
+    int bandFirstIdx = spectralGen->get_band_index(bandFirst);
+    int bandLastIdx = spectralGen->get_band_index(bandLast);
     bandDensity = vessl::math::lerp(densityMin, vessl::math::min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
     linLogLerp = getParameterValue(params.inTuning);
 
@@ -379,6 +379,6 @@ private:
     float freq = Frequency::ofMidiNote(msg.getNote()).asHz();
     float amp = msg.getVelocity() / 127.0f;
     spectrum->pluck(freq, amp);
-    debugMessage("MIDI Pluck: ", (int)spectrum->freq_to_index(freq));
+    debugMessage("MIDI Pluck: ", (int)spectrum->get_band_index(freq));
   }
 }; 

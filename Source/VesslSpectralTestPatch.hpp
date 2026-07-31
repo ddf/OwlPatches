@@ -1,9 +1,8 @@
 #pragma once
 
-#include "vessicle/SpectralGenerator.h"
 #include "PatchBase.h"
 #include "AudioBufferSourceSink.h"
-#include "FFTTestPatch.hpp"
+#include "vessicle/SpectralGenerator.h"
 
 constexpr vessl::size_t SpectrumSize = 2048;
 using SpectralGen = SpectralGenerator<float, SpectrumSize>;
@@ -29,18 +28,19 @@ public:
   {
     PatchBase::processAudio(audio);
     
-    const int band_max = spectral_generator_->get_band_index(16000.f);
-    const int bidx = vessl::math::lerp(0, band_max, getParameterValue(PARAMETER_A));
-    for (int i = 0; i < band_max; i++)
+    const int band_max = spectral_generator_->get_band_index(13000.f);
+    const int bidx = vessl::math::lerp(1, band_max, getParameterValue(PARAMETER_A));
+    constexpr float mag = static_cast<float>(SpectrumSize)/128.f;
+    for (int i = 1; i < band_max; i++)
     {
-      SpectralGen::frequency_band& band = spectral_generator_->get_band(i);
+      auto& band = spectral_generator_->get_band(i);
       if (bidx == i)
       {
-        band.magnitude = 8.f;
+        band.set_magnitude(1.f);
       }
       else
       {
-        band.magnitude *= 0.75f;
+        band.scale(0.99f);
       }
     }
     

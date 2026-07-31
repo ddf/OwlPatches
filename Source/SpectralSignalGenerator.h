@@ -39,7 +39,6 @@ class SpectralSignalGenerator
   float spread_;
   float brightness_;
   float volume_;
-  float spectral_magnitude_;
 
   SampleArray spec_bright_;
   SampleArray spec_spread_;
@@ -61,7 +60,6 @@ public:
     , bands_(bands_data, bands_size)
     , spread_(0)
     , brightness_(0)
-    , spectral_magnitude_(SpectrumSize/64)
     , spec_bright_(spec_bright_data, bands_size)
     , spec_spread_(spec_spread_data, bands_size)
     , sample_rate_(sample_rate)
@@ -75,7 +73,7 @@ public:
   {
     setVolume(1.0f);
     setDecay(1.0f);
-    for (int i = 0; i < bands_size; ++i)
+    for (int i = 1; i < bands_size; ++i)
     {
       const float band_freq = generator_->get_band_frequency(i);
       bands_[i].amplitude = 0;
@@ -132,8 +130,8 @@ public:
 
   void pluck(float freq, float amp)
   {
-    const size_t bidx = freq_to_index(freq);
-    if (bidx < bands_.size())
+    const size_t bidx = generator_->get_band_index(freq);
+    if (bidx > 0 && bidx < bands_.size())
     {
       bands_[bidx].amplitude = amp;
       bands_[bidx].decay = 1;
@@ -142,7 +140,7 @@ public:
 
   void excite(int bidx, float amp, float phase)
   {
-    if (bidx >= 0 && bidx < bands_.size())
+    if (bidx > 0 && bidx < bands_.size())
     {
       Band& b = bands_[bidx];
       const float ea = amp;
@@ -154,6 +152,11 @@ public:
       }
       b.phase = phase;
     }
+  }
+  
+  VESSL_INLINE size_t get_band_index(float frequency)
+  {
+    return generator_->get_band_index(frequency);
   }
 
   void generate(SampleArray output)
@@ -198,25 +201,17 @@ public:
   {
     const size_t idx = generator_->get_band_index(freq);
     // get from band generator for phase
-    typename SpectralGen::frequency_band band = generator_->get_band(idx);
-    // set normalized amplitude based on magnitude array (which includes spread and brightness)
-    band.amplitude /= spectral_magnitude_;
-    return band;
+    return generator_->get_band(idx);
   }
 
   float getMagnitudeMean()
   {
     float accum = 0;
-    for (int i = 0; i < bands_.size(); ++i)
+    for (int i = 1; i < bands_.size(); ++i)
     {
-      accum += generator_->get_band(i).magnitude;
+      accum += generator_->get_band(i).magnitude();
     }
-    return (accum / bands_.size()) / spectral_magnitude_;
-  }
-  
-  VESSL_INLINE size_t freq_to_index(float freq) const
-  {
-    return generator_->get_band_index(freq);
+    return (accum / bands_.size());
   }
 
 private:
@@ -270,7 +265,7 @@ private:
   void addSinusoidWithSpread(float bandFreq, float amp)
   {
     // get low and high frequencies for spread
-    const int midx = freq_to_index(bandFreq);
+    const int midx = generator_->get_band_index(bandFreq);
     const int lidx = midx - spread_bands_max_ * spread_; // freqToIndex(bandFreq - bandFreq * 0.5f*spread);
     const int hidx = midx + spread_bands_max_ * spread_; // freqToIndex(bandFreq + bandFreq * spread);
     addSinusoidWithSpread(midx, amp, lidx, hidx);
@@ -283,7 +278,7 @@ private:
     spec_bright_.fill(0);
     spec_spread_.fill(0);
 
-    for (size_t i = 0; i < bands_.size(); ++i)
+    for (size_t i = 1; i < bands_.size(); ++i)
     {
       processBand(i, bands_.size());
     }
@@ -295,7 +290,7 @@ private:
     float pi = 0;
     float pj = 0;
     size_t count = spec_bright_.size();
-    for (size_t i = 0; i < count; ++i)
+    for (size_t i = 1; i < count; ++i)
     {
       float ci = spec_bright_[i];
       spec_spread_[i] += ci + pi;
@@ -309,16 +304,15 @@ private:
       pj = vessl::math::max(cj, pj)*spread_mult;
     }
     
-    spectral_magnitude_ = static_cast<float>(SpectrumSize)/8.f * volume_;  // NOLINT(bugprone-integer-division)
-    for (size_t i = 0; i < spec_spread_.size(); ++i)
+    for (size_t i = 1; i < spec_spread_.size()-1; ++i)
     {
       // grab the magnitude as set by our pluck with spread pass
-      const float a = vessl::math::min(spec_spread_[i] * spectral_magnitude_, spectral_magnitude_);
+      const float a = vessl::math::min(spec_spread_[i] * volume_, volume_);
       //const float a = vessl::math::min(bands_[i].amplitude * spectral_magnitude_, spectral_magnitude_);
       
       // copy result into the generator's band magnitudes
       auto& gen_band = generator_->get_band(i);
-      gen_band.magnitude = a;
+      gen_band.set_magnitude(a);
 
       // #TODO probably sounds better to do the pitch-shift here?
       // At this point we have gAnaMagn and gAnaFreq from
