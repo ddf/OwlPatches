@@ -39,7 +39,7 @@ DESCRIPTION:
 
 #include "MonochromeScreenPatch.h"
 #include "MidiMessage.h"
-#include "SpectralSignalGenerator.h"
+#include "SpectralSynth.h"
 #include "Diffuser.h"
 #include "Reverb.h"
 #include "Frequency.h"
@@ -71,7 +71,7 @@ struct SpectralSympathiesParameterIds
 template<int spectrumSize, bool reverb_enabled>
 class SpectralSympathiesPatch : public MonochromeScreenPatch
 {
-  using SpectralGen = SpectralSignalGenerator<false>;
+  using SpectralGen = SpectralSynth<false>;
   using BitCrush = vessl::processors::bitcrush<float, 24>;
   using ReverbProcessor = Reverb<float>;
 
@@ -261,7 +261,7 @@ public:
       + 0.1f*getParameterValue(params.inBrightness));
 
     spectralGen->setSpread(spread);
-    spectralGen->setDecay(decay);
+    spectralGen->set_decay(decay);
     spectralGen->setBrightness(brightness);
     spectralGen->setVolume(volume);
     bitCrusher.rate() = crush.getValue();
@@ -315,7 +315,7 @@ public:
       diffuser->setAmount(stereoWidth);
       diffuser->process(audio, audio);
 
-      float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
+      float meanSpectralMagnitude = spectralGen->get_magnitude_mean();
       float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
 
       reverb->diffusion() = (0.7f);

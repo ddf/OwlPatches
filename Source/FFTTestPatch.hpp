@@ -37,10 +37,9 @@ public:
     vessl::sample::windows::render(vessl::sample::windows::type::triangle, window);
     for (int i = 1; i < bands.size(); ++i)
     {
-      bands[i].magnitude = 0;
-      bands[i].phase = vessl::math::random::u32();
+      bands[i].set_polar(0, vessl::math::random::u32());
     }
-    bands[62].magnitude = 8.f;
+    bands[62].set_magnitude(8.f);
     registerParameter(PARAMETER_F, "CPU>>");
   }
 

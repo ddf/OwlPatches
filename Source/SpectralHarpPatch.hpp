@@ -43,7 +43,7 @@ DESCRIPTION:
 #include "AudioBufferSourceSink.h"
 #include "Patch.h"
 #include "MidiMessage.h"
-#include "SpectralSignalGenerator.h"
+#include "SpectralSynth.h"
 #include "Diffuser.h"
 #include "Reverb.h"
 #include "Frequency.h"
@@ -74,7 +74,7 @@ struct SpectralHarpParameterIds
 template<vessl::size_t SpectrumSize, bool ReverbEnabled, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
-  using SpectralGen = SpectralSignalGenerator<SpectrumSize, false>;
+  using SpectralGen = SpectralSynth<SpectrumSize, false>;
   using BitCrush = vessl::processors::bitcrush<float, 24>;
   using ReverbProc = Reverb<float>;
 
@@ -252,14 +252,14 @@ public:
     crush = vessl::math::interp<vessl::math::easing::expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
 
     // reduce volume based on combination of decay, spread, and brightness parameters
-    volume = vessl::math::interp<vessl::math::easing::expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
-                                        + 0.7f*getParameterValue(params.inSpread)
-                                        + 0.1f*getParameterValue(params.inBrightness));
+    volume = vessl::math::interp<vessl::math::easing::expo::out>(1.0f, 0.25f, 0.5f*getParameterValue(params.inDecay)
+                                        + 0.3f*getParameterValue(params.inSpread)
+                                        + 0.2f*getParameterValue(params.inBrightness));
 
-    spectralGen->setSpread(spread);
-    spectralGen->setDecay(decay);
-    spectralGen->setBrightness(brightness.getValue());
-    spectralGen->setVolume(volume);
+    spectralGen->spread() = spread.getValue();
+    spectralGen->decay() = vessl::time::duration::from_seconds(decay.getValue(), getSampleRate());
+    spectralGen->brightness() = brightness.getValue();
+    spectralGen->volume() = volume.getValue();
     bitCrusher.rate() = crush.getValue();
 
     float strumX = 0;
@@ -290,7 +290,7 @@ public:
       if (gateState)
       {
         float location = 0.f; // = left[i] * 0.5f + 0.5f;
-        float amplitude = 0.75f; // clamp(right[i], 0.0f, 1.0f);
+        float amplitude = 1.f; // clamp(right[i], 0.0f, 1.0f);
         pluck(spectralGen, location, amplitude);
         strumX = vessl::math::max(strumX, location);
         strumY = vessl::math::max(strumY, amplitude);
@@ -325,7 +325,7 @@ public:
       diffuser->setAmount(stereoWidth);
       diffuser->process(audio, audio);
 
-      float meanSpectralMagnitude = spectralGen->getMagnitudeMean();
+      float meanSpectralMagnitude = spectralGen->get_magnitude_mean();
       float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
 
       reverb->diffusion() = 0.7f;

@@ -27,7 +27,7 @@
         <ClInclude Include="Source\PerlinNoiseField.hpp"/>
         <ClInclude Include="Source\Reverb.h"/>
         <ClInclude Include="Source\SkewedValue.h"/>
-        <ClInclude Include="Source\SpectralSignalGenerator.h"/>
+        <ClInclude Include="Source\SpectralSynth.h" />
         <ClInclude Include="Source\TapTempo.hpp"/>
         <ClInclude Include="Source\vessicle\BlurKernel.h"/>
         <ClInclude Include="Source\vessicle\BlurProcessor1D.h"/>

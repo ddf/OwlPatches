@@ -68,7 +68,7 @@ public:
     {
       float freq = frequencyOfString(b);
       float x = Interpolator::linear(0, screen.getWidth() - 1, (float)b / (numBands - 1));
-      auto band = spectralGen->getBand(freq);
+      auto band = spectralGen->get_band(freq);
       band.phase += stringAnimation;
 
       // solid line animation that wobbles back and forth based on amplitude
