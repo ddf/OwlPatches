@@ -65,10 +65,15 @@ public:
     return generator_->get_band_index(frequency);
   }
   
-  VESSL_INLINE typename SpectralGen::frequency_band get_band(float freq) const
+  VESSL_INLINE float get_band_frequency(size_t band_index)
+  {
+    return generator_->get_band_frequency(band_index);
+  }
+  
+  VESSL_INLINE Band& get_band(float freq)
   {
     const size_t idx = generator_->get_band_index(freq);
-    return generator_->get_band(idx);
+    return bands_[idx];
   }
 
   float get_magnitude_mean()
@@ -80,6 +85,11 @@ public:
     }
     return (accum / bands_.size());
   }
+  
+  void set_spread_bands_max(float num_bands)
+  {
+    spread_bands_max_ = num_bands;
+  }
 
   VESSL_INLINE Parameter spread() const { return params_.spread("spread", 's'); }
   VESSL_INLINE Parameter decay() const { return params_.decay("decay", 'd'); }\
@@ -89,7 +99,7 @@ public:
   void pluck(float freq, float amp)
   {
     const size_t bidx = generator_->get_band_index(freq);
-    if (bidx > 0 && bidx < bands_.size())
+    if (bidx > 1 && bidx < bands_.size())
     {
       bands_[bidx].amplitude = amp;
       bands_[bidx].decay = 1;
@@ -98,7 +108,7 @@ public:
 
   void excite(int bidx, float amp, float phase)
   {
-    if (bidx > 0 && bidx < bands_.size())
+    if (bidx > 1 && bidx < bands_.size())
     {
       Band& b = bands_[bidx];
       const float ea = amp;
@@ -110,6 +120,12 @@ public:
       }
       b.phase = phase;
     }
+  }
+  
+  void excite(float freq, float amp)
+  {
+    const int bidx = generator_->get_band_index(freq);
+    excite(bidx, amp, 0);
   }
   
   [[nodiscard]] const parameter_list& parameters() const override { return *this; }

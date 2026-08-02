@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|GENIUS">
+      <Configuration>Release</Configuration>
+      <Platform>GENIUS</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|LICH">
       <Configuration>Release</Configuration>
       <Platform>LICH</Platform>
@@ -27,7 +31,6 @@
     <ClInclude Include="Source\SpectralHarpGeniusPatch.hpp" />
     <ClInclude Include="Source\SpectralHarpLichPatch.hpp" />
     <ClInclude Include="Source\SpectralHarpPatch.hpp" />
-    <ClInclude Include="Source\SpectralSympathiesGeniusPatch.hpp" />
     <ClInclude Include="Source\SpectralSympathiesPatch.hpp" />
     <ClInclude Include="Source\VesslFilterTestPatch.hpp" />
     <ClInclude Include="Source\VesslNoiseTestPatch.hpp" />
@@ -98,6 +101,14 @@
             <PreprocessorDefinitions>OWL_LICH;%(PreprocessorDefinitions)</PreprocessorDefinitions>
         </ClCompile>
     </ItemDefinitionGroup>
+    <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|GENIUS'">
+        <ClCompile>
+            <PreprocessorDefinitions>OWL_GENIUS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+        </ClCompile>
+    </ItemDefinitionGroup>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|GENIUS'">
+    <PlatformToolset>/std:c++17</PlatformToolset>
+  </PropertyGroup>
 </Project>

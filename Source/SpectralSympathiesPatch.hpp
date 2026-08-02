@@ -38,14 +38,13 @@ DESCRIPTION:
 #define USE_MIDI_CALLBACK
 
 #include "MonochromeScreenPatch.h"
+#include "SmoothValue.h"
 #include "MidiMessage.h"
+
 #include "SpectralSynth.h"
 #include "Diffuser.h"
 #include "Reverb.h"
 #include "Frequency.h"
-#include "Interpolator.h"
-#include "SmoothValue.h"
-#include "Window.h"
 #include "vessicle/vessl/vessl.h"
 
 struct SpectralSympathiesParameterIds
@@ -68,156 +67,212 @@ struct SpectralSympathiesParameterIds
   PatchParameterId outStrumY; // = PARAMETER_AF;
 };
 
-template<int spectrumSize, bool reverb_enabled>
-class SpectralSympathiesPatch : public MonochromeScreenPatch
+#ifdef OWL_GENIUS
+static const SpectralSympathiesParameterIds genius_params =
 {
-  using SpectralGen = SpectralSynth<false>;
-  using BitCrush = vessl::processors::bitcrush<float, 24>;
-  using ReverbProcessor = Reverb<float>;
+  .inHarpFundamental = PARAMETER_CA,
+  .inHarpOctaves = PARAMETER_CB,
+  .inDensity = PARAMETER_C,
+  .inTuning = PARAMETER_D,
+  .inDecay = PARAMETER_A,
+  .inSpread = PARAMETER_B,
+  .inBrightness = PARAMETER_G,
+  .inCrush = PARAMETER_H,
 
-protected:
-  const SpectralSympathiesParameterIds params;
+  .inWidth = PARAMETER_AA,
+  .inReverbBlend = PARAMETER_AB,
+  .inReverbTime = PARAMETER_AC,
+  .inReverbTone = PARAMETER_AD,
 
-  const float spreadMax = 1.0f;
-  const float decayMin;
-  const float decayMax;
-  const float decayDefault = 0.5f;
-  const int   densityMin = 24;
-  const int   densityMax = 512;
-  const float octavesMin = 2;
-  const float octavesMax = 8;
-  const int   fundamentalNoteMin = 36;
-  const int   fundaMentalNoteMax = 128 - octavesMin * 12;
-  const float bandMin = Frequency::ofMidiNote(fundamentalNoteMin).asHz();
-  const float bandMax = Frequency::ofMidiNote(128).asHz();
-  const float crushRateMin = 1000.0f;
+  .outStrumX = PARAMETER_AE,
+  .outStrumY = PARAMETER_AF,
+};
+#endif
 
-  int inputBufferWrite;
-  FloatArray inputBuffer;
-  Window inputWindow;
-  FloatArray inputAnalyze;
-  ComplexFloatArray inputSpectrum;
-  FastFourierTransform* inputTransform;
+#ifdef OWL_WITCH
+static constexpr SpectralSympathiesParameterIds witch_params =
+{
+  .inHarpFundamental = PARAMETER_A,
+  .inHarpOctaves = PARAMETER_B,
+  .inDensity = PARAMETER_C,
+  .inTuning = PARAMETER_D,
+  .inDecay = PARAMETER_E,
+  .inSpread = PARAMETER_AA,
+  .inBrightness = PARAMETER_AB,
+  .inCrush = PARAMETER_AC,
 
-  SpectralGen* spectralGen;
-  Diffuser* diffuser;
-  ReverbProcessor*   reverb;
+  .inWidth = PARAMETER_BA,
+  .inReverbBlend = PARAMETER_BB,
+  .inReverbTime = PARAMETER_BC,
+  .inReverbTone = PARAMETER_BD,
 
-  BitCrush bitCrusher;
+  .outStrumX = PARAMETER_F,
+  .outStrumY = PARAMETER_G,
+};
+#endif
 
-  int        pluckAtSample;
-  int        gateOnAtSample;
-  int        gateOffAtSample;
-  bool       gateState;
-  StiffFloat bandFirst;
-  StiffFloat bandLast;
-  SmoothFloat spread;
-  SmoothFloat decay;
-  SmoothFloat brightness;
-  SmoothFloat volume;
-  SmoothFloat crush;
-  SmoothFloat linLogLerp;
-  SmoothFloat bandDensity;
-  SmoothFloat stereoWidth;
-  SmoothFloat reverbTime;
-  SmoothFloat reverbTone;
-  SmoothFloat reverbBlend;
+template<size_t SpectrumSize, bool ReverbEnabled>
+class SpectralSympathiesBase : public MonochromeScreenPatch
+{
+  using sample_t = float;
+  using complex_t = vessl::transform::complex<sample_t>;
+  using SpectralGen = SpectralSynth<SpectrumSize, false>;
+  using BitCrush = vessl::processors::bitcrush<sample_t, 24>;
+  using ReverbProcessor = Reverb<sample_t>;
+  using SampleArray = vessl::array<sample_t>;
+  using ComplexArray = vessl::array<complex_t>;
+  using Window = vessl::sample::windows::type;
+  using FFT = vessl::transform::fft<sample_t>;
 
-  MidiMessage* midiNotes;
+  SpectralSympathiesParameterIds params_;
+
+  float spread_max_ = 1.0f;
+  float decay_min_;
+  float decay_max_;
+  float decay_default_ = 0.5f;
+  float density_min_ = 64;
+  float density_max_ = static_cast<float>(SpectrumSize)/4;
+  float crush_rate_min_ = 1000.0f;
+  float string_animation_;
+
+  int input_buffer_write_;
+  SampleArray input_buffer_;
+  SampleArray input_window_;
+  SampleArray input_analyze_;
+  ComplexArray input_spectrum_;
+  FFT input_transform_;
+
+  SpectralGen* spectral_gen_;
+  Diffuser* diffuser_;
+  ReverbProcessor* reverb_;
+
+  BitCrush bit_crusher_;
+
+  int        pluck_at_sample_;
+  int        gate_on_at_sample_;
+  int        gate_off_at_sample_;
+  bool       gate_state_;
+  StiffFloat band_first_;
+  StiffFloat band_last_;
+  SmoothFloat spread_;
+  SmoothFloat decay_;
+  SmoothFloat brightness_;
+  SmoothFloat volume_;
+  SmoothFloat crush_;
+  SmoothFloat lin_log_lerp_;
+  SmoothFloat band_density_;
+  SmoothFloat stereo_width_;
+  SmoothFloat reverb_time_;
+  SmoothFloat reverb_tone_;
+  SmoothFloat reverb_blend_;
+
+  MidiMessage* midi_notes_;
 
 public:
-
-  SpectralSympathiesPatch(SpectralSympathiesParameterIds paramIds) : MonochromeScreenPatch()
-    , params(paramIds), bitCrusher(getSampleRate(), getSampleRate())
-    , inputBufferWrite(0), pluckAtSample(-1), gateOnAtSample(-1), gateOffAtSample(-1), gateState(false)
-    , decayMin((float)spectrumSize*0.5f / getSampleRate()), decayMax(10.0f)
-    , bandFirst(1.f), bandLast(1.f)
+  explicit SpectralSympathiesBase() 
+    : MonochromeScreenPatch()
+#ifdef OWL_WITCH
+    , params_(witch_params)
+#endif
+#ifdef OWL_GENIUS
+    , params_(genius_params)
+#endif
+    , decay_min_(static_cast<float>(SpectrumSize)*0.5f / getSampleRate())
+    , decay_max_(10.0f)
+    , string_animation_(0)
+    , input_buffer_write_(0)
+    , input_buffer_(new sample_t[SpectrumSize], SpectrumSize)
+    , input_window_(new sample_t[SpectrumSize], SpectrumSize)
+    , input_analyze_(new sample_t[SpectrumSize], SpectrumSize)
+    , input_spectrum_(new complex_t[SpectrumSize/2], SpectrumSize/2)
+    , input_transform_(SpectrumSize)
+    , bit_crusher_(getSampleRate(), getSampleRate())
+    , pluck_at_sample_(-1)
+    , gate_on_at_sample_(-1)
+    , gate_off_at_sample_(-1)
+    , gate_state_(false)
   {
-    inputBuffer = FloatArray::create(spectrumSize);
-    inputWindow = Window::create(Window::HanningWindow, spectrumSize);
-    inputAnalyze = FloatArray::create(spectrumSize);
-    inputSpectrum = ComplexFloatArray::create(spectrumSize);
-    inputTransform = FastFourierTransform::create(spectrumSize);
+    band_first_.delta = 1.0f;
+    band_last_.delta = 1.0f;
+    
+    spectral_gen_ = SpectralGen::create(getSampleRate());
+    vessl::sample::windows::render(Window::hann, input_window_);
 
-    spectralGen = SpectralGen::create(spectrumSize, getSampleRate());
-
-    if (reverb_enabled)
+    if (ReverbEnabled)
     {
-      diffuser = Diffuser::create();
-      reverb = ReverbProcessor::create(getSampleRate());
+      diffuser_ = Diffuser::create();
+      reverb_ = ReverbProcessor::create(getSampleRate());
     }
-
-    midiNotes = new MidiMessage[128];
-    memset(midiNotes, 0, sizeof(MidiMessage) * 128);
+    
+    midi_notes_ = new MidiMessage[128];
+    memset(midi_notes_, 0, sizeof(MidiMessage) * 128);
 
     // register Decay and Spread first
     // so that these wind up as the default CV A and B parameters on Genius
-    registerParameter(params.inDecay, "Decay");
-    registerParameter(params.inSpread, "Spread");
-    registerParameter(params.inBrightness, "Brightness");
-    registerParameter(params.inCrush, "Crush");
-    registerParameter(params.inHarpFundamental, "Fundamentl");
-    registerParameter(params.inHarpOctaves, "Octaves");
-    registerParameter(params.inDensity, "Density");
-    registerParameter(params.inTuning, "Tuning");
-    if (reverb_enabled)
+    registerParameter(params_.inDecay, "Decay");
+    registerParameter(params_.inSpread, "Spread");
+    registerParameter(params_.inBrightness, "Brightness");
+    registerParameter(params_.inCrush, "Crush");
+    registerParameter(params_.inHarpFundamental, "Fundamentl");
+    registerParameter(params_.inHarpOctaves, "Octaves");
+    registerParameter(params_.inDensity, "Density");
+    registerParameter(params_.inTuning, "Tuning");
+    if (ReverbEnabled)
     {
-      registerParameter(params.inWidth, "Width");
-      registerParameter(params.inReverbTime, "Verb Time");
-      registerParameter(params.inReverbTone, "Verb Tone");
-      registerParameter(params.inReverbBlend, "Verb Blend");
+      registerParameter(params_.inWidth, "Width");
+      registerParameter(params_.inReverbTime, "Verb Time");
+      registerParameter(params_.inReverbTone, "Verb Tone");
+      registerParameter(params_.inReverbBlend, "Verb Blend");
     }
 
-    registerParameter(params.outStrumX, "Strum X>");
-    registerParameter(params.outStrumY, "Strum Y>");
+    registerParameter(params_.outStrumX, "Strum X>");
+    registerParameter(params_.outStrumY, "Strum Y>");
 
-    setParameterValue(params.inHarpFundamental, 0.0f);
-    setParameterValue(params.inHarpOctaves, 1.0f);
-    setParameterValue(params.inDecay, (decayDefault - decayMin) / (decayMax - decayMin));
-    setParameterValue(params.inDensity, 1.0f);
-    setParameterValue(params.inSpread, 0.0f);
-    setParameterValue(params.inBrightness, 0.0f);
-    setParameterValue(params.inCrush, 0.0f);
-    setParameterValue(params.inTuning, 0.0f);
+    setParameterValue(params_.inHarpFundamental, 0.0f);
+    setParameterValue(params_.inHarpOctaves, 1.0f);
+    setParameterValue(params_.inDecay, (decay_default_ - decay_min_) / (decay_max_ - decay_min_));
+    setParameterValue(params_.inDensity, 1.0f);
+    setParameterValue(params_.inSpread, 0.0f);
+    setParameterValue(params_.inBrightness, 0.0f);
+    setParameterValue(params_.inCrush, 0.0f);
+    setParameterValue(params_.inTuning, 1.0f);
 
-    if (reverb_enabled)
+    if (ReverbEnabled)
     {
-      setParameterValue(params.inReverbTone, 1.0f);
+      setParameterValue(params_.inReverbTone, 1.0f);
     }
   }
 
-  ~SpectralSympathiesPatch()
+  ~SpectralSympathiesBase() override
   {
-    FloatArray::destroy(inputBuffer);
-    Window::destroy(inputWindow);
-    FloatArray::destroy(inputAnalyze);
-    ComplexFloatArray::destroy(inputSpectrum);
-    FastFourierTransform::destroy(inputTransform);
-    SpectralGen::destroy(spectralGen);
-    if (reverb_enabled)
+    delete[] input_buffer_.data();
+    delete[] input_analyze_.data();
+    delete[] input_spectrum_.data();
+    SpectralGen::destroy(spectral_gen_);
+    if (ReverbEnabled)
     {
-      Diffuser::destroy(diffuser);
-      ReverbProcessor::destroy(reverb);
+      Diffuser::destroy(diffuser_);
+      ReverbProcessor::destroy(reverb_);
     }
-    delete[] midiNotes;
+    delete[] midi_notes_;
   }
 
-  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples)
+  void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
   {
     if ((bid == PUSHBUTTON || bid == BUTTON_1) && value == Patch::ON)
     {
-      pluckAtSample = samples;
+      pluck_at_sample_ = samples;
     }
 
     if (bid == BUTTON_2)
     {
       if (value == Patch::ON)
       {
-        gateOnAtSample = samples;
+        gate_on_at_sample_ = samples;
       }
       else
       {
-        gateOffAtSample = samples;
+        gate_off_at_sample_ = samples;
       }
     }
   }
@@ -237,122 +292,223 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
-    const int blockSize = audio.getSize();
-    FloatArray left = audio.getSamples(0);
-    FloatArray right = audio.getSamples(1);
+    const int block_size = audio.getSize();
+    SampleArray left(audio.getSamples(0), block_size);
+    SampleArray right(audio.getSamples(1), block_size);
+    
+    constexpr float octaves_min = 0.5f;
+    constexpr float octaves_max = 2.f;
+    
+    const float center  = vessl::math::lerp(100.f, 8000.f, getParameterValue(params_.inHarpFundamental));
+    const float width = vessl::math::lerp(center * octaves_min, center * octaves_max, getParameterValue(params_.inHarpOctaves));
+    band_first_ = spectral_gen_->get_band_frequency(2); // vessl::math::constrain(center - width, spectral_gen_->get_band_frequency(1), center);
+    band_last_ = getSampleRate()*0.49f; // vessl::math::constrain(center + width, center, getSampleRate()*0.49f);
+    //band_last_ = 20000.f - (1.f - getParameterValue(params_.inHarpOctaves))*fundamental*octaves_max_*64;
+    float band_first_idx = spectral_gen_->get_band_index(band_first_.getValue());
+    float band_last_idx = spectral_gen_->get_band_index(band_last_.getValue());
+    band_density_ = vessl::math::lerp(density_min_, vessl::math::min(band_last_idx - band_first_idx, density_max_), getParameterValue(params_.inDensity));
+    lin_log_lerp_ = getParameterValue(params_.inTuning);
 
-    float harpFund = vessl::math::lerp(fundamentalNoteMin, fundaMentalNoteMax, getParameterValue(params.inHarpFundamental));
-    float harpOctaves = vessl::math::lerp(octavesMin, octavesMax, getParameterValue(params.inHarpOctaves));
-    bandFirst = Frequency::ofMidiNote(harpFund).asHz();
-    bandLast = vessl::math::min(Frequency::ofMidiNote(harpFund + harpOctaves * MIDIOCTAVE).asHz(), bandMax);
-    int bandFirstIdx = spectralGen->freq_to_index(bandFirst);
-    int bandLastIdx = spectralGen->freq_to_index(bandLast);
-    bandDensity = vessl::math::lerp(densityMin, vessl::math::min(bandLastIdx - bandFirstIdx, densityMax), getParameterValue(params.inDensity));
-    linLogLerp = getParameterValue(params.inTuning);
-
-    spread = getParameterValue(params.inSpread)*spreadMax;
-    decay = vessl::math::lerp(decayMin, decayMax, getParameterValue(params.inDecay));
-    brightness = getParameterValue(params.inBrightness);
-    crush = vessl::math::interp<vessl::math::easing::expo::out>(getSampleRate(), crushRateMin, getParameterValue(params.inCrush));
+    spread_ = getParameterValue(params_.inSpread);
+    decay_ = vessl::math::lerp(decay_min_, decay_max_, getParameterValue(params_.inDecay));
+    brightness_ = getParameterValue(params_.inBrightness);
+    crush_ = vessl::math::interp<vessl::math::easing::expo::out>(getSampleRate(), crush_rate_min_, getParameterValue(params_.inCrush));
 
     // reduce volume based on combination of decay, spread, and brightness parameters
-    volume = vessl::math::interp<vessl::math::easing::expo::out>(1.0f, 0.15f, 0.2f*getParameterValue(params.inDecay)
-      + 0.7f*getParameterValue(params.inSpread)
-      + 0.1f*getParameterValue(params.inBrightness));
+    volume_ = vessl::math::interp<vessl::math::easing::expo::out>(1.0f, 0.5f, 0.6f*getParameterValue(params_.inDecay)
+      + 0.2f*getParameterValue(params_.inSpread)
+      + 0.2f*getParameterValue(params_.inBrightness));
+    
+    spread_max_ = vessl::math::lerp(SpectrumSize/8.f, SpectrumSize/128.f, getParameterValue(params_.inDensity));
 
-    spectralGen->setSpread(spread);
-    spectralGen->set_decay(decay);
-    spectralGen->setBrightness(brightness);
-    spectralGen->setVolume(volume);
-    bitCrusher.rate() = crush.getValue();
+    spectral_gen_->spread() = spread_.getValue();
+    spectral_gen_->set_spread_bands_max(spread_max_);
+    spectral_gen_->decay() = vessl::duration_t::from_seconds(decay_.getValue(), getSampleRate());
+    spectral_gen_->brightness() = brightness_.getValue();
+    spectral_gen_->volume() = volume_.getValue();
+    bit_crusher_.rate() = crush_.getValue();
 
     // TODO: this needs to dynamically adjust to band density somehow,
     // but using band density directly doesn't work. it's more to do with 
     // the distance between bands that we are exciting.
     // when band step is small, attenuation needs to also be small.
     // probably this means applying attenuation to inputAnalyze instead of while we record.
-    const int bandStep = vessl::math::max((bandLastIdx - bandFirstIdx) / getStringCount(), 1);
-    const float inputAtten = 1.0f / 512.0f;
-    for (int i = 0; i < blockSize; ++i)
+    const int string_count = vessl::math::max(get_string_count(), 1);
+    constexpr float mag_norm = 256.f / static_cast<float>(SpectrumSize);
+    for (int i = 0; i < block_size; ++i)
     {
-      inputBuffer[inputBufferWrite++] = left[i]*inputAtten;
-      if (inputBufferWrite == spectrumSize)
+      input_buffer_[input_buffer_write_++] = left[i];
+      if (input_buffer_write_ == SpectrumSize)
       {
         // window the input and output to an analysis buffer
         // because running the fft messes up the input samples.
-        inputWindow.process(inputBuffer, inputAnalyze);
-        inputTransform->fft(inputAnalyze, inputSpectrum);
-        // we may still want to excite using frequency, not band index.
-        // this way we can still use the Tuning parameter.
-        for (int b = bandFirstIdx; b < bandLastIdx; b+= bandStep)
+        input_window_.multiply(input_buffer_, input_analyze_);
+        input_transform_.forward(input_analyze_, input_spectrum_);
+        
+        // transfer spectrum data from input analysis to spectral_gen
+        // by sampling only those frequencies represented by our strings.
+        // i.e. comb filter it.
+        for (int si = 0; si < string_count; ++si)
         {
-          const float inMag = inputSpectrum[b].getMagnitude();
-          const float inPhase = inputSpectrum[b].getPhase();
-          spectralGen->excite(b, inMag, inPhase);
+          const float freq = frequency_of_string(si);
+          const int bi = spectral_gen_->get_band_index(freq);
+          if (bi > 0 && bi < input_spectrum_.size())
+          {
+            const float in_mag = input_spectrum_[bi].magnitude() * mag_norm;
+            const float in_phase = 0; // input_spectrum_[b].phase();
+            spectral_gen_->excite(bi, in_mag, in_phase);
+          }
         }
+        
+        // map the full spectrum to our selected strings
+        // for (int ii = 1; ii < input_spectrum_.size(); ++ii)
+        // {
+        //   float it = static_cast<float>(ii - 1) / (input_spectrum_.size()-1);
+        //   int si = vessl::math::round(it*string_count);
+        //   const float freq = frequency_of_string(si);
+        //   int gi = spectral_gen_->get_band_index(freq);
+        //   if (gi > 0 && gi < input_spectrum_.size())
+        //   {
+        //     const float in_mag = input_spectrum_[ii].magnitude() * mag_norm;
+        //     //spectral_gen_->excite(gi, in_mag, 0);
+        //     auto& band = spectral_gen_->get_band(freq);
+        //     if (band.amplitude*band.decay < in_mag)
+        //     {
+        //       spectral_gen_->pluck(freq, in_mag);
+        //     }
+        //   }
+        // }
+        
         // copy the back half of the array to the front half
         // continue recording input from the middle of the array.
         // doing this means we can update the spectral data for sound generation every overlap.
-        inputBufferWrite = spectrumSize / 2;
-        inputBuffer.copyFrom(inputBuffer.subArray(inputBufferWrite, spectrumSize / 2));
+        input_buffer_write_ = SpectrumSize / 2;
+        SampleArray input_buffer_back(input_buffer_.data() + input_buffer_write_, input_buffer_write_);
+        input_buffer_back.copy_to(input_buffer_);
       }
     }
 
-    spectralGen->generate(left);
+    spectral_gen_->generate(left);
 
-    vessl::array<float> bcp(left.getData(), left.getSize());
-    bitCrusher.process(bcp, bcp);
+    // vessl::array<float> bcp(left.getData(), left.getSize());
+    // bit_crusher_.process(bcp, bcp);
 
-    left.copyTo(right);
+    left.copy_to(right);
 
-    if (reverb_enabled)
-    {
-      stereoWidth = getParameterValue(params.inWidth);
-      reverbTime = 0.35f + 0.6f*getParameterValue(params.inReverbTime);
-      reverbTone = Interpolator::linear(0.2f, 0.97f, getParameterValue(params.inReverbTone));
-      reverbBlend = getParameterValue(params.inReverbBlend) * 0.56f;
-
-      diffuser->setAmount(stereoWidth);
-      diffuser->process(audio, audio);
-
-      float meanSpectralMagnitude = spectralGen->get_magnitude_mean();
-      float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
-
-      reverb->diffusion() = (0.7f);
-      reverb->input_gain() = (reverbInputGain);
-      reverb->reverb_time() = (reverbTime);
-      reverb->low_pass() = (reverbTone);
-      reverb->wet_mix() = (reverbBlend);
-      // @todo fix this
-      reverb->process(audio, audio);
-    }
+    // if (ReverbEnabled)
+    // {
+    //   stereo_width_ = getParameterValue(params_.inWidth);
+    //   reverb_time_ = 0.35f + 0.6f*getParameterValue(params_.inReverbTime);
+    //   reverb_tone_ = Interpolator::linear(0.2f, 0.97f, getParameterValue(params_.inReverbTone));
+    //   reverb_blend_ = getParameterValue(params_.inReverbBlend) * 0.56f;
+    //
+    //   diffuser_->setAmount(stereo_width_);
+    //   diffuser_->process(audio, audio);
+    //
+    //   float meanSpectralMagnitude = spectral_gen_->get_magnitude_mean();
+    //   float reverbInputGain = clamp(0.2f - meanSpectralMagnitude, 0.05f, 1.0f);
+    //
+    //   reverb_->diffusion() = (0.7f);
+    //   reverb_->input_gain() = (reverbInputGain);
+    //   reverb_->reverb_time() = (reverb_time_);
+    //   reverb_->low_pass() = (reverb_tone_);
+    //   reverb_->wet_mix() = (reverb_blend_);
+    //   // @todo fix this
+    //   reverb_->process(audio, audio);
+    // }
 
     //setParameterValue(params.outStrumX, strumX);
     //setParameterValue(params.outStrumY, strumY);
   }
 
-  virtual void processScreen(MonochromeScreenBuffer& screen) override {}
+#ifdef OWL_GENIUS
+  void processScreen(MonochromeScreenBuffer& screen) override
+  {
+    const int top = 8;
+    const int bottom = screen.getHeight() - 18;
+    const int height = bottom - top;
+    const int numBands = get_string_count();
+    for (int b = 0; b < numBands; ++b)
+    {
+      float freq = frequency_of_string(b);
+      float x = vessl::math::lerp(0, screen.getWidth() - 1, (float)b / (numBands - 1));
+      auto& band = spectral_gen_->get_band(freq);
+      band.phase += string_animation_;
+
+      // solid line animation that wobbles back and forth based on amplitude
+      //float w = Interpolator::linear(0, 2, band.amplitude);
+      //int segments = w > 0 ? 32 : 1;
+      //float segLength = (float)height / segments;
+      //float py0 = 0;
+      //float px0 = x + w * sinf(band.phase);
+      //for (int i = 0; i < segments + 1; ++i)
+      //{
+      //  float py1 = i * segLength;
+      //  float s1 = py1 / height * (float)M_PI * 8 + band.phase;
+      //  float px1 = x + w * sinf(s1);
+      //  screen.drawLine(px0, py0, px1, py1, WHITE);
+      //  px0 = px1;
+      //  py0 = py1;
+      //}
+
+      // same animation, viewed from the side with "pegs" at top and bottom
+      screen.drawLine(x, top, x, top + 1, WHITE);
+      screen.drawLine(x, bottom - 1, x, bottom, WHITE);
+      for (int y = top + 2; y < bottom - 1; ++y)
+      {
+        float s1 = (float)y / height * M_PI * band.amplitude * 600 + band.phase;
+        if (fabsf(band.amplitude*vessl::math::sin<float>(s1)) > 0.004f)
+        {
+          screen.setPixel(x, y, WHITE);
+        }
+      }
+    }
+
+    char* bandFirstStr = msg_itoa((int)band_first_, 10);
+    screen.setCursor(0, top);
+    screen.print(bandFirstStr);
+    screen.print(" Hz");
+
+    char* bandLastStr = msg_itoa((int)band_last_, 10);
+    screen.setCursor(screen.getWidth() - 6 * (strlen(bandLastStr) + 3), top);
+    screen.print(bandLastStr);
+    screen.print(" Hz");
+
+    screen.setCursor(screen.getWidth() / 2 - 16, top);
+    //screen.print(highElapsedTime);
+    //screen.print(spectralGen->getMagnitudeMean());
+
+    const float dt = 1.0f / 60.0f;
+    string_animation_ += dt * M_PI * 4;
+    if (string_animation_ > M_PI * 2)
+    {
+      string_animation_ -= M_PI * 2;
+    }
+  }
+#else
+  void processScreen(MonochromeScreenBuffer& screen) override {}
+#endif
 
 protected:
   // get the current string count based on the density setting
-  int getStringCount()
+  int get_string_count()
   {
-    return (int)(bandDensity + 0.5f);
+    return static_cast<int>(band_density_.getValue() + 0.5f);
   }
 
-  float frequencyOfString(int stringNum)
+  float frequency_of_string(const int string_num)
   {
-    const float t = (float)stringNum / getStringCount();
+    const float t = static_cast<float>(string_num) / get_string_count();
     // convert first and last bands to midi notes and then do a linear interp, converting back to Hz at the end.
-    Frequency lowFreq = Frequency::ofHertz(bandFirst);
-    Frequency hiFreq = Frequency::ofHertz(bandLast);
-    const float linFreq = vessl::math::lerp(lowFreq.asHz(), hiFreq.asHz(), t);
-    const float midiNote = vessl::math::lerp(lowFreq.asMidiNote(), hiFreq.asMidiNote(), t);
-    const float logFreq = Frequency::ofMidiNote(midiNote).asHz();
+    const Frequency low_freq = Frequency::ofHertz(band_first_.getValue());
+    const Frequency hi_freq = Frequency::ofHertz(band_last_.getValue());
+    const float lin_freq = vessl::math::lerp(low_freq.asHz(), hi_freq.asHz(), t);
+    const float midi_note = vessl::math::lerp(low_freq.asMidiNote(), hi_freq.asMidiNote(), t);
+    const float log_freq = Frequency::ofMidiNote(midi_note).asHz();
     // we lerp from logFreq up to linFreq because log spacing clusters frequencies
     // towards the bottom of the range, which means that when holding down the mouse on a string
     // and lowering this param, you'll hear the pitch drop, which makes more sense than vice-versa.
-    return vessl::math::lerp(logFreq, linFreq, linLogLerp.getValue());
+    return vessl::math::lerp(log_freq, lin_freq, lin_log_lerp_.getValue());
   }
 
 private:
@@ -371,3 +527,11 @@ private:
   //  spectrum->pluck(freq, amp);
   //}
 };
+
+#ifdef OWL_WITCH
+typedef SpectralSympathiesBase<2048,false> SpectralSympathiesPatch;
+#endif
+
+#ifdef OWL_GENIUS
+typedef SpectralSympathiesBase<4096,false> SpectralSympathiesPatch;
+#endif

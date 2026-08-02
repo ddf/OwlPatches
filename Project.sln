@@ -8,15 +8,20 @@ Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|WITCH = Release|WITCH
 		Release|LICH = Release|LICH
+		Release|GENIUS = Release|GENIUS
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|WITCH.ActiveCfg = Release|WITCH
 		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|WITCH.Build.0 = Release|WITCH
 		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|LICH.ActiveCfg = Release|LICH
 		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|LICH.Build.0 = Release|LICH
+		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|GENIUS.ActiveCfg = Release|GENIUS
+		{78632CCB-5AC1-4EE9-AB11-A7E63CB71FAD}.Release|GENIUS.Build.0 = Release|GENIUS
 		{08837541-02AA-4E93-802F-AF0B78306529}.Release|WITCH.ActiveCfg = Release|WITCH
 		{08837541-02AA-4E93-802F-AF0B78306529}.Release|WITCH.Build.0 = Release|WITCH
 		{08837541-02AA-4E93-802F-AF0B78306529}.Release|LICH.ActiveCfg = Release|LICH
 		{08837541-02AA-4E93-802F-AF0B78306529}.Release|LICH.Build.0 = Release|LICH
+		{08837541-02AA-4E93-802F-AF0B78306529}.Release|GENIUS.ActiveCfg = Release|GENIUS
+		{08837541-02AA-4E93-802F-AF0B78306529}.Release|GENIUS.Build.0 = Release|GENIUS
 	EndGlobalSection
 EndGlobal
