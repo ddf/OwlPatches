@@ -57,6 +57,7 @@ struct SpectralSympathiesParameterIds
   PatchParameterId inSpread; // = PARAMETER_F;
   PatchParameterId inBrightness; // = PARAMETER_G;
   PatchParameterId inCrush; // = PARAMETER_H;
+  PatchParameterId inFeedback;
 
   PatchParameterId inWidth; // = PARAMETER_AA;
   PatchParameterId inReverbBlend; // = PARAMETER_AB;
@@ -72,17 +73,18 @@ static const SpectralSympathiesParameterIds genius_params =
 {
   .inHarpFundamental = PARAMETER_CA,
   .inHarpOctaves = PARAMETER_CB,
-  .inDensity = PARAMETER_C,
-  .inTuning = PARAMETER_D,
-  .inDecay = PARAMETER_A,
+  .inDensity = PARAMETER_A,
+  .inTuning = PARAMETER_E,
+  .inDecay = PARAMETER_F,
   .inSpread = PARAMETER_B,
   .inBrightness = PARAMETER_G,
   .inCrush = PARAMETER_H,
+  .inFeedback = PARAMETER_AB,
 
-  .inWidth = PARAMETER_AA,
-  .inReverbBlend = PARAMETER_AB,
-  .inReverbTime = PARAMETER_AC,
-  .inReverbTone = PARAMETER_AD,
+  .inWidth = PARAMETER_DA,
+  .inReverbBlend = PARAMETER_DB,
+  .inReverbTime = PARAMETER_DC,
+  .inReverbTone = PARAMETER_DD,
 
   .outStrumX = PARAMETER_AE,
   .outStrumY = PARAMETER_AF,
@@ -140,6 +142,7 @@ class SpectralSympathiesBase : public MonochromeScreenPatch
   SampleArray input_window_;
   SampleArray input_analyze_;
   ComplexArray input_spectrum_;
+  ComplexArray feedback_spectrum_;
   FFT input_transform_;
 
   SpectralGen* spectral_gen_;
@@ -157,6 +160,7 @@ class SpectralSympathiesBase : public MonochromeScreenPatch
   SmoothFloat spread_;
   SmoothFloat decay_;
   SmoothFloat brightness_;
+  SmoothFloat feedback_;
   SmoothFloat volume_;
   SmoothFloat crush_;
   SmoothFloat lin_log_lerp_;
@@ -178,13 +182,14 @@ public:
     , params_(genius_params)
 #endif
     , decay_min_(static_cast<float>(SpectrumSize)*0.5f / getSampleRate())
-    , decay_max_(10.0f)
+    , decay_max_(3.5f)
     , string_animation_(0)
     , input_buffer_write_(0)
     , input_buffer_(new sample_t[SpectrumSize], SpectrumSize)
     , input_window_(new sample_t[SpectrumSize], SpectrumSize)
     , input_analyze_(new sample_t[SpectrumSize], SpectrumSize)
     , input_spectrum_(new complex_t[SpectrumSize/2], SpectrumSize/2)
+    , feedback_spectrum_(new complex_t[SpectrumSize/2], SpectrumSize/2)
     , input_transform_(SpectrumSize)
     , bit_crusher_(getSampleRate(), getSampleRate())
     , pluck_at_sample_(-1)
@@ -217,6 +222,7 @@ public:
     registerParameter(params_.inHarpOctaves, "Octaves");
     registerParameter(params_.inDensity, "Density");
     registerParameter(params_.inTuning, "Tuning");
+    registerParameter(params_.inFeedback, "Feedback");
     if (ReverbEnabled)
     {
       registerParameter(params_.inWidth, "Width");
@@ -236,6 +242,7 @@ public:
     setParameterValue(params_.inBrightness, 0.0f);
     setParameterValue(params_.inCrush, 0.0f);
     setParameterValue(params_.inTuning, 1.0f);
+    setParameterValue(params_.inFeedback, 0.0f);
 
     if (ReverbEnabled)
     {
@@ -245,6 +252,7 @@ public:
 
   ~SpectralSympathiesBase() override
   {
+    delete[] feedback_spectrum_.data();
     delete[] input_buffer_.data();
     delete[] input_analyze_.data();
     delete[] input_spectrum_.data();
@@ -309,9 +317,10 @@ public:
     band_density_ = vessl::math::lerp(density_min_, vessl::math::min(band_last_idx - band_first_idx, density_max_), getParameterValue(params_.inDensity));
     lin_log_lerp_ = getParameterValue(params_.inTuning);
 
-    spread_ = getParameterValue(params_.inSpread);
+    spread_ = vessl::math::interp<vessl::math::easing::quad::out>(0.f, 1.f, getParameterValue(params_.inSpread));
     decay_ = vessl::math::lerp(decay_min_, decay_max_, getParameterValue(params_.inDecay));
     brightness_ = getParameterValue(params_.inBrightness);
+    feedback_ = getParameterValue(params_.inFeedback)*0.5f;
     crush_ = vessl::math::interp<vessl::math::easing::expo::out>(getSampleRate(), crush_rate_min_, getParameterValue(params_.inCrush));
 
     // reduce volume based on combination of decay, spread, and brightness parameters
@@ -319,7 +328,7 @@ public:
       + 0.2f*getParameterValue(params_.inSpread)
       + 0.2f*getParameterValue(params_.inBrightness));
     
-    spread_max_ = vessl::math::lerp(SpectrumSize/8.f, SpectrumSize/128.f, getParameterValue(params_.inDensity));
+    spread_max_ = vessl::math::lerp(SpectrumSize/4.f, SpectrumSize/64.f, getParameterValue(params_.inDensity));
 
     spectral_gen_->spread() = spread_.getValue();
     spectral_gen_->set_spread_bands_max(spread_max_);
@@ -335,6 +344,7 @@ public:
     // probably this means applying attenuation to inputAnalyze instead of while we record.
     const int string_count = vessl::math::max(get_string_count(), 1);
     constexpr float mag_norm = 256.f / static_cast<float>(SpectrumSize);
+    const float feed_scale = feedback_.getValue();
     for (int i = 0; i < block_size; ++i)
     {
       input_buffer_[input_buffer_write_++] = left[i];
@@ -354,11 +364,20 @@ public:
           const int bi = spectral_gen_->get_band_index(freq);
           if (bi > 0 && bi < input_spectrum_.size())
           {
-            const float in_mag = input_spectrum_[bi].magnitude() * mag_norm;
+            complex_t input = input_spectrum_[bi];
+            const int fi = spectral_gen_->get_band_index(freq*0.5f);
+            if (fi > 0 && fi < input_spectrum_.size())
+            {
+              complex_t feed = input*feedback_spectrum_[fi];
+              input = vessl::math::lerp(input, feed, feed_scale);
+            }
+            const float in_mag = input.magnitude() * mag_norm;
             const float in_phase = 0; // input_spectrum_[b].phase();
             spectral_gen_->excite(bi, in_mag, in_phase);
           }
         }
+        
+        input_spectrum_.copy_to(feedback_spectrum_);
         
         // map the full spectrum to our selected strings
         // for (int ii = 1; ii < input_spectrum_.size(); ++ii)
@@ -533,5 +552,5 @@ typedef SpectralSympathiesBase<2048,false> SpectralSympathiesPatch;
 #endif
 
 #ifdef OWL_GENIUS
-typedef SpectralSympathiesBase<4096,false> SpectralSympathiesPatch;
+typedef SpectralSympathiesBase<2048,false> SpectralSympathiesPatch;
 #endif
