@@ -58,6 +58,7 @@ struct SpectralSympathiesParameterIds
   PatchParameterId inBrightness; // = PARAMETER_G;
   PatchParameterId inCrush; // = PARAMETER_H;
   PatchParameterId inFeedback;
+  PatchParameterId inMix;
 
   PatchParameterId inWidth; // = PARAMETER_AA;
   PatchParameterId inReverbBlend; // = PARAMETER_AB;
@@ -80,6 +81,7 @@ static const SpectralSympathiesParameterIds genius_params =
   .inBrightness = PARAMETER_G,
   .inCrush = PARAMETER_H,
   .inFeedback = PARAMETER_AB,
+  .inMix = PARAMETER_AA,
 
   .inWidth = PARAMETER_DA,
   .inReverbBlend = PARAMETER_DB,
@@ -143,6 +145,8 @@ class SpectralSympathiesBase : public MonochromeScreenPatch
   SampleArray input_analyze_;
   ComplexArray input_spectrum_;
   ComplexArray feedback_spectrum_;
+  AudioBuffer* output_buffer_;
+  
   FFT input_transform_;
 
   SpectralGen* spectral_gen_;
@@ -161,6 +165,7 @@ class SpectralSympathiesBase : public MonochromeScreenPatch
   SmoothFloat decay_;
   SmoothFloat brightness_;
   SmoothFloat feedback_;
+  SmoothFloat mix_;
   SmoothFloat volume_;
   SmoothFloat crush_;
   SmoothFloat lin_log_lerp_;
@@ -196,9 +201,12 @@ public:
     , gate_on_at_sample_(-1)
     , gate_off_at_sample_(-1)
     , gate_state_(false)
+    , mix_(0.99f, 0.5f)
   {
     band_first_.delta = 1.0f;
     band_last_.delta = 1.0f;
+    
+    output_buffer_ = AudioBuffer::create(2, getBlockSize());
     
     spectral_gen_ = SpectralGen::create(getSampleRate());
     vessl::sample::windows::render(Window::hann, input_window_);
@@ -223,6 +231,7 @@ public:
     registerParameter(params_.inDensity, "Density");
     registerParameter(params_.inTuning, "Tuning");
     registerParameter(params_.inFeedback, "Feedback");
+    registerParameter(params_.inMix, "Mix");
     if (ReverbEnabled)
     {
       registerParameter(params_.inWidth, "Width");
@@ -243,6 +252,7 @@ public:
     setParameterValue(params_.inCrush, 0.0f);
     setParameterValue(params_.inTuning, 1.0f);
     setParameterValue(params_.inFeedback, 0.0f);
+    setParameterValue(params_.inMix, mix_.getValue());
 
     if (ReverbEnabled)
     {
@@ -257,6 +267,7 @@ public:
     delete[] input_analyze_.data();
     delete[] input_spectrum_.data();
     SpectralGen::destroy(spectral_gen_);
+    AudioBuffer::destroy(output_buffer_);
     if (ReverbEnabled)
     {
       Diffuser::destroy(diffuser_);
@@ -301,8 +312,10 @@ public:
   void processAudio(AudioBuffer& audio) override
   {
     const int block_size = audio.getSize();
-    SampleArray left(audio.getSamples(0), block_size);
-    SampleArray right(audio.getSamples(1), block_size);
+    SampleArray audio_left(audio.getSamples(0), block_size);
+    SampleArray audio_right(audio.getSamples(1), block_size);
+    SampleArray wet_left(output_buffer_->getSamples(0), block_size);
+    SampleArray wet_right(output_buffer_->getSamples(1), block_size);
     
     constexpr float octaves_min = 0.5f;
     constexpr float octaves_max = 2.f;
@@ -336,18 +349,13 @@ public:
     spectral_gen_->brightness() = brightness_.getValue();
     spectral_gen_->volume() = volume_.getValue();
     bit_crusher_.rate() = crush_.getValue();
-
-    // TODO: this needs to dynamically adjust to band density somehow,
-    // but using band density directly doesn't work. it's more to do with 
-    // the distance between bands that we are exciting.
-    // when band step is small, attenuation needs to also be small.
-    // probably this means applying attenuation to inputAnalyze instead of while we record.
+    
     const int string_count = vessl::math::max(get_string_count(), 1);
     constexpr float mag_norm = 256.f / static_cast<float>(SpectrumSize);
     const float feed_scale = feedback_.getValue();
     for (int i = 0; i < block_size; ++i)
     {
-      input_buffer_[input_buffer_write_++] = left[i];
+      input_buffer_[input_buffer_write_++] = (audio_left[i]+audio_right[i])*0.5f;
       if (input_buffer_write_ == SpectrumSize)
       {
         // window the input and output to an analysis buffer
@@ -407,12 +415,11 @@ public:
       }
     }
 
-    spectral_gen_->generate(left);
+    spectral_gen_->generate(wet_left);
+    wet_left.copy_to(wet_right);
 
     // vessl::array<float> bcp(left.getData(), left.getSize());
     // bit_crusher_.process(bcp, bcp);
-
-    left.copy_to(right);
 
     // if (ReverbEnabled)
     // {
@@ -435,6 +442,10 @@ public:
     //   // @todo fix this
     //   reverb_->process(audio, audio);
     // }
+    
+    mix_ = getParameterValue(params_.inMix);
+    vessl::sample::mix(audio_left, wet_left, mix_.getValue(), audio_left);
+    vessl::sample::mix(audio_right, wet_right, mix_.getValue(), audio_right);
 
     //setParameterValue(params.outStrumX, strumX);
     //setParameterValue(params.outStrumY, strumY);
