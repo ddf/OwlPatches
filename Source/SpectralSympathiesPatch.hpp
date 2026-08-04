@@ -41,11 +41,10 @@ DESCRIPTION:
 #include "SmoothValue.h"
 #include "MidiMessage.h"
 
-#include "SpectralSynth.h"
 #include "Diffuser.h"
 #include "Reverb.h"
 #include "Frequency.h"
-#include "vessicle/vessl/vessl.h"
+#include "vessicle/SpectralSympathies.h"
 
 struct SpectralSympathiesParameterIds
 {
@@ -120,7 +119,7 @@ class SpectralSympathiesBase : public MonochromeScreenPatch
 {
   using sample_t = float;
   using complex_t = vessl::transform::complex<sample_t>;
-  using SpectralGen = SpectralSynth<SpectrumSize, false>;
+  using SpectralGen = SpectralSympathies<SpectrumSize, false>;
   using BitCrush = vessl::processors::bitcrush<sample_t, 24>;
   using ReverbProcessor = Reverb<sample_t>;
   using SampleArray = vessl::array<sample_t>;

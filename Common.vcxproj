@@ -31,7 +31,6 @@
         <ClInclude Include="Source\PerlinNoiseField.hpp" />
         <ClInclude Include="Source\Reverb.h" />
         <ClInclude Include="Source\SkewedValue.h" />
-        <ClInclude Include="Source\SpectralSynth.h" />
         <ClInclude Include="Source\TapTempo.hpp" />
         <ClInclude Include="Source\vessicle\BlurKernel.h" />
         <ClInclude Include="Source\vessicle\BlurProcessor1D.h" />
@@ -52,6 +51,8 @@
         <ClInclude Include="Source\vessicle\Projector.h" />
         <ClInclude Include="Source\vessicle\Rotator3D.h" />
         <ClInclude Include="Source\vessicle\SpectralGenerator.h" />
+        <ClInclude Include="Source\vessicle\SpectralHarp.h" />
+        <ClInclude Include="Source\vessicle\SpectralSympathies.h" />
         <ClInclude Include="Source\vessicle\vessl\vessl.h" />
         <ClInclude Include="Source\vessicle\vessl\vessl_arm_math.inl" />
         <ClInclude Include="Source\vessicle\vessl\vessl_core.inl" />

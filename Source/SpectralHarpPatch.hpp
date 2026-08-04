@@ -43,13 +43,12 @@ DESCRIPTION:
 #include "AudioBufferSourceSink.h"
 #include "Patch.h"
 #include "MidiMessage.h"
-#include "SpectralSynth.h"
 #include "Diffuser.h"
 #include "Reverb.h"
 #include "Frequency.h"
 #include "Interpolator.h"
 #include "SmoothValue.h"
-#include "vessicle/vessl/vessl.h"
+#include "vessicle/SpectralHarp.h"
 
 struct SpectralHarpParameterIds
 {
@@ -74,7 +73,7 @@ struct SpectralHarpParameterIds
 template<vessl::size_t SpectrumSize, bool ReverbEnabled, typename PatchClass = Patch>
 class SpectralHarpPatch : public PatchClass
 {
-  using SpectralGen = SpectralSynth<SpectrumSize, false>;
+  using SpectralGen = SpectralHarp<SpectrumSize, false>;
   using BitCrush = vessl::processors::bitcrush<float, 24>;
   using ReverbProc = Reverb<float>;
 
