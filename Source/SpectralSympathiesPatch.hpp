@@ -114,6 +114,22 @@ static constexpr SpectralSympathiesParameterIds witch_params =
 };
 #endif
 
+// @todo - so a thing that sounds pretty cool is reducing the SpectrumSize down to like 512.
+// It creates more of a talkbox kind of effect.
+// What I want to try is:
+// Density is a blend between a set of small forward FFTs.
+// The generator continues to run at 4096, but ideally with higher overlap.
+// Or dynamic overlap based on Density?
+// Equivalent might be to group the forward FFT bands into average bands, which are our strings.
+// So we can run the forward FFT at the same size as the generator,
+// but when exciting it we are using average band information rather than a single band's information.
+// The string mapping would then blend from matching center frequency to center frequency
+// to a linear mapping from string index to generator band index.
+//
+// Another thot: spread could be around the strings from the source FFT, so that when exciting
+// adjacent bands we are doing so with real data.
+// The effect the SpectralSympathies generator is doing with spread is more like a "smear".
+
 template<size_t SpectrumSize, bool ReverbEnabled>
 class SpectralSympathiesBase : public MonochromeScreenPatch
 {
@@ -186,7 +202,7 @@ public:
     , params_(genius_params)
 #endif
     , decay_min_(static_cast<float>(SpectrumSize)*0.5f / getSampleRate())
-    , decay_max_(3.5f)
+    , decay_max_(10.f)
     , string_animation_(0)
     , input_buffer_write_(0)
     , input_buffer_(new sample_t[SpectrumSize], SpectrumSize)
@@ -372,14 +388,8 @@ public:
           if (bi > 0 && bi < input_spectrum_.size())
           {
             complex_t input = input_spectrum_[bi];
-            const int fi = spectral_gen_->get_band_index(freq*0.5f);
-            if (fi > 0 && fi < input_spectrum_.size())
-            {
-              complex_t feed = input*feedback_spectrum_[fi];
-              input = vessl::math::lerp(input, feed, feed_scale);
-            }
             const float in_mag = input.magnitude() * mag_norm;
-            const float in_phase = 0; // input_spectrum_[b].phase();
+            const vessl::phase_t in_phase = input.phase();
             spectral_gen_->excite(bi, in_mag, in_phase);
           }
         }
@@ -462,7 +472,7 @@ public:
       float freq = frequency_of_string(b);
       float x = vessl::math::lerp(0, screen.getWidth() - 1, (float)b / (numBands - 1));
       auto& band = spectral_gen_->get_band(freq);
-      band.phase += string_animation_;
+      //band.phase += string_animation_;
 
       // solid line animation that wobbles back and forth based on amplitude
       //float w = Interpolator::linear(0, 2, band.amplitude);
@@ -485,8 +495,8 @@ public:
       screen.drawLine(x, bottom - 1, x, bottom, WHITE);
       for (int y = top + 2; y < bottom - 1; ++y)
       {
-        float s1 = (float)y / height * M_PI * band.amplitude * 600 + band.phase;
-        if (fabsf(band.amplitude*vessl::math::sin<float>(s1)) > 0.004f)
+        float s1 = (float)y / height * M_PI * band.magnitude() * 600; // + band.phase;
+        if (fabsf(band.magnitude()*vessl::math::sin<float>(s1)) > 0.004f)
         {
           screen.setPixel(x, y, WHITE);
         }
