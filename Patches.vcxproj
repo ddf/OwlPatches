@@ -15,6 +15,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\CondolencesPatch.hpp" />
     <ClInclude Include="Source\DelaytrixPatch.hpp" />
     <ClInclude Include="Source\EnvTestPatch.hpp" />
     <ClInclude Include="Source\FFTTestPatch.hpp" />

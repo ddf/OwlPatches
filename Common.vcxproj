@@ -36,6 +36,7 @@
         <ClInclude Include="Source\vessicle\BlurProcessor1D.h" />
         <ClInclude Include="Source\vessicle\BlurProcessor2D.h" />
         <ClInclude Include="Source\vessicle\CircularTexture.h" />
+        <ClInclude Include="Source\vessicle\Condolences.h" />
         <ClInclude Include="Source\vessicle\DelayMatrix.h" />
         <ClInclude Include="Source\vessicle\DelayWithFreeze.h" />
         <ClInclude Include="Source\vessicle\Gauss.h" />
