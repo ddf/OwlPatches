@@ -1,7 +1,7 @@
 #pragma once
 
-#include "AudioBuffer.h"
 #include "vessicle/vessl/vessl.h"
+#include "AudioBuffer.h"
 
 template<vessl::size_t N>
 class AudioBufferReader : public vessl::source<vessl::sample::frame<float, N>>
