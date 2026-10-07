@@ -13,7 +13,7 @@
             ],
             "defines": [
             ],
-            "compilerPath": "/usr/bin/arm-none-eabi-gcc",
+            "compilerPath": "${env:ARM_NONE_EABI_GCC}",
             "cStandard": "c17",
             "cppStandard": "c++20",
             "intelliSenseMode": "gcc-arm"
