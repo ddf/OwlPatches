@@ -1,12 +1,11 @@
 #pragma once
 
 #include "PatchBase.h"
+#include "PatchParameterIds.h"
 #include "AudioBufferSourceSink.h"
 #include "vessicle/Evaluator.h"
 
-
 /** 
- * @todo loading program text from Resources
  * @todo 6 channels for evaluator so it can output triggers and CV.
  * @todo parameters for controlling VCs.
  */ 
@@ -17,6 +16,22 @@ class EvaluatorPatch : public PatchBase
   static constexpr uint8_t kBitsMin = 4;
   static constexpr uint8_t kBitsMax = 24;
   static constexpr uint8_t kBitsDefault = 8;
+
+  struct 
+  {
+    InputParameterId program = InputParameterId::A;
+    InputParameterId bits    = InputParameterId::B;
+    InputParameterId rate    = InputParameterId::C;
+
+    InputParameterId v0      = InputParameterId::AA;
+    InputParameterId v1      = InputParameterId::AB;
+    InputParameterId v2      = InputParameterId::AC;
+    InputParameterId v3      = InputParameterId::AD;
+    InputParameterId v4      = InputParameterId::AE;
+    InputParameterId v5      = InputParameterId::AF;
+    InputParameterId v6      = InputParameterId::AG;
+    InputParameterId v7      = InputParameterId::AH;
+  } params_;
   
   Eval evaluator_;
   bool program_is_valid_;
@@ -38,11 +53,20 @@ public:
     program_is_valid_ = evaluator_.compile("[*] = t*(42&t>>10);", kEvalMemSize);
     evaluator_.bits() = 8;
 
-    registerParameter(PARAMETER_A, "Program");
-    registerParameter(PARAMETER_B, "Bits");
-    setParameterValue(PARAMETER_B, (kBitsDefault - kBitsMin) / static_cast<float>(kBitsMax - kBitsMin));
-    registerParameter(PARAMETER_C, "Rate");
-    setParameterValue(PARAMETER_C, 1.0f);
+    registerParameter(params_.program, "Program");
+    registerParameter(params_.bits, "Bits");
+    setParameterValue(params_.bits, (kBitsDefault - kBitsMin) / static_cast<float>(kBitsMax - kBitsMin));
+    registerParameter(params_.rate, "Rate");
+    setParameterValue(params_.rate, 1.0f);
+
+    registerParameter(params_.v0, "V0");
+    registerParameter(params_.v1, "V1");
+    registerParameter(params_.v2, "V2");
+    registerParameter(params_.v3, "V3");
+    registerParameter(params_.v4, "V4");
+    registerParameter(params_.v5, "V5");
+    registerParameter(params_.v6, "V6");
+    registerParameter(params_.v7, "V7");
 
     loadPrograms();
   }
@@ -52,7 +76,9 @@ public:
   void load(const Preset& preset)
   {
     char file_name[48];
-    sprintf(file_name, "%s.txt", preset.name);
+    size_t len = strlen(preset.name);
+    strncpy(file_name, preset.name, len);
+    strncpy(file_name + len, ".txt\0", 5);
     if (Resource* resource = getResource(file_name))
     {
       const char* data = static_cast<const char*>(resource->getData());
@@ -117,9 +143,13 @@ public:
   
   void processAudio(AudioBuffer &audio) override
   {
-    uint8_t bits = static_cast<uint8_t>(vessl::math::lerp(kBitsMin, kBitsMax, getParameterValue(PARAMETER_B)));
+    uint8_t bits = static_cast<uint8_t>(vessl::math::lerp(kBitsMin, kBitsMax, getParameterValue(params_.bits)));
     evaluator_.bits() = bits;
-    evaluator_.rate() = getParameterValue(PARAMETER_C);
+    evaluator_.rate() = getParameterValue(params_.rate);
+    for(size_t v = 0; v < 8; ++v)
+    {
+      evaluator_.v(v) = getParameterValue(static_cast<PatchParameterId>(params_.v0.id + v));
+    }
 
     if (program_is_valid_)
     {
@@ -141,6 +171,17 @@ public:
     {
       size_t pid = getSelectedProgram();
       screen.print(presets_[pid].name);
+      screen.setCursor(0, 20);
+      Program::RuntimeError err = evaluator_.last_runtime_error();
+      if (err)
+      {
+        screen.print(Program::GetErrorString(err));
+      }
+      else
+      {
+        screen.print("t=");
+        screen.print((int)evaluator_.get('t'));
+      }
     }
     else
     {
