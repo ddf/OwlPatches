@@ -14,7 +14,7 @@ class EvaluatorPatch : public PatchBase
   using Eval = Evaluator<float, 2>;
   static constexpr uint8_t kBitsMin = 4;
   static constexpr uint8_t kBitsMax = 24;
-  static constexpr uint8_t kBitsDefault = 16;
+  static constexpr uint8_t kBitsDefault = 12;
 
   struct 
   {
@@ -56,7 +56,7 @@ public:
     registerParameter(params_.bits, "Bits");
     setParameterValue(params_.bits, (kBitsDefault - kBitsMin) / static_cast<float>(kBitsMax - kBitsMin));
     registerParameter(params_.rate, "Rate");
-    setParameterValue(params_.rate, 1.0f);
+    setParameterValue(params_.rate, 0.5f);
 
     registerParameter(params_.v0, "V0");
     registerParameter(params_.v1, "V1");
