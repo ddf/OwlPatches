@@ -12,9 +12,10 @@
 class EvaluatorPatch : public PatchBase
 {
   using Eval = Evaluator<float, 2>;
-  static constexpr uint8_t kBitsMin = 4;
-  static constexpr uint8_t kBitsMax = 24;
-  static constexpr uint8_t kBitsDefault = 12;
+  using Smoother = vessl::math::easing::smoother<float>;
+  static constexpr float kBitsMin = 4;
+  static constexpr float kBitsMax = 24;
+  static constexpr float kBitsDefault = 12;
 
   struct 
   {
@@ -33,6 +34,7 @@ class EvaluatorPatch : public PatchBase
   } params_;
   
   Eval evaluator_;
+  StiffFloat bits_;
   bool program_is_valid_;
 
   struct Preset
@@ -49,6 +51,7 @@ public:
   , evaluator_(getSampleRate())
   , preset_count_(0)
   {
+    bits_.delta = 0.0025f;
     program_is_valid_ = evaluator_.compile("[*] = t*(42&t>>10);");
     evaluator_.bits() = kBitsDefault;
 
@@ -142,8 +145,9 @@ public:
   
   void processAudio(AudioBuffer &audio) override
   {
-    uint8_t bits = static_cast<uint8_t>(vessl::math::lerp(kBitsMin, kBitsMax, getParameterValue(params_.bits)));
-    evaluator_.bits() = bits;
+    bits_ = getParameterValue(params_.bits);
+    float bits = vessl::math::lerp(kBitsMin, kBitsMax, bits_.getValue());
+    evaluator_.bits() = bits; // (int)(bits*100)/100;
     evaluator_.rate() = getParameterValue(params_.rate);
     for(size_t v = 0; v < 8; ++v)
     {
