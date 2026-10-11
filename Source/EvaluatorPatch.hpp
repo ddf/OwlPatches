@@ -14,7 +14,7 @@ class EvaluatorPatch : public PatchBase
   using Eval = Evaluator<float, 2>;
   static constexpr uint8_t kBitsMin = 4;
   static constexpr uint8_t kBitsMax = 24;
-  static constexpr uint8_t kBitsDefault = 8;
+  static constexpr uint8_t kBitsDefault = 16;
 
   struct 
   {
@@ -50,7 +50,7 @@ public:
   , preset_count_(0)
   {
     program_is_valid_ = evaluator_.compile("[*] = t*(42&t>>10);");
-    evaluator_.bits() = 8;
+    evaluator_.bits() = kBitsDefault;
 
     registerParameter(params_.program, "Program");
     registerParameter(params_.bits, "Bits");
@@ -170,9 +170,11 @@ public:
     {
       size_t pid = getSelectedProgram();
       screen.print(presets_[pid].name);
+      screen.print(" (IC:");
+      screen.print((int)evaluator_.instruction_count());
+      screen.print(")");
       screen.setCursor(0, 20);
-      Program::RuntimeError err = evaluator_.last_runtime_error();
-      if (err.code)
+      if (Program::RuntimeError err = evaluator_.last_runtime_error())
       {
         screen.print("Error: ");
         screen.print(Program::GetErrorString(err));
