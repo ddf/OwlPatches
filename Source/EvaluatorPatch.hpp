@@ -12,7 +12,6 @@
 class EvaluatorPatch : public PatchBase
 {
   using Eval = Evaluator<float, 2>;
-  static constexpr size_t kEvalMemSize = 4096;
   static constexpr uint8_t kBitsMin = 4;
   static constexpr uint8_t kBitsMax = 24;
   static constexpr uint8_t kBitsDefault = 8;
@@ -50,7 +49,7 @@ public:
   , evaluator_(getSampleRate())
   , preset_count_(0)
   {
-    program_is_valid_ = evaluator_.compile("[*] = t*(42&t>>10);", kEvalMemSize);
+    program_is_valid_ = evaluator_.compile("[*] = t*(42&t>>10);");
     evaluator_.bits() = 8;
 
     registerParameter(params_.program, "Program");
@@ -82,7 +81,7 @@ public:
     if (Resource* resource = getResource(file_name))
     {
       const char* data = static_cast<const char*>(resource->getData());
-      program_is_valid_ = evaluator_.compile(data, kEvalMemSize);
+      program_is_valid_ = evaluator_.compile(data);
     }
   }
 
@@ -173,9 +172,12 @@ public:
       screen.print(presets_[pid].name);
       screen.setCursor(0, 20);
       Program::RuntimeError err = evaluator_.last_runtime_error();
-      if (err)
+      if (err.code)
       {
+        screen.print("Error: ");
         screen.print(Program::GetErrorString(err));
+        screen.print("\nData: ");
+        screen.print((int)err.value);
       }
       else
       {
