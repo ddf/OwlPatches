@@ -7,7 +7,6 @@
 
 /** 
  * @todo 6 channels for evaluator so it can output triggers and CV.
- * @todo parameters for controlling VCs.
  */ 
 class EvaluatorPatch : public PatchBase
 {
@@ -16,6 +15,8 @@ class EvaluatorPatch : public PatchBase
   static constexpr float kBitsMin = 4;
   static constexpr float kBitsMax = 24;
   static constexpr float kBitsDefault = 12;
+  static constexpr size_t kInitPid = -1;
+  static constexpr char kInitProgram[] = "[*] = t*(42&t>>10);";
 
   struct 
   {
@@ -35,7 +36,10 @@ class EvaluatorPatch : public PatchBase
   
   Eval evaluator_;
   StiffFloat bits_;
-  bool program_is_valid_;
+  size_t loaded_pid_;
+  size_t load_request_pid_;
+  bool program_is_valid_; // true if the most recently compiled program is valid
+  Program::Compiler* compiler_ = nullptr;
 
   struct Preset
   {
@@ -49,10 +53,11 @@ class EvaluatorPatch : public PatchBase
 public:
   EvaluatorPatch() : PatchBase()
   , evaluator_(getSampleRate())
+  , loaded_pid_(kInitPid)
   , preset_count_(0)
   {
     bits_.delta = 0.0025f;
-    program_is_valid_ = evaluator_.compile("[*] = t*(42&t>>10);");
+    program_is_valid_ = evaluator_.compile(kInitProgram);
     evaluator_.bits() = kBitsDefault;
 
     registerParameter(params_.program, "Program");
@@ -71,6 +76,7 @@ public:
     registerParameter(params_.v7, "V7");
 
     loadPrograms();
+    load_request_pid_ = preset_count_;
   }
   
   ~EvaluatorPatch() = default;
@@ -84,7 +90,8 @@ public:
     if (Resource* resource = getResource(file_name))
     {
       const char* data = static_cast<const char*>(resource->getData());
-      program_is_valid_ = evaluator_.compile(data);
+      //program_is_valid_ = evaluator_.compile(data);
+      compiler_ = Eval::make_compiler(data);
     }
   }
 
@@ -122,11 +129,6 @@ public:
       }
       Resource::destroy(programs);
     }
-
-    if (preset_count_ > 0)
-    {
-      load(presets_[0]);
-    }
   }
 
   size_t getSelectedProgram()
@@ -138,8 +140,7 @@ public:
   {
     if (bid == BUTTON_2 && value == ON)
     {
-      size_t pid = getSelectedProgram();
-      load(presets_[pid]);
+      load_request_pid_ = getSelectedProgram();
     }
   }
   
@@ -169,11 +170,51 @@ public:
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
+    // remove default parameter UI
+    screen.clear();
+
     screen.setCursor(0, 10);
-    if (program_is_valid_)
+    if (load_request_pid_ < preset_count_)
     {
-      size_t pid = getSelectedProgram();
-      screen.print(presets_[pid].name);
+      screen.print("loading:");
+      screen.print(presets_[load_request_pid_].name);
+      if (compiler_ == nullptr)
+      {
+        load(presets_[load_request_pid_]);
+      }
+      else
+      {
+        if (compiler_->IsDone())
+        {
+          program_is_valid_ = evaluator_.load(compiler_);
+          Program::Destroy(compiler_);
+          compiler_ = nullptr;
+
+          loaded_pid_ = load_request_pid_;
+          load_request_pid_ = preset_count_;
+        }
+        else
+        {
+          compiler_->Tick();
+
+          static char anim[][2] = {"|","/","-","\\" };
+          static size_t f = 0;
+          screen.print(" ");
+          screen.print(anim[f]);
+          f = (f+1)%4;
+        }
+      }
+    }
+    else if (program_is_valid_)
+    {
+      if (loaded_pid_ == kInitPid)
+      {
+        screen.print("init");
+      }
+      else
+      {
+        screen.print(presets_[loaded_pid_].name);
+      }
       screen.print(" (IC:");
       screen.print((int)evaluator_.instruction_count());
       screen.print(")");
@@ -187,13 +228,37 @@ public:
       }
       else
       {
-        screen.print("t=");
+        screen.print("t:");
         screen.print((int)evaluator_.get('t'));
+        
+        screen.setCursor(0, 30);
+        screen.print("m:");
+        screen.print((int)evaluator_.get('m'));
+        screen.setCursor(screen.getWidth()/2, 30);
+        screen.print("q:");
+        screen.print((int)evaluator_.get('q'));
+
+        screen.setCursor(0, 40);
+        screen.print("w:");
+        screen.print((int)evaluator_.get('w'));
+        screen.setCursor(screen.getWidth()/2, 40);
+        screen.print("~:");
+        screen.print((int)(evaluator_.get('~')*evaluator_.rate().read_analog()));
       }
     }
     else
     {
       screen.print(Program::GetErrorString(evaluator_.last_compile_error()));
+      screen.print("\n Loc:");
+      screen.print(evaluator_.last_compile_error_position());
+    }
+    
+    if (load_request_pid_ == preset_count_)
+    {
+      size_t pid = getSelectedProgram();
+      screen.setCursor(0, screen.getHeight());
+      screen.print("load: ");
+      screen.print(presets_[pid].name);
     }
   }
 };
