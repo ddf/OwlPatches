@@ -3,6 +3,10 @@
 #define USE_MIDI_CALLBACK
 #include "MonochromeScreenPatch.h"
 #include "OpenWareMidiControl.h"
+#include <string.h>
+
+// vscode in windows doesn't know about this, but it exists on device.
+extern char *stpcpy(char *dest, const char *src);
 
 class PatchBase : public MonochromeScreenPatch
 {

@@ -15,7 +15,7 @@ struct InputParameterId
 
   constexpr InputParameterId next() const
   {
-#if defined(OWL_LICH)
+#if defined(OWL_LICH) || defined(OWL_WITCH)
     if (id == PARAMETER_E) return {PARAMETER_H};
 #endif
     return {static_cast<PatchParameterId>(id+1)};  
@@ -70,11 +70,22 @@ struct OutputParameterId
   operator PatchParameterId() const { return id; }
 };
 
-#ifdef OWL_LICH
+#if defined(OWL_LICH) || defined(OWL_WITCH)
 constexpr OutputParameterId OutputParameterId::A {PARAMETER_F}, OutputParameterId::B = {PARAMETER_G};
-#else
+#endif
+
+#ifdef OWL_GENIUS
 constexpr OutputParameterId OutputParameterId::A {PARAMETER_DA}, OutputParameterId::B = {PARAMETER_DB};
 #endif
+
+struct InputGateId
+{
+  PatchButtonId id;
+
+  static const InputGateId A, B, C, D;
+
+  operator PatchButtonId() const { return id; }
+};
 
 struct OutputGateId
 {
@@ -85,8 +96,19 @@ struct OutputGateId
   operator PatchButtonId() const { return id; }
 };
 
+constexpr InputGateId  InputGateId::A {BUTTON_1}, 
+                       InputGateId::B {BUTTON_2}, 
+                       InputGateId::C {BUTTON_3},
+                       InputGateId::D {BUTTON_4};
+
 #ifdef OWL_LICH
-constexpr OutputGateId OutputGateId::A {PUSHBUTTON}, OutputGateId::B = {PUSHBUTTON};
-#else
-constexpr OutputGateId OutputGateId::A {BUTTON_1}, OutputGateId::B = {BUTTON_2};
+constexpr OutputGateId OutputGateId::A {PUSHBUTTON}, OutputGateId::B {PUSHBUTTON};
+#endif
+
+#ifdef OWL_WITCH
+constexpr OutputGateId OutputGateId::A {BUTTON_5}, OutputGateId::B {BUTTON_6};
+#endif
+
+#ifdef OWL_GENIUS
+constexpr OutputGateId OutputGateId::A {BUTTON_1}, OutputGateId::B {BUTTON_2};
 #endif

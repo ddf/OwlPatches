@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "Owl Config",
+            "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/Source/",
                 "${workspaceFolder}/Source/**",
@@ -12,6 +12,7 @@
                 "${env:ARM_NONE_EABI_IncludePath}/**"
             ],
             "defines": [
+                "OWL_${env:DEVICE}"
             ],
             "compilerPath": "${env:ARM_NONE_EABI_GCC}",
             "cStandard": "c17",
