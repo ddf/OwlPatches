@@ -26,6 +26,7 @@ DESCRIPTION:
 
 #include "PatchBase.h"
 #include "PatchParameterIds.h"
+#include "PatchParameterDescription.h"
 #include "AudioBufferSourceSink.h"
 #include "vessicle/Cutup.h"
 
@@ -33,6 +34,8 @@ class CutupPatch : public PatchBase
 {
   // 4 seconds - one full bar at 60 bpm.
   static constexpr vessl::size_t buffer_size = 48000*4;
+  static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1, 0.f, 0.f };
+  static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0, 0.f, 0.f };
 
   using binary_t  = vessl::binary_t;
   using sample_t  = vessl::sample::frame<float, 2>;
@@ -53,7 +56,8 @@ class CutupPatch : public PatchBase
 
   struct
   {
-
+    PatchParameter<int> slice_vary;
+    PatchParameter<int> rate_vary;
   } pin_;
   
   int clock_pulse_  = -1;
@@ -65,6 +69,10 @@ public:
   : cutup_(nullptr)
   {
     cutup_ = new CutupProc(getSampleRate());
+    cutup_->rate_min() = 1;
+
+    pin_.slice_vary = slice_vary_desc.registerParameter(this);
+    pin_.rate_vary = rate_vary_desc.registerParameter(this);
   }
 
   virtual ~CutupPatch()
@@ -88,6 +96,13 @@ public:
 
   void processAudio(AudioBuffer& audio) override
   {
+    int slice_vary = pin_.slice_vary.getValue();
+    int rate_vary = pin_.rate_vary.getValue();
+    cutup_->slice_min() = vessl::math::max(0, 4 - slice_vary);
+    cutup_->slice_max() = 4 + slice_vary;
+    cutup_->rate_min() = rate_vary > 1 ? 0 : 1;
+    cutup_->rate_max() = rate_vary;
+
     AudioBufferReader<2> reader(audio);
     AudioBufferWriter<2> writer(audio);
     while(reader)
