@@ -34,8 +34,9 @@ class CutupPatch : public PatchBase
 {
   // 4 seconds - one full bar at 60 bpm.
   static constexpr vessl::size_t buffer_size = 48000*4;
-  static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1, 0.f, 0.f };
-  static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0, 0.f, 0.f };
+  static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1 };
+  static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0 };
+  static constexpr FloatPatchParameterDescription crush_vary_desc = { "crush vary", 0.f, 1.f, 0.f };
 
   using binary_t  = vessl::binary_t;
   using sample_t  = vessl::sample::frame<float, 2>;
@@ -56,8 +57,9 @@ class CutupPatch : public PatchBase
 
   struct
   {
-    PatchParameter<int> slice_vary;
-    PatchParameter<int> rate_vary;
+    IntParameter   slice_vary;
+    IntParameter   rate_vary;
+    FloatParameter crush_vary;
   } pin_;
   
   int clock_pulse_  = -1;
@@ -70,9 +72,11 @@ public:
   {
     cutup_ = new CutupProc(getSampleRate());
     cutup_->rate_min() = 1;
+    cutup_->crush_min() = 0;
 
     pin_.slice_vary = slice_vary_desc.registerParameter(this);
     pin_.rate_vary = rate_vary_desc.registerParameter(this);
+    pin_.crush_vary = crush_vary_desc.registerParameter(this);
   }
 
   virtual ~CutupPatch()
@@ -102,6 +106,7 @@ public:
     cutup_->slice_max() = 4 + slice_vary;
     cutup_->rate_min() = rate_vary > 1 ? 0 : 1;
     cutup_->rate_max() = rate_vary;
+    cutup_->crush_max() = pin_.crush_vary.getValue();
 
     AudioBufferReader<2> reader(audio);
     AudioBufferWriter<2> writer(audio);
