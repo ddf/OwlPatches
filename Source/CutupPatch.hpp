@@ -37,6 +37,7 @@ class CutupPatch : public PatchBase
   static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1 };
   static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0 };
   static constexpr FloatPatchParameterDescription crush_vary_desc = { "crush vary", 0.f, 1.f, 0.f };
+  static constexpr FloatPatchParameterDescription damp_vary_desc = { "damp vary", 0.f, 0.9f, 0.f };
 
   using binary_t  = vessl::binary_t;
   using sample_t  = vessl::sample::frame<float, 2>;
@@ -60,6 +61,7 @@ class CutupPatch : public PatchBase
     IntParameter   slice_vary;
     IntParameter   rate_vary;
     FloatParameter crush_vary;
+    FloatParameter damp_vary;
   } pin_;
   
   int clock_pulse_  = -1;
@@ -77,6 +79,7 @@ public:
     pin_.slice_vary = slice_vary_desc.registerParameter(this);
     pin_.rate_vary = rate_vary_desc.registerParameter(this);
     pin_.crush_vary = crush_vary_desc.registerParameter(this);
+    pin_.damp_vary = crush_vary_desc.registerParameter(this);
   }
 
   virtual ~CutupPatch()
@@ -107,6 +110,7 @@ public:
     cutup_->rate_min() = rate_vary > 1 ? 0 : 1;
     cutup_->rate_max() = rate_vary;
     cutup_->crush_max() = pin_.crush_vary.getValue();
+    cutup_->damp_max() = pin_.damp_vary.getValue();
 
     AudioBufferReader<2> reader(audio);
     AudioBufferWriter<2> writer(audio);
