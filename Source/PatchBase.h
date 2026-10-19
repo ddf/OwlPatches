@@ -5,6 +5,11 @@
 #include "OpenWareMidiControl.h"
 #include <string.h>
 
+#include "vessicle/vessl/vessl.h"
+#include "owl/vessl_math_lut.h"
+#include "vessicle/vessl/vessl.inl"
+#include "vessicle/vessl/vessl_units.h"
+
 // vscode in windows doesn't know about this, but it exists on device.
 extern char *stpcpy(char *dest, const char *src);
 

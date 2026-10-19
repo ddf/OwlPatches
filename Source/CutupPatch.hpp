@@ -30,11 +30,6 @@ DESCRIPTION:
 #include "AudioBufferSourceSink.h"
 #include "vessicle/Cutup.h"
 
-/**
- * @todo this is just about maxed out on CPU on the Witch when the effect is enabled.
- *       would like to find a way to get a little bit more headroom.
- */
-
 class CutupPatch : public PatchBase
 {
   static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1 };
@@ -47,8 +42,9 @@ class CutupPatch : public PatchBase
   using CutupProc = Cutup<sample_t>;
 
   // 4 seconds - one full bar at 60 bpm.
-  static constexpr vessl::size_t buffer_size = 48000*4;
-  sample_t   buffer_[buffer_size];
+  static constexpr vessl::size_t cutup_buffer_size = 48000*2;
+  sample_t cutup_buffer_[cutup_buffer_size];
+
   CutupProc  cutup_;
   binary_t   enabled_ = false;
 
@@ -76,7 +72,7 @@ class CutupPatch : public PatchBase
 
 public:
   explicit CutupPatch()
-  : cutup_(getSampleRate(), buffer_, buffer_size)
+  : cutup_(getSampleRate(), cutup_buffer_, cutup_buffer_size)
   {
     //cutup_ = new CutupProc(getSampleRate());
     cutup_.rate_min() = 1;
