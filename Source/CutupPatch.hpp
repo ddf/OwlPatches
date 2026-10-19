@@ -30,10 +30,13 @@ DESCRIPTION:
 #include "AudioBufferSourceSink.h"
 #include "vessicle/Cutup.h"
 
+/**
+ * @todo this is just about maxed out on CPU on the Witch when the effect is enabled.
+ *       would like to find a way to get a little bit more headroom.
+ */
+
 class CutupPatch : public PatchBase
 {
-  // 4 seconds - one full bar at 60 bpm.
-  static constexpr vessl::size_t buffer_size = 48000*4;
   static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1 };
   static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0 };
   static constexpr FloatPatchParameterDescription crush_vary_desc = { "crush vary", 0.f, 1.f, 0.f };
@@ -41,9 +44,12 @@ class CutupPatch : public PatchBase
 
   using binary_t  = vessl::binary_t;
   using sample_t  = vessl::sample::frame<float, 2>;
-  using CutupProc = Cutup<sample_t, buffer_size>;
+  using CutupProc = Cutup<sample_t>;
 
-  CutupProc* cutup_;
+  // 4 seconds - one full bar at 60 bpm.
+  static constexpr vessl::size_t buffer_size = 48000*4;
+  sample_t   buffer_[buffer_size];
+  CutupProc  cutup_;
   binary_t   enabled_ = false;
 
   struct
@@ -70,11 +76,11 @@ class CutupPatch : public PatchBase
 
 public:
   explicit CutupPatch()
-  : cutup_(nullptr)
+  : cutup_(getSampleRate(), buffer_, buffer_size)
   {
-    cutup_ = new CutupProc(getSampleRate());
-    cutup_->rate_min() = 1;
-    cutup_->crush_min() = 0;
+    //cutup_ = new CutupProc(getSampleRate());
+    cutup_.rate_min() = 1;
+    cutup_.crush_min() = 0;
 
     pin_.slice_vary = slice_vary_desc.registerParameter(this);
     pin_.rate_vary = rate_vary_desc.registerParameter(this);
@@ -84,7 +90,7 @@ public:
 
   virtual ~CutupPatch()
   {
-    delete cutup_;
+    //delete cutup_;
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples) override
@@ -92,7 +98,7 @@ public:
     if (bid == bin_.clock.id && value == ON)
     {
       clock_pulse_ = samples;
-      cutup_->clock(samples);
+      cutup_.clock(samples);
     }
 
     if (bid == bin_.slice.id && value == ON)
@@ -105,12 +111,12 @@ public:
   {
     int slice_vary = pin_.slice_vary.getValue();
     int rate_vary = pin_.rate_vary.getValue();
-    cutup_->slice_min() = vessl::math::max(0, 4 - slice_vary);
-    cutup_->slice_max() = 4 + slice_vary;
-    cutup_->rate_min() = rate_vary > 1 ? 0 : 1;
-    cutup_->rate_max() = rate_vary;
-    cutup_->crush_max() = pin_.crush_vary.getValue();
-    cutup_->damp_max() = pin_.damp_vary.getValue();
+    cutup_.slice_min() = vessl::math::max(0, 4 - slice_vary);
+    cutup_.slice_max() = 4 + slice_vary;
+    cutup_.rate_min() = rate_vary > 1 ? 0 : 1;
+    cutup_.rate_max() = rate_vary;
+    cutup_.crush_max() = pin_.crush_vary.getValue();
+    cutup_.damp_max() = pin_.damp_vary.getValue();
 
     AudioBufferReader<2> reader(audio);
     AudioBufferWriter<2> writer(audio);
@@ -128,13 +134,13 @@ public:
         if (clock_pulse_ == -1 && toggle_slice_)
         {
           enabled_ = !enabled_;
-          cutup_->enabled() = enabled_;
+          cutup_.enabled() = enabled_;
           toggle_slice_ = false;
         }
       }
-      
-      sample_t s = reader.read();
-      writer << cutup_->process(s);
+
+      sample_t in = reader.read();
+      writer << cutup_.process(in);
     }
 
     setButton(bin_.slice, enabled_);
