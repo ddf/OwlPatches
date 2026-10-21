@@ -30,6 +30,15 @@ DESCRIPTION:
 #include "AudioBufferSourceSink.h"
 #include "vessicle/Cutup.h"
 
+/**
+ * @todo rather than using a freeze unit in Cutup, write into a plain delay line.
+ *       every clock pulse, record into a separate array where the record head is currently located.
+ *       keep track of the last X clock pulses (probably 16, but could be configurable).
+ *       when cutup is engaged, select slices from the saved-off locations.
+ *       probably want to keep more information than just the sample position.
+ *       e.g. length of a clock pulse in samples at time of recording, peak value (for skipping "silent" ticks)
+ */
+
 class CutupPatch : public PatchBase
 {
   static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1 };
