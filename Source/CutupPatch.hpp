@@ -41,17 +41,17 @@ DESCRIPTION:
 
 class CutupPatch : public PatchBase
 {
-  static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 9, 1 };
+  static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 6, 1 };
   static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0 };
   static constexpr FloatPatchParameterDescription crush_vary_desc = { "crush vary", 0.f, 1.f, 0.f };
-  static constexpr FloatPatchParameterDescription damp_vary_desc = { "damp vary", 0.f, 0.9f, 0.f };
+  static constexpr FloatPatchParameterDescription damp_vary_desc = { "damp vary", 0.f, 0.5f, 0.f };
 
   using binary_t  = vessl::binary_t;
   using sample_t  = vessl::sample::frame<float, 2>;
   using CutupProc = Cutup<sample_t>;
 
   // 4 seconds - one full bar at 60 bpm.
-  static constexpr vessl::size_t cutup_buffer_size = 48000*2;
+  static constexpr vessl::size_t cutup_buffer_size = 48000*4;
   sample_t cutup_buffer_[cutup_buffer_size];
 
   CutupProc  cutup_;
@@ -60,7 +60,7 @@ class CutupPatch : public PatchBase
   struct
   {
     InputGateId clock = InputGateId::A;
-    InputGateId slice = InputGateId::B;
+    InputGateId slice = InputGateId::D;
   } bin_;
 
   struct
@@ -117,7 +117,7 @@ public:
     int slice_vary = pin_.slice_vary.getValue();
     int rate_vary = pin_.rate_vary.getValue();
     cutup_.slice_min() = vessl::math::max(0, 4 - slice_vary);
-    cutup_.slice_max() = 4 + slice_vary;
+    cutup_.slice_max() = 2 + slice_vary;
     cutup_.rate_min() = rate_vary > 1 ? 0 : 1;
     cutup_.rate_max() = rate_vary;
     cutup_.crush_max() = pin_.crush_vary.getValue();
