@@ -41,7 +41,7 @@ DESCRIPTION:
 
 class CutupPatch : public PatchBase
 {
-  static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 1, 6, 1 };
+  static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 0, 17, 1 };
   static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0 };
   static constexpr FloatPatchParameterDescription crush_vary_desc = { "crush vary", 0.f, 1.f, 0.f };
   static constexpr FloatPatchParameterDescription damp_vary_desc = { "damp vary", 0.f, 0.5f, 0.f };
@@ -130,8 +130,8 @@ public:
     cutup_.slice_min() = vessl::math::max(0, 4 - slice_vary);
     cutup_.slice_max() = 2 + slice_vary;
     cutup_.slice_vary() = pin_.slice_len_vary.getValue();
-    cutup_.rate_min() = rate_vary > 1 ? 0 : 1;
-    cutup_.rate_max() = rate_vary;
+    cutup_.rate_min() = 8 - rate_vary;
+    cutup_.rate_max() = 8 + rate_vary;
     cutup_.crush_max() = pin_.crush_vary.getValue();
     cutup_.damp_max() = pin_.damp_vary.getValue();
 
