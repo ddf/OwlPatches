@@ -45,6 +45,7 @@ class CutupPatch : public PatchBase
   static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0 };
   static constexpr FloatPatchParameterDescription crush_vary_desc = { "crush vary", 0.f, 1.f, 0.f };
   static constexpr FloatPatchParameterDescription damp_vary_desc = { "damp vary", 0.f, 0.5f, 0.f };
+  static constexpr FloatPatchParameterDescription slice_len_desc = { "slice len", 0.f, 1.f, 0.f };
 
   using binary_t  = vessl::binary_t;
   using sample_t  = vessl::sample::frame<float, 2>;
@@ -56,15 +57,18 @@ class CutupPatch : public PatchBase
 
   CutupProc  cutup_;
   binary_t   enabled_ = false;
+  int        slice_trigger_ = 0;
 
   struct
   {
     InputGateId clock = InputGateId::A;
+    InputGateId cut   = InputGateId::C;
     InputGateId slice = InputGateId::D;
   } bin_;
 
   struct
   {
+    OutputGateId sliced = OutputGateId::B;
   } bout_;
 
   struct
@@ -73,6 +77,7 @@ class CutupPatch : public PatchBase
     IntParameter   rate_vary;
     FloatParameter crush_vary;
     FloatParameter damp_vary;
+    FloatParameter slice_len_vary;
   } pin_;
   
   int clock_pulse_  = -1;
@@ -91,6 +96,7 @@ public:
     pin_.rate_vary = rate_vary_desc.registerParameter(this);
     pin_.crush_vary = crush_vary_desc.registerParameter(this);
     pin_.damp_vary = crush_vary_desc.registerParameter(this);
+    pin_.slice_len_vary = slice_len_desc.registerParameter(this);
   }
 
   virtual ~CutupPatch()
@@ -110,6 +116,11 @@ public:
     {
       toggle_countdown_ = samples;
     }
+
+    if (bid == bin_.cut.id && value == ON)
+    {
+      cutup_.cut();
+    }
   }
 
   void processAudio(AudioBuffer& audio) override
@@ -118,11 +129,13 @@ public:
     int rate_vary = pin_.rate_vary.getValue();
     cutup_.slice_min() = vessl::math::max(0, 4 - slice_vary);
     cutup_.slice_max() = 2 + slice_vary;
+    cutup_.slice_vary() = pin_.slice_len_vary.getValue();
     cutup_.rate_min() = rate_vary > 1 ? 0 : 1;
     cutup_.rate_max() = rate_vary;
     cutup_.crush_max() = pin_.crush_vary.getValue();
     cutup_.damp_max() = pin_.damp_vary.getValue();
 
+    bool slice_started = false;
     AudioBufferReader<2> reader(audio);
     AudioBufferWriter<2> writer(audio);
     while(reader)
@@ -146,8 +159,18 @@ public:
 
       sample_t in = reader.read();
       writer << cutup_.process(in);
+      slice_started |= cutup_.sliced();
+    }
+    if (slice_started)
+    {
+      slice_trigger_ = 2;
+    }
+    else if (slice_trigger_ > 0)
+    {
+      --slice_trigger_;
     }
 
-    setButton(bin_.slice, enabled_);
+    setButton(bin_.slice, enabled_ ? ON : OFF);
+    setButton(bout_.sliced, slice_trigger_ ? ON : OFF);
   }
 };
