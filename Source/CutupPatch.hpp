@@ -58,16 +58,19 @@ class CutupPatch : public PatchBase
   CutupProc  cutup_;
   binary_t   enabled_ = false;
   int        slice_trigger_ = 0;
+  bool       rando_ = 0;
 
   struct
   {
     InputGateId clock = InputGateId::A;
+    InputGateId glitch = InputGateId::B;
     InputGateId cut   = InputGateId::C;
     InputGateId slice = InputGateId::D;
   } bin_;
 
   struct
   {
+    OutputGateId random = OutputGateId::A;
     OutputGateId sliced = OutputGateId::B;
   } bout_;
 
@@ -110,6 +113,7 @@ public:
     {
       clock_pulse_ = samples;
       cutup_.clock(samples);
+      rando_ = vessl::math::random::range(0, 10) < 4;
     }
 
     if (bid == bin_.slice.id && value == ON)
@@ -134,6 +138,7 @@ public:
     cutup_.rate_max() = 8 + rate_vary;
     cutup_.crush_max() = pin_.crush_vary.getValue();
     cutup_.damp_max() = pin_.damp_vary.getValue();
+    cutup_.glitch()   = isButtonPressed(bin_.glitch);
 
     bool slice_started = false;
     AudioBufferReader<2> reader(audio);
@@ -171,6 +176,7 @@ public:
     }
 
     setButton(bin_.slice, enabled_ ? ON : OFF);
+    setButton(bout_.random, rando_ ? ON : OFF);
     setButton(bout_.sliced, slice_trigger_ ? ON : OFF);
   }
 };
