@@ -31,21 +31,20 @@ DESCRIPTION:
 #include "vessicle/Cutup.h"
 
 /**
- * @todo rather than using a freeze unit in Cutup, write into a plain delay line.
- *       every clock pulse, record into a separate array where the record head is currently located.
- *       keep track of the last X clock pulses (probably 16, but could be configurable).
- *       when cutup is engaged, select slices from the saved-off locations.
- *       probably want to keep more information than just the sample position.
+ * @todo 
+ *       probably want to keep more information than just the sample position in a slice.
  *       e.g. length of a clock pulse in samples at time of recording, peak value (for skipping "silent" ticks)
  */
 
 class CutupPatch : public PatchBase
 {
   static constexpr IntPatchParameterDescription rate_vary_desc = { "rate vary", 0, 17, 1 };
-  static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 4, 0 };
+  static constexpr IntPatchParameterDescription slice_vary_desc = { "slice vary", 0, 8, 0 };
   static constexpr FloatPatchParameterDescription crush_vary_desc = { "crush vary", 0.f, 1.f, 0.f };
   static constexpr FloatPatchParameterDescription damp_vary_desc = { "damp vary", 0.f, 0.5f, 0.f };
   static constexpr FloatPatchParameterDescription slice_len_desc = { "slice len", 0.f, 1.f, 0.f };
+  static constexpr OutputParameterDescription rand_a_desc = { "rand a", OutputParameterId::A };
+  static constexpr OutputParameterDescription rand_b_desc = { "rand b", OutputParameterId::B };
 
   using binary_t  = vessl::binary_t;
   using sample_t  = vessl::sample::frame<float, 2>;
@@ -59,6 +58,8 @@ class CutupPatch : public PatchBase
   binary_t   enabled_ = false;
   int        slice_trigger_ = 0;
   bool       rando_ = 0;
+  float      randa_ = 0;
+  float      randb_ = 0;
 
   struct
   {
@@ -82,6 +83,13 @@ class CutupPatch : public PatchBase
     FloatParameter damp_vary;
     FloatParameter slice_len_vary;
   } pin_;
+
+  struct
+  {
+    OutputParameter random_a;
+    OutputParameter random_b;
+  } pout_;
+  
   
   int clock_pulse_  = -1;
   int toggle_countdown_ = -1;
@@ -100,6 +108,9 @@ public:
     pin_.crush_vary = crush_vary_desc.registerParameter(this);
     pin_.damp_vary = crush_vary_desc.registerParameter(this);
     pin_.slice_len_vary = slice_len_desc.registerParameter(this);
+
+    pout_.random_a = OutputParameter(this, rand_a_desc);
+    pout_.random_b = OutputParameter(this, rand_b_desc);
   }
 
   virtual ~CutupPatch()
@@ -113,7 +124,12 @@ public:
     {
       clock_pulse_ = samples;
       cutup_.clock(samples);
-      rando_ = vessl::math::random::range(0, 10) < 4;
+      bool rand = vessl::math::random::range(0, 10) < 4;
+      if (rand && !rando_)
+      {
+        randa_ = vessl::math::random::unit<float>();
+      }
+      rando_ = rand;
     }
 
     if (bid == bin_.slice.id && value == ON)
@@ -131,8 +147,10 @@ public:
   {
     int slice_vary = pin_.slice_vary.getValue();
     int rate_vary = pin_.rate_vary.getValue();
-    cutup_.slice_min() = vessl::math::max(0, 4 - slice_vary);
-    cutup_.slice_max() = 2 + slice_vary;
+    int slice_min = vessl::math::max(0, slice_vary_desc.maxValue - slice_vary);
+    int slice_max = slice_min + slice_vary;
+    cutup_.slice_min() = slice_min;
+    cutup_.slice_max() = slice_max;
     cutup_.slice_vary() = pin_.slice_len_vary.getValue();
     cutup_.rate_min() = 8 - rate_vary;
     cutup_.rate_max() = 8 + rate_vary;
@@ -169,11 +187,15 @@ public:
     if (slice_started)
     {
       slice_trigger_ = 2;
+      randb_ = vessl::math::random::range(0.f, 1.f);
     }
     else if (slice_trigger_ > 0)
     {
       --slice_trigger_;
     }
+
+    pout_.random_a.setValue(randa_);
+    pout_.random_b.setValue(randb_);
 
     setButton(bin_.slice, enabled_ ? ON : OFF);
     setButton(bout_.random, rando_ ? ON : OFF);

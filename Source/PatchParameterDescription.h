@@ -78,6 +78,8 @@ class OutputParameter
   Patch* owner;
 
 public:
+  OutputParameter() : pid(PARAMETER_A), owner(nullptr) {}
+  
   OutputParameter(Patch* owningPatch, const OutputParameterDescription& desc) : owner(owningPatch)
   {
     pid = desc.pid;

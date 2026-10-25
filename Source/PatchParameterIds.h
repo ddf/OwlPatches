@@ -67,7 +67,7 @@ struct OutputParameterId
   
   static const OutputParameterId A, B;
 
-  operator PatchParameterId() const { return id; }
+  constexpr operator PatchParameterId() const { return id; }
 };
 
 #if defined(OWL_LICH) || defined(OWL_WITCH)
