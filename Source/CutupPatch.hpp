@@ -89,11 +89,6 @@ class CutupPatch : public PatchBase
     OutputParameter random_a;
     OutputParameter random_b;
   } pout_;
-  
-  
-  int clock_pulse_  = -1;
-  int toggle_countdown_ = -1;
-  bool toggle_slice_ = 0;
 
 public:
   explicit CutupPatch()
@@ -122,7 +117,6 @@ public:
   {
     if (bid == bin_.clock.id && value == ON)
     {
-      clock_pulse_ = samples;
       cutup_.clock(samples);
       bool rand = vessl::math::random::range(0, 10) < 4;
       if (rand && !rando_)
@@ -134,7 +128,8 @@ public:
 
     if (bid == bin_.slice.id && value == ON)
     {
-      toggle_countdown_ = samples;
+      enabled_ = !enabled_;
+      cutup_.enabled() = enabled_;
     }
 
     if (bid == bin_.cut.id && value == ON)
@@ -163,23 +158,6 @@ public:
     AudioBufferWriter<2> writer(audio);
     while(reader)
     {
-      if (toggle_countdown_ > -1)
-      {
-        --toggle_countdown_;
-        toggle_slice_ = toggle_countdown_ == -1;
-      }
-
-      if (clock_pulse_ > -1)
-      {
-        --clock_pulse_;
-        if (clock_pulse_ == -1 && toggle_slice_)
-        {
-          enabled_ = !enabled_;
-          cutup_.enabled() = enabled_;
-          toggle_slice_ = false;
-        }
-      }
-
       sample_t in = reader.read();
       writer << cutup_.process(in);
       slice_started |= cutup_.sliced();
