@@ -75,7 +75,7 @@ constexpr OutputParameterId OutputParameterId::A {PARAMETER_F}, OutputParameterI
 #endif
 
 #ifdef OWL_GENIUS
-constexpr OutputParameterId OutputParameterId::A {PARAMETER_DA}, OutputParameterId::B = {PARAMETER_DB};
+constexpr OutputParameterId OutputParameterId::A {PARAMETER_CA}, OutputParameterId::B = {PARAMETER_CB};
 #endif
 
 struct InputGateId

@@ -1,87 +1,127 @@
 #pragma once
 
 #include "PatchBase.h"
+#include "PatchParameterIds.h"
+#include "PatchParameterDescription.h"
 #include "vessicle/Counter.h"
 
 class CounterPatch : public PatchBase
 {
+  using size_t = vessl::size_t;
+  using count_t = uint16_t;
+  
+  static constexpr int count_max = 15;
 
-  Counter<uint16_t> counters_[4];
-  size_t counter_idx_ = 0;
+  static constexpr IntPatchParameterDescription inc_a = { "INC 1", 0, 8, };
+  static constexpr IntPatchParameterDescription inc_b = { "INC 2", 0, 8, };
+  static constexpr IntPatchParameterDescription max_a = { "MAX 1", count_max, 3, count_max };
+  static constexpr IntPatchParameterDescription max_b = { "MAX 2", count_max, 3, count_max };
+  static constexpr OutputParameterDescription   val_a = { "VAL 1", OutputParameterId::A };
+  static constexpr OutputParameterDescription   val_b = { "VAL 2", OutputParameterId::B };
 
+  Counter<count_t> counter_a_;
+  Counter<count_t> counter_b_;
+
+  struct 
+  {
+    IntParameter inc_a;
+    IntParameter inc_b;
+    IntParameter max_a;
+    IntParameter max_b;
+  } pin_;
+  
 public:
   CounterPatch()
   {
-    for(int c = 0; c < 4; ++c)
-    {
-      counters_[c].increment() = vessl::math::random::range<uint16_t>(1, 8);
-    }
+    pin_.inc_a = inc_a.registerParameter(this);
+    pin_.inc_b = inc_b.registerParameter(this);
+    pin_.max_a = max_a.registerParameter(this);
+    pin_.max_b = max_b.registerParameter(this);
 
-    registerParameter(PARAMETER_A, "INC 1");
-    registerParameter(PARAMETER_B, "INC 2");
-    registerParameter(PARAMETER_C, "INC 3");
-    registerParameter(PARAMETER_D, "INC 4");
-
-    registerParameter(PARAMETER_E, "MAX 1");
-    registerParameter(PARAMETER_F, "MAX 2");
-    registerParameter(PARAMETER_G, "MAX 3");
-    registerParameter(PARAMETER_H, "MAX 4");
+    registerParameter(OUT_PARAMETER_A, "VAL 1>");
+    registerParameter(OUT_PARAMETER_B, "VAL 2>");
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples)
   {
     if (bid == BUTTON_1 && value == ON)
     {
-      // counters_[counter_idx_++].clock();
-      // counter_idx_ &= 3;
-      for(int i = 0; i < 4; ++i)
-      {
-        counters_[i].clock();
-      }
+      counter_a_.clock();
+    }
+
+    if (bid == BUTTON_2 && value == ON)
+    {
+      counter_b_.clock();
     }
   }
 
   void processAudio(AudioBuffer& audio) override
   {
-    counters_[0].increment() = static_cast<uint16_t>(getParameterValue(PARAMETER_A)*16);
-    counters_[1].increment() = static_cast<uint16_t>(getParameterValue(PARAMETER_B)*16);
-    counters_[2].increment() = static_cast<uint16_t>(getParameterValue(PARAMETER_C)*16);
-    counters_[3].increment() = static_cast<uint16_t>(getParameterValue(PARAMETER_D)*16);
+    counter_a_.increment() = static_cast<count_t>(pin_.inc_a.getValue());
+    counter_b_.increment() = static_cast<count_t>(pin_.inc_b.getValue());
 
-    counters_[0].maximum() = static_cast<uint16_t>(16 - getParameterValue(PARAMETER_E)*12);
-    counters_[1].maximum() = static_cast<uint16_t>(16 - getParameterValue(PARAMETER_F)*12);
-    counters_[2].maximum() = static_cast<uint16_t>(16 - getParameterValue(PARAMETER_G)*12);
-    counters_[3].maximum() = static_cast<uint16_t>(16 - getParameterValue(PARAMETER_H)*12);
+    counter_a_.maximum() = static_cast<count_t>(pin_.max_a.getValue());
+    counter_b_.maximum() = static_cast<count_t>(pin_.max_b.getValue());
 
-    uint16_t trig = 0;
+    bool trig_a = 0;
+    bool trig_b = 0;
     size_t size = audio.getSize();
     for(int i = 0; i < size; ++i)
     {
-      uint16_t sum = 0;
-      for(int c = 0; c < 4; ++c)
+      count_t a = counter_a_.generate(); 
+      count_t carry = counter_a_.carry().read<count_t>();
+
+      if (carry)
       {
-        sum += counters_[c].generate();
-        trig |= counters_[c].carry().read<uint16_t>() > 0;
+        trig_a |= true;
+        if (counter_b_.add(carry))
+        {
+          trig_b |= true;
+        }
+        counter_a_.carry() = 0u;
       }
-      audio.getSamples(0)[i] = -1.f + (float)sum / 32;
-      audio.getSamples(1)[i] = -1.f + (float)sum / 32;
+
+      count_t b = counter_b_.generate();
+      carry = counter_b_.carry().read<count_t>();
+      if (carry)
+      {
+        trig_b |= true;
+        if (counter_a_.add(carry))
+        {
+          trig_a |= true;
+        }
+        counter_b_.carry() = 0u;
+      }
     }
 
-    setButton(BUTTON_1, trig);
+    setParameterValue(OUT_PARAMETER_A, static_cast<float>(counter_a_.value()) / (count_max + 1.f));
+    setParameterValue(OUT_PARAMETER_B, static_cast<float>(counter_b_.value()) / (count_max + 1.f));
+
+    setButton(BUTTON_1, trig_a ? ON : OFF);
+    setButton(BUTTON_2, trig_b ? ON : OFF);
   }
 
-  void drawCounter(MonochromeScreenBuffer& screen, Counter<uint16_t>& c, int x, int y)
+  void drawCounter(MonochromeScreenBuffer& screen, Counter<count_t>& c, int x, int y, int w)
   {
-    uint16_t dim = c.value();
-    screen.fillRectangle(x - dim/2, y - dim/2, dim, dim, WHITE);
+    uint16_t val = c.value();
+    for(count_t i = 0; i < count_max; ++i)
+    {
+      int cx = x + i*(w+2);
+      if (i < val)
+      {
+        screen.fillRectangle(cx - w/2, y - w/2, w, w, WHITE);
+      }
+      else
+      {
+        screen.drawRectangle(cx -w/2, y - w/2, w, w, WHITE);
+      }
+    }
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    int x = 16, y = 16, s = 32;
-    for(int i = 0; i < 4; ++i)
-    {
-      drawCounter(screen, counters_[i], x + i*s, y);
-    }
+    int x = 7, y = 8, s = 16, w = 6;
+    drawCounter(screen, counter_a_, x, y, w);
+    drawCounter(screen, counter_b_, x, y + s, w);
   }
 };
