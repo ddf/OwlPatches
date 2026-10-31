@@ -10,12 +10,13 @@ class CounterPatch : public PatchBase
   using size_t = vessl::size_t;
   using count_t = uint16_t;
   
+  static constexpr int count_min = 3;
   static constexpr int count_max = 15;
 
   static constexpr IntPatchParameterDescription inc_a = { "INC 1", 0, 8, };
   static constexpr IntPatchParameterDescription inc_b = { "INC 2", 0, 8, };
-  static constexpr IntPatchParameterDescription max_a = { "MAX 1", count_max, 3, count_max };
-  static constexpr IntPatchParameterDescription max_b = { "MAX 2", count_max, 3, count_max };
+  static constexpr IntPatchParameterDescription max_a = { "MAX 1", count_min, count_max+1, count_max };
+  static constexpr IntPatchParameterDescription max_b = { "MAX 2", count_min, count_max+1, count_max };
   static constexpr OutputParameterDescription   val_a = { "VAL 1", OutputParameterId::A };
   static constexpr OutputParameterDescription   val_b = { "VAL 2", OutputParameterId::B };
 
@@ -37,6 +38,9 @@ public:
     pin_.inc_b = inc_b.registerParameter(this);
     pin_.max_a = max_a.registerParameter(this);
     pin_.max_b = max_b.registerParameter(this);
+
+    setParameterValue((PatchParameterId)pin_.max_a.id(), 1.f);
+    setParameterValue((PatchParameterId)pin_.max_b.id(), 1.f);
 
     registerParameter(OUT_PARAMETER_A, "VAL 1>");
     registerParameter(OUT_PARAMETER_B, "VAL 2>");
@@ -60,8 +64,8 @@ public:
     counter_a_.increment() = static_cast<count_t>(pin_.inc_a.getValue());
     counter_b_.increment() = static_cast<count_t>(pin_.inc_b.getValue());
 
-    counter_a_.maximum() = static_cast<count_t>(pin_.max_a.getValue());
-    counter_b_.maximum() = static_cast<count_t>(pin_.max_b.getValue());
+    counter_a_.maximum() = (count_t)vessl::math::constrain(pin_.max_a.getValue(), count_min, count_max);
+    counter_b_.maximum() = (count_t)vessl::math::constrain(pin_.max_b.getValue(), count_min, count_max);
 
     bool trig_a = 0;
     bool trig_b = 0;
@@ -103,8 +107,13 @@ public:
 
   void drawCounter(MonochromeScreenBuffer& screen, Counter<count_t>& c, int x, int y, int w)
   {
-    uint16_t val = c.value();
-    for(count_t i = 0; i < count_max; ++i)
+    count_t val = c.value();
+    count_t inc = c.increment().read<count_t>();
+    count_t max = c.maximum().read<count_t>();
+    screen.setCursor(x - w/2, y - w/2 - 2);
+    screen.print("+");
+    screen.print(inc);
+    for(count_t i = 0; i < max; ++i)
     {
       int cx = x + i*(w+2);
       if (i < val)
@@ -120,7 +129,7 @@ public:
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    int x = 7, y = 8, s = 16, w = 6;
+    int x = 7, y = 16, s = 24, w = 6;
     drawCounter(screen, counter_a_, x, y, w);
     drawCounter(screen, counter_b_, x, y + s, w);
   }
