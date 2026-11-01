@@ -16,10 +16,11 @@ class CounterPatch : public PatchBase
   static constexpr int count_min = 3;
   static constexpr int count_max = 15;
 
-  static constexpr IntPatchParameterDescription inc_a = { "INC 1", 0, 16, };
-  static constexpr IntPatchParameterDescription inc_b = { "INC 2", 0, 16, };
-  static constexpr IntPatchParameterDescription max_a = { "MAX 1", count_min, count_max+1, count_max };
-  static constexpr IntPatchParameterDescription max_b = { "MAX 2", count_min, count_max+1, count_max };
+  static constexpr IntPatchParameterDescription   inc_desc = { "INC", 0, 16, 1 };
+  static constexpr IntPatchParameterDescription   max_desc = { "MAX", count_min, count_max+1, count_max };
+  static constexpr FloatPatchParameterDescription flt_q_desc = { "Q", 0.7f, 0.99f, 0.86f };
+  static constexpr FloatPatchParameterDescription flt_fm_desc = { "FM", 0.f, 4.f, 0.f };
+
   static constexpr OutputParameterDescription   val_a = { "VAL 1", OutputParameterId::A };
   static constexpr OutputParameterDescription   val_b = { "VAL 2", OutputParameterId::B };
 
@@ -36,6 +37,10 @@ class CounterPatch : public PatchBase
     IntParameter inc_b;
     IntParameter max_a;
     IntParameter max_b;
+    FloatParameter fm_a;
+    FloatParameter q_a;
+    FloatParameter fm_b;
+    FloatParameter q_b;
   } pin_;
   
 public:
@@ -45,13 +50,14 @@ public:
   , ramp_a_(getSampleRate(), 0.01f, 440.f, 340.f)
   , ramp_b_(getSampleRate(), 0.01f, 380.f, 280.f)
   {
-    pin_.inc_a = inc_a.registerParameter(this);
-    pin_.inc_b = inc_b.registerParameter(this);
-    pin_.max_a = max_a.registerParameter(this);
-    pin_.max_b = max_b.registerParameter(this);
-
-    setParameterValue((PatchParameterId)pin_.max_a.id(), 1.f);
-    setParameterValue((PatchParameterId)pin_.max_b.id(), 1.f);
+    pin_.inc_a = inc_desc.registerParameter(this, "INC 1");
+    pin_.max_a = max_desc.registerParameter(this, "MAX 1");
+    pin_.inc_b = inc_desc.registerParameter(this, "INC 2");
+    pin_.max_b = max_desc.registerParameter(this, "MAX 2");
+    pin_.fm_a  = flt_fm_desc.registerParameter(this, "FM L");
+    pin_.q_a   = flt_q_desc.registerParameter(this, "Q L");
+    pin_.fm_b  = flt_fm_desc.registerParameter(this, "FM R");
+    pin_.q_b   = flt_q_desc.registerParameter(this, "Q R"); 
 
     registerParameter(OUT_PARAMETER_A, "VAL 1>");
     registerParameter(OUT_PARAMETER_B, "VAL 2>");
@@ -120,12 +126,20 @@ public:
     {
       ramp_b_.trigger();
     }
+
+    filter_a_.q() = pin_.q_a.getValue();
+    filter_b_.q() = pin_.q_b.getValue();
+
+    float afm = pin_.fm_a.getValue();
+    float bfm = pin_.fm_b.getValue();
     for(int i = 0; i < size; ++i)
     {
       float af = ramp_a_.generate();
       float bf = ramp_b_.generate();
-      filter_a_.fhz() = af + af*left[i]*0.25f;
-      filter_b_.fhz() = bf + bf*right[i]*0.25f;
+      af += af*afm;
+      bf += bf*bfm;
+      filter_a_.fhz() = af + af*left[i]*0.5f;
+      filter_b_.fhz() = bf + bf*right[i]*0.5f;
 
       left[i]  = filter_a_.process(trig_a*2.5f);
       right[i] = filter_b_.process(trig_b*2.5f);

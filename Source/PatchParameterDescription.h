@@ -22,7 +22,7 @@ struct InputParameterDescription
   float delta = 0;
   InputParameterSkew skew = InputParameterSkew::Linear;
 
-  PatchParameter<T> registerParameter(Patch* withPatch) const;
+  PatchParameter<T> registerParameter(Patch* withPatch, const char* withName = nullptr) const;
 
   float skewToFloat() const
   {
@@ -45,9 +45,11 @@ template<>
 PatchParameter<float>& PatchParameter<float>::operator=(const PatchParameter<float>& other);  // NOLINT(clang-diagnostic-deprecated-copy-with-user-provided-copy)
 
 template<>
-inline PatchParameter<float> InputParameterDescription<float>::registerParameter(Patch* withPatch) const
+inline PatchParameter<float> InputParameterDescription<float>::registerParameter(Patch* withPatch, const char* withName) const
 {
-  return withPatch->getFloatParameter(name, minValue, maxValue, defaultValue, lambda, delta, skewToFloat());
+  auto pp = withPatch->getFloatParameter(withName ? withName : name, minValue, maxValue, defaultValue, lambda, delta, skewToFloat());
+  withPatch->setParameterValue((PatchParameterId)pp.id(), (defaultValue - minValue) / (maxValue - minValue));
+  return pp;
 }
 
 template<>
@@ -57,9 +59,11 @@ template<>
 PatchParameter<int>& PatchParameter<int>::operator=(const PatchParameter<int>& other);   // NOLINT(clang-diagnostic-deprecated-copy-with-user-provided-copy)
 
 template<>
-inline PatchParameter<int> InputParameterDescription<int>::registerParameter(Patch* withPatch) const
+inline PatchParameter<int> InputParameterDescription<int>::registerParameter(Patch* withPatch, const char* withName) const
 {
-  return withPatch->getIntParameter(name, minValue, maxValue, defaultValue, lambda, delta, skewToFloat());
+  auto pp = withPatch->getIntParameter(withName ? withName : name, minValue, maxValue, defaultValue, lambda, delta, skewToFloat());
+  withPatch->setParameterValue((PatchParameterId)pp.id(), (float)(defaultValue - minValue) / (float)(maxValue - minValue));
+  return pp;
 }
 
 typedef InputParameterDescription<float> FloatPatchParameterDescription;
