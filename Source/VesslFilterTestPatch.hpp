@@ -7,9 +7,9 @@
 #include "vessicle/vessl/vessl_units.h"
 
 using DcBlock = vessl::processors::filter<float, vessl::filtering::dc_block>;
-using Filter  = vessl::processors::filter<float, vessl::filtering::moog::low_pass>;
+using Filter  = vessl::processors::filter<float, vessl::filtering::moog::v2::low_pass>;
 //using Filter  = vessl::processors::filter<float, vessl::filtering::moog::low_pass_2>;
-//using Filter  = vessl::processors::filter<float, vessl::filtering::biquad<2>::high_pass>;
+//using Filter  = vessl::processors::filter<float, vessl::filtering::biquad<2>::low_pass>;
 
 class VesslFilterTestPatch : public MonochromeScreenPatch
 {
@@ -33,12 +33,13 @@ public:
     }
 
     setParameterValue(PARAMETER_B, 0.5f);
+    setParameterValue(PARAMETER_C, 0.5f); // 0 dB gain
   }
 
   void processAudio(AudioBuffer& audio) override
   {
-    float cutoff = 1.f + VoltsPerOctave::voltsToHertz(getParameterValue(PARAMETER_A)*5.6f);
-    float q = vessl::math::lerp(vessl::filtering::q::butterworth<float>(), 1.0f, getParameterValue(PARAMETER_B));
+    float cutoff = VoltsPerOctave::voltsToHertz(-3.f + getParameterValue(PARAMETER_A)*6.f);
+    float q = vessl::math::lerp(vessl::filtering::q::sallen_key<float>(), 1.0f, getParameterValue(PARAMETER_B));
     //float q = getParameterValue(PARAMETER_B)*0.95f;
     vessl::gain_t g = vessl::gain_t::from_decibels(vessl::math::lerp(-6.f, 6.f, getParameterValue(PARAMETER_C)));
     filter.fhz() = cutoff;
@@ -59,8 +60,10 @@ public:
   static void drawFilter(MonochromeScreenBuffer& screen, const FF& filterFunc, const Args& args)
   {
     screen.setCursor(0, 8);
-    screen.print("Fc: ");
-    screen.print(args.fc());
+    screen.print("Fhz: ");
+    screen.print(args.hz);
+    screen.print("\nFc: ");
+    screen.print(100*args.fc());
   }
 
   void processScreen(MonochromeScreenBuffer& screen) override;
