@@ -4,6 +4,7 @@
 #include "PatchParameterIds.h"
 #include "PatchParameterDescription.h"
 #include "vessicle/Counter.h"
+#include "vessicle/ClockedDelay.h"
 
 class CounterPatch : public PatchBase
 {
@@ -12,6 +13,7 @@ class CounterPatch : public PatchBase
   using Filter = vessl::processors::filter<float, vessl::filtering::moog::band_pass>;
   using Array  = vessl::array<float>;
   using Ramp   = vessl::generators::ramp<float>;
+  using Delay  = ClockedDelay<float>;
   
   static constexpr int count_min = 3;
   static constexpr int count_max = 15;
@@ -20,9 +22,14 @@ class CounterPatch : public PatchBase
   static constexpr IntPatchParameterDescription   max_desc = { "MAX", count_min, count_max+1, count_max };
   static constexpr FloatPatchParameterDescription flt_q_desc = { "Q", 0.7f, 0.99f, 0.86f };
   static constexpr FloatPatchParameterDescription flt_fm_desc = { "FM", 0.f, 4.f, 0.f };
+  static constexpr FloatPatchParameterDescription dly_fbk_desc = { "FBK", 0.f, 1.f, 0.f, 0.98f };
+  static constexpr FloatPatchParameterDescription dly_mix_desc = { "MIX", 0.f, 1.f, 0.f, 0.98f };
 
   static constexpr OutputParameterDescription   val_a = { "VAL 1", OutputParameterId::A };
   static constexpr OutputParameterDescription   val_b = { "VAL 2", OutputParameterId::B };
+
+  FloatArray delay_buffer_;
+  FloatArray scratch_buffer_;
 
   Counter<count_t> counter_a_;
   Counter<count_t> counter_b_;
@@ -30,6 +37,8 @@ class CounterPatch : public PatchBase
   Filter filter_b_;
   Ramp   ramp_a_;
   Ramp   ramp_b_;
+  Delay  delay_a_;
+  Delay  delay_b_;
 
   struct 
   {
@@ -41,14 +50,22 @@ class CounterPatch : public PatchBase
     FloatParameter q_a;
     FloatParameter fm_b;
     FloatParameter q_b;
+    FloatParameter fbk_a;
+    FloatParameter mix_a;
+    FloatParameter fbk_b;
+    FloatParameter mix_b;
   } pin_;
   
 public:
   CounterPatch()
-  : filter_a_(getSampleRate(), 880.f, 0.86f)
+  : delay_buffer_(FloatArray::create(getSampleRate()*8))
+  , scratch_buffer_(FloatArray::create(getBlockSize()))
+  , filter_a_(getSampleRate(), 880.f, 0.86f)
   , filter_b_(getSampleRate(), 440.f, 0.86f)
   , ramp_a_(getSampleRate(), 0.01f, 440.f, 340.f)
   , ramp_b_(getSampleRate(), 0.01f, 380.f, 280.f)
+  , delay_a_(Array(delay_buffer_.getData(), delay_buffer_.getSize()/2), getSampleRate(), 16, getSampleRate()*2)
+  , delay_b_(Array(delay_buffer_.getData() + delay_buffer_.getSize()/2, delay_buffer_.getSize()/2), getSampleRate(), 16, getSampleRate()*2)
   {
     pin_.inc_a = inc_desc.registerParameter(this, "INC 1");
     pin_.max_a = max_desc.registerParameter(this, "MAX 1");
@@ -58,9 +75,19 @@ public:
     pin_.q_a   = flt_q_desc.registerParameter(this, "Q L");
     pin_.fm_b  = flt_fm_desc.registerParameter(this, "FM R");
     pin_.q_b   = flt_q_desc.registerParameter(this, "Q R"); 
+    pin_.fbk_a = dly_fbk_desc.registerParameter(this, "DLY FBK 1");
+    pin_.mix_a = dly_mix_desc.registerParameter(this, "DLY MIX 1");
+    pin_.fbk_b = dly_fbk_desc.registerParameter(this, "DLY FBK 2");
+    pin_.mix_b = dly_mix_desc.registerParameter(this, "DLY MIX 2");
 
     registerParameter(OUT_PARAMETER_A, "VAL 1>");
     registerParameter(OUT_PARAMETER_B, "VAL 2>");
+  }
+
+  virtual ~CounterPatch()
+  {
+    FloatArray::destroy(delay_buffer_);
+    FloatArray::destroy(scratch_buffer_);
   }
 
   void buttonChanged(PatchButtonId bid, uint16_t value, uint16_t samples)
@@ -68,11 +95,13 @@ public:
     if (bid == BUTTON_1 && value == ON)
     {
       counter_a_.clock();
+      delay_a_.clock();
     }
 
     if (bid == BUTTON_2 && value == ON)
     {
       counter_b_.clock();
+      delay_b_.clock();
     }
   }
 
@@ -80,6 +109,7 @@ public:
   {
     Array left = Array(audio.getSamples(0), audio.getSize());
     Array right = Array(audio.getSamples(1), audio.getSize());
+    Array scratch = Array(scratch_buffer_.getData(), scratch_buffer_.getSize());
 
     counter_a_.increment() = static_cast<count_t>(pin_.inc_a.getValue());
     counter_b_.increment() = static_cast<count_t>(pin_.inc_b.getValue());
@@ -145,6 +175,23 @@ public:
       right[i] = filter_b_.process(trig_b*2.5f);
     }
 
+    float numa = counter_a_.increment().read<count_t>();
+    float dena = counter_a_.maximum().read<count_t>();
+    delay_a_.ratio() = (numa > 0 && dena > 0) ? numa/dena : 1.f;
+
+    float numb = counter_b_.increment().read<count_t>();
+    float denb = counter_b_.maximum().read<count_t>(); 
+    delay_b_.ratio() = (numb > 0 && denb) > 0 ? numb/denb : 1.f;
+
+    delay_a_.feedback() = pin_.fbk_a.getValue();
+    delay_b_.feedback() = pin_.fbk_b.getValue();
+
+    delay_a_.process<vessl::time::mode::slew>(left, scratch);
+    vessl::sample::mix(left, scratch, pin_.mix_a.getValue(), left);
+
+    delay_b_.process<vessl::time::mode::slew>(right, scratch);
+    vessl::sample::mix(right, scratch, pin_.mix_b.getValue(), right);
+
     setParameterValue(OUT_PARAMETER_A, static_cast<float>(counter_a_.value()) / (count_max + 1.f));
     setParameterValue(OUT_PARAMETER_B, static_cast<float>(counter_b_.value()) / (count_max + 1.f));
 
@@ -160,6 +207,8 @@ public:
     screen.setCursor(x - w/2, y - w/2 - 2);
     screen.print("+");
     screen.print(inc);
+    screen.print(" / ");
+    screen.print(max);
     for(count_t i = 0; i < max; ++i)
     {
       int cx = x + i*(w+2);
