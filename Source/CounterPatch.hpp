@@ -14,16 +14,17 @@ class CounterPatch : public PatchBase
   using Array  = vessl::array<float>;
   using Ramp   = vessl::generators::ramp<float>;
   using Delay  = ClockedDelay<float>;
-  
-  static constexpr int count_min = 3;
-  static constexpr int count_max = 15;
+  using FeedProc = vessl::processors::conditioner<float>;
 
-  static constexpr IntPatchParameterDescription   inc_desc = { "INC", 0, 16, 1 };
-  static constexpr IntPatchParameterDescription   max_desc = { "MAX", count_min, count_max+1, count_max };
+  static constexpr int count_min = 2;
+  static constexpr int count_max = 16;
+
+  static constexpr IntPatchParameterDescription   inc_desc = { "INC", 0, count_max+1, 1 };
+  static constexpr IntPatchParameterDescription   max_desc = { "MAX", count_min, count_max+1, count_max+1 };
   static constexpr FloatPatchParameterDescription flt_q_desc = { "Q", 0.7f, 0.99f, 0.86f };
   static constexpr FloatPatchParameterDescription flt_fm_desc = { "FM", 0.f, 4.f, 0.f };
   static constexpr FloatPatchParameterDescription dly_fbk_desc = { "FBK", 0.f, 1.f, 0.f, 0.98f };
-  static constexpr FloatPatchParameterDescription dly_mix_desc = { "MIX", 0.f, 1.f, 0.f, 0.98f };
+  static constexpr FloatPatchParameterDescription dly_mix_desc = { "MIX", 0.f, 1.f, 0.f, 0.f };
 
   static constexpr OutputParameterDescription   val_a = { "VAL 1", OutputParameterId::A };
   static constexpr OutputParameterDescription   val_b = { "VAL 2", OutputParameterId::B };
@@ -37,6 +38,8 @@ class CounterPatch : public PatchBase
   Filter filter_b_;
   Ramp   ramp_a_;
   Ramp   ramp_b_;
+  FeedProc feed_a_;
+  FeedProc feed_b_;
   Delay  delay_a_;
   Delay  delay_b_;
 
@@ -58,19 +61,21 @@ class CounterPatch : public PatchBase
   
 public:
   CounterPatch()
-  : delay_buffer_(FloatArray::create(getSampleRate()*8))
+  : delay_buffer_(FloatArray::create(getSampleRate()*16))
   , scratch_buffer_(FloatArray::create(getBlockSize()))
   , filter_a_(getSampleRate(), 880.f, 0.86f)
   , filter_b_(getSampleRate(), 440.f, 0.86f)
   , ramp_a_(getSampleRate(), 0.01f, 440.f, 340.f)
   , ramp_b_(getSampleRate(), 0.01f, 380.f, 280.f)
-  , delay_a_(Array(delay_buffer_.getData(), delay_buffer_.getSize()/2), getSampleRate(), 16, getSampleRate()*2)
-  , delay_b_(Array(delay_buffer_.getData() + delay_buffer_.getSize()/2, delay_buffer_.getSize()/2), getSampleRate(), 16, getSampleRate()*2)
+  , feed_a_(getSampleRate(), 600.f)
+  , feed_b_(getSampleRate(), 600.f)
+  , delay_a_(Array(delay_buffer_.getData(), delay_buffer_.getSize()/2), getSampleRate(), 16, getSampleRate()*2, 60.f, 0.f, &feed_a_)
+  , delay_b_(Array(delay_buffer_.getData() + delay_buffer_.getSize()/2, delay_buffer_.getSize()/2), getSampleRate(), 16, getSampleRate()*2, 60.f, 0.f, &feed_b_)
   {
-    pin_.inc_a = inc_desc.registerParameter(this, "INC 1");
     pin_.max_a = max_desc.registerParameter(this, "MAX 1");
-    pin_.inc_b = inc_desc.registerParameter(this, "INC 2");
+    pin_.inc_a = inc_desc.registerParameter(this, "INC 1");
     pin_.max_b = max_desc.registerParameter(this, "MAX 2");
+    pin_.inc_b = inc_desc.registerParameter(this, "INC 2");
     pin_.fm_a  = flt_fm_desc.registerParameter(this, "FM L");
     pin_.q_a   = flt_q_desc.registerParameter(this, "Q L");
     pin_.fm_b  = flt_fm_desc.registerParameter(this, "FM R");
@@ -175,13 +180,16 @@ public:
       right[i] = filter_b_.process(trig_b*2.5f);
     }
 
-    float numa = counter_a_.increment().read<count_t>();
-    float dena = counter_a_.maximum().read<count_t>();
-    delay_a_.ratio() = (numa > 0 && dena > 0) ? numa/dena : 1.f;
+    feed_a_.cutoff() = filter_a_.fhz().read_analog() * 4.f;
+    feed_b_.cutoff() = filter_b_.fhz().read_analog() * 4.f;
 
-    float numb = counter_b_.increment().read<count_t>();
-    float denb = counter_b_.maximum().read<count_t>(); 
-    delay_b_.ratio() = (numb > 0 && denb) > 0 ? numb/denb : 1.f;
+    float numa = static_cast<float>(counter_a_.maximum().read<count_t>()) / count_max;
+    float dena = counter_a_.increment().read<count_t>();
+    delay_a_.ratio() = dena > 0.f ? numa / dena : 1.f;
+
+    float numb = static_cast<float>(counter_b_.maximum().read<count_t>()) / count_max;
+    float denb = counter_b_.increment().read<count_t>(); 
+    delay_b_.ratio() = denb > 0.f ? numb / denb : 1.f;
 
     delay_a_.feedback() = pin_.fbk_a.getValue();
     delay_b_.feedback() = pin_.fbk_b.getValue();
@@ -205,10 +213,10 @@ public:
     count_t inc = c.increment().read<count_t>();
     count_t max = c.maximum().read<count_t>();
     screen.setCursor(x - w/2, y - w/2 - 2);
+    screen.print(max);
+    screen.print(" / ");
     screen.print("+");
     screen.print(inc);
-    screen.print(" / ");
-    screen.print(max);
     for(count_t i = 0; i < max; ++i)
     {
       int cx = x + i*(w+2);
@@ -225,7 +233,7 @@ public:
 
   void processScreen(MonochromeScreenBuffer& screen) override
   {
-    int x = 7, y = 16, s = 24, w = 6;
+    int x = 7, y = 16, s = 24, w = 5;
     drawCounter(screen, counter_a_, x, y, w);
     drawCounter(screen, counter_b_, x, y + s, w);
   }
