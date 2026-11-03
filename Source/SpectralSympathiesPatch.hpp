@@ -37,13 +37,13 @@ DESCRIPTION:
 
 #define USE_MIDI_CALLBACK
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "SmoothValue.h"
 #include "MidiMessage.h"
 
-#include "Diffuser.h"
-#include "Reverb.h"
-#include "Frequency.h"
+#include "dsp/Diffuser.h"
+#include "dsp/Reverb.h"
+#include "dsp/Frequency.h"
 #include "vessicle/SpectralSympathies.h"
 
 struct SpectralSympathiesParameterIds
@@ -115,11 +115,11 @@ static constexpr SpectralSympathiesParameterIds witch_params =
 #endif
 
 template<size_t SpectrumSize, bool ReverbEnabled>
-class SpectralSympathiesBase : public MonochromeScreenPatch
+class SpectralSympathiesBase : public PatchBase
 {
   using sample_t = float;
   using complex_t = vessl::transform::complex<sample_t>;
-  using SpectralGen = SpectralSympathies<SpectrumSize, false>;
+  using SpectralGen = SpectralSympathies<SpectrumSize, 4>;
   using BitCrush = vessl::processors::bitcrush<sample_t, 24>;
   using ReverbProcessor = Reverb<sample_t>;
   using SampleArray = vessl::array<sample_t>;
@@ -178,7 +178,7 @@ class SpectralSympathiesBase : public MonochromeScreenPatch
 
 public:
   explicit SpectralSympathiesBase() 
-    : MonochromeScreenPatch()
+    : PatchBase()
 #ifdef OWL_WITCH
     , params_(witch_params)
 #endif

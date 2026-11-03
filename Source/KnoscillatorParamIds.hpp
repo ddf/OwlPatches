@@ -31,7 +31,7 @@ DESCRIPTION:
 */
 #pragma once
 
-#include "PatchParameterIds.h"
+#include "owl/PatchParameterIds.h"
 
 struct KnoscillatorParameterIds
 {

@@ -54,8 +54,8 @@ DESCRIPTION:
 
 #pragma once
 
-#include "MonochromeScreenPatch.h"
-#include "PatchParameterDescription.h"
+#include "owl/PatchBase.h"
+#include "owl/PatchParameterDescription.h"
 #include "DcBlockingFilter.h"
 #include "vessicle/Markov.h"
 
@@ -73,7 +73,7 @@ static constexpr PatchParameterId IN_DRY_WET = PARAMETER_D;
 static constexpr PatchParameterId OUT_WORD_PROGRESS_LEFT = OUT_PARAMETER_A;
 static constexpr PatchParameterId OUT_WORD_PROGRESS_RIGHT = OUT_PARAMETER_B;
 
-class MarkovPatch final : public MonochromeScreenPatch  // NOLINT(cppcoreguidelines-special-member-functions)
+class MarkovPatch final : public PatchBase
 {
   struct KeyFuncStereo
   {

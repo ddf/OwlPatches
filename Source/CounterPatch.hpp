@@ -1,8 +1,8 @@
 #pragma once
 
-#include "PatchBase.h"
-#include "PatchParameterIds.h"
-#include "PatchParameterDescription.h"
+#include "owl/PatchBase.h"
+#include "owl/PatchParameterIds.h"
+#include "owl/PatchParameterDescription.h"
 #include "vessicle/Counter.h"
 #include "vessicle/ClockedDelay.h"
 

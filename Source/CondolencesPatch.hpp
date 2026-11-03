@@ -37,7 +37,7 @@ DESCRIPTION:
 
 #define USE_MIDI_CALLBACK
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "SmoothValue.h"
 #include "MidiMessage.h"
 
@@ -109,14 +109,14 @@ static constexpr SpectralSympathiesParameterIds witch_params =
 };
 #endif
 
-class CondolencesPatch : public MonochromeScreenPatch
+class CondolencesPatch : public PatchBase
 {
   static constexpr bool ReverbEnabled = false;
   
   using sample_t = float;
   using complex_t = vessl::transform::complex<sample_t>;
   using BitCrush = vessl::processors::bitcrush<sample_t, 24>;
-  using SpectralGen = Condolences<sample_t, condolences_spectrum_size>;
+  using SpectralGen = Condolences<sample_t, condolences_spectrum_size, 4>;
   using ReverbProcessor = Reverb<sample_t>;
   using SampleArray = vessl::array<sample_t>;
   using ComplexArray = vessl::array<complex_t>;
@@ -149,8 +149,7 @@ class CondolencesPatch : public MonochromeScreenPatch
   MidiMessage* midi_notes_;
 
 public:
-  explicit CondolencesPatch() 
-    : MonochromeScreenPatch()
+  explicit CondolencesPatch() : PatchBase()
 #ifdef OWL_WITCH
     , params_(witch_params)
 #endif

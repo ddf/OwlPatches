@@ -53,11 +53,11 @@ DESCRIPTION:
 */
 #pragma once
 
-#include "Patch.h"
+#include "owl/PatchBase.h"
 #include "DcBlockingFilter.h"
 #include "CircularBuffer.h"
 
-#include "TapTempo.hpp"
+#include "dsp/TapTempo.hpp"
 #include "vessicle/vessl/vessl.h"
 
 using BitCrush = vessl::processors::bitcrush<float, 24>;

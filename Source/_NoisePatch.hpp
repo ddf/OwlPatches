@@ -1,7 +1,7 @@
 #pragma once
 
-#include "MonochromeScreenPatch.h"
-#include "VesslTestPatch.hpp" // for AudioWriter
+#include "owl/PatchBase.h"
+#include "_VesslPatch.hpp" // for AudioWriter
 #include "vessicle/vessl/vessl.h"
 
 using Array = vessl::array<float>;
@@ -12,7 +12,7 @@ using RedNoise = vessl::generators::noise<float, vessl::noise::red>;
 using SlewFilter = vessl::processors::slew<float>;
 using Filter = vessl::processors::filter<float, vessl::filtering::biquad<1>::low_pass>;
 
-class VesslNoiseTestPatch final : public MonochromeScreenPatch
+class _NoisePatch final : public MonochromeScreenPatch
 {
   WhiteNoise whiteNoise;
   PinkNoise pinkNoise;
@@ -23,7 +23,7 @@ class VesslNoiseTestPatch final : public MonochromeScreenPatch
   WhiteNoise blockNoise;
     
 public:
-  VesslNoiseTestPatch() : whiteNoise(getSampleRate()), pinkNoise(getSampleRate()), redNoise(getSampleRate())
+  _NoisePatch() : whiteNoise(getSampleRate()), pinkNoise(getSampleRate()), redNoise(getSampleRate())
   , blockNoiseFilter(getBlockRate(), 3.f, 3.f)
   , blockNoiseBiquad(getBlockRate(), 20.f)
   , blockNoise(getBlockRate())
@@ -33,7 +33,7 @@ public:
     registerParameter(PARAMETER_AB, "Rando>");
   }
 
-  ~VesslNoiseTestPatch() override = default;
+  ~_NoisePatch() override = default;
 
   void processAudio(AudioBuffer& audio) override
   {

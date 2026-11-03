@@ -1,8 +1,8 @@
 #pragma once
 
-#include "PatchBase.h"
-#include "PatchParameterIds.h"
-#include "AudioBufferSourceSink.h"
+#include "owl/PatchBase.h"
+#include "owl/PatchParameterIds.h"
+#include "owl/AudioBufferSourceSink.h"
 #include "vessicle/Evaluator.h"
 
 /** 

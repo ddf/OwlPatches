@@ -46,10 +46,9 @@ DESCRIPTION:
 
 #pragma once
 
+#include "owl/PatchBase.h"
+#include "owl/PatchParameterDescription.h"
 #include "AdsrEnvelope.h"
-#include "MonochromeScreenPatch.h"
-#include "PatchParameter.h"
-#include "PatchParameterDescription.h"
 #include "vessicle/vessl/vessl.h"
 
 typedef uint32_t count_t;
@@ -116,7 +115,7 @@ static constexpr float   BALL_SPEED_MIN = 6.4f;
 static constexpr float   BALL_SPEED_MAX = 24000 * SCREEN_H;
 static constexpr float   BALL_KICK_SPEED = BALL_SPEED_MIN*12;
 
-class PnogPatch final : public MonochromeScreenPatch
+class PnogPatch final : public PatchBase
 {
   FloatParameter pinPadLeftSpeed;
   FloatParameter pinPadRightSpeed;

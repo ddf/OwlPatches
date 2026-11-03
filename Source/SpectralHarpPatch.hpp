@@ -40,12 +40,12 @@ DESCRIPTION:
 
 #define USE_MIDI_CALLBACK
 
-#include "AudioBufferSourceSink.h"
-#include "Patch.h"
+#include "owl/PatchBase.h"
 #include "MidiMessage.h"
-#include "Diffuser.h"
-#include "Reverb.h"
-#include "Frequency.h"
+#include "owl/AudioBufferSourceSink.h"
+#include "dsp/Diffuser.h"
+#include "dsp/Reverb.h"
+#include "dsp/Frequency.h"
 #include "Interpolator.h"
 #include "SmoothValue.h"
 #include "vessicle/SpectralHarp.h"

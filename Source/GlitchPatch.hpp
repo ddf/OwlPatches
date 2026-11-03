@@ -47,10 +47,10 @@ DESCRIPTION:
 */
 #pragma once
 
+#include "owl/PatchBase.h"
+#include "owl/PatchParameterDescription.h"
+#include "owl/AudioBufferSourceSink.h"
 #include "DcBlockingFilter.h"
-#include "Patch.h"
-#include "PatchParameterDescription.h"
-#include "AudioBufferSourceSink.h"
 #include "vessicle/Glitch.h"
 
 namespace glitch_inputs
@@ -77,7 +77,7 @@ constexpr OutputParameterDescription rand = { "Rand", OUT_PARAMETER_B };
 
 constexpr uint32_t GlitchBufferSize = 1 << 17;
 
-class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-member-functions)
+class GlitchPatch final : public PatchBase
 {
   using GlitchProcessor = Glitch<GlitchBufferSize>;
   FloatParameter pin_repeats_;
@@ -97,8 +97,8 @@ class GlitchPatch final : public Patch  // NOLINT(cppcoreguidelines-special-memb
   vessl::array<GlitchSampleType> process_buffer_;
 
 public:
-  GlitchPatch() : Patch()
-  , pout_env_(this, glitch_outputs::env)
+  GlitchPatch()
+  : pout_env_(this, glitch_outputs::env)
   , pout_rand_(this, glitch_outputs::rand)
   , process_buffer_(new GlitchSampleType[getBlockSize()], getBlockSize())
   {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "VoltsPerOctave.h"
 #include "vessicle/vessl/vessl.h"
 #include "vessicle/vessl/vessl.inl"
@@ -11,7 +11,7 @@ using Filter  = vessl::processors::filter<float, vessl::filtering::moog::v2::low
 //using Filter  = vessl::processors::filter<float, vessl::filtering::moog::low_pass_2>;
 //using Filter  = vessl::processors::filter<float, vessl::filtering::biquad<2>::low_pass>;
 
-class VesslFilterTestPatch : public MonochromeScreenPatch
+class _FilterPatch : public MonochromeScreenPatch
 {
   using Args = vessl::filtering::args;
 
@@ -21,7 +21,7 @@ class VesslFilterTestPatch : public MonochromeScreenPatch
   Args funcArgs;
 
 public:
-  VesslFilterTestPatch() 
+  _FilterPatch() 
   : dcBlock(getSampleRate())
   , filter(getSampleRate(), 120, vessl::filtering::q::butterworth<float>())
   , funcArgs(getSampleRate(), 1.f, 0.f, vessl::gain_t(0.f))
@@ -70,7 +70,7 @@ public:
 };
 
 template<>
-void VesslFilterTestPatch::drawFilter<vessl::filtering::biquad<2>::low_pass<float>>(
+void _FilterPatch::drawFilter<vessl::filtering::biquad<2>::low_pass<float>>(
   MonochromeScreenBuffer& screen, 
   const vessl::filtering::biquad<2>::low_pass<float>& filterFunc, const Args& args)
 {
@@ -90,7 +90,7 @@ void VesslFilterTestPatch::drawFilter<vessl::filtering::biquad<2>::low_pass<floa
     }
 }
 
-void VesslFilterTestPatch::processScreen(MonochromeScreenBuffer& screen)
+void _FilterPatch::processScreen(MonochromeScreenBuffer& screen)
 {
   drawFilter<Filter::function>(screen, filterFunc, funcArgs);
 }

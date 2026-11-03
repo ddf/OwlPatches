@@ -1,10 +1,10 @@
 #pragma once
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "FloatArray.h"
 #include "vessicle/vessl/vessl.h"
 
-class EnvTestPatch : public MonochromeScreenPatch
+class _EnvPatch : public PatchBase
 {
   vessl::generators::envelope<float>::stage envStage;
   vessl::generators::ad<float> ad;
@@ -12,7 +12,7 @@ class EnvTestPatch : public MonochromeScreenPatch
   vessl::generators::adsr<float> adsr;
   
 public:
-  EnvTestPatch()
+  _EnvPatch()
   : envStage(getSampleRate())
   , ad(0.1f, 0.1f, getSampleRate())
   , asr(0.1f, 0.1f, getSampleRate())

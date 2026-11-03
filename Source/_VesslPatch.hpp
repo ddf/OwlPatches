@@ -1,6 +1,6 @@
 #pragma once
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "VoltsPerOctave.h"
 #include "vessicle/DelayWithFreeze.h"
 #include "vessicle/vessl/vessl.h"
@@ -17,10 +17,10 @@ using AudioWriter = vessl::array<float>::writer;
 using FreezeBuffer = vessl::array<float>;
 using Freeze = vessl::processors::freeze<float>;
 
-class VesslTestPatch final : public MonochromeScreenPatch
+class _VesslPatch final : public PatchBase
 {
 public:
-  VesslTestPatch() : osc(getSampleRate(), 440), voct(true)
+  _VesslPatch() : osc(getSampleRate(), 440), voct(true)
   , ramp(getSampleRate(), 0, 1, 0)
   , ad(0.01f, 1, getSampleRate())
   , delayBuffer(FloatArray::create(static_cast<int>(getSampleRate())*2))
@@ -41,7 +41,7 @@ public:
     ramp.trigger();
   }
 
-  ~VesslTestPatch() override
+  ~_VesslPatch() override
   {
     FloatArray::destroy(delayBuffer);
   }

@@ -1,7 +1,7 @@
 // ReSharper disable CppClangTidyClangDiagnosticSwitch
 #pragma once
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "vessicle/DelayMatrix.h"
 #include "vessicle/Noise.hpp"
 
@@ -29,7 +29,7 @@ struct DelaytrixParamIds
   PatchParameterId modIndex;
 };
 
-class DelaytrixPatch : public MonochromeScreenPatch
+class DelaytrixPatch : public PatchBase
 {
   struct DelayLineParamIds
   {

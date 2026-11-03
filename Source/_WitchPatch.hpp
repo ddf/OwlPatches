@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Patch.h"
+#include "owl/PatchBase.h"
 #include "vessicle/vessl/vessl.h"
 
 // @todo full workout of all cv inputs/outputs and all buttons.
-struct WitchTestPatch : Patch
+struct _WitchPatch : PatchBase
 {
   using Waveform = vessl::sample::waves::bipolar::sine<float>;
   using Tri = vessl::sample::windows::triangle<float>;
@@ -14,7 +14,7 @@ struct WitchTestPatch : Patch
   Oscil oscillator;
   Clock clock;
   
-  WitchTestPatch() // NOLINT(modernize-use-equals-default)
+  _WitchPatch()
   : oscillator(getSampleRate(), 220.f)  
   , clock(getBlockRate(), 2, getBlockRate()*10)
   {

@@ -1,16 +1,16 @@
 #pragma once
 
-#include "PatchBase.h"
-#include "AudioBufferSourceSink.h"
+#include "owl/PatchBase.h"
+#include "owl/AudioBufferSourceSink.h"
 #include "vessicle/SpectralGenerator.h"
 
 constexpr vessl::size_t SpectrumSize = 2048;
 using SpectralGen = SpectralGenerator<float, SpectrumSize>;
 
-class VesslSpectralTestPatch : public PatchBase
+class _SpectralPatch : public PatchBase
 {
 public:
-  VesslSpectralTestPatch() : PatchBase()
+  _SpectralPatch() : PatchBase()
   {
     spectral_generator_ = SpectralGen::create(getSampleRate(), vessl::sample::windows::type::triangle);
     //spectral_generator_->get_band(63).magnitude = 8.f;
@@ -19,7 +19,7 @@ public:
     registerParameter(PARAMETER_A, "band");
   }
   
-  virtual ~VesslSpectralTestPatch() override
+  virtual ~_SpectralPatch() override
   {
     SpectralGen::destroy(spectral_generator_);
   }

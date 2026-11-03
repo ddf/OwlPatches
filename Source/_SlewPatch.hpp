@@ -1,14 +1,14 @@
 #pragma once
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "vessicle/vessl/vessl.h"
 
-class SlewPatch : public MonochromeScreenPatch
+class _SlewPatch : public PatchBase
 {
   vessl::processors::slew<float> slew;
 
 public:
-  SlewPatch() : slew(getSampleRate(), 1, 1)
+  _SlewPatch() : slew(getSampleRate(), 1, 1)
   {
     registerParameter(PARAMETER_A, "rise");
     registerParameter(PARAMETER_B, "fall");
@@ -25,10 +25,5 @@ public:
 
     setButton(BUTTON_1, slew.rising().read<uint16_t>());
     setButton(BUTTON_2, slew.falling().read<uint16_t>());
-  }
-  
-  void processScreen(MonochromeScreenBuffer& screen) override
-  {
-    
   }
 };

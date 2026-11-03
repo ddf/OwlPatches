@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Patch.h"
-#include "VesslSpectralTestPatch.hpp"
+#include "owl/PatchBase.h"
+#include "_SpectralPatch.hpp"
 #include "vessicle/vessl/vessl.h"
 
 #define SPECTRUM_SIZE 2048
@@ -12,7 +12,7 @@ using Complex = vessl::transform::complex<float>;
 using ComplexArray = vessl::array<Complex>;
 using SampleArray = vessl::array<float>;
 
-class FFTTestPatch : public Patch
+class _FFTPatch : public Patch
 {
   FastFourierTransform fft;
   vessl::array<FrequencyBand> bands;
@@ -24,8 +24,8 @@ class FFTTestPatch : public Patch
   size_t output_b_idx;
 
 public:
-  FFTTestPatch() : Patch()
-  , fft(SPECTRUM_SIZE)
+  _FFTPatch()
+  : fft(SPECTRUM_SIZE)
   , bands(new FrequencyBand[SPECTRUM_SIZE/2], SPECTRUM_SIZE/2)
   , complex(new Complex[SPECTRUM_SIZE/2], SPECTRUM_SIZE/2)
   , output_a(new float[SPECTRUM_SIZE], SPECTRUM_SIZE)
@@ -43,7 +43,7 @@ public:
     registerParameter(PARAMETER_F, "CPU>>");
   }
 
-  ~FFTTestPatch() override
+  ~_FFTPatch() override
   {
     delete[] bands.data();
     delete[] complex.data();
@@ -83,8 +83,8 @@ public:
         for (int c = 1; c < complex.size(); ++c)
         {
           FrequencyBand& band = bands[c-1];
-          float m = band.magnitude;
-          vessl::phase_t z = m>0 ? band.phase : vessl::phase_zero;
+          float m = band.magnitude();
+          vessl::phase_t z = m>0 ? band.phase() : vessl::phase_zero;
           complex[c].set_polar(m, z);
         }
         fft.inverse(complex, output_a);
@@ -96,8 +96,8 @@ public:
         for (int c = 1; c < complex.size(); ++c)
         {
           FrequencyBand& band = bands[c-1];
-          float m = band.magnitude;
-          vessl::phase_t z = (m > 0) ? (c&1 ? band.phase + vessl::phase_180 : band.phase) : vessl::phase_zero; 
+          float m = band.magnitude();
+          vessl::phase_t z = (m > 0) ? (c&1 ? band.phase() + vessl::phase_180 : band.phase()) : vessl::phase_zero; 
           complex[c].set_polar(m, z);
         }
         fft.inverse(complex, output_b);

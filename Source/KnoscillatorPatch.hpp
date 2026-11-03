@@ -30,7 +30,7 @@ DESCRIPTION:
 */
 #pragma once
 
-#include "MonochromeScreenPatch.h"
+#include "owl/PatchBase.h"
 #include "MidiMessage.h"
 #include "VoltsPerOctave.h"
 #include "SmoothValue.h"
@@ -39,7 +39,7 @@ DESCRIPTION:
 #include "KnoscillatorParamIds.hpp"
 #include "CircularBuffer.h"
 
-class KnoscillatorPatch : public MonochromeScreenPatch
+class KnoscillatorPatch : public PatchBase
 {
 
   static constexpr size_t noiseDim = 128;

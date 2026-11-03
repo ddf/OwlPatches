@@ -26,10 +26,10 @@ DESCRIPTION:
 */
 #pragma once
 
-#include "Patch.h"
-#include "PerlinNoiseField.hpp"
+#include "owl/PatchBase.h"
+#include "dsp/PerlinNoiseField.hpp"
 
-class PerlinNoiseFieldLichPatch : public Patch
+class PerlinNoiseFieldLichPatch : public PatchBase
 {
   PerlinNoiseField* noiseField;
   AudioBuffer*      noiseBuffer;

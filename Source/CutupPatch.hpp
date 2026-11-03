@@ -24,10 +24,10 @@ DESCRIPTION:
 
 #pragma once
 
-#include "PatchBase.h"
-#include "PatchParameterIds.h"
-#include "PatchParameterDescription.h"
-#include "AudioBufferSourceSink.h"
+#include "owl/PatchBase.h"
+#include "owl/PatchParameterIds.h"
+#include "owl/PatchParameterDescription.h"
+#include "owl/AudioBufferSourceSink.h"
 #include "vessicle/Cutup.h"
 
 /**

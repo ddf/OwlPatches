@@ -2,7 +2,7 @@
 
 #include "../vessicle/vessl/vessl.h"
 
-// declaration for lut math function from basicmaths.h
+// declaration for lut math functions from basicmaths.h
 #ifdef __cplusplus
  extern "C" {
 #endif
@@ -35,9 +35,7 @@
 #endif
 
 // vessl::math specializations 
-namespace vessl
-{
-namespace math
+namespace vessl::math
 {
   template<>
   VESSL_INLINE float pow<float>(float x, float y) { return fast_powf(x, y); }
@@ -62,5 +60,4 @@ namespace math
 
   template<>
   VESSL_INLINE float atan2<float>(float a, float b) { return fast_atan2f(a, b); }
-}
-} // namespace vessl
+} // namespace vessl::math

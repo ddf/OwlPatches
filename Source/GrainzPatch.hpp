@@ -1,9 +1,9 @@
 #pragma once
 
-#include "PatchBase.h"
-#include "AudioBufferSourceSink.h"
+#include "owl/PatchBase.h"
+#include "owl/AudioBufferSourceSink.h"
 #include "vessicle/Granulator.h"
-#include "Reverb.h"
+#include "dsp/Reverb.h"
 
 // #define PROFILE
 

@@ -1,13 +1,13 @@
 #pragma once
 
-#include "MonochromeScreenPatch.h"
-#include "PatchParameterIds.h"
-#include "AudioBufferSourceSink.h"
+#include "owl/PatchBase.h"
+#include "owl/PatchParameterIds.h"
+#include "owl/AudioBufferSourceSink.h"
 #include "vessicle/Gauss.h"
 #include "vessicle/Noise.hpp"
 
 // @todo feedback needs tuning. gets squealy too quickly, crossfeed seems to have no effect?
-class GaussPatch : public MonochromeScreenPatch
+class GaussPatch : public PatchBase
 {
   Gauss gauss;
   
