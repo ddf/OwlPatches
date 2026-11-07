@@ -6,7 +6,7 @@
 #include "vessicle/Counter.h"
 #include "vessicle/ClockedDelay.h"
 
-class CounterPatch : public PatchBase
+class SuperfluxusPatch : public PatchBase
 {
   using size_t = vessl::size_t;
   using count_t = uint16_t;
@@ -60,7 +60,7 @@ class CounterPatch : public PatchBase
   } pin_;
   
 public:
-  CounterPatch()
+  SuperfluxusPatch()
   : delay_buffer_(FloatArray::create(getSampleRate()*16))
   , scratch_buffer_(FloatArray::create(getBlockSize()))
   , filter_a_(getSampleRate(), 880.f, 0.86f)
@@ -89,7 +89,7 @@ public:
     registerParameter(OUT_PARAMETER_B, "VAL 2>");
   }
 
-  virtual ~CounterPatch()
+  virtual ~SuperfluxusPatch()
   {
     FloatArray::destroy(delay_buffer_);
     FloatArray::destroy(scratch_buffer_);
